@@ -17,7 +17,7 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #pragma once
-#include "imgui.h"      // IMGUI_IMPL_API
+#include "imgui/3rdparty/imgui.h"      // IMGUI_IMPL_API
 #ifndef IMGUI_DISABLE
 
 struct ID3D11Device;
@@ -34,6 +34,8 @@ IMGUI_IMPL_API void     ImGui_ImplDX11_RenderDrawData(ImDrawData* draw_data);
 // Use if you want to reset your rendering device without losing Dear ImGui state.
 IMGUI_IMPL_API bool     ImGui_ImplDX11_CreateDeviceObjects();
 IMGUI_IMPL_API void     ImGui_ImplDX11_InvalidateDeviceObjects();
+
+IMGUI_IMPL_API bool     ImGui_ImplDX11_RecreateFontTexture();
 
 // (Advanced) Use e.g. if you need to precisely control the timing of texture updates (e.g. for staged rendering), by setting ImDrawData::Textures = NULL to handle this manually.
 IMGUI_IMPL_API void     ImGui_ImplDX11_UpdateTexture(ImTextureData* tex);
