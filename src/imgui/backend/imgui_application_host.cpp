@@ -187,6 +187,7 @@ namespace ApplicationHost
 			globalRangesBuilderJP.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
 			// HACK: Only load default ranges for debug builds to compensate for slow font (re)building
 			globalRangesBuilderJP.AddRanges(PEEPO_DEBUG ? io.Fonts->GetGlyphRangesDefault() : io.Fonts->GetGlyphRangesJapanese());
+			globalRangesBuilderJP.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
 			globalRangesBuilderJP.BuildRanges(&globalRangesJP);
 
 			globalRangesBuilderEN.AddRanges(io.Fonts->GetGlyphRangesDefault());

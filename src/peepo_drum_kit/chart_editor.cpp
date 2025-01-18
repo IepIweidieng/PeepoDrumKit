@@ -347,6 +347,7 @@ namespace PeepoDrumKit
 				{
 					{ GuiLanguage::EN, "en", "English", UI_Str("English"), },
 					{ GuiLanguage::JA, "ja", "Japanese", UI_Str("Japanese"), },
+					{ GuiLanguage::ZHCN, "zh-CN", "Simplified Chinese", UI_Str("Simplified Chinese"), },
 				};
 				static_assert(ArrayCount(languages) == EnumCount<GuiLanguage>);
 
