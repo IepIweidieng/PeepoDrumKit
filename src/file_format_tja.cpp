@@ -729,18 +729,19 @@ namespace TJA
 					case Key::Chart_JPOSSCROLL:
 					{
 						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::SetJPOSScroll);
+						i32 direction = 0;
 						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
 						{
 							value = ASCII::Trim(value);
 							if (valueIndex == 0) tryParseTime(value, &newCommand.Param.ChangeJPOSScroll.Duration);
 							if (valueIndex == 1) tryParseCPX(value, &newCommand.Param.ChangeJPOSScroll.Move);
-							if (valueIndex == 2) {
-								i32 direction = 1;
-								tryParseI32(value, &direction);
-								if (direction == 0) newCommand.Param.ChangeJPOSScroll.Move.SetRealPart(-newCommand.Param.ChangeJPOSScroll.Move.GetRealPart());
-							}
+							if (valueIndex == 2) tryParseI32(value, &direction);
 							valueIndex++;
 						});
+						if (direction == 0) {
+							newCommand.Param.ChangeJPOSScroll.Move.SetRealPart(-newCommand.Param.ChangeJPOSScroll.Move.GetRealPart());
+							newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(-newCommand.Param.ChangeJPOSScroll.Move.GetImaginaryPart());
+						}
 					} break;
 					default: { assert(!"Unhandled Key::Chart_ switch case despite (Key::Chart_First to Key::Chart_Last) range check"); } break;
 					}
