@@ -43,6 +43,21 @@ namespace PeepoDrumKit
 			Canvas->push(std::move(picture));
 		}
 
+		void ParseFromPath(std::string imagePath, f32 baseScale)
+		{
+			auto picture = tvg::Picture::gen();
+			picture->load(imagePath);
+			picture->size(&PictureSize.x, &PictureSize.y);
+			PictureSize *= baseScale;
+			BaseScale = baseScale;
+			PictureView = picture.get();
+
+			assert(Canvas == nullptr);
+			Canvas = tvg::SwCanvas::gen();
+			Canvas->push(std::move(picture));
+		}
+
+
 		// TODO: Rasterize directly into final atlas using stride
 		RasterizedBitmap Rasterize(f32 scale)
 		{

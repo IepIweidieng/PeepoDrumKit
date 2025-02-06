@@ -338,3 +338,5 @@ ASALocalRun/
 
 # Windows shortcut file
 *.lnk
+settings_imgui.ini
+settings_app.ini

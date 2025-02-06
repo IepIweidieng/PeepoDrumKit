@@ -19,6 +19,7 @@
 namespace TJA
 {
 	static constexpr std::string_view Extension = ".tja";
+	static constexpr std::string_view PreimageExtensions = ".jpg;.jpeg;.png";
 	static constexpr std::string_view FilterName = "TJA Taiko Chart";
 	static constexpr std::string_view FilterSpec = "*.tja";
 
@@ -61,6 +62,7 @@ namespace TJA
 		Main_SUBTITLEKO,
 		Main_BPM,
 		Main_WAVE,
+		Main_PREIMAGE,
 		Main_OFFSET,
 		Main_DEMOSTART,
 		Main_GENRE,
@@ -88,6 +90,7 @@ namespace TJA
 		Course_BALLOONEXP,
 		Course_BALLOONMAS,
 		Course_STYLE,
+		Course_EXPLICIT,
 		Course_NOTESDESIGNER0,
 		Course_NOTESDESIGNER1,
 		Course_NOTESDESIGNER2,
@@ -96,6 +99,10 @@ namespace TJA
 		Course_EXAM1,
 		Course_EXAM2,
 		Course_EXAM3,
+		Course_EXAM4,
+		Course_EXAM5,
+		Course_EXAM6,
+		Course_EXAM7,
 		Course_GAUGEINCR,
 		Course_TOTAL,
 		Course_HIDDENBRANCH,
@@ -121,6 +128,9 @@ namespace TJA
 		Chart_LEVELHOLD,
 		Chart_BMSCROLL,
 		Chart_HBSCROLL,
+		Chart_NMSCROLL,
+		Chart_BARLINE,
+		Chart_GAMETYPE,
 		Chart_SENOTECHANGE,
 		Chart_NEXTSONG,
 		Chart_DIRECTION,
@@ -197,6 +207,11 @@ namespace TJA
 		KaBigBoth,
 		Hidden,
 
+		// NOTE: OpenTaiko specific notes
+		Bomb,
+		KaDon,
+		Fuse,
+
 		Count
 	};
 
@@ -228,6 +243,18 @@ namespace TJA
 		Score,
 		Count
 	};
+
+	constexpr char BranchConditionToChar(const BranchCondition& bc) {
+		switch (bc) {
+			case BranchCondition::Roll:
+				return 'r';
+			case BranchCondition::Precise:
+				return 'p';
+			case BranchCondition::Score:
+				return 's';
+		}
+		return 'c'; // For "Copium"
+	}
 
 	enum class StyleMode : u8
 	{
@@ -287,6 +314,7 @@ namespace TJA
 		std::string SUBTITLE_TW;
 		std::string SUBTITLE_KO;
 		std::string WAVE;
+		std::string PREIMAGE;
 		std::string BGIMAGE;
 		std::string BGMOVIE;
 		std::string LYRICS;
@@ -310,6 +338,7 @@ namespace TJA
 	{
 		DifficultyType COURSE = DifficultyType::Oni;
 		i32 LEVEL = 1;
+		i32 LEVEL_DECIMALTAG = -1;
 		std::vector<i32> BALLOON;
 		std::vector<i32> BALLOON_Normal;
 		std::vector<i32> BALLOON_Expert;
@@ -317,10 +346,15 @@ namespace TJA
 		i32 SCOREINIT = 0;
 		i32 SCOREDIFF = 0;
 		StyleMode STYLE = StyleMode::Single;
+		i32 EXPLICIT = 0;
 		std::string NOTESDESIGNER;
 		std::string EXAM1;
 		std::string EXAM2;
 		std::string EXAM3;
+		std::string EXAM4;
+		std::string EXAM5;
+		std::string EXAM6;
+		std::string EXAM7;
 		GaugeIncrementMethod GAUGEINCR = GaugeIncrementMethod::Normal;
 		i32 TOTAL = 0;
 		i32 HIDDENBRANCH = 0;
@@ -354,12 +388,13 @@ namespace TJA
 
 		BMScroll,
 		HBScroll,
+		NMScroll,
 		SENoteChange,
 		SetNextSong,
 		ChangeDirection,
 
 		SetSudden,
-		SetScrollTransition,
+		SetJPOSScroll,
 
 		Count
 	};
@@ -374,7 +409,9 @@ namespace TJA
 			struct { TimeSignature Value; } ChangeTimeSignature;
 			struct { Tempo Value; } ChangeTempo;
 			struct { Time Value; } ChangeDelay;
-			struct { f32 Value; } ChangeScrollSpeed;
+			struct { Complex Value; } ChangeScrollSpeed;
+			struct { i8 Method;  } ChangeScrollType;
+			struct { Time Duration; Complex Move; } ChangeJPOSScroll;
 			struct { b8 Visible; } ChangeBarLine;
 			struct { BranchCondition Condition; i32 RequirementExpert; i32 RequirementMaster; } BranchStart;
 			struct { std::string Value; } SetLyricLine;
@@ -452,7 +489,7 @@ namespace TJA
 	struct ConvertedScrollChange
 	{
 		Beat TimeWithinMeasure;
-		f32 ScrollSpeed;
+		Complex ScrollSpeed;
 	};
 
 	struct ConvertedBarLineChange
@@ -467,6 +504,19 @@ namespace TJA
 		std::string Lyric;
 	};
 
+	struct ConvertedScrollType
+	{
+		Beat TimeWithinMeasure;
+		i8 Method;
+	};
+
+	struct ConvertedJPOSScroll
+	{
+		Beat TimeWithinMeasure;
+		Complex Move;
+		f32 Duration;
+	};
+
 	struct ConvertedMeasure
 	{
 		Beat StartTime;
@@ -475,6 +525,8 @@ namespace TJA
 		std::vector<ConvertedTempoChange> TempoChanges;
 		std::vector<ConvertedDelayChange> DelayChanges;
 		std::vector<ConvertedScrollChange> ScrollChanges;
+		std::vector<ConvertedScrollType> ScrollTypes;
+		std::vector<ConvertedJPOSScroll> JPOSScrollChanges;
 		// BUG: Can't actually change inbetween measures..?
 		std::vector<ConvertedBarLineChange> BarLineChanges;
 		std::vector<ConvertedLyricChange> LyricChanges;

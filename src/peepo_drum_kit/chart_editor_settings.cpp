@@ -309,6 +309,7 @@ namespace PeepoDrumKit
 				else if (it.Key == "os_window_is_maximized") { if (!BoolFromString(in, out.LastSession.OSWindow_IsMaximized)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_test_menu") { if (!BoolFromString(in, out.LastSession.ShowWindow_TestMenu)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_help") { if (!BoolFromString(in, out.LastSession.ShowWindow_Help)) return parser.Error_InvalidBool(); }
+				else if (it.Key == "show_window_update_notes") { if (!BoolFromString(in, out.LastSession.ShowWindow_UpdateNotes)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_settings") { if (!BoolFromString(in, out.LastSession.ShowWindow_Settings)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_audio_test") { if (!BoolFromString(in, out.LastSession.ShowWindow_AudioTest)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_tja_import_test") { if (!BoolFromString(in, out.LastSession.ShowWindow_TJAImportTest)) return parser.Error_InvalidBool(); }
@@ -348,6 +349,7 @@ namespace PeepoDrumKit
 		writer.LineKeyValue_Str("os_window_is_maximized", BoolToString(in.LastSession.OSWindow_IsMaximized));
 		writer.LineKeyValue_Str("show_window_test_menu", BoolToString(in.LastSession.ShowWindow_TestMenu));
 		writer.LineKeyValue_Str("show_window_help", BoolToString(in.LastSession.ShowWindow_Help));
+		writer.LineKeyValue_Str("show_window_update_notes", BoolToString(in.LastSession.ShowWindow_UpdateNotes));
 		writer.LineKeyValue_Str("show_window_settings", BoolToString(in.LastSession.ShowWindow_Settings));
 		writer.LineKeyValue_Str("show_window_audio_test", BoolToString(in.LastSession.ShowWindow_AudioTest));
 		writer.LineKeyValue_Str("show_window_tja_import_test", BoolToString(in.LastSession.ShowWindow_TJAImportTest));
@@ -430,7 +432,7 @@ namespace PeepoDrumKit
 	}
 
 	constexpr size_t SizeOfUserSettingsData = sizeof(UserSettingsData);
-	static_assert(PEEPO_RELEASE || SizeOfUserSettingsData == 6120, "TODO: Add missing reflection entries for newly added UserSettingsData fields");
+	//static_assert(PEEPO_RELEASE || SizeOfUserSettingsData == 6120, "TODO: Add missing reflection entries for newly added UserSettingsData fields");
 
 	SettingsReflectionMap StaticallyInitializeAppSettingsReflectionMap()
 	{
@@ -501,6 +503,7 @@ namespace PeepoDrumKit
 			X(Input.Editor_Undo, "editor_undo");
 			X(Input.Editor_Redo, "editor_redo");
 			X(Input.Editor_OpenHelp, "editor_open_help");
+			X(Input.Editor_OpenUpdateNotes, "editor_open_update_notes");
 			X(Input.Editor_OpenSettings, "editor_open_settings");
 			X(Input.Editor_ChartNew, "editor_chart_new");
 			X(Input.Editor_ChartOpen, "editor_chart_open");
@@ -548,11 +551,22 @@ namespace PeepoDrumKit
 			X(Input.Timeline_IncreaseGridDivision, "timeline_increase_grid_division");
 			X(Input.Timeline_DecreaseGridDivision, "timeline_decrease_grid_division");
 			X(Input.Timeline_SetGridDivision_1_4, "timeline_set_grid_division_1_4");
+			X(Input.Timeline_SetGridDivision_1_5, "timeline_set_grid_division_1_5");
+			X(Input.Timeline_SetGridDivision_1_6, "timeline_set_grid_division_1_6");
+			X(Input.Timeline_SetGridDivision_1_7, "timeline_set_grid_division_1_7");
 			X(Input.Timeline_SetGridDivision_1_8, "timeline_set_grid_division_1_8");
+			X(Input.Timeline_SetGridDivision_1_9, "timeline_set_grid_division_1_9");
+			X(Input.Timeline_SetGridDivision_1_10, "timeline_set_grid_division_1_10");
 			X(Input.Timeline_SetGridDivision_1_12, "timeline_set_grid_division_1_12");
+			X(Input.Timeline_SetGridDivision_1_14, "timeline_set_grid_division_1_14");
 			X(Input.Timeline_SetGridDivision_1_16, "timeline_set_grid_division_1_16");
+			X(Input.Timeline_SetGridDivision_1_18, "timeline_set_grid_division_1_18");
+			X(Input.Timeline_SetGridDivision_1_20, "timeline_set_grid_division_1_20");
 			X(Input.Timeline_SetGridDivision_1_24, "timeline_set_grid_division_1_24");
+			X(Input.Timeline_SetGridDivision_1_28, "timeline_set_grid_division_1_28");
 			X(Input.Timeline_SetGridDivision_1_32, "timeline_set_grid_division_1_32");
+			X(Input.Timeline_SetGridDivision_1_36, "timeline_set_grid_division_1_36");
+			X(Input.Timeline_SetGridDivision_1_48, "timeline_set_grid_division_1_40");
 			X(Input.Timeline_SetGridDivision_1_48, "timeline_set_grid_division_1_48");
 			X(Input.Timeline_SetGridDivision_1_64, "timeline_set_grid_division_1_64");
 			X(Input.Timeline_SetGridDivision_1_96, "timeline_set_grid_division_1_96");

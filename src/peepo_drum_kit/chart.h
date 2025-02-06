@@ -19,6 +19,11 @@ namespace PeepoDrumKit
 		DrumrollBig,
 		Balloon,
 		BalloonSpecial,
+		// NOTE: OpenTaiko notes
+		KaDon,
+		Bomb,
+		Adlib,
+		Fuse,
 		// ...
 		Count
 	};
@@ -38,9 +43,10 @@ namespace PeepoDrumKit
 	constexpr b8 IsSmallNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::Ka) || (v == NoteType::Drumroll) || (v == NoteType::Balloon); }
 	constexpr b8 IsBigNote(NoteType v) { return !IsSmallNote(v); }
 	constexpr b8 IsDrumrollNote(NoteType v) { return (v == NoteType::Drumroll) || (v == NoteType::DrumrollBig); }
-	constexpr b8 IsBalloonNote(NoteType v) { return (v == NoteType::Balloon) || (v == NoteType::BalloonSpecial); }
+	constexpr b8 IsBalloonNote(NoteType v) { return (v == NoteType::Balloon) || (v == NoteType::BalloonSpecial) || (v == NoteType::Fuse); }
 	constexpr b8 IsLongNote(NoteType v) { return IsDrumrollNote(v) || IsBalloonNote(v); }
 	constexpr b8 IsRegularNote(NoteType v) { return !IsLongNote(v); }
+	constexpr b8 IsFuseRoll(NoteType v) { return (v == NoteType::Fuse); }
 	constexpr NoteType ToSmallNote(NoteType v)
 	{
 		switch (v)
@@ -53,6 +59,10 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: return NoteType::Drumroll;
 		case NoteType::Balloon: return NoteType::Balloon;
 		case NoteType::BalloonSpecial: return NoteType::Balloon;
+		case NoteType::KaDon: return NoteType::KaDon;
+		case NoteType::Bomb: return NoteType::Bomb;
+		case NoteType::Adlib: return NoteType::Adlib;
+		case NoteType::Fuse: return NoteType::Fuse;
 		default: return v;
 		}
 	}
@@ -68,6 +78,10 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: return NoteType::DrumrollBig;
 		case NoteType::Balloon: return NoteType::BalloonSpecial;
 		case NoteType::BalloonSpecial: return NoteType::BalloonSpecial;
+		case NoteType::KaDon: return NoteType::KaDon;
+		case NoteType::Bomb: return NoteType::Bomb;
+		case NoteType::Adlib: return NoteType::Adlib;
+		case NoteType::Fuse: return NoteType::Fuse;
 		default: return v;
 		}
 	}
@@ -111,7 +125,15 @@ namespace PeepoDrumKit
 	enum class DifficultyLevel : u8
 	{
 		Min = 1,
-		Max = 10
+		Max = 20
+	};
+
+	enum class DifficultyLevelDecimal : i8
+	{
+		None = -1,
+		Min = 0,
+		PlusThreshold = 5,
+		Max = 9
 	};
 
 	enum class BranchType : u8
@@ -119,6 +141,14 @@ namespace PeepoDrumKit
 		Normal,
 		Expert,
 		Master,
+		Count
+	};
+
+	enum class ScrollMethod : u8 
+	{
+		NMSCROLL,
+		HBSCROLL,
+		BMSCROLL,
 		Count
 	};
 
@@ -145,7 +175,35 @@ namespace PeepoDrumKit
 	struct ScrollChange
 	{
 		Beat BeatTime;
-		f32 ScrollSpeed;
+		Complex ScrollSpeed;
+		b8 IsSelected;
+	};
+
+	struct ScrollType
+	{
+		Beat BeatTime;
+		ScrollMethod Method;
+		b8 IsSelected;
+
+		std::string Method_ToString() const {
+			switch (Method)
+			{
+				case ScrollMethod::HBSCROLL:
+					return "HBSCROLL";
+				case ScrollMethod::BMSCROLL:
+					return "BMSCROLL";
+				case ScrollMethod::NMSCROLL:
+				default:
+					return "Normal";
+			}
+		}
+	};
+
+	struct JPOSScrollChange
+	{
+		Beat BeatTime;
+		Complex Move;
+		f32 Duration;
 		b8 IsSelected;
 	};
 
@@ -180,23 +238,30 @@ namespace PeepoDrumKit
 	using SortedBarLineChangesList = BeatSortedList<BarLineChange>;
 	using SortedGoGoRangesList = BeatSortedList<GoGoRange>;
 	using SortedLyricsList = BeatSortedList<LyricChange>;
+	using SortedJPOSScrollChangesList = BeatSortedList<JPOSScrollChange>;
+	using SortedScrollTypesList = BeatSortedList<ScrollType>;
 
 	constexpr Beat GetBeat(const Note& v) { return v.BeatTime; }
 	constexpr Beat GetBeat(const ScrollChange& v) { return v.BeatTime; }
 	constexpr Beat GetBeat(const BarLineChange& v) { return v.BeatTime; }
 	constexpr Beat GetBeat(const GoGoRange& v) { return v.BeatTime; }
 	constexpr Beat GetBeat(const LyricChange& v) { return v.BeatTime; }
+	constexpr Beat GetBeat(const ScrollType& v) { return v.BeatTime; }
+	constexpr Beat GetBeat(const JPOSScrollChange& v) { return v.BeatTime; }
 	constexpr Beat GetBeatDuration(const Note& v) { return v.BeatDuration; }
 	constexpr Beat GetBeatDuration(const ScrollChange& v) { return Beat::Zero(); }
 	constexpr Beat GetBeatDuration(const BarLineChange& v) { return Beat::Zero(); }
 	constexpr Beat GetBeatDuration(const GoGoRange& v) { return v.BeatDuration; }
 	constexpr Beat GetBeatDuration(const LyricChange& v) { return Beat::Zero(); }
+	constexpr Beat GetBeatDuration(const ScrollType& v) { return Beat::Zero(); }
+	constexpr Beat GetBeatDuration(const JPOSScrollChange& v) { return Beat::Zero(); }
 
 	constexpr Tempo ScrollSpeedToTempo(f32 scrollSpeed, Tempo baseTempo) { return Tempo(scrollSpeed * baseTempo.BPM); }
 	constexpr f32 ScrollTempoToSpeed(Tempo scrollTempo, Tempo baseTempo) { return (baseTempo.BPM == 0.0f) ? 0.0f : (scrollTempo.BPM / baseTempo.BPM); }
 
 	constexpr b8 VisibleOrDefault(const BarLineChange* v) { return (v == nullptr) ? true : v->IsVisible; }
-	constexpr f32 ScrollOrDefault(const ScrollChange* v) { return (v == nullptr) ? 1.0f : v->ScrollSpeed; }
+	constexpr ScrollMethod ScrollTypeOrDefault(const ScrollType* v) { return (v == nullptr) ? ScrollMethod::NMSCROLL : v->Method; }
+	constexpr Complex ScrollOrDefault(const ScrollChange* v) { return (v == nullptr) ? Complex(1.0f, 0.0f) : v->ScrollSpeed; }
 	constexpr Tempo TempoOrDefault(const TempoChange* v) { return (v == nullptr) ? FallbackTempo : v->Tempo; }
 
 	enum class Language : u8 { Base, JA, EN, CN, TW, KO, Count };
@@ -218,6 +283,8 @@ namespace PeepoDrumKit
 	{
 		DifficultyType Type = DifficultyType::Oni;
 		DifficultyLevel Level = DifficultyLevel { 1 };
+		DifficultyLevelDecimal Decimal = DifficultyLevelDecimal::None;
+
 		std::string CourseCreator;
 
 		SortedTempoMap TempoMap;
@@ -231,6 +298,9 @@ namespace PeepoDrumKit
 		SortedBarLineChangesList BarLineChanges;
 		SortedGoGoRangesList GoGoRanges;
 		SortedLyricsList Lyrics;
+
+		SortedScrollTypesList ScrollTypes;
+		SortedJPOSScrollChangesList JPOSScrollChanges;
 
 		i32 ScoreInit = 0;
 		i32 ScoreDiff = 0;
@@ -254,6 +324,7 @@ namespace PeepoDrumKit
 		Time SongOffset = {};
 		Time SongDemoStartTime = {};
 		std::string SongFileName;
+		std::string SongJacket;
 
 		f32 SongVolume = 1.0f;
 		f32 SoundEffectVolume = 1.0f;
@@ -295,6 +366,8 @@ namespace PeepoDrumKit
 		BarLineChanges,
 		GoGoRanges,
 		Lyrics,
+		ScrollType,
+		JPOSScroll,
 		Count
 	};
 
@@ -311,6 +384,9 @@ namespace PeepoDrumKit
 		Tempo_V,
 		TimeSignature_V,
 		CStr_Lyric,
+		I8_ScrollType,
+		F32_JPOSScroll,
+		F32_JPOSScrollDuration,
 		Count
 	};
 
@@ -330,14 +406,17 @@ namespace PeepoDrumKit
 		GenericMemberFlags_Tempo = EnumToFlag(GenericMember::Tempo_V),
 		GenericMemberFlags_TimeSignature = EnumToFlag(GenericMember::TimeSignature_V),
 		GenericMemberFlags_Lyric = EnumToFlag(GenericMember::CStr_Lyric),
-		GenericMemberFlags_All = 0b11111111111,
+		GenericMemberFlags_ScrollType = EnumToFlag(GenericMember::I8_ScrollType),
+		GenericMemberFlags_JPOSScroll = EnumToFlag(GenericMember::F32_JPOSScroll),
+		GenericMemberFlags_JPOSScrollDuration = EnumToFlag(GenericMember::F32_JPOSScrollDuration),
+		GenericMemberFlags_All = 0b11111111111111,
 	};
 
 	static_assert(GenericMemberFlags_All & (1u << (static_cast<u32>(GenericMember::Count) - 1)));
 	static_assert(!(GenericMemberFlags_All & (1u << static_cast<u32>(GenericMember::Count))));
 
-	constexpr cstr GenericListNames[] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", };
-	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", };
+	constexpr cstr GenericListNames[] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", "ScrollType", "JPOSScroll", };
+	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScroll", "JPOSScrollDuration", };
 
 	union GenericMemberUnion
 	{
@@ -350,6 +429,7 @@ namespace PeepoDrumKit
 		Tempo Tempo;
 		TimeSignature TimeSignature;
 		cstr CStr;
+		Complex CPX;
 
 		inline GenericMemberUnion() { ::memset(this, 0, sizeof(*this)); }
 		inline b8 operator==(const GenericMemberUnion& other) const { return (::memcmp(this, &other, sizeof(*this)) == 0); }
@@ -368,7 +448,7 @@ namespace PeepoDrumKit
 		inline auto& IsSelected() { return (*this)[GenericMember::B8_IsSelected].B8; }
 		inline auto& BarLineVisible() { return (*this)[GenericMember::B8_BarLineVisible].B8; }
 		inline auto& BalloonPopCount() { return (*this)[GenericMember::I16_BalloonPopCount].I16; }
-		inline auto& ScrollSpeed() { return (*this)[GenericMember::F32_ScrollSpeed].F32; }
+		inline auto& ScrollSpeed() { return (*this)[GenericMember::F32_ScrollSpeed].CPX; }
 		inline auto& BeatStart() { return (*this)[GenericMember::Beat_Start].Beat; }
 		inline auto& BeatDuration() { return (*this)[GenericMember::Beat_Duration].Beat; }
 		inline auto& TimeOffset() { return (*this)[GenericMember::Time_Offset].Time; }
@@ -376,10 +456,13 @@ namespace PeepoDrumKit
 		inline auto& Tempo() { return (*this)[GenericMember::Tempo_V].Tempo; }
 		inline auto& TimeSignature() { return (*this)[GenericMember::TimeSignature_V].TimeSignature; }
 		inline auto& Lyric() { return (*this)[GenericMember::CStr_Lyric].CStr; }
+		inline auto& ScrollType() { return (*this)[GenericMember::I8_ScrollType].I16; }
+		inline auto& JPOSScrollMove() { return (*this)[GenericMember::F32_JPOSScroll].CPX; }
+		inline auto& JPOSScrollDuration() { return (*this)[GenericMember::F32_JPOSScrollDuration].F32; }
 		inline const auto& IsSelected() const { return (*this)[GenericMember::B8_IsSelected].B8; }
 		inline const auto& BarLineVisible() const { return (*this)[GenericMember::B8_BarLineVisible].B8; }
 		inline const auto& BalloonPopCount() const { return (*this)[GenericMember::I16_BalloonPopCount].I16; }
-		inline const auto& ScrollSpeed() const { return (*this)[GenericMember::F32_ScrollSpeed].F32; }
+		inline const auto& ScrollSpeed() const { return (*this)[GenericMember::F32_ScrollSpeed].CPX; }
 		inline const auto& BeatStart() const { return (*this)[GenericMember::Beat_Start].Beat; }
 		inline const auto& BeatDuration() const { return (*this)[GenericMember::Beat_Duration].Beat; }
 		inline const auto& TimeOffset() const { return (*this)[GenericMember::Time_Offset].Time; }
@@ -387,6 +470,9 @@ namespace PeepoDrumKit
 		inline const auto& Tempo() const { return (*this)[GenericMember::Tempo_V].Tempo; }
 		inline const auto& TimeSignature() const { return (*this)[GenericMember::TimeSignature_V].TimeSignature; }
 		inline const auto& Lyric() const { return (*this)[GenericMember::CStr_Lyric].CStr; }
+		inline const auto& ScrollType() const { return (*this)[GenericMember::I8_ScrollType].I16; }
+		inline const auto& JPOSScrollMove() const { return (*this)[GenericMember::F32_JPOSScroll].CPX; }
+		inline const auto& JPOSScrollDuration() const { return (*this)[GenericMember::F32_JPOSScrollDuration].F32; }
 	};
 
 	struct GenericListStruct
@@ -399,6 +485,8 @@ namespace PeepoDrumKit
 			ScrollChange Scroll;
 			BarLineChange BarLine;
 			GoGoRange GoGo;
+			ScrollType ScrollType;
+			JPOSScrollChange JPOSScroll;
 
 			inline PODData() { ::memset(this, 0, sizeof(*this)); }
 		} POD;
@@ -413,6 +501,14 @@ namespace PeepoDrumKit
 		Beat GetBeat(GenericList list) const;
 		Beat GetBeatDuration(GenericList list) const;
 		void SetBeat(GenericList list, Beat newValue);
+
+		GenericListStruct(const GenericListStruct& other) {
+			// Perform a deep copy of data within the union and other members
+			::memcpy(&POD, &other.POD, sizeof(POD));
+			NonTrivial = other.NonTrivial; // Copy the non-trivial data
+		}
+
+		GenericListStruct() {};
 	};
 
 	struct GenericListStructWithType
@@ -423,6 +519,13 @@ namespace PeepoDrumKit
 		inline Beat GetBeat() const { return Value.GetBeat(List); }
 		inline Beat GetBeatDuration() const { return Value.GetBeatDuration(List); }
 		inline void SetBeat(Beat newValue) { Value.SetBeat(List, newValue); }
+
+		// Default constructor
+		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}
+
+		// Constructor with parameters
+		GenericListStructWithType(GenericList list, const GenericListStruct& value)
+			: List(list), Value(value) {}
 	};
 
 	constexpr b8 IsNotesList(GenericList list) { return (list == GenericList::Notes_Normal) || (list == GenericList::Notes_Expert) || (list == GenericList::Notes_Master); }
@@ -486,7 +589,9 @@ namespace PeepoDrumKit
 		for (size_t i = 0; i < course.BarLineChanges.size(); i++) if (course.BarLineChanges[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::BarLineChanges, i });
 		for (size_t i = 0; i < course.GoGoRanges.size(); i++) if (course.GoGoRanges[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::GoGoRanges, i });
 		for (size_t i = 0; i < course.Lyrics.size(); i++) if (course.Lyrics[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::Lyrics, i });
-		static_assert(EnumCount<GenericList> == 9);
+		for (size_t i = 0; i < course.ScrollTypes.size(); i++) if (course.ScrollTypes[i].IsSelected) perSelectedItemFunc(ForEachChartItemData{ GenericList::ScrollType, i });
+		for (size_t i = 0; i < course.JPOSScrollChanges.size(); i++) if (course.JPOSScrollChanges[i].IsSelected) perSelectedItemFunc(ForEachChartItemData{ GenericList::JPOSScroll, i });
+		static_assert(EnumCount<GenericList> == 11);
 #endif
 	}
 }

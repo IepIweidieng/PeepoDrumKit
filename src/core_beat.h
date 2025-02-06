@@ -5,7 +5,7 @@
 struct Beat
 {
 	// NOTE: Meaning a 4/4 bar can be meaningfully subdivided into 192 parts, as is a common convention for rhythm games
-	static constexpr i32 TicksPerBeat = (192 / 4);
+	static constexpr i32 TicksPerBeat = (20160 / 4);//(192 / 4);
 
 	i32 Ticks;
 
@@ -47,6 +47,9 @@ inline Beat RoundBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(stati
 inline Beat CeilBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Ceil(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 constexpr Beat GetGridBeatSnap(i32 gridBarDivision) { return Beat::FromBars(1) / gridBarDivision; }
 constexpr b8 IsTupletBarDivision(i32 gridBarDivision) { return (gridBarDivision % 3 == 0); }
+constexpr b8 IsQuintupletBarDivision(i32 gridBarDivision) { return (gridBarDivision % 5 == 0); }
+constexpr b8 IsSeptupletBarDivision(i32 gridBarDivision) { return (gridBarDivision % 7 == 0); }
+constexpr b8 IsNonupletBarDivision(i32 gridBarDivision) { return (gridBarDivision % 9 == 0); }
 
 struct Tempo
 {
@@ -158,6 +161,7 @@ struct TempoMapAccelerationStructure
 	Beat ConvertTimeToBeatUsingLookupTableBinarySearch(Time time) const;
 
 	Time GetLastCalculatedTime() const;
+	Time GetHBSCROLLApproachTime(f32 scrollSpeed, Time cursorTime, Time noteTime, const std::vector<TempoChange>& tempos) const;
 	void Rebuild(const TempoChange* inTempoChanges, size_t inTempoCount);
 };
 

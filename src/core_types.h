@@ -1,8 +1,15 @@
 #pragma once
+#include <memory>
 #include <stdint.h>
 #include <limits>
 #include <cfloat>
 #include <cmath>
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <complex>
+#include <regex>
 
 using i8 = int8_t;
 using u8 = uint8_t;
@@ -278,10 +285,89 @@ struct Angle
 	constexpr Angle operator-() const { return { -Radians }; }
 };
 
+struct Complex {
+	std::complex<f32> cpx;
+
+	Complex() = default;
+	explicit constexpr Complex(f32 scalar) : cpx(scalar) {}
+	constexpr Complex(f32 x, f32 y) : cpx(x, y) {}
+	constexpr Complex(std::complex<f32> cpx) : cpx(cpx) {}
+	constexpr Complex(const Complex& other) : cpx(other.cpx) {}
+	Complex(const std::string& s) { std::istringstream iss(s); iss >> *this; }
+	std::string toString() const {
+		std::ostringstream oss;
+		oss << *this;
+		return oss.str();
+	}
+
+
+	constexpr f32 GetRealPart() const { return cpx.real(); }
+	constexpr f32 GetImaginaryPart() const { return cpx.imag(); }
+	constexpr b8 IsReal() const { return cpx.imag() == .0f; }
+	void SetRealPart(f32 real) { cpx.real(real); }
+	void SetImaginaryPart(f32 imag) { cpx.imag(imag); }
+	
+	constexpr b8 operator==(const Complex& other) const { return cpx == other.cpx; }
+	constexpr b8 operator!=(const Complex& other) const { return !(*this == other); }
+
+	constexpr Complex operator+(const Complex& other) const { return { (cpx + other.cpx) }; }
+	constexpr Complex operator-(const Complex& other) const { return { (cpx - other.cpx) }; }
+	constexpr Complex operator*(const Complex& other) const { return { (cpx * other.cpx) }; }
+	constexpr Complex operator/(const Complex& other) const { return { (cpx / other.cpx) }; }
+	constexpr Complex operator*(const f32 scalar) const { return { (cpx * scalar) }; }
+	constexpr Complex operator/(const f32 scalar) const { return { (cpx / scalar) }; }
+
+	constexpr Complex& operator+=(const Complex& other) { *this = (*this + other); return *this; }
+	constexpr Complex& operator-=(const Complex& other) { *this = (*this - other); return *this; }
+	constexpr Complex& operator*=(const Complex& other) { *this = (*this * other); return *this; }
+	constexpr Complex& operator/=(const Complex& other) { *this = (*this / other); return *this; }
+	constexpr Complex& operator*=(const f32 scalar) { *this = (*this * scalar); return *this; }
+	constexpr Complex& operator/=(const f32 scalar) { *this = (*this / scalar); return *this; }
+	constexpr Complex operator-() const { return { -cpx }; }
+	friend std::istream& operator>>(std::istream& in, Complex& value)
+	{
+		f32 real = 0.0f;
+		f32 imag = 0.0f;
+		std::regex aplusb("^(?=[iI.\\d+-])([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d]))?([+-]?(?:(?:\\d+(?:\\.\\d*)?|\.\\d+)(?:[eE][+-]?\\d+)?)?[iI])?$");
+
+		std::string input;
+		in >> input;
+
+		std::smatch matches;
+
+		if (std::regex_match(input, matches, aplusb)) {
+			if (matches[1].length() > 0) {
+				real = std::stof(matches[1]);
+			}
+			if (matches[2].length() > 0) {
+				imag = std::stof(matches[2]);
+			}
+		}
+		else {
+			in.setstate(std::ios_base::failbit);
+		}
+
+		value.SetRealPart(real);
+		value.SetImaginaryPart(imag);
+		return in;
+	}
+
+	friend std::ostream& operator<< (std::ostream& out, const Complex& value)
+	{
+		f32 real = value.GetRealPart();
+		f32 imag = value.GetImaginaryPart();
+
+		if (imag == .0f) return out << real;
+		else if (real == .0f) return out << imag << 'i';
+		return out << real << (std::signbit(imag) ? "" : "+") << imag << 'i';
+	}
+};
+
 static_assert(sizeof(ivec2) == sizeof(i32[2]));
 static_assert(sizeof(vec2) == sizeof(f32[2]));
 static_assert(sizeof(RGBA8) == sizeof(u8[4]));
 static_assert(sizeof(Angle) == sizeof(f32));
+static_assert(sizeof(Complex) == sizeof(f32[2]));
 
 struct Rect
 {
@@ -357,6 +443,7 @@ inline i64 Absolute(i64 value) { return (value >= static_cast<i64>(0)) ? value :
 inline f32 Absolute(f32 value) { return ::fabsf(value); }
 inline f64 Absolute(f64 value) { return ::fabs(value); }
 
+inline b8 ApproxmiatelySame(Complex a, Complex b, f32 threshold = 0.0001f) { return Absolute(a.GetRealPart() - b.GetRealPart()) < threshold && Absolute(a.GetImaginaryPart() - b.GetImaginaryPart()) < threshold; }
 inline b8 ApproxmiatelySame(f32 a, f32 b, f32 threshold = 0.0001f) { return Absolute(a - b) < threshold; }
 inline b8 ApproxmiatelySame(f64 a, f64 b, f64 threshold = 0.0001) { return Absolute(a - b) < threshold; }
 inline b8 ApproxmiatelySame(vec2 a, vec2 b, f32 threshold = 0.0001f) { return ApproxmiatelySame(a.x, b.x, threshold) && ApproxmiatelySame(a.y, b.y, threshold); }

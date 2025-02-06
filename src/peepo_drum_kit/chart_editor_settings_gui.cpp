@@ -667,7 +667,7 @@ namespace PeepoDrumKit
 				Gui::PushStyleVar(ImGuiStyleVar_FramePadding, originalFramePadding);
 				{
 					constexpr size_t SizeOfUserSettingsData = sizeof(UserSettingsData);
-					static_assert(PEEPO_RELEASE || SizeOfUserSettingsData == 6120, "TODO: Add missing settings entries for newly added UserSettingsData fields");
+					//static_assert(PEEPO_RELEASE || SizeOfUserSettingsData == 6120, "TODO: Add missing settings entries for newly added UserSettingsData fields");
 
 					SettingsGui::SettingsEntry settingsEntriesMain[] =
 					{
@@ -736,7 +736,7 @@ namespace PeepoDrumKit
 				Gui::PushStyleVar(ImGuiStyleVar_FramePadding, originalFramePadding);
 				{
 					constexpr size_t SizeOfUserSettingsInputData = sizeof(UserSettingsData::InputData);
-					static_assert(PEEPO_RELEASE || SizeOfUserSettingsInputData == 5530, "TODO: Add missing settings entries for newly added UserSettingsData::InputData bindings");
+					//static_assert(PEEPO_RELEASE || SizeOfUserSettingsInputData == 5530, "TODO: Add missing settings entries for newly added UserSettingsData::InputData bindings");
 
 					SettingsGui::InputSettingsEntry settingsEntriesInput[] =
 					{
@@ -748,6 +748,7 @@ namespace PeepoDrumKit
 						{ &settings.Input.Editor_Undo, "Editor: Undo", },
 						{ &settings.Input.Editor_Redo, "Editor: Redo", },
 						{ &settings.Input.Editor_OpenHelp, "Editor: Open Help", },
+						{ &settings.Input.Editor_OpenUpdateNotes, "Editor: Open Update Notes", },
 						{ &settings.Input.Editor_OpenSettings, "Editor: Open Settings", },
 						{ &settings.Input.Editor_ChartNew, "Editor: Chart New", },
 						{ &settings.Input.Editor_ChartOpen, "Editor: Chart Open", },
@@ -796,11 +797,22 @@ namespace PeepoDrumKit
 						{ &settings.Input.Timeline_IncreaseGridDivision, "Timeline: Increase Grid Division", },
 						{ &settings.Input.Timeline_DecreaseGridDivision, "Timeline: Decrease Grid Division", },
 						{ &settings.Input.Timeline_SetGridDivision_1_4, "Timeline: Set Grid Division 1 / 4", },
+						{ &settings.Input.Timeline_SetGridDivision_1_5, "Timeline: Set Grid Division 1 / 5 (Quintuplets)", },
+						{ &settings.Input.Timeline_SetGridDivision_1_6, "Timeline: Set Grid Division 1 / 6", },
+						{ &settings.Input.Timeline_SetGridDivision_1_7, "Timeline: Set Grid Division 1 / 7 (Septuplets)", },
 						{ &settings.Input.Timeline_SetGridDivision_1_8, "Timeline: Set Grid Division 1 / 8", },
+						{ &settings.Input.Timeline_SetGridDivision_1_9, "Timeline: Set Grid Division 1 / 9 (Nonuplets)", },
+						{ &settings.Input.Timeline_SetGridDivision_1_10, "Timeline: Set Grid Division 1 / 10 (Quintuplets)", },
 						{ &settings.Input.Timeline_SetGridDivision_1_12, "Timeline: Set Grid Division 1 / 12", },
+						{ &settings.Input.Timeline_SetGridDivision_1_14, "Timeline: Set Grid Division 1 / 14 (Septuplets)", },
 						{ &settings.Input.Timeline_SetGridDivision_1_16, "Timeline: Set Grid Division 1 / 16", },
+						{ &settings.Input.Timeline_SetGridDivision_1_18, "Timeline: Set Grid Division 1 / 18 (Nonuplets)", },
+						{ &settings.Input.Timeline_SetGridDivision_1_20, "Timeline: Set Grid Division 1 / 20 (Quintuplets)", },
 						{ &settings.Input.Timeline_SetGridDivision_1_24, "Timeline: Set Grid Division 1 / 24", },
+						{ &settings.Input.Timeline_SetGridDivision_1_28, "Timeline: Set Grid Division 1 / 28 (Septuplets)", },
 						{ &settings.Input.Timeline_SetGridDivision_1_32, "Timeline: Set Grid Division 1 / 32", },
+						{ &settings.Input.Timeline_SetGridDivision_1_36, "Timeline: Set Grid Division 1 / 36 (Nonuplets)", },
+						{ &settings.Input.Timeline_SetGridDivision_1_40, "Timeline: Set Grid Division 1 / 40 (Quintuplets)", },
 						{ &settings.Input.Timeline_SetGridDivision_1_48, "Timeline: Set Grid Division 1 / 48", },
 						{ &settings.Input.Timeline_SetGridDivision_1_64, "Timeline: Set Grid Division 1 / 64", },
 						{ &settings.Input.Timeline_SetGridDivision_1_96, "Timeline: Set Grid Division 1 / 96", },

@@ -398,8 +398,10 @@ namespace PeepoDrumKit
 				Gui::MenuItem(UI_Str("Build Time:"), BuildInfo::CompilationTime(), false, false);
 				Gui::MenuItem(UI_Str("Build Date:"), BuildInfo::CompilationDate(), false, false);
 				Gui::MenuItem(UI_Str("Build Configuration:"), UI_Str(BuildInfo::BuildConfiguration()), false, false);
+				Gui::MenuItem(UI_Str("Current Version:"), BuildInfo::CurrentVersion(), false, false);
 				Gui::Separator();
 				if (Gui::MenuItem(UI_Str("Usage Guide"), ToShortcutString(*Settings.Input.Editor_OpenHelp).Data)) { PersistentApp.LastSession.ShowWindow_Help = focusHelpWindowNextFrame = true; }
+				if (Gui::MenuItem(UI_Str("Update Notes"), ToShortcutString(*Settings.Input.Editor_OpenUpdateNotes).Data)) { PersistentApp.LastSession.ShowWindow_UpdateNotes = focusUpdateNotesWindowNextFrame = true; }
 				Gui::EndMenu();
 			}
 
@@ -435,8 +437,35 @@ namespace PeepoDrumKit
 				Gui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
 				if (Gui::BeginMenu(UI_Str("Courses")))
 				{
-					// TODO:
-					Gui::MenuItem(UI_Str("Add New"), "(TODO)", nullptr, false);
+					if (Gui::BeginMenu(UI_Str("Add New")))
+					{
+						const struct { DifficultyType dType; cstr CurrentName; } difficulties[] =
+						{
+							{ DifficultyType::Easy, UI_Str("Easy"), },
+							{ DifficultyType::Normal, UI_Str("Normal"), },
+							{ DifficultyType::Hard, UI_Str("Hard"), },
+							{ DifficultyType::Oni, UI_Str("Oni"), },
+							{ DifficultyType::OniUra, UI_Str("Oni-Ura"), },
+						};
+						static_assert(ArrayCount(difficulties) == EnumCount<DifficultyType>);
+
+						for (const auto& dt : difficulties)
+						{
+
+							char labelBuffer[128];
+							sprintf_s(labelBuffer, "%s", dt.CurrentName);
+
+							if (Gui::MenuItem(
+								labelBuffer, 
+								" ",
+								false,
+								!std::any_of(context.Chart.Courses.begin(), context.Chart.Courses.end(), [&dt](const std::unique_ptr<PeepoDrumKit::ChartCourse>& obj) { return obj->Type == dt.dType; })
+								))
+								CreateNewDifficulty(context, dt.dType);
+						}
+						Gui::EndMenu();
+					}
+
 					Gui::MenuItem(UI_Str("Edit..."), "(TODO)", nullptr, false);
 					Gui::EndMenu();
 				}
@@ -454,7 +483,12 @@ namespace PeepoDrumKit
 
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
-							char buffer[64]; sprintf_s(buffer, "%s x%d (%s)###Course_%p", UI_StrRuntime(DifficultyTypeNames[EnumToIndex(course->Type)]), static_cast<i32>(course->Level), UI_Str("Single"), course.get());
+							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s (%s)###Course_%p", UI_StrRuntime(
+								DifficultyTypeNames[EnumToIndex(course->Type)]), 
+								static_cast<i32>(course->Level), 
+								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : "-"),
+								UI_Str("Single"), 
+								course.get());
 							const b8 setSelectedThisFrame = (course.get() == context.ChartSelectedCourse && course.get() != lastFrameSelectedCoursePtrID);
 
 							Gui::PushID(course.get());
@@ -575,6 +609,7 @@ namespace PeepoDrumKit
 			CheckOpenSaveConfirmationPopupThenCall([&]
 			{
 				if (loadSongFuture.valid()) loadSongFuture.get();
+				if (loadJacketFuture.valid()) loadJacketFuture.get();
 				if (importChartFuture.valid()) importChartFuture.get();
 				context.Undo.ClearAll();
 				ApplicationHost::GlobalState.RequestExitNextFrame = EXIT_SUCCESS;
@@ -617,6 +652,7 @@ namespace PeepoDrumKit
 		{
 			if (Path::HasAnyExtension(droppedFilePath, TJA::Extension)) { CheckOpenSaveConfirmationPopupThenCall([this, pathCopy = droppedFilePath] { StartAsyncImportingChartFile(pathCopy); }); break; }
 			if (Path::HasAnyExtension(droppedFilePath, Audio::SupportedFileFormatExtensionsPacked)) { SetAndStartLoadingChartSongFileName(droppedFilePath, context.Undo); break; }
+			if (Path::HasAnyExtension(droppedFilePath, TJA::PreimageExtensions)) { SetAndStartLoadingSongJacketFileName(droppedFilePath, context.Undo); break; }
 		}
 
 		// NOTE: Global input bindings
@@ -640,6 +676,7 @@ namespace PeepoDrumKit
 					ApplicationHost::GlobalState.SwapInterval = !ApplicationHost::GlobalState.SwapInterval;
 
 				if (Gui::IsAnyPressed(*Settings.Input.Editor_OpenHelp, true)) PersistentApp.LastSession.ShowWindow_Help = focusHelpWindowNextFrame = true;
+				if (Gui::IsAnyPressed(*Settings.Input.Editor_OpenUpdateNotes, true)) PersistentApp.LastSession.ShowWindow_UpdateNotes = focusUpdateNotesWindowNextFrame = true;
 				if (Gui::IsAnyPressed(*Settings.Input.Editor_OpenSettings, true)) PersistentApp.LastSession.ShowWindow_Settings = focusSettingsWindowNextFrame = true;
 			}
 
@@ -674,6 +711,16 @@ namespace PeepoDrumKit
 				helpWindow.DrawGui(context);
 			}
 			if (focusHelpWindowNextFrame) { focusHelpWindowNextFrame = false; Gui::SetWindowFocus(); }
+			Gui::End();
+		}
+
+		if (PersistentApp.LastSession.ShowWindow_UpdateNotes)
+		{
+			if (Gui::Begin(UI_WindowName("Update Notes"), &PersistentApp.LastSession.ShowWindow_UpdateNotes, ImGuiWindowFlags_None))
+			{
+				updateNotesWindow.DrawGui(context);
+			}
+			if (focusUpdateNotesWindowNextFrame) { focusUpdateNotesWindowNextFrame = false; Gui::SetWindowFocus(); }
 			Gui::End();
 		}
 
@@ -722,6 +769,7 @@ namespace PeepoDrumKit
 		{
 			ChartPropertiesWindowIn in = {};
 			in.IsSongAsyncLoading = loadSongFuture.valid();
+			in.IsJacketAsyncLoading = loadJacketFuture.valid();
 			ChartPropertiesWindowOut out = {};
 			propertiesWindow.DrawGui(context, in, out);
 
@@ -729,6 +777,11 @@ namespace PeepoDrumKit
 				SetAndStartLoadingChartSongFileName(out.NewSongFilePath, context.Undo);
 			else if (out.BrowseOpenSong)
 				OpenLoadAudioFileDialog(context.Undo);
+
+			if (out.LoadNewJacket)
+				SetAndStartLoadingSongJacketFileName(out.NewJacketFilePath, context.Undo);
+			else if (out.BrowseOpenJacket)
+				OpenLoadJacketFileDialog(context.Undo);
 		}
 		Gui::End();
 
@@ -986,6 +1039,7 @@ namespace PeepoDrumKit
 
 			Gui::DockBuilderDockWindow(UI_WindowName("Settings"), dock.TopCenter);
 			Gui::DockBuilderDockWindow(UI_WindowName("Usage Guide"), dock.TopCenter);
+			Gui::DockBuilderDockWindow(UI_WindowName("Update Notes"), dock.TopCenter);
 			Gui::DockBuilderDockWindow(UI_WindowName("Game Preview"), dock.TopCenter);
 			Gui::DockBuilderDockWindow(UI_WindowName("Audio Test"), dock.TopCenter);
 			Gui::DockBuilderDockWindow(UI_WindowName("TJA Import Test"), dock.TopCenter);
@@ -1030,6 +1084,8 @@ namespace PeepoDrumKit
 	{
 		if (loadSongFuture.valid()) loadSongFuture.get();
 		if (!context.SongSourceFilePath.empty()) StartAsyncLoadingSongAudioFile("");
+		if (loadJacketFuture.valid()) loadJacketFuture.get();
+		if (!context.SongJacketFilePath.empty()) StartAsyncLoadingSongJacketFile("");
 		if (importChartFuture.valid()) importChartFuture.get();
 		InternalUpdateAsyncLoading();
 
@@ -1046,6 +1102,24 @@ namespace PeepoDrumKit
 
 		timeline.Camera.PositionTarget.x = TimelineCameraBaseScrollX;
 		timeline.Camera.ZoomTarget = vec2(1.0f);
+	}
+	
+	void ChartEditor::CreateNewDifficulty(ChartContext& context, DifficultyType difficulty)
+	{
+		auto ccourse = std::make_unique<ChartCourse>();
+
+		ccourse->Type = difficulty;
+
+		for (auto& course : context.Chart.Courses)
+		{
+			ccourse->TempoMap.Tempo.Sorted = course->TempoMap.Tempo.Sorted;
+			ccourse->TempoMap.Signature.Sorted = course->TempoMap.Signature.Sorted;
+			ccourse->TempoMap.RebuildAccelerationStructure();
+			break;
+		}
+
+		context.ChartSelectedCourse = context.Chart.Courses.emplace_back(std::move(ccourse)).get();
+		context.ChartSelectedBranch = BranchType::Normal;
 	}
 
 	void ChartEditor::SaveChart(ChartContext& context, std::string_view filePath)
@@ -1151,6 +1225,27 @@ namespace PeepoDrumKit
 			return result;
 		});
 	}
+	
+	void ChartEditor::StartAsyncLoadingSongJacketFile(std::string_view absoluteJacketFilePath)
+	{
+		if (loadJacketFuture.valid())
+			loadJacketFuture.get();
+
+		loadJacketFuture = std::async(std::launch::async, [tempPathCopy = std::string(absoluteJacketFilePath)]() ->AsyncLoadJacketResult
+			{
+				AsyncLoadJacketResult result{};
+				result.JacketFilePath = std::move(tempPathCopy);
+
+				auto [fileContent, fileSize] = File::ReadAllBytes(result.JacketFilePath);
+				if (fileContent == nullptr || fileSize == 0)
+				{
+					printf("Failed to read file '%.*s'\n", FmtStrViewArgs(result.JacketFilePath));
+					return result;
+				}
+
+				return result;
+			});
+	}
 
 	void ChartEditor::StartAsyncLoadingSongAudioFile(std::string_view absoluteAudioFilePath)
 	{
@@ -1215,6 +1310,27 @@ namespace PeepoDrumKit
 		StartAsyncLoadingSongAudioFile(Path::TryMakeAbsolute(context.Chart.SongFileName, context.ChartFilePath));
 	}
 
+	void ChartEditor::SetAndStartLoadingSongJacketFileName(std::string_view relativeOrAbsoluteAudioFilePath, Undo::UndoHistory& undo)
+	{
+		if (!relativeOrAbsoluteAudioFilePath.empty() && !Path::IsRelative(relativeOrAbsoluteAudioFilePath))
+		{
+			context.Chart.SongJacket = Path::TryMakeRelative(relativeOrAbsoluteAudioFilePath, context.ChartFilePath);
+			if (context.Chart.SongJacket.empty())
+				context.Chart.SongJacket = relativeOrAbsoluteAudioFilePath;
+		}
+		else
+		{
+			context.Chart.SongJacket = relativeOrAbsoluteAudioFilePath;
+		}
+
+		Path::NormalizeInPlace(context.Chart.SongJacket);
+		undo.NotifyChangesWereMade();
+
+		// NOTE: Construct a new absolute path even if the input path was already absolute
+		//		 so that there won't ever be any discrepancy in case the relative path code is behaving unexpectedly
+		StartAsyncLoadingSongJacketFile(Path::TryMakeAbsolute(context.Chart.SongJacket, context.ChartFilePath));
+	}
+
 	b8 ChartEditor::OpenLoadChartFileDialog(ChartContext& context)
 	{
 		Shell::FileDialog fileDialog {};
@@ -1240,6 +1356,20 @@ namespace PeepoDrumKit
 			return false;
 
 		SetAndStartLoadingChartSongFileName(fileDialog.OutFilePath, undo);
+		return true;
+	}
+
+	b8 ChartEditor::OpenLoadJacketFileDialog(Undo::UndoHistory& undo)
+	{
+		Shell::FileDialog fileDialog {};
+		fileDialog.InTitle = "Open Jacket File";
+		fileDialog.InFilters = { { "Image Files", "*.jpg;*.jpeg;*.png" }, { Shell::AllFilesFilterName, Shell::AllFilesFilterSpec }, };
+		fileDialog.InParentWindowHandle = ApplicationHost::GlobalState.NativeWindowHandle;
+
+		if (fileDialog.OpenRead() != Shell::FileDialogResult::OK)
+			return false;
+
+		SetAndStartLoadingSongJacketFileName(fileDialog.OutFilePath, undo);
 		return true;
 	}
 
@@ -1274,6 +1404,7 @@ namespace PeepoDrumKit
 			context.ChartFilePath = std::move(loadResult.ChartFilePath);
 			context.ChartSelectedCourse = context.Chart.Courses.empty() ? context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get() : context.Chart.Courses.front().get();
 			StartAsyncLoadingSongAudioFile(Path::TryMakeAbsolute(context.Chart.SongFileName, context.ChartFilePath));
+			StartAsyncLoadingSongJacketFile(Path::TryMakeAbsolute(context.Chart.SongJacket, context.ChartFilePath));
 
 			// NOTE: Prevent the cursor from changing screen position. Not needed if paused because a stable beat time is used instead
 			if (context.GetIsPlayback())
@@ -1309,6 +1440,13 @@ namespace PeepoDrumKit
 			context.SongVoice.SetSource(context.SongSource);
 
 			Audio::Engine.EnsureStreamRunning();
+		}
+
+		if (loadJacketFuture.valid() && loadJacketFuture._Is_ready())
+		{
+			AsyncLoadJacketResult loadResult = loadJacketFuture.get();
+
+			context.SongJacketFilePath = std::move(loadResult.JacketFilePath);
 		}
 	}
 }

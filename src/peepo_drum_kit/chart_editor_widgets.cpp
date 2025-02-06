@@ -2,6 +2,7 @@
 #include "chart_editor_settings.h"
 #include "chart_editor_undo.h"
 #include "chart_editor_i18n.h"
+#include "core_build_info.h"
 
 // TODO: Populate char[U8Max] lookup table using provided flags and index into instead of using a switch (?)
 enum class EscapeSequenceFlags : u32 { NewLines };
@@ -102,6 +103,64 @@ namespace PeepoDrumKit
 			Gui::PopID();
 		}
 		return anyValueChanged;
+	}
+
+	static b8 GuiDifficultyDecimalLevelStarSliderWidget(cstr label, DifficultyLevelDecimal* inOutLevel, b8& inOutFitOnScreenLastFrame, b8& inOutHoveredLastFrame)
+	{
+		b8 valueWasChanged = false;
+
+		// NOTE: Make text transparent instead of using an empty slider format string 
+		//		 so that the slider can still convert the input to a string on the same frame it is turned into an InputText (due to the frame delayed starsFitOnScreen)
+		if (inOutFitOnScreenLastFrame) Gui::PushStyleColor(ImGuiCol_Text, 0x00000000);
+		Gui::PushStyleColor(ImGuiCol_SliderGrab, Gui::GetStyleColorVec4(inOutHoveredLastFrame ? ImGuiCol_ButtonHovered : ImGuiCol_Button));
+		Gui::PushStyleColor(ImGuiCol_SliderGrabActive, Gui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+		Gui::PushStyleColor(ImGuiCol_FrameBgHovered, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
+		Gui::PushStyleColor(ImGuiCol_FrameBgActive, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
+
+		
+		if (i32 v = static_cast<i32>(*inOutLevel); 
+			Gui::SliderInt(label, &v,
+			static_cast<i32>(DifficultyLevelDecimal::None), 
+			static_cast<i32>(DifficultyLevelDecimal::Max), 
+			(v == static_cast <i32>(DifficultyLevelDecimal::None))
+				? u8"None"
+				: (v >= static_cast <i32>(DifficultyLevelDecimal::PlusThreshold))
+				? u8"%d (+)"
+				: u8"%d (-)",
+			ImGuiSliderFlags_AlwaysClamp))
+		{
+			*inOutLevel = static_cast<DifficultyLevelDecimal>(v);
+			valueWasChanged = true;
+		}
+		Gui::PopStyleColor(4 + (inOutFitOnScreenLastFrame ? 1 : 0));
+
+		const Rect sliderRect = Gui::GetItemRect();
+		const f32 availableWidth = sliderRect.GetWidth();
+		const vec2 starSize = vec2(availableWidth / static_cast<f32>(DifficultyLevelDecimal::Max), Gui::GetFrameHeight());
+
+		const b8 starsFitOnScreen = (starSize.x >= Gui::GetFrameHeight()) && !Gui::IsItemBeingEditedAsText();
+
+		// NOTE: Use the last frame result here too to match the slider text as it has already been drawn
+		if (inOutFitOnScreenLastFrame)
+		{
+			// NOTE: Manually tuned for a 16px font size
+			struct StarParam { f32 OuterRadius, InnerRadius, Thickness; };
+			static constexpr StarParam fontSizedStarParamOutline = { 8.0f, 4.0f, 1.0f };
+			static constexpr StarParam fontSizedStarParamFilled = { 10.0f, 4.0f, 0.0f };
+			const f32 starScale = Gui::GetFontSize() / 16.0f;
+
+			// TODO: Consider drawing star background manually instead of using the slider grab hand (?)
+			for (i32 i = 0; i < static_cast<i32>(DifficultyLevelDecimal::Max); i++)
+			{
+				const Rect starRect = Rect::FromTLSize(sliderRect.TL + vec2(i * starSize.x, 0.0f), starSize);
+				const auto star = (i >= static_cast<i32>(*inOutLevel)) ? fontSizedStarParamOutline : fontSizedStarParamFilled;
+				Gui::DrawStar(Gui::GetWindowDrawList(), starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, Gui::GetColorU32(ImGuiCol_Text), star.Thickness);
+			}
+		}
+
+		inOutHoveredLastFrame = Gui::IsItemHovered();
+		inOutFitOnScreenLastFrame = starsFitOnScreen;
+		return valueWasChanged;
 	}
 
 	static b8 GuiDifficultyLevelStarSliderWidget(cstr label, DifficultyLevel* inOutLevel, b8& inOutFitOnScreenLastFrame, b8& inOutHoveredLastFrame)
@@ -368,10 +427,14 @@ namespace PeepoDrumKit
 	// "allowed_scroll_speed_range_max" = +100
 	// "allowed_note_time_offset_range_min" = -35
 	// "allowed_note_time_offset_range_max" = +35
-	static constexpr f32 MinBPM = 30.0f;
-	static constexpr f32 MaxBPM = 960.0f;
+	static constexpr f32 MinBPM = 0.1f;//30.0f;
+	static constexpr f32 MaxBPM = 10000.0f;//960.0f;
 	static constexpr f32 MinScrollSpeed = -100.0f;
 	static constexpr f32 MaxScrollSpeed = +100.0f;
+	static constexpr f32 MaxJPOSScrollMove = +9999.0f;
+	static constexpr f32 MinJPOSScrollMove = -9999.0f;
+	static constexpr f32 MaxJPOSScrollDuration = +3600.0f;
+	static constexpr f32 MinJPOSScrollDuration = -3600.0f;
 	static constexpr Time MinNoteTimeOffset = Time::FromMS(-35.0);
 	static constexpr Time MaxNoteTimeOffset = Time::FromMS(+35.0);
 
@@ -395,6 +458,96 @@ namespace PeepoDrumKit
 				RingIndex = 0;
 		}
 		return loadingText;
+	}
+
+	void ChartUpdateNotesWindow::DrawGui(ChartContext& context)
+	{
+		static struct
+		{
+			u32 GreenDark = 0xFFACF7DC;
+			u32 GreenBright = 0xFF95CCB8;
+			u32 RedDark = 0xFF9BBAEF;
+			u32 RedBright = 0xFF93B2E7;
+			u32 WhiteDark = 0xFF95DCDC;
+			u32 WhiteBright = 0xFFBBD3D3;
+			b8 Show = false;
+		} colors;
+
+		Gui::PushStyleColor(ImGuiCol_Border, Gui::GetColorU32(ImGuiCol_Separator));
+		Gui::BeginChild("BackgroundChild", Gui::GetContentRegionAvail(), true);
+		Gui::PopStyleColor(1);
+		defer{ Gui::EndChild(); };
+
+		Gui::UpdateSmoothScrollWindow();
+
+		Gui::PushFont(FontLarge_EN);
+		{
+			// Header with current version
+			{
+				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenDark);
+				Gui::PushFont(FontLarge_EN);
+				Gui::TextUnformatted("Update Notes");
+				Gui::PopFont();
+				Gui::PopStyleColor();
+
+				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenBright);
+				Gui::PushFont(FontMedium_EN);
+				Gui::Text("Current version: %s", BuildInfo::CurrentVersion());
+				Gui::Separator();
+				Gui::PopFont();
+				Gui::PopStyleColor();
+			}
+
+			// Update Log wrapper
+			{
+				Gui::PushStyleColor(ImGuiCol_Text, colors.RedDark);
+				Gui::PushFont(FontLarge_EN);
+				Gui::TextUnformatted("Update Logs:");
+				Gui::PopFont();
+				Gui::PopStyleColor();
+
+				// v1.1
+				{
+					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
+					Gui::PushFont(FontMedium_EN);
+					Gui::TextUnformatted("v1.1");
+					Gui::PopFont();
+
+					Gui::PushFont(FontMain_JP);
+					Gui::TextUnformatted("- Add support for #HBSCROLL and #BMSCROLL methods");
+					Gui::TextUnformatted("- Add support for the #JPOSSCROLL gimmick");
+					Gui::TextUnformatted("- Add support for complex #SCROLL changes (y axis)");
+					Gui::TextUnformatted("- Add support for the PREIMAGE metadata");
+					Gui::TextUnformatted("- Add support for more tuplet subdivisions (Quintuplets, Septuplets, Nonuplets)");
+					Gui::TextUnformatted("- Add the possibility to add courses real time (Only regular difficulties for the moment)");
+					Gui::TextUnformatted("- Automatically convert #DIRECTION tags to complex #SCROLL values");
+					Gui::TextUnformatted("- Fix display for the Fuseroll (D) tails");
+					Gui::TextUnformatted("");
+					Gui::PopFont();
+					Gui::PopStyleColor();
+				}
+
+				// v1.0
+				{
+					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
+					Gui::PushFont(FontMedium_EN);
+					Gui::TextUnformatted("v1.0");
+					Gui::PopFont();
+
+					Gui::PushFont(FontMain_JP);
+					Gui::TextUnformatted("- Add support for the Bomb (C) note");
+					Gui::TextUnformatted("- Add support for the Fuseroll (D) note");
+					Gui::TextUnformatted("- Add support for the ADLib (F) note");
+					Gui::TextUnformatted("- Add support for the Swap (G) note");
+					Gui::TextUnformatted("");
+					Gui::PopFont();
+					Gui::PopStyleColor();
+				}
+			}
+
+
+		}
+		Gui::PopFont();
 	}
 
 	void ChartHelpWindow::DrawGui(ChartContext& context)
@@ -436,7 +589,7 @@ namespace PeepoDrumKit
 			{
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenDark);
 				Gui::PushFont(FontLarge_EN);
-				Gui::TextUnformatted("Welcome to Peepo Drum Kit (Beta)");
+				Gui::TextUnformatted("Welcome to Peepo Drum Kit (Unofficial fork)");
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
@@ -520,6 +673,10 @@ namespace PeepoDrumKit
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.WhiteBright);
 				Gui::TextWrapped(
+					"NOTE: This is an altered, unofficial version of Peepo Drum Kit aimed to support wider gimmicks and to be a best fit with OpenTaiko.\n"
+					"Some main components are altered, like the 1/192nd grid being extended to be able to support odd tuplets (Quintuplets, Septuplets, Nonuplets.)\n"
+					"The following description is from the official version of Peepo Drum Kit.\n"
+					"\n"
 					"Peepo Drum Kit is not really a TJA editor in the same sense that a text editor is one.\n"
 					"It's a Taiko chart editor that transparently converts to and from the TJA format,"
 					" however its internal data representation of a chart differs significantly.\n"
@@ -780,7 +937,12 @@ namespace PeepoDrumKit
 						case GenericMember::B8_IsSelected: { /* ... */ } break;
 						case GenericMember::B8_BarLineVisible: { /* ... */ } break;
 						case GenericMember::I16_BalloonPopCount: { min.I16 = Min(min.I16, v.I16); max.I16 = Max(max.I16, v.I16); } break;
-						case GenericMember::F32_ScrollSpeed: { min.F32 = Min(min.F32, v.F32); max.F32 = Max(max.F32, v.F32); } break;
+						case GenericMember::F32_ScrollSpeed: {
+							min.CPX.SetRealPart(Min(min.CPX.GetRealPart(), v.CPX.GetRealPart()));
+							min.CPX.SetImaginaryPart(Min(min.CPX.GetImaginaryPart(), v.CPX.GetImaginaryPart()));
+							max.CPX.SetRealPart(Max(max.CPX.GetRealPart(), v.CPX.GetRealPart()));
+							max.CPX.SetImaginaryPart(Max(max.CPX.GetImaginaryPart(), v.CPX.GetImaginaryPart()));
+						} break;
 						case GenericMember::Beat_Start: { min.Beat = Min(min.Beat, v.Beat); max.Beat = Max(max.Beat, v.Beat); } break;
 						case GenericMember::Beat_Duration: { min.Beat = Min(min.Beat, v.Beat); max.Beat = Max(max.Beat, v.Beat); } break;
 						case GenericMember::Time_Offset: { min.Time = Min(min.Time, v.Time); max.Time = Max(max.Time, v.Time); } break;
@@ -798,6 +960,9 @@ namespace PeepoDrumKit
 							max.TimeSignature.Denominator = Max(max.TimeSignature.Denominator, v.TimeSignature.Denominator);
 						} break;
 						case GenericMember::CStr_Lyric: { /* ... */ } break;
+						case GenericMember::I8_ScrollType: { /* ... */ } break;
+						case GenericMember::F32_JPOSScroll: { /* ... */ } break;
+						case GenericMember::F32_JPOSScrollDuration: { /* ... */ } break;
 						default: assert(false); break;
 						}
 					}
@@ -819,7 +984,7 @@ namespace PeepoDrumKit
 			{
 				if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 				{
-					const cstr listTypeNames[] = { UI_Str("Tempos"), UI_Str("Time Signatures"), UI_Str("Notes"), UI_Str("Notes"), UI_Str("Notes"), UI_Str("Scroll Speeds"), UI_Str("Bar Lines"), UI_Str("Go-Go Ranges"), UI_Str("Lyrics"), };
+					const cstr listTypeNames[] = { UI_Str("Tempos"), UI_Str("Time Signatures"), UI_Str("Notes"), UI_Str("Notes"), UI_Str("Notes"), UI_Str("Scroll Speeds"), UI_Str("Bar Lines"), UI_Str("Go-Go Ranges"), UI_Str("Lyrics"), UI_Str("Scroll Types"), UI_Str("JPOS Scrolls"), };
 					static_assert(ArrayCount(listTypeNames) == EnumCount<GenericList>);
 
 					Gui::Property::Property([&]
@@ -883,7 +1048,8 @@ namespace PeepoDrumKit
 					b8 disableChangePropertiesCommandMerge = false;
 					GenericMemberFlags outModifiedMembers = GenericMemberFlags_None;
 					for (const GenericMember member : { GenericMember::NoteType_V, GenericMember::I16_BalloonPopCount, GenericMember::Time_Offset,
-						GenericMember::Tempo_V, GenericMember::TimeSignature_V, GenericMember::F32_ScrollSpeed, GenericMember::B8_BarLineVisible })
+						GenericMember::Tempo_V, GenericMember::TimeSignature_V, GenericMember::F32_ScrollSpeed, GenericMember::B8_BarLineVisible,
+						GenericMember::I8_ScrollType, GenericMember::F32_JPOSScroll})
 					{
 						if (!(commonAvailableMemberFlags & EnumToFlag(member)))
 							continue;
@@ -954,6 +1120,107 @@ namespace PeepoDrumKit
 								valueWasChanged = true;
 							}
 						} break;
+						case GenericMember::F32_JPOSScroll:
+						{
+							b8 areAllJPOSScrollMovesTheSame = (commonEqualMemberFlags & EnumToFlag(member));
+							b8 areAllJPOSScrollDurationsTheSame = true;
+							f32 commonDuration = 0.f, minDuration = 0.f, maxDuration = 0.f;
+							for (const auto& selectedItem : SelectedItems) 
+							{
+								const f32 duration = selectedItem.MemberValues.JPOSScrollDuration();
+								if (&selectedItem == &SelectedItems[0])
+								{
+									commonDuration = minDuration = maxDuration = duration;
+								}
+								else
+								{
+									minDuration = Min(minDuration, duration);
+									maxDuration = Max(maxDuration, duration);
+									areAllJPOSScrollDurationsTheSame &= ApproxmiatelySame(duration, commonDuration, 0.001f);
+								}
+							}
+
+							for (size_t i = 0; i < 3; i++)
+							{
+								MultiEditWidgetParam widgetIn = {};
+								widgetIn.EnableStepButtons = true;
+								if (i == 0)
+								{
+									widgetIn.Value.F32 = sharedValues.JPOSScrollMove().GetRealPart();
+									widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
+									widgetIn.MixedValuesMin.F32 = mixedValuesMin.JPOSScrollMove().GetRealPart();
+									widgetIn.MixedValuesMax.F32 = mixedValuesMax.JPOSScrollMove().GetRealPart();
+									widgetIn.ButtonStep.F32 = 1.f;
+									widgetIn.ButtonStepFast.F32 = 5.f;
+									widgetIn.DragLabelSpeed = 0.5f;
+									widgetIn.FormatString = "%gpx";
+									widgetIn.EnableClamp = true;
+									widgetIn.ValueClampMin.F32 = MinJPOSScrollMove;
+									widgetIn.ValueClampMax.F32 = MaxJPOSScrollMove;
+								}
+								else if (i == 1) {
+									widgetIn.Value.F32 = sharedValues.JPOSScrollMove().GetImaginaryPart();
+									widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
+									widgetIn.MixedValuesMin.F32 = mixedValuesMin.JPOSScrollMove().GetImaginaryPart();
+									widgetIn.MixedValuesMax.F32 = mixedValuesMax.JPOSScrollMove().GetImaginaryPart();
+									widgetIn.ButtonStep.F32 = 1.f;
+									widgetIn.ButtonStepFast.F32 = 5.f;
+									widgetIn.DragLabelSpeed = 0.5f;
+									widgetIn.FormatString = "%gipx";
+									widgetIn.EnableClamp = true;
+									widgetIn.ValueClampMin.F32 = MinJPOSScrollMove;
+									widgetIn.ValueClampMax.F32 = MaxJPOSScrollMove;
+								}
+								else
+								{
+									widgetIn.Value.F32 = commonDuration;
+									widgetIn.HasMixedValues = !areAllJPOSScrollDurationsTheSame;
+									widgetIn.MixedValuesMin.F32 = minDuration;
+									widgetIn.MixedValuesMax.F32 = maxDuration;
+									widgetIn.ButtonStep.F32 = 0.1f;
+									widgetIn.ButtonStepFast.F32 = 0.5f;
+									widgetIn.DragLabelSpeed = 0.005f;
+									widgetIn.FormatString = "%gs";
+									widgetIn.EnableClamp = true;
+									widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
+									widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
+								}
+
+								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
+									(i == 0)
+									? UI_Str("JPOS Scroll Move")
+									: (i == 1)
+									? UI_Str("Vertical JPOS Scroll Move")
+									: UI_Str("JPOS Scroll Duration")
+									, widgetIn);
+								if (widgetOut.HasValueExact)
+								{
+									for (auto& selectedItem : SelectedItems)
+									{
+										if (i == 0)
+											selectedItem.MemberValues.JPOSScrollMove().SetRealPart(widgetOut.ValueExact.F32);
+										else if (i == 1)
+											selectedItem.MemberValues.JPOSScrollMove().SetImaginaryPart(widgetOut.ValueExact.F32);
+										else
+											selectedItem.MemberValues.JPOSScrollDuration() = widgetOut.ValueExact.F32;
+									}
+									valueWasChanged = true;
+								}
+								else if (widgetOut.HasValueIncrement)
+								{
+									for (auto& selectedItem : SelectedItems)
+									{
+										if (i == 0)
+											selectedItem.MemberValues.JPOSScrollMove().SetRealPart(Clamp(selectedItem.MemberValues.JPOSScrollMove().GetRealPart() + widgetOut.ValueIncrement.F32, MinJPOSScrollMove, MaxJPOSScrollMove));
+										else if (i == 1)
+											selectedItem.MemberValues.JPOSScrollMove().SetImaginaryPart(Clamp(selectedItem.MemberValues.JPOSScrollMove().GetImaginaryPart() + widgetOut.ValueIncrement.F32, MinJPOSScrollMove, MaxJPOSScrollMove));
+										else
+											selectedItem.MemberValues.JPOSScrollDuration() = Clamp(selectedItem.MemberValues.JPOSScrollDuration() + widgetOut.ValueIncrement.F32, MinJPOSScrollDuration, MaxJPOSScrollDuration);
+									}
+									valueWasChanged = true;
+								}
+							}
+						} break;
 						case GenericMember::F32_ScrollSpeed:
 						{
 							b8 areAllScrollSpeedsTheSame = (commonEqualMemberFlags & EnumToFlag(member));
@@ -961,7 +1228,7 @@ namespace PeepoDrumKit
 							Tempo commonScrollTempo = {}, minScrollTempo {}, maxScrollTempo {};
 							for (const auto& selectedItem : SelectedItems)
 							{
-								const Tempo scrollTempo = ScrollSpeedToTempo(selectedItem.MemberValues.ScrollSpeed(), selectedItem.BaseScrollTempo);
+								const Tempo scrollTempo = ScrollSpeedToTempo(selectedItem.MemberValues.ScrollSpeed().GetRealPart(), selectedItem.BaseScrollTempo);
 								if (&selectedItem == &SelectedItems[0])
 								{
 									commonScrollTempo = minScrollTempo = maxScrollTempo = scrollTempo;
@@ -974,20 +1241,33 @@ namespace PeepoDrumKit
 								}
 							}
 
-							for (size_t i = 0; i < 2; i++)
+							for (size_t i = 0; i < 3; i++)
 							{
 								MultiEditWidgetParam widgetIn = {};
 								widgetIn.EnableStepButtons = true;
 								if (i == 0)
 								{
-									widgetIn.Value.F32 = sharedValues.ScrollSpeed();
+									widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetRealPart();
 									widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
-									widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed();
-									widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed();
+									widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetRealPart();
+									widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetRealPart();
 									widgetIn.ButtonStep.F32 = 0.1f;
 									widgetIn.ButtonStepFast.F32 = 0.5f;
 									widgetIn.DragLabelSpeed = 0.005f;
 									widgetIn.FormatString = "%gx";
+									widgetIn.EnableClamp = true;
+									widgetIn.ValueClampMin.F32 = MinScrollSpeed;
+									widgetIn.ValueClampMax.F32 = MaxScrollSpeed;
+								}
+								else if (i == 1) {
+									widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetImaginaryPart();
+									widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
+									widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetImaginaryPart();
+									widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetImaginaryPart();
+									widgetIn.ButtonStep.F32 = 0.1f;
+									widgetIn.ButtonStepFast.F32 = 0.5f;
+									widgetIn.DragLabelSpeed = 0.005f;
+									widgetIn.FormatString = "%gix";
 									widgetIn.EnableClamp = true;
 									widgetIn.ValueClampMin.F32 = MinScrollSpeed;
 									widgetIn.ValueClampMax.F32 = MaxScrollSpeed;
@@ -1006,15 +1286,23 @@ namespace PeepoDrumKit
 									widgetIn.ValueClampMin.F32 = MinBPM;
 									widgetIn.ValueClampMax.F32 = MaxBPM;
 								}
-								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget((i == 0) ? UI_Str("Scroll Speed") : UI_Str("Scroll Speed Tempo"), widgetIn);
+								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
+									(i == 0) 
+										? UI_Str("Scroll Speed") 
+										: (i == 1)
+											? UI_Str("Vertical Scroll Speed")
+											: UI_Str("Scroll Speed Tempo")
+									, widgetIn);
 								if (widgetOut.HasValueExact)
 								{
 									for (auto& selectedItem : SelectedItems)
 									{
 										if (i == 0)
-											selectedItem.MemberValues.ScrollSpeed() = widgetOut.ValueExact.F32;
+											selectedItem.MemberValues.ScrollSpeed().SetRealPart(widgetOut.ValueExact.F32);
+										else if (i == 1)
+											selectedItem.MemberValues.ScrollSpeed().SetImaginaryPart(widgetOut.ValueExact.F32);
 										else
-											selectedItem.MemberValues.ScrollSpeed() = ScrollTempoToSpeed(Tempo(widgetOut.ValueExact.F32), selectedItem.BaseScrollTempo);
+											selectedItem.MemberValues.ScrollSpeed().SetRealPart(ScrollTempoToSpeed(Tempo(widgetOut.ValueExact.F32), selectedItem.BaseScrollTempo));
 									}
 									valueWasChanged = true;
 								}
@@ -1023,21 +1311,21 @@ namespace PeepoDrumKit
 									for (auto& selectedItem : SelectedItems)
 									{
 										if (i == 0)
-										{
-											selectedItem.MemberValues.ScrollSpeed() = Clamp(selectedItem.MemberValues.ScrollSpeed() + widgetOut.ValueIncrement.F32, MinScrollSpeed, MaxScrollSpeed);
-										}
+											selectedItem.MemberValues.ScrollSpeed().SetRealPart(Clamp(selectedItem.MemberValues.ScrollSpeed().GetRealPart() + widgetOut.ValueIncrement.F32, MinScrollSpeed, MaxScrollSpeed));
+										else if (i == 1)
+											selectedItem.MemberValues.ScrollSpeed().SetImaginaryPart(Clamp(selectedItem.MemberValues.ScrollSpeed().GetImaginaryPart() + widgetOut.ValueIncrement.F32, MinScrollSpeed, MaxScrollSpeed));
 										else if (selectedItem.BaseScrollTempo.BPM != 0.0f)
 										{
-											const Tempo oldScrollTempo = ScrollSpeedToTempo(selectedItem.MemberValues.ScrollSpeed(), selectedItem.BaseScrollTempo);
+											const Tempo oldScrollTempo = ScrollSpeedToTempo(selectedItem.MemberValues.ScrollSpeed().GetRealPart(), selectedItem.BaseScrollTempo);
 											const Tempo newScrollTempo = Tempo(oldScrollTempo.BPM + widgetOut.ValueIncrement.F32);
-											selectedItem.MemberValues.ScrollSpeed() = ScrollTempoToSpeed(Tempo(Clamp(newScrollTempo.BPM, MinBPM, MaxBPM)), selectedItem.BaseScrollTempo);
+											selectedItem.MemberValues.ScrollSpeed().SetRealPart(ScrollTempoToSpeed(Tempo(Clamp(newScrollTempo.BPM, MinBPM, MaxBPM)), selectedItem.BaseScrollTempo));
 										}
 									}
 									valueWasChanged = true;
 								}
 							}
 
-							for (size_t i = 0; i < 2; i++)
+							for (size_t i = 0; i < 3; i++)
 							{
 								// TODO: Maybe option to switch between Beat/Time interpolation modes (?)
 								static constexpr auto getT = [](const TempChartItem& item) -> f64 { return static_cast<f64>(item.MemberValues.BeatStart().Ticks); };
@@ -1050,8 +1338,16 @@ namespace PeepoDrumKit
 								TempChartItem* endItem = !SelectedItems.empty() ? &SelectedItems.back() : nullptr;
 								f32 inOutStartEnd[2] =
 								{
-									 (i == 0) ? startItem->MemberValues.ScrollSpeed() : ScrollSpeedToTempo(startItem->MemberValues.ScrollSpeed(), startItem->BaseScrollTempo).BPM,
-									 (i == 0) ? endItem->MemberValues.ScrollSpeed() : ScrollSpeedToTempo(endItem->MemberValues.ScrollSpeed(), endItem->BaseScrollTempo).BPM,
+									(i == 0)
+										? startItem->MemberValues.ScrollSpeed().GetRealPart()
+										: (i == 1)
+											? startItem->MemberValues.ScrollSpeed().GetImaginaryPart()
+											: ScrollSpeedToTempo(startItem->MemberValues.ScrollSpeed().GetRealPart(), startItem->BaseScrollTempo).BPM,
+									(i == 0)
+										? endItem->MemberValues.ScrollSpeed().GetRealPart()
+										: (i == 1)
+											? endItem->MemberValues.ScrollSpeed().GetImaginaryPart()
+											: ScrollSpeedToTempo(endItem->MemberValues.ScrollSpeed().GetRealPart(), endItem->BaseScrollTempo).BPM
 								};
 
 								const b8 isSelectionTooSmall = (SelectedItems.size() < 2);
@@ -1061,7 +1357,14 @@ namespace PeepoDrumKit
 									for (const auto& thisItem : SelectedItems)
 									{
 										const f32 thisValue = getInterpolatedScrollSpeed(*startItem, *endItem, thisItem, inOutStartEnd[0], inOutStartEnd[1]);
-										if (!ApproxmiatelySame(thisItem.MemberValues.ScrollSpeed(), (i == 0) ? thisValue : ScrollTempoToSpeed(Tempo(thisValue), thisItem.BaseScrollTempo)))
+										if (!(
+											(i == 0 || i == 2)
+											? ApproxmiatelySame(thisItem.MemberValues.ScrollSpeed().GetRealPart(), 
+												(i == 0) 
+													? thisValue 
+													: ScrollTempoToSpeed(Tempo(thisValue), thisItem.BaseScrollTempo))
+											: ApproxmiatelySame(thisItem.MemberValues.ScrollSpeed().GetImaginaryPart(), thisValue)
+											))
 											isSelectionAlreadyInterpolated = false;
 									}
 								}
@@ -1076,25 +1379,42 @@ namespace PeepoDrumKit
 									previewStrings[0] = "...";
 									previewStrings[1] = "...";
 								}
-								else if ((i == 0) ? areAllScrollSpeedsTheSame : areAllScrollTemposTheSame)
+								else if ((i != 2) ? areAllScrollSpeedsTheSame : areAllScrollTemposTheSame)
 								{
 									previewStrings[1] = "=";
 								}
 								else if (!isSelectionAlreadyInterpolated)
 								{
-									previewStrings[0] = previewBuffersStartEnd[0]; sprintf_s(previewBuffersStartEnd[0], (i == 0) ? "(%gx)" : "(%g BPM)", inOutStartEnd[0]);
-									previewStrings[1] = previewBuffersStartEnd[1]; sprintf_s(previewBuffersStartEnd[1], (i == 0) ? "(%gx)" : "(%g BPM)", inOutStartEnd[1]);
+									previewStrings[0] = previewBuffersStartEnd[0]; sprintf_s(previewBuffersStartEnd[0], 
+										(i == 0) 
+										? "(%gx)" 
+										: (i == 1) 
+										? "(%gix)" 
+										:"(%g BPM)"
+										, inOutStartEnd[0]);
+									previewStrings[1] = previewBuffersStartEnd[1]; sprintf_s(previewBuffersStartEnd[1], 
+										(i == 0)
+										? "(%gx)"
+										: (i == 1)
+										? "(%gix)"
+										: "(%g BPM)"
+										, inOutStartEnd[1]);
 								}
 
 								Gui::BeginDisabled(isSelectionTooSmall);
-								if ((i == 0) ?
-									GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Scroll Speed"), inOutStartEnd, 0.1f, 0.5f, MinScrollSpeed, MaxScrollSpeed, "%gx", previewStrings) :
-									GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Scroll Speed Tempo"), inOutStartEnd, 1.0f, 10.0f, MinBPM, MaxBPM, "%g BPM", previewStrings))
+								if ((i == 0) 
+									? GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Scroll Speed"), inOutStartEnd, 0.1f, 0.5f, MinScrollSpeed, MaxScrollSpeed, "%gx", previewStrings)
+									: (i == 1)
+									? GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Vertical Scroll Speed"), inOutStartEnd, 0.1f, 0.5f, MinScrollSpeed, MaxScrollSpeed, "%gix", previewStrings)
+									: GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Scroll Speed Tempo"), inOutStartEnd, 1.0f, 10.0f, MinBPM, MaxBPM, "%g BPM", previewStrings))
 								{
 									for (auto& thisItem : SelectedItems)
 									{
 										const f32 thisValue = getInterpolatedScrollSpeed(*startItem, *endItem, thisItem, inOutStartEnd[0], inOutStartEnd[1]);
-										thisItem.MemberValues.ScrollSpeed() = (i == 0) ? thisValue : ScrollTempoToSpeed(Tempo(thisValue), thisItem.BaseScrollTempo);
+										if (i == 0 || i == 2)
+											thisItem.MemberValues.ScrollSpeed().SetRealPart((i == 0) ? thisValue : ScrollTempoToSpeed(Tempo(thisValue), thisItem.BaseScrollTempo));
+										else
+											thisItem.MemberValues.ScrollSpeed().SetImaginaryPart(thisValue);
 									}
 									valueWasChanged = true;
 								}
@@ -1157,7 +1477,8 @@ namespace PeepoDrumKit
 
 							Gui::Property::PropertyTextValueFunc(UI_Str("Note Type"), [&]
 							{
-								const cstr noteTypeNames[] = { UI_Str("Don"), UI_Str("DON"), UI_Str("Ka"), UI_Str("KA"), UI_Str("Drumroll"), UI_Str("DRUMROLL"), UI_Str("Balloon"), UI_Str("BALLOON"), };
+								const cstr noteTypeNames[] = { UI_Str("Don"), UI_Str("DON"), UI_Str("Ka"), UI_Str("KA"), UI_Str("Drumroll"), UI_Str("DRUMROLL"), UI_Str("Balloon"), UI_Str("BALLOON"), UI_Str("KADON"), UI_Str("Bomb"), UI_Str("Adlib"), UI_Str("Fuseroll") };
+
 								static_assert(ArrayCount(noteTypeNames) == EnumCount<NoteType>);
 
 								const b8 isSingleNoteType = (commonEqualMemberFlags & EnumToFlag(member));
@@ -1299,6 +1620,32 @@ namespace PeepoDrumKit
 								}
 							}
 						} break;
+						case GenericMember::I8_ScrollType:
+						{
+							Gui::Property::PropertyTextValueFunc(UI_Str("Scroll Type"), [&]
+								{
+									enum class ScrollMethods { NMSCROLL, HBSCROLL, BMSCROLL, Count };
+									const cstr scrollTypeNames[] = { UI_Str("NMSCROLL"), UI_Str("HBSCROLL"), UI_Str("BMSCROLL"), };
+									const i16 selectedType = sharedValues.ScrollType();
+
+									auto v = !(commonEqualMemberFlags & EnumToFlag(member))
+										? ScrollMethods::Count
+										: static_cast<ScrollMethods>(selectedType);
+
+									Gui::PushItemWidth(-1.0f);
+									if (Gui::ComboEnum("##ScrollType", &v, scrollTypeNames, ImGuiComboFlags_None))
+									{
+										for (auto& selectedItem : SelectedItems)
+										{
+											auto& scrollType = selectedItem.MemberValues.ScrollType();
+												selectedItem.MemberValues.BarLineVisible();
+											scrollType = static_cast<i16>(v);
+										}
+										valueWasChanged = true;
+										disableChangePropertiesCommandMerge = true;
+									}
+								});
+						} break;
 						default: { assert(false); } break;
 						}
 
@@ -1374,7 +1721,7 @@ namespace PeepoDrumKit
 					SongFileNameInputBuffer = songIsLoading ? "" : chart.SongFileName;
 
 					Gui::BeginDisabled(songIsLoading);
-					const auto result = Gui::PathInputTextWithHintAndBrowserDialogButton("##SongFileName",
+					const auto result = Gui::PathInputTextWithHintAndBrowserDialogButton("##SongFileName", "...##SongFileName",
 						songIsLoading ? loadingText : "song.ogg", &SongFileNameInputBuffer, songIsLoading ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_EnterReturnsTrue);
 					Gui::EndDisabled();
 
@@ -1388,6 +1735,28 @@ namespace PeepoDrumKit
 						out.BrowseOpenSong = true;
 					}
 				});
+				Gui::Property::PropertyTextValueFunc(UI_Str("Jacket File Name"), [&]
+					{
+						
+						const b8 jacketIsLoading = in.IsJacketAsyncLoading;
+						cstr loadingText = JacketLoadingTextAnimation.UpdateFrameAndGetText(jacketIsLoading, Gui::DeltaTime());
+						JacketFileNameInputBuffer = jacketIsLoading ? "" : chart.SongJacket;
+
+						Gui::BeginDisabled(jacketIsLoading);
+						const auto result = Gui::PathInputTextWithHintAndBrowserDialogButton("##JacketFileName", "...##JacketFileName",
+							jacketIsLoading ? loadingText : "jacket.png", &JacketFileNameInputBuffer, jacketIsLoading ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_EnterReturnsTrue);
+						Gui::EndDisabled();
+
+						if (result.InputTextEdited)
+						{
+							out.LoadNewJacket = true;
+							out.NewJacketFilePath = JacketFileNameInputBuffer;
+						}
+						else if (result.BrowseButtonClicked)
+						{
+							out.BrowseOpenJacket = true;
+						}
+					});
 				Gui::Property::PropertyTextValueFunc(UI_Str("Song Volume"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
@@ -1429,6 +1798,12 @@ namespace PeepoDrumKit
 					Gui::SetNextItemWidth(-1.0f);
 					if (GuiDifficultyLevelStarSliderWidget("##DifficultyLevel", &course.Level, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
 						context.Undo.NotifyChangesWereMade();
+				});
+				Gui::Property::PropertyTextValueFunc(UI_Str("Difficulty Level Decimal"), [&]
+					{
+						Gui::SetNextItemWidth(-1.0f);
+						if (GuiDifficultyDecimalLevelStarSliderWidget("##DifficultyLevelDecimal", &course.Decimal, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
+							context.Undo.NotifyChangesWereMade();
 				});
 #if 0 // TODO:
 				Gui::Property::PropertyTextValueFunc("Score Init (TODO)", [&] { Gui::Text("%d", course.ScoreInit); });
@@ -1620,7 +1995,7 @@ namespace PeepoDrumKit
 				});
 
 				const ScrollChange* scrollChangeChangeAtCursor = course.ScrollChanges.TryFindLastAtBeat(cursorBeat);
-				auto insertOrUpdateCursorScrollSpeedChange = [&](f32 newScrollSpeed)
+				auto insertOrUpdateCursorScrollSpeedChange = [&](Complex newScrollSpeed)
 				{
 					if (scrollChangeChangeAtCursor == nullptr || scrollChangeChangeAtCursor->BeatTime != cursorBeat)
 						context.Undo.Execute<Commands::AddScrollChange>(&course.ScrollChanges, ScrollChange { cursorBeat, newScrollSpeed });
@@ -1631,25 +2006,31 @@ namespace PeepoDrumKit
 				Gui::Property::Property([&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = (scrollChangeChangeAtCursor == nullptr) ? 1.0f : scrollChangeChangeAtCursor->ScrollSpeed;
-						GuiDragLabelFloat(UI_Str("Scroll Speed"), &v, 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
+					if (Complex v = (scrollChangeChangeAtCursor == nullptr) ? Complex(1.0f, 0.0f) : scrollChangeChangeAtCursor->ScrollSpeed;
+						GuiDragLabelFloat(UI_Str("Scroll Speed"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
 						insertOrUpdateCursorScrollSpeedChange(v);
 				});
 				Gui::Property::Value([&]
 				{
-					Gui::SetNextItemWidth(-1.0f); Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
+					Gui::SetNextItemWidth(-1.0f); Gui::SameLineMultiWidget(3, [&](const Gui::MultiWidgetIt& i)
 					{
 						if (i.Index == 0)
 						{
-							if (f32 v = (scrollChangeChangeAtCursor == nullptr) ? 1.0f : scrollChangeChangeAtCursor->ScrollSpeed;
-								Gui::SpinFloat("##ScrollSpeedAtCursor", &v, 0.1f, 0.5f, "%gx"))
-								insertOrUpdateCursorScrollSpeedChange(Clamp(v, MinScrollSpeed, MaxScrollSpeed));
+							if (Complex v = (scrollChangeChangeAtCursor == nullptr)? Complex(1.0f, 0.0f): scrollChangeChangeAtCursor->ScrollSpeed;
+								Gui::SpinFloat("##ScrollSpeedAtCursor", &reinterpret_cast<f32*>(&(v.cpx))[0], 0.1f, 0.5f, "%gx"))
+								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
+						}
+						else if (i.Index == 1)
+						{
+							if (Complex v = (scrollChangeChangeAtCursor == nullptr) ? Complex(1.0f, 0.0f) : scrollChangeChangeAtCursor->ScrollSpeed;
+								Gui::SpinFloat("##ScrollSpeedAtCursorImag", &reinterpret_cast<f32*>(&(v.cpx))[1], 0.1f, 0.5f, "%gix"))
+								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
 						}
 						else
 						{
-							if (f32 v = ScrollSpeedToTempo((scrollChangeChangeAtCursor == nullptr) ? 1.0f : scrollChangeChangeAtCursor->ScrollSpeed, tempoAtCursor).BPM;
+							if (f32 v = ScrollSpeedToTempo((scrollChangeChangeAtCursor == nullptr) ? 1.0f : scrollChangeChangeAtCursor->ScrollSpeed.GetRealPart(), tempoAtCursor).BPM;
 								Gui::SpinFloat("##ScrollTempoAtCursor", &v, 1.0f, 10.0f, "%g BPM"))
-								insertOrUpdateCursorScrollSpeedChange(ScrollTempoToSpeed(Tempo(Clamp(v, MinBPM, MaxBPM)), tempoAtCursor));
+								insertOrUpdateCursorScrollSpeedChange(Complex(ScrollTempoToSpeed(Tempo(Clamp(v, MinBPM, MaxBPM)), tempoAtCursor), 0.0f));
 						}
 						return false;
 					});
@@ -1663,7 +2044,7 @@ namespace PeepoDrumKit
 					else
 					{
 						if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
-							insertOrUpdateCursorScrollSpeedChange((scrollChangeChangeAtCursor != nullptr) ? scrollChangeChangeAtCursor->ScrollSpeed : 1.0f);
+							insertOrUpdateCursorScrollSpeedChange((scrollChangeChangeAtCursor != nullptr) ? scrollChangeChangeAtCursor->ScrollSpeed : Complex(1.0f, 0.0f));
 					}
 					Gui::PopID();
 				});
@@ -1712,6 +2093,123 @@ namespace PeepoDrumKit
 					}
 					Gui::PopID();
 				});
+
+				Gui::Property::PropertyTextValueFunc(UI_Str("Scroll Type"), [&]
+				{
+						const ScrollType* ScrollTypeAtCursor = course.ScrollTypes.TryFindLastAtBeat(cursorBeat);
+						auto insertOrUpdateCursorScrollType = [&](ScrollMethod newMethod)
+						{
+							if (ScrollTypeAtCursor == nullptr || ScrollTypeAtCursor->BeatTime != cursorBeat)
+								context.Undo.Execute<Commands::AddScrollType>(&course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
+							else
+								context.Undo.Execute<Commands::UpdateScrollType>(&course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
+						};
+
+						static constexpr auto guiOnOffButton = [](cstr label, cstr nmLabel, cstr hbLabel, cstr bmLabel, ScrollMethod* currentMethod) -> b8
+						{
+							b8 valueChanged = false;
+
+							cstr labels[3] = {nmLabel, hbLabel, bmLabel};
+							
+
+							Gui::PushID(label); Gui::SameLineMultiWidget(3, [&](const Gui::MultiWidgetIt& i)
+								{
+									const f32 alphaFactor = (i.Index == static_cast<i32>(*currentMethod)) ? 1.0f : 0.5f;
+									Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, alphaFactor));
+									Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, alphaFactor));
+									Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, alphaFactor));
+									if (Gui::Button(labels[i.Index], { Gui::CalcItemWidth(), 0.0f })) { *currentMethod = static_cast<ScrollMethod>(i.Index); valueChanged = true; }
+									Gui::PopStyleColor(3);
+									return false;
+								});
+							Gui::PopID(); return valueChanged;
+						};
+
+						Gui::SetNextItemWidth(-1.0f);
+						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; guiOnOffButton("##ScrollTypeAtCursor", UI_Str("NMSCROLL"), UI_Str("HBSCROLL"), UI_Str("BMSCROLL"), &v))
+							insertOrUpdateCursorScrollType(v);
+
+						Gui::PushID(&course.BarLineChanges);
+						if (!disallowRemoveButton && ScrollTypeAtCursor != nullptr && ScrollTypeAtCursor->BeatTime == cursorBeat)
+						{
+							if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+								context.Undo.Execute<Commands::RemoveScrollType>(&course.ScrollTypes, cursorBeat);
+						}
+						else
+						{
+							if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+								insertOrUpdateCursorScrollType((ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : ScrollMethod::NMSCROLL);
+						}
+						Gui::PopID();
+				});
+
+				const JPOSScrollChange* JPOSScrollChangeAtCursor = course.JPOSScrollChanges.TryFindLastAtBeat(cursorBeat);
+				auto insertOrUpdateCursorJPOSScrollChange = [&](Complex newMove, f32 newDuration)
+				{
+					if (JPOSScrollChangeAtCursor == nullptr || JPOSScrollChangeAtCursor->BeatTime != cursorBeat)
+						context.Undo.Execute<Commands::AddJPOSScroll>(&course.JPOSScrollChanges, JPOSScrollChange{ cursorBeat, newMove, newDuration });
+					else
+						context.Undo.Execute<Commands::UpdateJPOSScroll>(&course.JPOSScrollChanges, JPOSScrollChange{ cursorBeat, newMove, newDuration });
+				};
+
+				Gui::Property::Property([&]
+					{
+						Gui::SetNextItemWidth(-1.0f);
+						if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+							GuiDragLabelFloat(UI_Str("JPOS Scroll"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.5f, MinJPOSScrollMove, MaxJPOSScrollMove, ImGuiSliderFlags_AlwaysClamp))
+							insertOrUpdateCursorJPOSScrollChange(v, (JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration);
+					});
+				Gui::Property::Value([&]
+					{
+						Gui::SetNextItemWidth(-1.0f); Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
+							{
+								if (i.Index == 0)
+								{
+									if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+										Gui::SpinFloat("##JPOSScrollMoveAtCursor", &reinterpret_cast<f32*>(&(v.cpx))[0], 1.f, 5.f, "%gpx"))
+										insertOrUpdateCursorJPOSScrollChange(
+											Complex(Clamp(v.GetRealPart(), MinJPOSScrollMove, MaxJPOSScrollMove), Clamp(v.GetImaginaryPart(), MinJPOSScrollMove, MaxJPOSScrollMove)),
+											(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
+										);
+								}
+								else
+								{
+									if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+										Gui::SpinFloat("##JPOSScrollMoveCursorImag", &reinterpret_cast<f32*>(&(v.cpx))[1], 1.f, 5.f, "%gipx"))
+										insertOrUpdateCursorJPOSScrollChange(
+											Complex(Clamp(v.GetRealPart(), MinJPOSScrollMove, MaxJPOSScrollMove), Clamp(v.GetImaginaryPart(), MinJPOSScrollMove, MaxJPOSScrollMove)),
+											(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
+										);
+								}
+								return false;
+							});
+
+						Gui::SetNextItemWidth(-1.0f);
+						if (f32 v = (JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration;
+							Gui::SpinFloat("##JPOSScrollDurationAtCursor", &v, .1f, .5f, "%gs"))
+							insertOrUpdateCursorJPOSScrollChange(
+								(JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move,
+								Clamp(v, MinJPOSScrollDuration, MaxJPOSScrollDuration)
+							);
+
+						Gui::PushID(&course.JPOSScrollChanges);
+						if (!disallowRemoveButton && JPOSScrollChangeAtCursor != nullptr && JPOSScrollChangeAtCursor->BeatTime == cursorBeat)
+						{
+							if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+								context.Undo.Execute<Commands::RemoveJPOSScroll>(&course.JPOSScrollChanges, cursorBeat);
+						}
+						else
+						{
+							if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+								insertOrUpdateCursorJPOSScrollChange(
+									(JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move,
+									(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
+								);
+						}
+						Gui::PopID();
+					});
+
+
 				Gui::Property::PropertyTextValueFunc(UI_Str("Go-Go Time"), [&]
 				{
 					const GoGoRange* gogoRangeAtCursor = course.GoGoRanges.TryFindOverlappingBeat(cursorBeat, cursorBeat);

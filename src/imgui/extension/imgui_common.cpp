@@ -397,7 +397,7 @@ namespace ImGui
 		return SpinScalar(label, ImGuiDataType_Double, (void*)v, (void*)(step > 0.0 ? &step : nullptr), (void*)(step_fast > 0.0 ? &step_fast : nullptr), format, flags);
 	}
 
-	PathInputTextWithBrowserButtonResult PathInputTextWithHintAndBrowserDialogButton(cstr label, cstr hint, std::string* str, ImGuiInputTextFlags flags)
+	PathInputTextWithBrowserButtonResult PathInputTextWithHintAndBrowserDialogButton(cstr label, cstr labelbutton, cstr hint, std::string* str, ImGuiInputTextFlags flags)
 	{
 		PathInputTextWithBrowserButtonResult result {};
 
@@ -409,7 +409,7 @@ namespace ImGui
 
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { style.FramePadding.y, style.FramePadding.y });
 		ImGui::SameLine(0, style.ItemInnerSpacing.x);
-		result.BrowseButtonClicked = ImGui::Button("...", { buttonSize, buttonSize });
+		result.BrowseButtonClicked = ImGui::Button(labelbutton, { buttonSize, buttonSize });
 		ImGui::PopStyleVar();
 
 		return result;

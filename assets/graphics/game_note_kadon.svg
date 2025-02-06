@@ -4,6 +4,6 @@
     <g id="don_big">
         <circle id="Circle_Outter" cx="80" cy="80" r="80" style="fill:rgb(29,29,29);"/>
         <circle id="Circle_Middle" cx="80" cy="80" r="75" style="fill:rgb(245,237,220);"/>
-        <circle id="Circle_Inner" cx="80" cy="80" r="60" style="fill:rgb(244,183,19);"/>
+        <circle id="Circle_Inner" cx="80" cy="80" r="60" style="fill:rgb(156,39,176);"/>
     </g>
 </svg>

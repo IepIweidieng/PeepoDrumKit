@@ -36,6 +36,11 @@ namespace PeepoDrumKit
 		Audio::WaveformMipChain WaveformL, WaveformR;
 	};
 
+	struct AsyncLoadJacketResult
+	{
+		std::string JacketFilePath;
+	};
+
 	struct ChartEditor
 	{
 	public:
@@ -52,16 +57,20 @@ namespace PeepoDrumKit
 		void UpdateApplicationWindowTitle(const ChartContext& context);
 
 		void CreateNewChart(ChartContext& context);
+		void CreateNewDifficulty(ChartContext& context, DifficultyType difficulty);
 		void SaveChart(ChartContext& context, std::string_view filePath = "");
 		b8 OpenChartSaveAsDialog(ChartContext& context);
 		b8 TrySaveChartOrOpenSaveAsDialog(ChartContext& context);
 
 		void StartAsyncImportingChartFile(std::string_view absoluteChartFilePath);
 		void StartAsyncLoadingSongAudioFile(std::string_view absoluteAudioFilePath);
+		void StartAsyncLoadingSongJacketFile(std::string_view absoluteJacketFilePath);
 		void SetAndStartLoadingChartSongFileName(std::string_view relativeOrAbsoluteAudioFilePath, Undo::UndoHistory& undo);
+		void SetAndStartLoadingSongJacketFileName(std::string_view relativeOrAbsoluteAudioFilePath, Undo::UndoHistory& undo);
 
 		b8 OpenLoadChartFileDialog(ChartContext& context);
 		b8 OpenLoadAudioFileDialog(Undo::UndoHistory& undo);
+		b8 OpenLoadJacketFileDialog(Undo::UndoHistory& undo);
 
 		void CheckOpenSaveConfirmationPopupThenCall(std::function<void()> onSuccess);
 		void InternalUpdateAsyncLoading();
@@ -73,15 +82,18 @@ namespace PeepoDrumKit
 
 		std::future<AsyncImportChartResult> importChartFuture {};
 		std::future<AsyncLoadSongResult> loadSongFuture {};
+		std::future<AsyncLoadJacketResult> loadJacketFuture {};
 		CPUStopwatch loadSongStopwatch = {};
 		b8 createBackupOfOriginalTJABeforeOverwriteSave = false;
 		b8 wasAudioEngineRunningIdleOnFocusLost = false;
 		b8 tryToCloseApplicationOnNextFrame = false;
 
 		b8 focusHelpWindowNextFrame = false;
+		b8 focusUpdateNotesWindowNextFrame = false;
 		b8 focusSettingsWindowNextFrame = false;
 
 		ChartHelpWindow helpWindow = {};
+		ChartUpdateNotesWindow updateNotesWindow = {};
 		ChartUndoHistoryWindow undoHistoryWindow = {};
 		TempoCalculatorWindow tempoCalculatorWindow = {};
 		ChartInspectorWindow chartInspectorWindow = {};

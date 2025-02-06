@@ -750,7 +750,8 @@ namespace CustomDraw
 				D3D11_BIND_SHADER_RESOURCE,
 				(desc.Access == GPUAccessType::Dynamic) ? D3D11_CPU_ACCESS_WRITE : 0u, 0u
 			}),
-			(desc.InitialPixels != nullptr) ? PtrArg(D3D11_SUBRESOURCE_DATA { desc.InitialPixels, static_cast<UINT>(desc.Size.x * 4), 0u }) : nullptr,
+			PtrArg(D3D11_SUBRESOURCE_DATA{ desc.InitialPixels, static_cast<UINT>(desc.Size.x * 4), 0u }),
+			//(desc.InitialPixels != nullptr) ? PtrArg(D3D11_SUBRESOURCE_DATA { desc.InitialPixels, static_cast<UINT>(desc.Size.x * 4), 0u }) : nullptr,
 			&slot->Texture2D);
 		assert(SUCCEEDED(result));
 

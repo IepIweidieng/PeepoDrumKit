@@ -119,4 +119,9 @@ namespace ASCII
 	b8 TryParseI64(std::string_view string, i64& out) { return TryParsePrimitiveTypeT(string, out); }
 	b8 TryParseF32(std::string_view string, f32& out) { return TryParsePrimitiveTypeT(string, out); }
 	b8 TryParseF64(std::string_view string, f64& out) { return TryParsePrimitiveTypeT(string, out); }
+	b8 TryParseCPX(std::string_view string, Complex& out) {
+		std::istringstream in(std::string{string});
+		in >> out;
+		return in.good();
+	}
 }

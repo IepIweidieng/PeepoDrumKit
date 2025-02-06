@@ -95,6 +95,7 @@ namespace PeepoDrumKit
 
 			b8 ShowWindow_TestMenu = false;
 			b8 ShowWindow_Help = true;
+			b8 ShowWindow_UpdateNotes = true;
 			b8 ShowWindow_Settings = true;
 			b8 ShowWindow_AudioTest = false;
 			b8 ShowWindow_TJAImportTest = false;
@@ -172,6 +173,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Editor_Undo = { KeyBinding(ImGuiKey_Z, ImGuiModFlags_Ctrl) };
 			WithDefault<MultiInputBinding> Editor_Redo = { KeyBinding(ImGuiKey_Y, ImGuiModFlags_Ctrl) };
 			WithDefault<MultiInputBinding> Editor_OpenHelp = { KeyBinding(ImGuiKey_F1) };
+			WithDefault<MultiInputBinding> Editor_OpenUpdateNotes = { KeyBinding(ImGuiKey_F2) };
 			WithDefault<MultiInputBinding> Editor_OpenSettings = { KeyBinding(ImGuiKey_Comma, ImGuiModFlags_Ctrl) };
 			WithDefault<MultiInputBinding> Editor_ChartNew = { KeyBinding(ImGuiKey_N, ImGuiModFlags_Ctrl) };
 			WithDefault<MultiInputBinding> Editor_ChartOpen = { KeyBinding(ImGuiKey_O, ImGuiModFlags_Ctrl) };
@@ -220,11 +222,22 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_IncreaseGridDivision = { KeyBinding(ImGuiKey_UpArrow) };
 			WithDefault<MultiInputBinding> Timeline_DecreaseGridDivision = { KeyBinding(ImGuiKey_DownArrow) };
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_4 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_5 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_6 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_7 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_8 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_9 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_10 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_12 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_14 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_16 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_18 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_20 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_24 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_28 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_32 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_36 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_40 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_48 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_64 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_96 = {};

@@ -187,6 +187,108 @@ namespace PeepoDrumKit
 	// NOTE: Chart change commands
 	namespace Commands
 	{
+		struct AddJPOSScroll : Undo::Command
+		{
+			AddJPOSScroll(SortedJPOSScrollChangesList* JPOSScrollChanges, JPOSScrollChange newValue) : JPOSScrollChanges(JPOSScrollChanges), NewValue(newValue) {}
+
+			void Undo() override { JPOSScrollChanges->RemoveAtBeat(NewValue.BeatTime); }
+			void Redo() override { JPOSScrollChanges->InsertOrUpdate(NewValue); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { "Add JPOSScroll" }; }
+
+			SortedJPOSScrollChangesList* JPOSScrollChanges;
+			JPOSScrollChange NewValue;
+		};
+
+		struct RemoveJPOSScroll : Undo::Command
+		{
+			RemoveJPOSScroll(SortedJPOSScrollChangesList* JPOSScrollChanges, Beat beat) : JPOSScrollChanges(JPOSScrollChanges), OldValue(*JPOSScrollChanges->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
+
+			void Undo() override { JPOSScrollChanges->InsertOrUpdate(OldValue); }
+			void Redo() override { JPOSScrollChanges->RemoveAtBeat(OldValue.BeatTime); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { "Remove JPOSScroll" }; }
+
+			SortedJPOSScrollChangesList* JPOSScrollChanges;
+			JPOSScrollChange OldValue;
+		};
+
+		struct UpdateJPOSScroll : Undo::Command
+		{
+			UpdateJPOSScroll(SortedJPOSScrollChangesList* JPOSScrollChanges, JPOSScrollChange newValue) : JPOSScrollChanges(JPOSScrollChanges), NewValue(newValue), OldValue(*JPOSScrollChanges->TryFindExactAtBeat(newValue.BeatTime)) { assert(newValue.BeatTime == OldValue.BeatTime); }
+
+			void Undo() override { JPOSScrollChanges->InsertOrUpdate(OldValue); }
+			void Redo() override { JPOSScrollChanges->InsertOrUpdate(NewValue); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override
+			{
+				auto* other = static_cast<decltype(this)>(&commandToMerge);
+				if (other->JPOSScrollChanges != JPOSScrollChanges || other->NewValue.BeatTime != NewValue.BeatTime)
+					return Undo::MergeResult::Failed;
+
+				NewValue = other->NewValue;
+				return Undo::MergeResult::ValueUpdated;
+			}
+
+			Undo::CommandInfo GetInfo() const override { return { "Update JPOSScroll" }; }
+
+			SortedJPOSScrollChangesList* JPOSScrollChanges;
+			JPOSScrollChange NewValue, OldValue;
+		};
+
+		struct AddScrollType : Undo::Command
+		{
+			AddScrollType(SortedScrollTypesList* scrollTypes, ScrollType newValue) : ScrollTypes(scrollTypes), NewValue(newValue) {}
+
+			void Undo() override { ScrollTypes->RemoveAtBeat(NewValue.BeatTime); }
+			void Redo() override { ScrollTypes->InsertOrUpdate(NewValue); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { "Add Scroll Type" }; }
+
+			SortedScrollTypesList* ScrollTypes;
+			ScrollType NewValue;
+		};
+
+		struct RemoveScrollType : Undo::Command
+		{
+			RemoveScrollType(SortedScrollTypesList* scrollTypes, Beat beat) : ScrollTypes(scrollTypes), OldValue(*ScrollTypes->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
+
+			void Undo() override { ScrollTypes->InsertOrUpdate(OldValue); }
+			void Redo() override { ScrollTypes->RemoveAtBeat(OldValue.BeatTime); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { "Remove Scroll Type" }; }
+
+			SortedScrollTypesList* ScrollTypes;
+			ScrollType OldValue;
+		};
+
+		struct UpdateScrollType : Undo::Command
+		{
+			UpdateScrollType(SortedScrollTypesList* scrollTypes, ScrollType newValue) : ScrollTypes(scrollTypes), NewValue(newValue), OldValue(*ScrollTypes->TryFindExactAtBeat(newValue.BeatTime)) { assert(newValue.BeatTime == OldValue.BeatTime); }
+
+			void Undo() override { ScrollTypes->InsertOrUpdate(OldValue); }
+			void Redo() override { ScrollTypes->InsertOrUpdate(NewValue); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override
+			{
+				auto* other = static_cast<decltype(this)>(&commandToMerge);
+				if (other->ScrollTypes != ScrollTypes || other->NewValue.BeatTime != NewValue.BeatTime)
+					return Undo::MergeResult::Failed;
+
+				NewValue = other->NewValue;
+				return Undo::MergeResult::ValueUpdated;
+			}
+
+			Undo::CommandInfo GetInfo() const override { return { "Update Scroll Type" }; }
+
+			SortedScrollTypesList* ScrollTypes;
+			ScrollType NewValue, OldValue;
+		};
+
 		struct AddScrollChange : Undo::Command
 		{
 			AddScrollChange(SortedScrollChangesList* scrollChanges, ScrollChange newValue) : ScrollChanges(scrollChanges), NewValue(newValue) {}
@@ -740,6 +842,17 @@ namespace PeepoDrumKit
 				GenericList List;
 				GenericMember Member;
 				GenericMemberUnion NewValue, OldValue;
+
+				Data() {
+
+				}
+				Data(const Data& other) {
+					Index = other.Index;
+					List = other.List;
+					Member = other.Member;
+					NewValue = other.NewValue;
+					OldValue = other.OldValue;
+				}
 			};
 
 			ChangeMultipleGenericProperties(ChartCourse* course, std::vector<Data> newData)

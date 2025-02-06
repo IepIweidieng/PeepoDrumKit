@@ -81,9 +81,13 @@ namespace PeepoDrumKit
 				{ "Selected Note Box Background", &TimelineSelectedNoteBoxBackgroundColor },
 				{ "Selected Note Box Border", &TimelineSelectedNoteBoxBorderColor },
 				NamedColorU32Pointer {},
+				{ "Timeline Default Line", &TimelineDefaultLineColor },
 				{ "Timeline Tempo Change Line", &TimelineTempoChangeLineColor },
 				{ "Timeline Signature Change Line", &TimelineSignatureChangeLineColor },
 				{ "Timeline Scroll Change Line", &TimelineScrollChangeLineColor },
+				{ "Timeline Scroll Change (Complex) Line", &TimelineScrollChangeComplexLineColor },
+				{ "Timeline Scroll Type Line", &TimelineScrollTypeLineColor },
+				{ "Timeline JPOSScroll Change Line", &TimelineJPOSScrollChangeLineColor },
 				{ "Timeline Bar Line Change Line", &TimelineBarLineChangeLineColor },
 				{ "Timeline Selected Item Line", &TimelineSelectedItemLineColor },
 				NamedColorU32Pointer {},
@@ -393,6 +397,10 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: { spr = SprID::Timeline_Note_DrumrollBig; } break;
 		case NoteType::Balloon: { spr = SprID::Timeline_Note_Balloon; } break;
 		case NoteType::BalloonSpecial: { spr = SprID::Timeline_Note_BalloonSpecial; } break;
+		case NoteType::KaDon: { spr = SprID::Timeline_Note_KaDon; } break;
+		case NoteType::Adlib: { spr = SprID::Timeline_Note_Adlib; } break;
+		case NoteType::Fuse: { spr = SprID::Timeline_Note_Fuse; } break;
+		case NoteType::Bomb: { spr = SprID::Timeline_Note_Bomb; } break;
 		}
 
 		gfx.DrawSprite(drawList, spr, SprTransform::FromCenter(center, vec2(scale * GuiScaleFactorCurrent)), ImColor(1.0f, 1.0f, 1.0f, alpha));
@@ -411,6 +419,10 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: { spr = SprID::Timeline_Note_DrumrollLongBig; } break;
 		case NoteType::Balloon: { spr = SprID::Timeline_Note_BalloonLong; } break;
 		case NoteType::BalloonSpecial: { spr = SprID::Timeline_Note_BalloonLongSpecial; } break;
+		case NoteType::KaDon: { spr = SprID::Timeline_Note_DrumrollLongBig; } break;
+		case NoteType::Adlib: { spr = SprID::Timeline_Note_DrumrollLong; } break;
+		case NoteType::Fuse: { spr = SprID::Timeline_Note_FuseLong; } break;
+		case NoteType::Bomb: { spr = SprID::Timeline_Note_DrumrollLong; } break;
 		}
 
 		const SprInfo sprInfo = gfx.GetInfo(spr);
@@ -712,11 +724,13 @@ namespace PeepoDrumKit
 
 				Gui::DisableFontPixelSnap(true);
 				{
-					[[maybe_unused]] char b[32]; std::string_view text; u32 lineColor; u32 textColor = TimelineItemTextColor;
+					[[maybe_unused]] char b[32]; std::string_view text; u32 lineColor = TimelineDefaultLineColor; u32 textColor = TimelineItemTextColor;
 					if constexpr (std::is_same_v<T, TempoChange>) { text = std::string_view(b, sprintf_s(b, useCompactFormat ? "%.0f BPM" : "%g BPM", it.Tempo.BPM)); lineColor = TimelineTempoChangeLineColor; }
 					if constexpr (std::is_same_v<T, TimeSignatureChange>) { text = std::string_view(b, sprintf_s(b, "%d/%d", it.Signature.Numerator, it.Signature.Denominator)); lineColor = TimelineSignatureChangeLineColor; textColor = IsTimeSignatureSupported(it.Signature) ? TimelineItemTextColor : TimelineItemTextColorWarning; }
-					if constexpr (std::is_same_v<T, ScrollChange>) { text = std::string_view(b, sprintf_s(b, "%gx", it.ScrollSpeed)); lineColor = TimelineScrollChangeLineColor; }
+					if constexpr (std::is_same_v<T, ScrollChange>) { text = std::string_view(b, sprintf_s(b, "%sx", it.ScrollSpeed.toString().c_str())); lineColor = it.ScrollSpeed.IsReal() ? TimelineScrollChangeLineColor : TimelineScrollChangeComplexLineColor; }
 					if constexpr (std::is_same_v<T, BarLineChange>) { text = it.IsVisible ? "On" : "Off"; lineColor = TimelineBarLineChangeLineColor; }
+					if constexpr (std::is_same_v<T, ScrollType>) { text = std::string_view(b, sprintf_s(b, "%s", it.Method_ToString().c_str())); lineColor = TimelineScrollTypeLineColor; }
+					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s (%g)", it.Move.toString().c_str(), it.Duration)); lineColor = TimelineJPOSScrollChangeLineColor; }
 
 					const vec2 textSize = Gui::CalcTextSize(text);
 					drawListContent->AddRectFilled(vec2(timeline.LocalToScreenSpace(localSpaceTL).x, textPosition.y), textPosition + textSize, TimelineBackgroundColor);
@@ -1152,7 +1166,7 @@ namespace PeepoDrumKit
 				case GenericList::ScrollChanges:
 				{
 					const auto& in = item.Value.POD.Scroll;
-					bufferLength = sprintf_s(buffer, "ScrollSpeed { %d, %g };\n", (in.BeatTime - baseBeat).Ticks, in.ScrollSpeed);
+					bufferLength = sprintf_s(buffer, "ScrollSpeed { %d, %s };\n", (in.BeatTime - baseBeat).Ticks, in.ScrollSpeed.toString().c_str());
 				} break;
 				case GenericList::BarLineChanges:
 				{
@@ -1172,6 +1186,16 @@ namespace PeepoDrumKit
 					out += std::string_view(buffer, sprintf_s(buffer, "%d, ", (in.BeatTime - baseBeat).Ticks));
 					out += in.Lyric;
 					out += " };\n";
+				} break;
+				case GenericList::ScrollType:
+				{
+					const auto& in = item.Value.POD.ScrollType;
+					bufferLength = sprintf_s(buffer, "ScrollType { %d, %d };\n", (in.BeatTime - baseBeat).Ticks, in.Method);
+				} break;
+				case GenericList::JPOSScroll:
+				{
+					const auto& in = item.Value.POD.JPOSScroll;
+					bufferLength = sprintf_s(buffer, "JPOSScroll { %d, %s, %g };\n", (in.BeatTime - baseBeat).Ticks, in.Move.toString().c_str(), in.Duration);
 				} break;
 				default: { assert(false); } break;
 				}
@@ -1223,7 +1247,7 @@ namespace PeepoDrumKit
 				}
 				else
 				{
-					struct { i32 I32; f32 F32; b8 IsValidI32, IsValidF32; } parsedParams[6] = {};
+					struct { i32 I32; f32 F32; Complex CPX; b8 IsValidI32, IsValidF32, IsValidCPX; } parsedParams[6] = {};
 					ASCII::ForEachInCommaSeparatedList(itemParam, [&, paramIndex = 0](std::string_view v) mutable
 					{
 						if (paramIndex < ArrayCount(parsedParams))
@@ -1232,6 +1256,7 @@ namespace PeepoDrumKit
 							{
 								parsedParams[paramIndex].IsValidI32 = ASCII::TryParseI32(v, parsedParams[paramIndex].I32);
 								parsedParams[paramIndex].IsValidF32 = ASCII::TryParseF32(v, parsedParams[paramIndex].F32);
+								parsedParams[paramIndex].IsValidCPX = ASCII::TryParseCPX(v, parsedParams[paramIndex].CPX);
 							}
 						}
 						paramIndex++;
@@ -1271,7 +1296,7 @@ namespace PeepoDrumKit
 						auto& newItemValue = newItem.Value.POD.Scroll;
 						newItemValue = ScrollChange {};
 						newItemValue.BeatTime.Ticks = parsedParams[0].I32;
-						newItemValue.ScrollSpeed = parsedParams[1].F32;
+						newItemValue.ScrollSpeed = parsedParams[1].CPX;
 					}
 					else if (itemType == "BarLine")
 					{
@@ -1288,6 +1313,23 @@ namespace PeepoDrumKit
 						newItemValue = GoGoRange {};
 						newItemValue.BeatTime.Ticks = parsedParams[0].I32;
 						newItemValue.BeatDuration.Ticks = parsedParams[1].I32;
+					}
+					else if (itemType == "ScrollType")
+					{
+						auto& newItem = out.emplace_back(); newItem.List = GenericList::ScrollType;
+						auto& newItemValue = newItem.Value.POD.ScrollType;
+						newItemValue = ScrollType{};
+						newItemValue.BeatTime.Ticks = parsedParams[0].I32;
+						newItemValue.Method = static_cast<ScrollMethod>(parsedParams[1].I32);
+					}
+					else if (itemType == "JPOSScroll")
+					{
+						auto& newItem = out.emplace_back(); newItem.List = GenericList::JPOSScroll;
+						auto& newItemValue = newItem.Value.POD.JPOSScroll;
+						newItemValue = JPOSScrollChange{};
+						newItemValue.BeatTime.Ticks = parsedParams[0].I32;
+						newItemValue.Move = parsedParams[1].CPX;
+						newItemValue.Duration = parsedParams[2].F32;
 					}
 #if PEEPO_DEBUG
 					else { assert(false); }
@@ -1373,6 +1415,8 @@ namespace PeepoDrumKit
 					case GenericList::BarLineChanges: return check(course.BarLineChanges, item.Value.POD.BarLine);
 					case GenericList::GoGoRanges: return check(course.GoGoRanges, item.Value.POD.GoGo);
 					case GenericList::Lyrics: return check(course.Lyrics, item.Value.NonTrivial.Lyric);
+					case GenericList::ScrollType: return check(course.ScrollTypes, item.Value.POD.ScrollType);
+					case GenericList::JPOSScroll: return check(course.JPOSScrollChanges, item.Value.POD.JPOSScroll);
 					default: assert(false); return false;
 					}
 				};
@@ -1616,7 +1660,7 @@ namespace PeepoDrumKit
 				if (ScrollChange* lastScrollChange = course.ScrollChanges.TryFindLastAtBeat(itBeat); lastScrollChange != nullptr && lastScrollChange->BeatTime == itBeat)
 					scrollChangesThatAlreadyExist.push_back(lastScrollChange);
 				else
-					scrollChangesToAdd.push_back(ScrollChange { itBeat, (lastScrollChange != nullptr) ? lastScrollChange->ScrollSpeed : 1.0f });
+					scrollChangesToAdd.push_back(ScrollChange { itBeat, (lastScrollChange != nullptr) ? lastScrollChange->ScrollSpeed : Complex(1.0f, 0.0f) });
 			}
 		});
 
@@ -2096,11 +2140,22 @@ namespace PeepoDrumKit
 				const struct { const WithDefault<MultiInputBinding>& V; i32 BarDivision; } allBindings[] =
 				{
 					{ Settings.Input.Timeline_SetGridDivision_1_4, 4 },
+					{ Settings.Input.Timeline_SetGridDivision_1_5, 5 },
+					{ Settings.Input.Timeline_SetGridDivision_1_6, 6 },
+					{ Settings.Input.Timeline_SetGridDivision_1_7, 7 },
 					{ Settings.Input.Timeline_SetGridDivision_1_8, 8 },
+					{ Settings.Input.Timeline_SetGridDivision_1_9, 9 },
+					{ Settings.Input.Timeline_SetGridDivision_1_10, 10 },
 					{ Settings.Input.Timeline_SetGridDivision_1_12, 12 },
+					{ Settings.Input.Timeline_SetGridDivision_1_14, 14 },
 					{ Settings.Input.Timeline_SetGridDivision_1_16, 16 },
+					{ Settings.Input.Timeline_SetGridDivision_1_18, 18 },
+					{ Settings.Input.Timeline_SetGridDivision_1_20, 20 },
 					{ Settings.Input.Timeline_SetGridDivision_1_24, 24 },
+					{ Settings.Input.Timeline_SetGridDivision_1_28, 28 },
 					{ Settings.Input.Timeline_SetGridDivision_1_32, 32 },
+					{ Settings.Input.Timeline_SetGridDivision_1_36, 36 },
+					{ Settings.Input.Timeline_SetGridDivision_1_40, 40 },
 					{ Settings.Input.Timeline_SetGridDivision_1_48, 48 },
 					{ Settings.Input.Timeline_SetGridDivision_1_64, 64 },
 					{ Settings.Input.Timeline_SetGridDivision_1_96, 96 },
@@ -2551,7 +2606,19 @@ namespace PeepoDrumKit
 				const Beat minVisibleBeat = FloorBeatToGrid(context.TimeToBeat(minMaxVisibleTime.Min), gridBeatSnap) - gridBeatSnap;
 				const Beat maxVisibleBeat = CeilBeatToGrid(context.TimeToBeat(minMaxVisibleTime.Max), gridBeatSnap) + gridBeatSnap;
 
-				const u32 gridSnapLineColor = Gui::ColorU32WithAlpha(IsTupletBarDivision(CurrentGridBarDivision) ? TimelineGridSnapTupletLineColor : TimelineGridSnapLineColor, GridSnapLineAnimationCurrent);
+				const u32 gridColorHex = IsTupletBarDivision(CurrentGridBarDivision)
+					? TimelineGridSnapTupletLineColor
+					: IsQuintupletBarDivision(CurrentGridBarDivision)
+					? TimelineGridSnapQuintupletLineColor
+					: IsSeptupletBarDivision(CurrentGridBarDivision)
+					? TimelineGridSnapSeptupletLineColor
+					: TimelineGridSnapLineColor
+					;
+
+
+				const u32 gridSnapLineColor = Gui::ColorU32WithAlpha(
+					gridColorHex,
+					GridSnapLineAnimationCurrent);
 				for (Beat beatIt = ClampBot(minVisibleBeat, Beat::Zero()); beatIt <= ClampTop(maxVisibleBeat, context.TimeToBeat(context.Chart.GetDurationOrDefault())); beatIt += gridBeatSnap)
 				{
 					const vec2 screenSpaceTL = LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatIt)), 0.0f));
@@ -2647,6 +2714,8 @@ namespace PeepoDrumKit
 				case TimelineRowType::BarLineVisibility: DrawTimelineContentItemRowT<BarLineChange, TimelineRowType::BarLineVisibility>(rowParam, rowIt, context.ChartSelectedCourse->BarLineChanges); break;
 				case TimelineRowType::GoGoTime: DrawTimelineContentItemRowT<GoGoRange, TimelineRowType::GoGoTime>(rowParam, rowIt, context.ChartSelectedCourse->GoGoRanges); break;
 				case TimelineRowType::Lyrics: DrawTimelineContentItemRowT<LyricChange, TimelineRowType::Lyrics>(rowParam, rowIt, context.ChartSelectedCourse->Lyrics); break;
+				case TimelineRowType::ScrollType: DrawTimelineContentItemRowT<ScrollType, TimelineRowType::ScrollType>(rowParam, rowIt, context.ChartSelectedCourse->ScrollTypes); break;
+				case TimelineRowType::JPOSScroll: DrawTimelineContentItemRowT<JPOSScrollChange, TimelineRowType::JPOSScroll>(rowParam, rowIt, context.ChartSelectedCourse->JPOSScrollChanges); break;
 				default: { assert(!"Missing TimelineRowType switch case"); } break;
 				}
 			});

@@ -38,6 +38,7 @@ namespace PeepoDrumKit
 		ChartGraphicsResources Gfx;
 
 		std::string SongSourceFilePath;
+		std::string SongJacketFilePath;
 		Audio::WaveformMipChain SongWaveformL;
 		Audio::WaveformMipChain SongWaveformR;
 		f32 SongWaveformFadeAnimationCurrent = 0.0f;

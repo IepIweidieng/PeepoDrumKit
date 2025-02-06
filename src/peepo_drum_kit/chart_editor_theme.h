@@ -80,6 +80,8 @@ namespace PeepoDrumKit
 	inline u32 TimelineGridBeatLineColor = 0x2D7D7D7D;
 	inline u32 TimelineGridSnapLineColor = 0x1A7D7D7D;
 	inline u32 TimelineGridSnapTupletLineColor = 0x1A22BBBC;
+	inline u32 TimelineGridSnapQuintupletLineColor = 0x1AB3BC22;
+	inline u32 TimelineGridSnapSeptupletLineColor = 0x1AFF97FF;
 
 	inline u32 TimelineBoxSelectionBackgroundColor = 0x262E8F5E;
 	inline u32 TimelineBoxSelectionBorderColor = 0xFF2E8F5E;
@@ -91,11 +93,16 @@ namespace PeepoDrumKit
 	inline u32 TimelineSelectedNoteBoxBackgroundColor = 0x0AD0D0D0;
 	inline u32 TimelineSelectedNoteBoxBorderColor = 0x60E0E0E0;
 
+	inline u32 TimelineDefaultLineColor = 0xDCFFFFFF;
 	inline u32 TimelineTempoChangeLineColor = 0xDC314CD8;
 	inline u32 TimelineSignatureChangeLineColor = 0xDC22BEE2;
 	inline u32 TimelineScrollChangeLineColor = 0xDC6CA71E;
+	inline u32 TimelineScrollChangeComplexLineColor = 0xDC1DA386;
 	inline u32 TimelineBarLineChangeLineColor = 0xDCBE9E2C;
+	inline u32 TimelineScrollTypeLineColor = 0xDCE2E222;
+	inline u32 TimelineJPOSScrollChangeLineColor = 0xDC7B22D4;
 	inline u32 TimelineSelectedItemLineColor = 0xDCFFFFFF;
+	
 
 	inline u32 TimelineSongDemoStartMarkerColorFill = 0x3B75AD85;
 	inline u32 TimelineSongDemoStartMarkerColorBorder = 0xB375AD85;
@@ -111,6 +118,7 @@ namespace PeepoDrumKit
 	inline u32 NoteColorRed = 0xFF2B41F3;
 	inline u32 NoteColorBlue = 0xFFC2C351;
 	inline u32 NoteColorOrange = 0xFF0078FD;
+	inline u32 NoteColorPurple = 0xFF780078;
 	inline u32 NoteColorYellow = 0xFF13B7F4;
 	inline u32 NoteColorWhite = 0xFFDEEDF5;
 	inline u32 NoteColorBlack = 0xFF1E1E1E;
@@ -127,6 +135,10 @@ namespace PeepoDrumKit
 		&NoteColorYellow,	// Start_DrumrollBig
 		&NoteColorOrange,	// Start_Balloon
 		&NoteColorOrange,	// Start_SpecialBaloon
+		&NoteColorPurple,	// KaDon
+		&NoteColorBlack,	// Bomb
+		&NoteColorWhite,	// Adlib
+		&NoteColorPurple,	// Fuse
 	};
 	static_assert(ArrayCount(NoteTypeToColorMap) == EnumCount<NoteType>);
 

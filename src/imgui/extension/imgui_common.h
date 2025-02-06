@@ -4,6 +4,7 @@
 #include "imgui/3rdparty/imgui_internal.h"
 #include <string>
 
+
 namespace ImGui
 {
 	constexpr const char* StringViewStart(std::string_view stringView) { return stringView.data(); }
@@ -59,7 +60,7 @@ namespace ImGui
 	b8 SpinDouble(cstr label, f64* v, f64 step = 0.0, f64 step_fast = 0.0, cstr format = "%.6f", ImGuiInputTextFlags flags = 0);
 
 	struct PathInputTextWithBrowserButtonResult { b8 InputTextEdited; b8 BrowseButtonClicked; };
-	PathInputTextWithBrowserButtonResult PathInputTextWithHintAndBrowserDialogButton(cstr label, cstr hint, std::string* str, ImGuiInputTextFlags flags = 0);
+	PathInputTextWithBrowserButtonResult PathInputTextWithHintAndBrowserDialogButton(cstr label, cstr labelbutton, cstr hint, std::string* str, ImGuiInputTextFlags flags = 0);
 
 	// NOTE: As noted in https://github.com/ocornut/imgui/issues/3556
 	inline b8 IsItemBeingEditedAsText() { return ImGui::IsItemActive() && ImGui::TempInputIsActive(ImGui::GetActiveID()); }

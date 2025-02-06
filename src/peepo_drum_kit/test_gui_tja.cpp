@@ -42,6 +42,7 @@ namespace PeepoDrumKit
 		"Set Lyric Line",
 		"BM Scroll",
 		"HB Scroll",
+		"NM Scroll",
 		"SE Note Change",
 		"Set Next Song",
 		"Change Direction",
@@ -65,6 +66,9 @@ namespace PeepoDrumKit
 		u8"OO",
 		u8"XX",
 		u8"?",
+		u8"#",
+		u8"V",
+		u8"#->",
 	};
 	static_assert(ArrayCount(TJANoteTypeNames) == EnumCount<TJA::NoteType>);
 
@@ -303,9 +307,10 @@ namespace PeepoDrumKit
 				const TJA::ParsedCourse& course = LoadedTJAFile.Parsed.Courses[courseIndex];
 
 				char tabNameBuffer[64];
-				sprintf_s(tabNameBuffer, "%s x%d (%s)###Course[%zu]",
+				sprintf_s(tabNameBuffer, "%s x%d%s (%s)###Course[%zu]",
 					TJADifficultyTypeNames[EnumToIndex(course.Metadata.COURSE)],
 					course.Metadata.LEVEL,
+					(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : "-"),
 					TJAStyleModeNames[EnumToIndex(course.Metadata.STYLE)],
 					courseIndex);
 
@@ -337,6 +342,7 @@ namespace PeepoDrumKit
 							char b[256];
 							row("Difficulty Type", TJADifficultyTypeNames[EnumToIndex(metadata.COURSE)]);
 							row("Difficulty Level", std::string_view(b, sprintf_s(b, "%d", metadata.LEVEL)));
+
 							row("Score Init", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREINIT)));
 							row("Score Diff", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREDIFF)));
 							row("Style", TJAStyleModeNames[EnumToIndex(metadata.STYLE)]);
@@ -394,7 +400,7 @@ namespace PeepoDrumKit
 							case TJA::ParsedChartCommandType::ChangeTimeSignature: { sprintf_s(paramBuffer, "%d / %d", param.ChangeTimeSignature.Value.Numerator, param.ChangeTimeSignature.Value.Denominator); } break;
 							case TJA::ParsedChartCommandType::ChangeTempo: { sprintf_s(paramBuffer, "%g BPM", param.ChangeTempo.Value.BPM); } break;
 							case TJA::ParsedChartCommandType::ChangeDelay: { sprintf_s(paramBuffer, "%g sec", param.ChangeDelay.Value.Seconds); } break;
-							case TJA::ParsedChartCommandType::ChangeScrollSpeed: { sprintf_s(paramBuffer, "%gx", param.ChangeScrollSpeed.Value); } break;
+							case TJA::ParsedChartCommandType::ChangeScrollSpeed: { sprintf_s(paramBuffer, "%gx", param.ChangeScrollSpeed.Value.GetRealPart()); } break;
 							case TJA::ParsedChartCommandType::ChangeBarLine: { sprintf_s(paramBuffer, "%s", param.ChangeBarLine.Visible ? "On" : "Off"); } break;
 							case TJA::ParsedChartCommandType::GoGoStart: {} break;
 							case TJA::ParsedChartCommandType::GoGoEnd: {} break;
@@ -408,11 +414,12 @@ namespace PeepoDrumKit
 							case TJA::ParsedChartCommandType::SetLyricLine: {} break;
 							case TJA::ParsedChartCommandType::BMScroll: {} break;
 							case TJA::ParsedChartCommandType::HBScroll: {} break;
+							case TJA::ParsedChartCommandType::NMScroll: {} break;
 							case TJA::ParsedChartCommandType::SENoteChange: {} break;
 							case TJA::ParsedChartCommandType::SetNextSong: {} break;
 							case TJA::ParsedChartCommandType::ChangeDirection: {} break;
 							case TJA::ParsedChartCommandType::SetSudden: {} break;
-							case TJA::ParsedChartCommandType::SetScrollTransition: {} break;
+							case TJA::ParsedChartCommandType::SetJPOSScroll: {} break;
 							default: {} break;
 							}
 

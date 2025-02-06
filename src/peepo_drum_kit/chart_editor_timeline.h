@@ -76,6 +76,8 @@ namespace PeepoDrumKit
 		BarLineVisibility,
 		GoGoTime,
 		Lyrics,
+		ScrollType,
+		JPOSScroll,
 		Count,
 
 		NoteBranches_First = Notes_Normal,
@@ -93,6 +95,8 @@ namespace PeepoDrumKit
 		"Bar Line Visibility",
 		"Go-Go Time",
 		"Lyrics",
+		"Scroll Type",
+		"JPOS Scroll",
 	};
 
 	constexpr GenericList TimelineRowToGenericList(TimelineRowType row)
@@ -108,6 +112,8 @@ namespace PeepoDrumKit
 		case TimelineRowType::BarLineVisibility: return GenericList::BarLineChanges;
 		case TimelineRowType::GoGoTime: return GenericList::GoGoRanges;
 		case TimelineRowType::Lyrics: return GenericList::Lyrics;
+		case TimelineRowType::ScrollType: return GenericList::ScrollType;
+		case TimelineRowType::JPOSScroll: return GenericList::JPOSScroll;
 		default: assert(false); return GenericList::Count;
 		}
 	}
@@ -125,6 +131,8 @@ namespace PeepoDrumKit
 		case GenericList::BarLineChanges: return TimelineRowType::BarLineVisibility;
 		case GenericList::GoGoRanges: return TimelineRowType::GoGoTime;
 		case GenericList::Lyrics: return TimelineRowType::Lyrics;
+		case GenericList::ScrollType: return TimelineRowType::ScrollType;
+		case GenericList::JPOSScroll: return TimelineRowType::JPOSScroll;
 		default: assert(false); return TimelineRowType::Count;
 		}
 	}
@@ -152,8 +160,10 @@ namespace PeepoDrumKit
 		Rect ContentScrollbarX;
 	};
 
-	static_assert((Beat::TicksPerBeat * 4) == 192);
-	constexpr i32 AllowedGridBarDivisions[] = { 4, 8, 12, 16, 24, 32, 48, 64, 96, 192 };
+	//static_assert((Beat::TicksPerBeat * 4) == 192);
+	static_assert((Beat::TicksPerBeat * 4) == 20160);
+	//constexpr i32 AllowedGridBarDivisions[] = { 4, 8, 12, 16, 24, 32, 48, 64, 96, 192 };
+	constexpr i32 AllowedGridBarDivisions[] = { 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64, 96, 192 };
 
 	// NOTE: Nudge the startup camera position and min scrollbar.x slightly to the left
 	//		 so that a line drawn at worldspace position { x = 0.0f } is fully visible

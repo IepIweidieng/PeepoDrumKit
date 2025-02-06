@@ -46,7 +46,7 @@ namespace PeepoDrumKit
 						case GenericMember::B8_IsSelected: { memberName = "IsSelected"; isSame = (valueA.B8 == valueB.B8); } break;
 						case GenericMember::B8_BarLineVisible: { memberName = "IsVisible"; isSame = (valueA.B8 == valueB.B8); } break;
 						case GenericMember::I16_BalloonPopCount: { memberName = "BalloonPopCount"; isSame = (valueA.I16 == valueB.I16); } break;
-						case GenericMember::F32_ScrollSpeed: { memberName = "ScrollSpeed"; isSame = ApproxmiatelySame(valueA.F32, valueB.F32); } break;
+						case GenericMember::F32_ScrollSpeed: { memberName = "ScrollSpeed"; isSame = ApproxmiatelySame(valueA.CPX, valueB.CPX); } break;
 						case GenericMember::Beat_Start: { memberName = "BeatStart"; isSame = (valueA.Beat == valueB.Beat); } break;
 						case GenericMember::Beat_Duration: { memberName = "BeatDuration"; isSame = (valueA.Beat == valueB.Beat); } break;
 						case GenericMember::Time_Offset: { memberName = "TimeOffset"; isSame = ApproxmiatelySame(valueA.Time.Seconds, valueB.Time.Seconds); } break;
@@ -54,6 +54,7 @@ namespace PeepoDrumKit
 						case GenericMember::Tempo_V: { memberName = "Tempo"; isSame = ApproxmiatelySame(valueA.Tempo.BPM, valueB.Tempo.BPM); } break;
 						case GenericMember::TimeSignature_V: { memberName = "TimeSignature"; isSame = (valueA.TimeSignature == valueB.TimeSignature); } break;
 						case GenericMember::CStr_Lyric: { memberName = "Lyric"; isSame = safeCStrAreSame(valueA.CStr, valueB.CStr); } break;
+						case GenericMember::I8_ScrollType: { memberName = "ScrollType"; isSame = (valueA.I16 == valueB.I16); } break;
 						}
 
 						if (!isSame)
@@ -83,7 +84,10 @@ namespace PeepoDrumKit
 		case TJA::NoteType::Start_BaloonSpecial: return NoteType::BalloonSpecial;
 		case TJA::NoteType::DonBigBoth: return NoteType::Count;
 		case TJA::NoteType::KaBigBoth: return NoteType::Count;
-		case TJA::NoteType::Hidden: return NoteType::Count;
+		case TJA::NoteType::Hidden: return NoteType::Adlib;
+		case TJA::NoteType::Bomb: return NoteType::Bomb;
+		case TJA::NoteType::KaDon: return NoteType::KaDon;
+		case TJA::NoteType::Fuse: return NoteType::Fuse;
 		default: return NoteType::Count;
 		}
 	}
@@ -100,6 +104,10 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: return TJA::NoteType::Start_DrumrollBig;
 		case NoteType::Balloon: return TJA::NoteType::Start_Balloon;
 		case NoteType::BalloonSpecial: return TJA::NoteType::Start_BaloonSpecial;
+		case NoteType::KaDon: return TJA::NoteType::KaDon;
+		case NoteType::Adlib: return TJA::NoteType::Hidden;
+		case NoteType::Fuse: return TJA::NoteType::Fuse;
+		case NoteType::Bomb: return TJA::NoteType::Bomb;
 		default: return TJA::NoteType::None;
 		}
 	}
@@ -140,6 +148,7 @@ namespace PeepoDrumKit
 		out.SongOffset = inTJA.Metadata.OFFSET;
 		out.SongDemoStartTime = inTJA.Metadata.DEMOSTART;
 		out.SongFileName = inTJA.Metadata.WAVE;
+		out.SongJacket = inTJA.Metadata.PREIMAGE;
 		out.SongVolume = inTJA.Metadata.SONGVOL;
 		out.SoundEffectVolume = inTJA.Metadata.SEVOL;
 		out.BackgroundImageFileName = inTJA.Metadata.BGIMAGE;
@@ -153,6 +162,7 @@ namespace PeepoDrumKit
 			// HACK: Write proper enum conversion functions
 			outCourse.Type = Clamp(static_cast<DifficultyType>(inCourse.CourseMetadata.COURSE), DifficultyType {}, DifficultyType::Count);
 			outCourse.Level = Clamp(static_cast<DifficultyLevel>(inCourse.CourseMetadata.LEVEL), DifficultyLevel::Min, DifficultyLevel::Max);
+			outCourse.Decimal = Clamp(static_cast<DifficultyLevelDecimal>(inCourse.CourseMetadata.LEVEL_DECIMALTAG), DifficultyLevelDecimal::None, DifficultyLevelDecimal::Max);
 			outCourse.CourseCreator = inCourse.CourseMetadata.NOTESDESIGNER;
 
 			outCourse.TempoMap.Tempo.Sorted = { TempoChange(Beat::Zero(), inTJA.Metadata.BPM) };
@@ -192,7 +202,7 @@ namespace PeepoDrumKit
 					const TempTimedDelayCommand* delayCommandForThisNote = tempDelayCommandsIt.Next(tempSortedDelayCommands.Sorted, outNote.BeatTime);
 					outNote.TimeOffset = (delayCommandForThisNote != nullptr) ? delayCommandForThisNote->Delay : Time::Zero();
 
-					if (inNote.Type == TJA::NoteType::Start_Balloon || inNote.Type == TJA::NoteType::Start_BaloonSpecial)
+					if (inNote.Type == TJA::NoteType::Start_Balloon || inNote.Type == TJA::NoteType::Start_BaloonSpecial || inNote.Type == TJA::NoteType::Fuse)
 					{
 						// TODO: Implement properly with correct branch handling
 						if (InBounds(currentBalloonIndex, inCourse.CourseMetadata.BALLOON))
@@ -212,6 +222,13 @@ namespace PeepoDrumKit
 
 				for (const TJA::ConvertedScrollChange& inScrollChange : inMeasure.ScrollChanges)
 					outCourse.ScrollChanges.Sorted.push_back(ScrollChange { (inMeasure.StartTime + inScrollChange.TimeWithinMeasure), inScrollChange.ScrollSpeed });
+
+				for (const TJA::ConvertedScrollType& inScrollType : inMeasure.ScrollTypes)
+					outCourse.ScrollTypes.Sorted.push_back(ScrollType{ (inMeasure.StartTime + inScrollType.TimeWithinMeasure),  static_cast<ScrollMethod>(inScrollType.Method) });
+
+				for (const TJA::ConvertedJPOSScroll& inJPOSScrollChange : inMeasure.JPOSScrollChanges)
+					outCourse.JPOSScrollChanges.Sorted.push_back(JPOSScrollChange{ (inMeasure.StartTime + inJPOSScrollChange.TimeWithinMeasure), inJPOSScrollChange.Move, inJPOSScrollChange.Duration });
+
 
 				for (const TJA::ConvertedBarLineChange& barLineChange : inMeasure.BarLineChanges)
 					outCourse.BarLineChanges.Sorted.push_back(BarLineChange { (inMeasure.StartTime + barLineChange.TimeWithinMeasure), barLineChange.Visibile });
@@ -259,6 +276,7 @@ namespace PeepoDrumKit
 		out.Metadata.OFFSET = in.SongOffset;
 		out.Metadata.DEMOSTART = in.SongDemoStartTime;
 		out.Metadata.WAVE = in.SongFileName;
+		out.Metadata.PREIMAGE = in.SongJacket;
 		out.Metadata.SONGVOL = in.SongVolume;
 		out.Metadata.SEVOL = in.SoundEffectVolume;
 		out.Metadata.BGIMAGE = in.BackgroundImageFileName;
@@ -289,6 +307,7 @@ namespace PeepoDrumKit
 			// HACK: Write proper enum conversion functions
 			outCourse.Metadata.COURSE = static_cast<TJA::DifficultyType>(inCourse.Type);
 			outCourse.Metadata.LEVEL = static_cast<i32>(inCourse.Level);
+			outCourse.Metadata.LEVEL_DECIMALTAG = static_cast<i32>(inCourse.Decimal);
 			outCourse.Metadata.NOTESDESIGNER = inCourse.CourseCreator;
 			for (const Note& inNote : inCourse.Notes_Normal) if (IsBalloonNote(inNote.Type)) { outCourse.Metadata.BALLOON.push_back(inNote.BalloonPopCount); }
 			outCourse.Metadata.SCOREINIT = inCourse.ScoreInit;
@@ -365,6 +384,20 @@ namespace PeepoDrumKit
 					outConvertedMeasure->ScrollChanges.push_back(TJA::ConvertedScrollChange { (inScroll.BeatTime - outConvertedMeasure->StartTime), inScroll.ScrollSpeed });
 			}
 
+			for (const ScrollType& inScrollType : inCourse.ScrollTypes)
+			{
+				TJA::ConvertedMeasure* outConvertedMeasure = tryFindMeasureForBeat(outConvertedMeasures, inScrollType.BeatTime);
+				if (assert(outConvertedMeasure != nullptr); outConvertedMeasure != nullptr)
+					outConvertedMeasure->ScrollTypes.push_back(TJA::ConvertedScrollType { (inScrollType.BeatTime - outConvertedMeasure->StartTime), static_cast<i8>(inScrollType.Method) });
+			}
+
+			for (const JPOSScrollChange& JPOSScroll : inCourse.JPOSScrollChanges)
+			{
+				TJA::ConvertedMeasure* outConvertedMeasure = tryFindMeasureForBeat(outConvertedMeasures, JPOSScroll.BeatTime);
+				if (assert(outConvertedMeasure != nullptr); outConvertedMeasure != nullptr)
+					outConvertedMeasure->JPOSScrollChanges.push_back(TJA::ConvertedJPOSScroll { (JPOSScroll.BeatTime - outConvertedMeasure->StartTime), JPOSScroll.Move, JPOSScroll.Duration });
+			}
+
 			for (const BarLineChange& barLineChange : inCourse.BarLineChanges)
 			{
 				TJA::ConvertedMeasure* outConvertedMeasure = tryFindMeasureForBeat(outConvertedMeasures, barLineChange.BeatTime);
@@ -407,6 +440,8 @@ namespace PeepoDrumKit
 		case GenericList::BarLineChanges: return { &in.POD.BarLine.BeatTime, nullptr };
 		case GenericList::GoGoRanges: return { &in.POD.GoGo.BeatTime, &in.POD.GoGo.BeatDuration };
 		case GenericList::Lyrics: return { &in.NonTrivial.Lyric.BeatTime, nullptr };
+		case GenericList::ScrollType: return { &in.POD.ScrollType.BeatTime, nullptr };
+		case GenericList::JPOSScroll: return { &in.POD.JPOSScroll.BeatTime, nullptr };
 		default: assert(false); return { nullptr, nullptr };
 		}
 	}
@@ -434,7 +469,7 @@ namespace PeepoDrumKit
 		case GenericMember::B8_IsSelected: return sizeof(b8);
 		case GenericMember::B8_BarLineVisible: return sizeof(b8);
 		case GenericMember::I16_BalloonPopCount: return sizeof(i16);
-		case GenericMember::F32_ScrollSpeed: return sizeof(f32);
+		case GenericMember::F32_ScrollSpeed: return sizeof(Complex);
 		case GenericMember::Beat_Start: return sizeof(Beat);
 		case GenericMember::Beat_Duration: return sizeof(Beat);
 		case GenericMember::Time_Offset: return sizeof(Time);
@@ -442,6 +477,9 @@ namespace PeepoDrumKit
 		case GenericMember::Tempo_V: return sizeof(Tempo);
 		case GenericMember::TimeSignature_V: return sizeof(TimeSignature);
 		case GenericMember::CStr_Lyric: return sizeof(cstr);
+		case GenericMember::I8_ScrollType: return sizeof(i8);
+		case GenericMember::F32_JPOSScroll: return sizeof(Complex);
+		case GenericMember::F32_JPOSScrollDuration: return sizeof(f32);
 		default: assert(false); return 0;
 		}
 	}
@@ -459,6 +497,8 @@ namespace PeepoDrumKit
 		case GenericList::BarLineChanges: return course.BarLineChanges.size();
 		case GenericList::GoGoRanges: return course.GoGoRanges.size();
 		case GenericList::Lyrics: return course.Lyrics.size();
+		case GenericList::ScrollType: return course.ScrollTypes.size();
+		case GenericList::JPOSScroll: return course.JPOSScrollChanges.size();
 		default: assert(false); return 0;
 		}
 	}
@@ -483,6 +523,10 @@ namespace PeepoDrumKit
 			return GenericMemberFlags_IsSelected | GenericMemberFlags_Start | GenericMemberFlags_Duration;
 		case GenericList::Lyrics:
 			return GenericMemberFlags_IsSelected | GenericMemberFlags_Start | GenericMemberFlags_Lyric;
+		case GenericList::ScrollType: 
+			return GenericMemberFlags_IsSelected | GenericMemberFlags_ScrollType | GenericMemberFlags_Start;
+		case GenericList::JPOSScroll: 
+			return GenericMemberFlags_IsSelected | GenericMemberFlags_JPOSScroll | GenericMemberFlags_JPOSScrollDuration | GenericMemberFlags_Start;
 		default:
 			assert(false); return GenericMemberFlags_None;
 		}
@@ -573,6 +617,27 @@ namespace PeepoDrumKit
 				case GenericMember::CStr_Lyric: return vector[index].Lyric.data();
 				}
 			} break;
+		case GenericList::ScrollType:
+			if (auto& vector = *const_cast<SortedScrollTypesList*>(&course.ScrollTypes); index < vector.size())
+			{
+				switch (member)
+				{
+				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
+				case GenericMember::I8_ScrollType: return &vector[index].Method;
+				case GenericMember::Beat_Start: return &vector[index].BeatTime;
+				}
+			} break;
+		case GenericList::JPOSScroll:
+			if (auto& vector = *const_cast<SortedJPOSScrollChangesList*>(&course.JPOSScrollChanges); index < vector.size())
+			{
+				switch (member)
+				{
+				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
+				case GenericMember::F32_JPOSScroll: return &vector[index].Move;
+				case GenericMember::F32_JPOSScrollDuration: return &vector[index].Duration;
+				case GenericMember::Beat_Start: return &vector[index].BeatTime;
+				}
+			} break;
 		default:
 			assert(false); break;
 		}
@@ -618,6 +683,8 @@ namespace PeepoDrumKit
 		case GenericList::BarLineChanges: if (InBounds(index, course.BarLineChanges)) { outValue.POD.BarLine = course.BarLineChanges[index]; return true; } break;
 		case GenericList::GoGoRanges: if (InBounds(index, course.GoGoRanges)) { outValue.POD.GoGo = course.GoGoRanges[index]; return true; } break;
 		case GenericList::Lyrics: if (InBounds(index, course.Lyrics)) { outValue.NonTrivial.Lyric = course.Lyrics[index]; return true; } break;
+		case GenericList::ScrollType: if (InBounds(index, course.ScrollTypes)) { outValue.POD.ScrollType = course.ScrollTypes[index]; return true; } break;
+		case GenericList::JPOSScroll: if (InBounds(index, course.JPOSScrollChanges)) { outValue.POD.JPOSScroll = course.JPOSScrollChanges[index]; return true; } break;
 		default: assert(false); break;
 		}
 		return false;
@@ -636,6 +703,8 @@ namespace PeepoDrumKit
 		case GenericList::BarLineChanges: if (InBounds(index, course.BarLineChanges)) { course.BarLineChanges[index] = inValue.POD.BarLine; return true; } break;
 		case GenericList::GoGoRanges: if (InBounds(index, course.GoGoRanges)) { course.GoGoRanges[index] = inValue.POD.GoGo; return true; } break;
 		case GenericList::Lyrics: if (InBounds(index, course.Lyrics)) { course.Lyrics[index] = inValue.NonTrivial.Lyric; return true; } break;
+		case GenericList::ScrollType: if (InBounds(index, course.ScrollTypes)) { course.ScrollTypes[index] = inValue.POD.ScrollType; return true; } break;
+		case GenericList::JPOSScroll: if (InBounds(index, course.JPOSScrollChanges)) { course.JPOSScrollChanges[index] = inValue.POD.JPOSScroll; return true; } break;
 		default: assert(false); break;
 		}
 		return false;
@@ -654,6 +723,8 @@ namespace PeepoDrumKit
 		case GenericList::BarLineChanges: { course.BarLineChanges.InsertOrUpdate(inValue.POD.BarLine); return true; } break;
 		case GenericList::GoGoRanges: { course.GoGoRanges.InsertOrUpdate(inValue.POD.GoGo); return true; } break;
 		case GenericList::Lyrics: { course.Lyrics.InsertOrUpdate(std::move(inValue.NonTrivial.Lyric)); return true; } break;
+		case GenericList::ScrollType: { course.ScrollTypes.InsertOrUpdate(inValue.POD.ScrollType); return true; } break;
+		case GenericList::JPOSScroll: { course.JPOSScrollChanges.InsertOrUpdate(inValue.POD.JPOSScroll); return true; } break;
 		default: assert(false); break;
 		}
 		return false;
@@ -677,6 +748,8 @@ namespace PeepoDrumKit
 		case GenericList::BarLineChanges: { course.BarLineChanges.RemoveAtBeat(beatToRemove); return true; } break;
 		case GenericList::GoGoRanges: { course.GoGoRanges.RemoveAtBeat(beatToRemove); return true; } break;
 		case GenericList::Lyrics: { course.Lyrics.RemoveAtBeat(beatToRemove); return true; } break;
+		case GenericList::ScrollType: { course.ScrollTypes.RemoveAtBeat(beatToRemove); return true; } break;
+		case GenericList::JPOSScroll: { course.JPOSScrollChanges.RemoveAtBeat(beatToRemove); return true; } break;
 		default: assert(false); break;
 		}
 		return false;

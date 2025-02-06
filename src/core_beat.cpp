@@ -83,6 +83,89 @@ Time TempoMapAccelerationStructure::GetLastCalculatedTime() const
 	return BeatTickToTimes.empty() ? Time::Zero() : BeatTickToTimes.back();
 }
 
+Time TempoMapAccelerationStructure::GetHBSCROLLApproachTime(f32 scrollSpeed, Time cursorTime, Time noteTime, const std::vector<TempoChange>& tempos) const
+{
+	f32 approachTimeDelta = (noteTime - cursorTime).ToSec_F32();
+	if (approachTimeDelta == 0) return Time(0);
+
+	f32 hbscrollTime = 0;
+	f32 playBackTime = cursorTime.ToSec_F32();
+	f32 noteApparitionTimeStamp = noteTime.ToSec_F32();
+
+	f32 bpmAtCursorTime = (tempos.size() > 0) ? tempos[0].Tempo.BPM : 120;
+	i32 idxAtStart = 0;
+
+	// Normal scroll before the beginning of the song
+	if (cursorTime.ToSec_F32() < 0) return Time(((bpmAtCursorTime * scrollSpeed) / 60.0f) * approachTimeDelta);
+	
+	// Search Cursor
+	for (size_t i = 0; i < tempos.size(); i++) {
+		TempoChange currTempo = tempos[i];
+		f32 bpmChangeTimeStamp1 = ConvertBeatToTimeUsingLookupTableIndexing(currTempo.Beat).ToSec_F32();
+		f32 bpmValue1 = currTempo.Tempo.BPM;
+
+		if (bpmChangeTimeStamp1 > playBackTime) break; 
+		bpmAtCursorTime = bpmValue1;
+		idxAtStart = i;
+		if (i == tempos.size() - 1) break;
+	}
+
+	// Quadrants
+	if (approachTimeDelta > 0) {
+		for (size_t i = idxAtStart; i < tempos.size(); i++) {
+			TempoChange currTempo = tempos[i];
+			TempoChange nextTempo = tempos[i + 1];
+
+			f32 bpmChangeTimeStamp1 = ConvertBeatToTimeUsingLookupTableIndexing(currTempo.Beat).ToSec_F32();
+			f32 bpmValue1 = currTempo.Tempo.BPM;
+			f32 deltaTime = 0;
+
+			if (bpmChangeTimeStamp1 > noteApparitionTimeStamp) break; // Done
+
+			if (i == tempos.size() - 1) {
+				// Process the last BPM change
+				deltaTime = noteApparitionTimeStamp - Max(playBackTime, bpmChangeTimeStamp1);
+			}
+			else {
+				f32 bpmChangeTimeStamp2 = ConvertBeatToTimeUsingLookupTableIndexing(nextTempo.Beat).ToSec_F32();
+				deltaTime = Min(noteApparitionTimeStamp, bpmChangeTimeStamp2) - Max(playBackTime, bpmChangeTimeStamp1);
+			}
+
+			hbscrollTime += ((bpmValue1 * scrollSpeed) / 60.0f) * deltaTime;
+		}
+	}
+	else {
+		// Negative quadrant to fix
+		return Time(((bpmAtCursorTime * scrollSpeed) / 60.0f) * approachTimeDelta);
+
+
+		for (size_t i = idxAtStart; i > 0; i--) {
+			TempoChange currTempo = tempos[i];
+			TempoChange nextTempo = tempos[i - 1];
+
+			f32 bpmChangeTimeStamp1 = ConvertBeatToTimeUsingLookupTableIndexing(currTempo.Beat).ToSec_F32();
+			f32 bpmValue1 = currTempo.Tempo.BPM;
+			f32 deltaTime = 0;
+
+			if (bpmChangeTimeStamp1 < noteApparitionTimeStamp) break; // Done
+
+			if (i == idxAtStart) {
+				// Process the first BPM change
+				deltaTime = playBackTime - Max(noteApparitionTimeStamp, bpmChangeTimeStamp1);
+			}
+			f32 bpmChangeTimeStamp2 = ConvertBeatToTimeUsingLookupTableIndexing(nextTempo.Beat).ToSec_F32();
+			deltaTime = Min(playBackTime, bpmChangeTimeStamp1) - Max(noteApparitionTimeStamp, bpmChangeTimeStamp2);
+
+			hbscrollTime -= ((bpmValue1 * scrollSpeed) / 60.0f) * deltaTime;
+		}
+
+	}
+	
+
+	return Time(hbscrollTime);
+	
+}
+
 void TempoMapAccelerationStructure::Rebuild(const TempoChange* inTempoChanges, size_t inTempoCount)
 {
 	const TempoChange* tempoChanges = inTempoChanges;
