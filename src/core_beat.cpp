@@ -114,7 +114,6 @@ Time TempoMapAccelerationStructure::GetHBSCROLLApproachTime(f32 scrollSpeed, Tim
 	if (approachTimeDelta > 0) {
 		for (size_t i = idxAtStart; i < tempos.size(); i++) {
 			TempoChange currTempo = tempos[i];
-			TempoChange nextTempo = tempos[i + 1];
 
 			f32 bpmChangeTimeStamp1 = ConvertBeatToTimeUsingLookupTableIndexing(currTempo.Beat).ToSec_F32();
 			f32 bpmValue1 = currTempo.Tempo.BPM;
@@ -127,6 +126,7 @@ Time TempoMapAccelerationStructure::GetHBSCROLLApproachTime(f32 scrollSpeed, Tim
 				deltaTime = noteApparitionTimeStamp - Max(playBackTime, bpmChangeTimeStamp1);
 			}
 			else {
+				TempoChange nextTempo = tempos[i + 1];
 				f32 bpmChangeTimeStamp2 = ConvertBeatToTimeUsingLookupTableIndexing(nextTempo.Beat).ToSec_F32();
 				deltaTime = Min(noteApparitionTimeStamp, bpmChangeTimeStamp2) - Max(playBackTime, bpmChangeTimeStamp1);
 			}
