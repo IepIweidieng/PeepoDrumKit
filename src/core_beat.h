@@ -133,6 +133,9 @@ public:
 	// NOTE: Inclusive check to be used for long notes (which must have spacing after the tail piece) and single point intersection tests (such as with a cursor)
 	T* TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
 	const T* TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
+	// bypass sanity check, for untrusted inputs
+	T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
+	const T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
 
 	void InsertOrUpdate(T valueToInsertOrUpdate);
 	void RemoveAtBeat(Beat beatToFindAndRemove);
@@ -290,7 +293,18 @@ template <typename T>
 const T* BeatSortedList<T>::TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck) const
 {
 	assert(beatEnd >= beatStart && "Don't accidentally mix up BeatEnd with BeatDuration");
+	return this->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, inclusiveBeatCheck);
+}
 
+template <typename T>
+T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck)
+{
+	return const_cast<T*>(static_cast<const BeatSortedList<T>*>(this)->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, inclusiveBeatCheck));
+}
+
+template <typename T>
+const T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck) const
+{
 	// TODO: Optimize using binary search
 	const T* found = nullptr;
 	if (inclusiveBeatCheck)

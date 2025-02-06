@@ -1403,7 +1403,7 @@ namespace PeepoDrumKit
 				auto itemAlreadyExistsOrIsBad = [&](const GenericListStructWithType& item)
 				{
 					const b8 inclusiveBeatCheck = ListUsesInclusiveBeatCheck(item.List);
-					auto check = [&](auto& list, auto& i) { return (GetBeat(i) < Beat::Zero()) || (list.TryFindOverlappingBeat(GetBeat(i), GetBeat(i) + GetBeatDuration(i), inclusiveBeatCheck) != nullptr); };
+					auto check = [&](auto& list, auto& i) { return (GetBeat(i) < Beat::Zero()) || (list.TryFindOverlappingBeatUntrusted(GetBeat(i), GetBeat(i) + GetBeatDuration(i), inclusiveBeatCheck) != nullptr); };
 					switch (item.List)
 					{
 					case GenericList::TempoChanges: return check(course.TempoMap.Tempo, item.Value.POD.Tempo);
