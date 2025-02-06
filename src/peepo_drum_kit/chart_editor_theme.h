@@ -20,6 +20,7 @@ namespace PeepoDrumKit
 	inline f32 TimelineSelectedNoteHitBoxSizeBig = (22.0f * 2.0f) + 2.0f;
 
 	// NOTE: All game coordinates are defined in world space
+	constexpr f32 GameWorldStandardHeight = 1080.0f;
 	constexpr f32 GameWorldSpaceDistancePerLaneBeat = 356.0f;
 	constexpr f32 GameLaneStandardWidth = 1422.0f;
 	constexpr f32 GameLaneBarLineThickness = 3.0f;

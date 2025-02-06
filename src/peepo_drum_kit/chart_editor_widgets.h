@@ -149,7 +149,8 @@ namespace PeepoDrumKit
 			f32 x = 0;
 			f32 y = 0;
 
-			f32 coordRatio = LaneRect.GetWidth() / 720.f;
+			constexpr f32 jposMoveCoordHeight = 720.0f;
+			f32 coordRatio = GameWorldStandardHeight / jposMoveCoordHeight;
 			f32 currentTimeStampSeconds = timeStamp.ToSec_F32();
 
 			for (size_t i = 0; i < jposScrollChanges.size(); i++) 
