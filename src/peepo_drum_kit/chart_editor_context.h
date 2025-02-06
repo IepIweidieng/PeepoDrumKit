@@ -49,6 +49,7 @@ namespace PeepoDrumKit
 	public:
 		inline Time BeatToTime(Beat beat) const { return ChartSelectedCourse->TempoMap.BeatToTime(beat); }
 		inline Beat TimeToBeat(Time time) const { return ChartSelectedCourse->TempoMap.TimeToBeat(time); }
+		inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return ChartSelectedCourse->TempoMap.BeatAndTimeToHBScrollBeatTick(beat, time); }
 
 		inline f32 GetPlaybackSpeed() { return SongVoice.GetPlaybackSpeed(); }
 		inline void SetPlaybackSpeed(f32 newSpeed) { if (!ApproxmiatelySame(SongVoice.GetPlaybackSpeed(), newSpeed)) SongVoice.SetPlaybackSpeed(newSpeed); }

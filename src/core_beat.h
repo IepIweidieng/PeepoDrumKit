@@ -59,7 +59,7 @@ struct Tempo
 	constexpr explicit Tempo(f32 bpm) : BPM(bpm) {}
 };
 
-constexpr Tempo SafetyCheckTempo(Tempo v) { return (v.BPM <= -1.0f) ? Tempo(-v.BPM) : Tempo(ClampBot(v.BPM, 1.0f)); }
+constexpr Tempo SafetyCheckTempo(Tempo v) { return (v.BPM < 0) ? Tempo(ClampTop(v.BPM, -1.0f)) : Tempo(ClampBot(v.BPM, 1.0f)); }
 
 struct TimeSignature
 {
@@ -154,14 +154,16 @@ struct TempoMapAccelerationStructure
 {
 	// NOTE: Pre calculated beat times up to the last tempo change
 	std::vector<Time> BeatTickToTimes;
+	std::vector<i32> BeatTickToHBScrollBeatTicks;
 	std::vector<TempoChange> TempoBuffer;
 	f64 FirstTempoBPM = 0.0, LastTempoBPM = 0.0;
 
 	Time ConvertBeatToTimeUsingLookupTableIndexing(Beat beat) const;
 	Beat ConvertTimeToBeatUsingLookupTableBinarySearch(Time time) const;
+	f64 ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(Beat beat, Time time) const;
 
 	Time GetLastCalculatedTime() const;
-	Time GetHBSCROLLApproachTime(f32 scrollSpeed, Time cursorTime, Time noteTime, const std::vector<TempoChange>& tempos) const;
+	f64 GetLastCalculatedHBScrollBeatTick() const;
 	void Rebuild(const TempoChange* inTempoChanges, size_t inTempoCount);
 };
 
@@ -186,6 +188,7 @@ public:
 	inline void RebuildAccelerationStructure() { AccelerationStructure.Rebuild(Tempo.data(), Tempo.size()); }
 	inline Time BeatToTime(Beat beat) const { return AccelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(beat); }
 	inline Beat TimeToBeat(Time time) const { return AccelerationStructure.ConvertTimeToBeatUsingLookupTableBinarySearch(time); }
+	inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return AccelerationStructure.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(beat, time); }
 
 	struct ForEachBeatBarData { TimeSignature Signature; Beat Beat; i32 BarIndex; b8 IsBar; };
 	template <typename Func>

@@ -199,12 +199,14 @@ namespace PeepoDrumKit
 
 		vec2 GetAbsoluteNoteCoordinates(
 			Time cursorTime,
+			f64 cursorHBScrollBeatTick,
 			Time noteTime,
+			Beat noteBeat,
+			Time noteTimeOffset,
 			Tempo tempo,
 			Complex scrollSpeed,
 			ScrollMethod scrollType,
 			const TempoMapAccelerationStructure& accelerationStructure,
-			const std::vector<TempoChange>& tempos,
 			const SortedJPOSScrollChangesList& jposScrollChanges
 		)
 		{
@@ -212,8 +214,8 @@ namespace PeepoDrumKit
 			Complex readaptedScrollSpeed = (scrollType == ScrollMethod::BMSCROLL) ? Complex(1.f, 0.f) : scrollSpeed;
 
 			return vec2(
-				origin.x + TimeToLaneSpace(cursorTime, noteTime, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, accelerationStructure, tempos),
-				origin.y + TimeToLaneSpace(cursorTime, noteTime, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, accelerationStructure, tempos)
+				origin.x + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, noteTimeOffset, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, accelerationStructure),
+				origin.y + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, noteTimeOffset, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, accelerationStructure)
 			);
 		}
 		
@@ -226,19 +228,24 @@ namespace PeepoDrumKit
 		// NOTE: Same scale as world space but with (0,0) starting at the hit-circle center point
 		constexpr f32 TimeToLaneSpace(
 			Time cursorTime, 
+			f64 cursorHBScrollBeatTick, 
 			Time noteTime, 
+			Beat noteBeat, 
+			Time noteTimeOffset, 
 			Tempo tempo, 
 			f32 scrollSpeed, 
 			ScrollMethod scrollType, 
-			const TempoMapAccelerationStructure& accelerationStructure, 
-			const std::vector<TempoChange>& tempos
+			const TempoMapAccelerationStructure& accelerationStructure
 		) const
 		{
 			switch (scrollType) {
 				case (ScrollMethod::HBSCROLL):
 				case (ScrollMethod::BMSCROLL):
 				{
-					return accelerationStructure.GetHBSCROLLApproachTime(scrollSpeed, cursorTime, noteTime, tempos).ToSec_F32() * GameWorldSpaceDistancePerLaneBeat;
+					f64 noteHBScrollBeatTick = accelerationStructure.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(
+						noteBeat,
+						noteTime + noteTimeOffset);
+					return scrollSpeed * ((noteHBScrollBeatTick - cursorHBScrollBeatTick) / Beat::TicksPerBeat) * GameWorldSpaceDistancePerLaneBeat;
 				}
 				case (ScrollMethod::NMSCROLL):
 				default:
