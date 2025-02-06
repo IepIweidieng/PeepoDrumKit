@@ -9,7 +9,7 @@ Time TempoMapAccelerationStructure::ConvertBeatToTimeUsingLookupTableIndexing(Be
 	if (totalBeatTicks < 0) // NOTE: Negative tick (tempo changes are assumed to only be positive)
 	{
 		// NOTE: Calculate the duration of a Beat at the first tempo
-		const Time firstTickDuration = Time::FromSec((60.0 / FirstTempoBPM) / Beat::TicksPerBeat);
+		const Time firstTickDuration = Time::FromSec((60.0 / abs(FirstTempoBPM)) / Beat::TicksPerBeat);
 
 		// NOTE: Then scale by the negative tick
 		return firstTickDuration * totalBeatTicks;
@@ -20,7 +20,7 @@ Time TempoMapAccelerationStructure::ConvertBeatToTimeUsingLookupTableIndexing(Be
 		const Time lastTime = GetLastCalculatedTime();
 
 		// NOTE: Calculate the duration of a Beat at the last used tempo
-		const Time lastTickDuration = Time::FromSec((60.0 / LastTempoBPM) / Beat::TicksPerBeat);
+		const Time lastTickDuration = Time::FromSec((60.0 / abs(LastTempoBPM)) / Beat::TicksPerBeat);
 
 		// NOTE: Then scale by the remaining ticks
 		const i32 remainingTicks = (totalBeatTicks - beatTickToTimesCount) + 1;

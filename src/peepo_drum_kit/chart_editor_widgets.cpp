@@ -427,7 +427,7 @@ namespace PeepoDrumKit
 	// "allowed_scroll_speed_range_max" = +100
 	// "allowed_note_time_offset_range_min" = -35
 	// "allowed_note_time_offset_range_max" = +35
-	static constexpr f32 MinBPM = 0.1f;//30.0f;
+	static constexpr f32 MinBPM = -10000.0f;//30.0f;
 	static constexpr f32 MaxBPM = 10000.0f;//960.0f;
 	static constexpr f32 MinScrollSpeed = -100.0f;
 	static constexpr f32 MaxScrollSpeed = +100.0f;
