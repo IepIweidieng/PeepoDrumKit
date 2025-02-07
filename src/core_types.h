@@ -338,7 +338,7 @@ struct Complex {
 		f32 imag = 0.0f;
 #define PAT_APLUSB_RE "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d])"
 #define PAT_APLUSB_IM "[+-]?(?:(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)?[iI]"
-		std::regex aplusb("^(?=[iI.\\d+-])(" PAT_APLUSB_RE ")?(" PAT_APLUSB_IM ")?$");
+		std::regex aplusb("^(?=[iI.\\d+-])(" PAT_APLUSB_RE ")?\\s*(" PAT_APLUSB_IM ")?$");
 #undef PAT_APLUSB_RE
 #undef PAT_APLUSB_IM
 		std::string input;
