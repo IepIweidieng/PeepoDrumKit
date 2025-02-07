@@ -42,6 +42,7 @@ struct Beat
 	constexpr Beat operator-() const { return Beat(-Ticks); }
 };
 
+constexpr Beat abs(Beat beat) { return Beat(abs(beat.Ticks)); }
 inline Beat FloorBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Floor(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat RoundBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Round(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat CeilBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Ceil(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
@@ -82,7 +83,7 @@ struct TimeSignature
 	constexpr i32& operator[](size_t index) { return (&Numerator)[index]; }
 };
 
-constexpr b8 IsTimeSignatureSupported(TimeSignature v) { return (v.Numerator > 0 && v.Denominator > 0) && (Beat::FromBars(1).Ticks % v.Denominator) == 0; }
+constexpr b8 IsTimeSignatureSupported(TimeSignature v) { return (v.Numerator != 0 && v.Denominator > 0) && (Beat::FromBars(1).Ticks % v.Denominator) == 0; }
 
 struct TempoChange
 {
@@ -204,12 +205,13 @@ public:
 		{
 			const TimeSignatureChange* thisChange = signatureChangeIt.Next(Signature.Sorted, beatIt);
 			TimeSignature thisSignature = (thisChange == nullptr) ? FallbackTimeSignature : thisChange->Signature;
-			thisSignature.Numerator = ClampBot(thisSignature.Numerator, 1);
-			thisSignature.Denominator = ClampBot(thisSignature.Denominator, 1);
+			b8 isSignatureNegative = (thisSignature.Numerator < 0) != (thisSignature.Denominator < 0);
+			thisSignature.Numerator = (isSignatureNegative ? -1 : 1) * ClampBot(abs(thisSignature.Numerator), 1);
+			thisSignature.Denominator = ClampBot(abs(thisSignature.Denominator), 1);
 
-			const i32 beatsPerBar = thisSignature.GetBeatsPerBar();
-			const Beat durationPerBeat = thisSignature.GetDurationPerBeat();
-			const Beat durationPerBar = (durationPerBeat * beatsPerBar);
+			const i32 beatsPerBar = abs(thisSignature.GetBeatsPerBar());
+			const Beat durationPerBeat = abs(thisSignature.GetDurationPerBeat());
+			const Beat durationPerBar = abs(durationPerBeat * beatsPerBar);
 
 			if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatIt, barIndex, true }) == ControlFlow::Break)
 				return;

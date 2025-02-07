@@ -415,7 +415,7 @@ namespace PeepoDrumKit
 	static constexpr f32 MaxVolumeSoftLimit = 1.0f;
 	static constexpr f32 MaxVolumeHardLimit = 4.0f;
 
-	static constexpr i32 MinTimeSignatureValue = 1;
+	static constexpr i32 MinTimeSignatureValue = -Beat::TicksPerBeat * 4;
 	static constexpr i32 MaxTimeSignatureValue = Beat::TicksPerBeat * 4;
 	static constexpr i16 MinBalloonCount = 0;
 	static constexpr i16 MaxBalloonCount = 999;

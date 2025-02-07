@@ -276,7 +276,7 @@ namespace TJA
 			const std::string_view inDen = ASCII::Trim(in.substr(splitIndex + 1));
 			if (i32 outNum, outDen; ASCII::TryParseI32(inNum, outNum) && ASCII::TryParseI32(inDen, outDen))
 			{
-				*out = TimeSignature(Max(1, outNum), Max(1, outDen));
+				*out = TimeSignature(outNum, outDen);
 				return true;
 			}
 			else
@@ -1121,7 +1121,7 @@ namespace TJA
 			{
 				// HACK: Could yet again be sped up a lot using a binary search
 				const Beat inMeasureStartTime = inMeasure.StartTime;
-				const Beat inMeasureEndTime = inMeasure.StartTime + inMeasure.TimeSignature.GetDurationPerBar();
+				const Beat inMeasureEndTime = inMeasure.StartTime + abs(inMeasure.TimeSignature.GetDurationPerBar());
 				for (const auto& gogo : inGoGo)
 				{
 					if (gogo.StartTime >= inMeasureStartTime && gogo.StartTime < inMeasureEndTime)
@@ -1194,7 +1194,7 @@ namespace TJA
 
 			if (!tempBuffer.empty())
 			{
-				const Beat measureBarDuration = lastSignature.GetDurationPerBar();
+				const Beat measureBarDuration = abs(lastSignature.GetDurationPerBar());
 
 				// NOTE: Find smallest bar division to fit in all the commands then add into temp
 				//static constexpr i32 supportedBarDivisions[] = { 1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 192 };
@@ -1315,13 +1315,13 @@ namespace TJA
 			for (ConvertedMeasure& measure : out.Measures)
 			{
 				measure.StartTime = currentMeasureTime;
-				currentMeasureTime += measure.TimeSignature.GetDurationPerBar();
+				currentMeasureTime += abs(measure.TimeSignature.GetDurationPerBar());
 
 				Beat currentTimeWithinMeasure = Beat::Zero();
 				for (ConvertedNote& note : measure.Notes)
 				{
 					note.TimeWithinMeasure = currentTimeWithinMeasure;
-					currentTimeWithinMeasure += (measure.TimeSignature.GetDurationPerBar() / static_cast<i32>(measure.Notes.size()));
+					currentTimeWithinMeasure += (abs(measure.TimeSignature.GetDurationPerBar()) / static_cast<i32>(measure.Notes.size()));
 				}
 			}
 		}

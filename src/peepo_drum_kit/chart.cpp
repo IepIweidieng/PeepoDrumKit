@@ -340,7 +340,7 @@ namespace PeepoDrumKit
 			{
 				// TODO: Optimize using binary search
 				for (auto& measure : measures)
-					if (beatToFind >= measure.StartTime && beatToFind < (measure.StartTime + measure.TimeSignature.GetDurationPerBar()))
+					if (beatToFind >= measure.StartTime && beatToFind < (measure.StartTime + abs(measure.TimeSignature.GetDurationPerBar())))
 						return &measure;
 				return nullptr;
 			};
