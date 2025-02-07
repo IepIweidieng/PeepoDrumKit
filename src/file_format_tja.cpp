@@ -992,7 +992,7 @@ namespace TJA
 				} break;
 				case ParsedChartCommandType::ChangeScrollSpeed:
 				{
-					appendCommandLine(out, Key::Chart_SCROLL, std::string_view(buffer, sprintf_s(buffer, "%s", command.Param.ChangeScrollSpeed.Value.toString().c_str())));
+					appendCommandLine(out, Key::Chart_SCROLL, std::string_view(buffer, sprintf_s(buffer, "%s", command.Param.ChangeScrollSpeed.Value.toStringCompat().c_str())));
 				} break;
 				case ParsedChartCommandType::ChangeBarLine:
 				{
@@ -1069,7 +1069,7 @@ namespace TJA
 				} break;
 				case ParsedChartCommandType::SetJPOSScroll:
 				{
-					appendCommandLine(out, Key::Chart_JPOSSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g %s 1", command.Param.ChangeJPOSScroll.Duration.ToSec(), command.Param.ChangeJPOSScroll.Move.toString().c_str())));
+					appendCommandLine(out, Key::Chart_JPOSSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g %s 1", command.Param.ChangeJPOSScroll.Duration.ToSec(), command.Param.ChangeJPOSScroll.Move.toStringCompat().c_str())));
 				} break;
 				default: { assert(!"Unhandled ParsedChartCommandType switch case"); } break;
 				}

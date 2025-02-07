@@ -299,6 +299,14 @@ struct Complex {
 		oss << *this;
 		return oss.str();
 	}
+	// for TJA compatibility
+	std::string toStringCompat() const {
+		std::ostringstream oss;
+		oss << std::noshowpos << this->GetRealPart();
+		if (this->GetImaginaryPart() != 0)
+			oss << std::showpos << this->GetImaginaryPart() << 'i';
+		return oss.str();
+	}
 
 
 	constexpr f32 GetRealPart() const { return cpx.real(); }
