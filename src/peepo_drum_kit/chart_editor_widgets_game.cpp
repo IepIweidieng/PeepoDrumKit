@@ -402,10 +402,10 @@ namespace PeepoDrumKit
 			const std::vector<TempoChange>& tempos = context.ChartSelectedCourse->TempoMap.Tempo.Sorted;
 
 			const b8 isPlayback = context.GetIsPlayback();
-			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime();
+			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime(true);
 			const Time cursorTimeOrAnimated = isPlayback ? exactCursorBeatAndTime.Time : animatedCursorTime;
-			const Beat cursorBeatOrAnimated = isPlayback ? exactCursorBeatAndTime.Beat : context.TimeToBeat(animatedCursorTime);
-			const f64 cursorHBScrollBeatOrAnimated = context.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimated, cursorTimeOrAnimated);
+			const Beat cursorBeatOrAnimatedTrunc = isPlayback ? exactCursorBeatAndTime.Beat : context.TimeToBeat(animatedCursorTime, true);
+			const f64 cursorHBScrollBeatOrAnimated = context.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimatedTrunc, cursorTimeOrAnimated);
 			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
 
 

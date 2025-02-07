@@ -34,6 +34,11 @@ Time TempoMapAccelerationStructure::ConvertBeatToTimeUsingLookupTableIndexing(Be
 
 Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearch(Time time) const
 {
+	return ConvertTimeToBeatUsingLookupTableBinarySearch(time, false);
+}
+
+Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearch(Time time, bool truncTo0) const
+{
 	const i32 beatTickToTimesCount = static_cast<i32>(BeatTickToTimes.size());
 	const Time lastTime = GetLastCalculatedTime();
 
@@ -74,7 +79,9 @@ Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearc
 				return Beat::FromTicks(mid);
 		}
 
-		return Beat::FromTicks((BeatTickToTimes[left] - time) < (time - BeatTickToTimes[right]) ? left : right);
+		// left > right
+		return Beat::FromTicks((truncTo0) ? right
+			: (BeatTickToTimes[left] - time) < (time - BeatTickToTimes[right]) ? left : right);
 	}
 }
 

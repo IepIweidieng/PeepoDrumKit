@@ -165,6 +165,7 @@ struct TempoMapAccelerationStructure
 
 	Time ConvertBeatToTimeUsingLookupTableIndexing(Beat beat) const;
 	Beat ConvertTimeToBeatUsingLookupTableBinarySearch(Time time) const;
+	Beat ConvertTimeToBeatUsingLookupTableBinarySearch(Time time, bool truncTo0) const;
 	f64 ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(Beat beat, Time time) const;
 
 	Time GetLastCalculatedTime() const;
@@ -192,7 +193,8 @@ public:
 	// NOTE: Must manually be called every time a TempoChange has been edited otherwise Beat <-> Time conversions will be incorrect
 	inline void RebuildAccelerationStructure() { AccelerationStructure.Rebuild(Tempo.data(), Tempo.size()); }
 	inline Time BeatToTime(Beat beat) const { return AccelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(beat); }
-	inline Beat TimeToBeat(Time time) const { return AccelerationStructure.ConvertTimeToBeatUsingLookupTableBinarySearch(time); }
+	inline Beat TimeToBeat(Time time) const { return TimeToBeat(time, false); }
+	inline Beat TimeToBeat(Time time, bool truncTo0) const { return AccelerationStructure.ConvertTimeToBeatUsingLookupTableBinarySearch(time, truncTo0); }
 	inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return AccelerationStructure.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(beat, time); }
 
 	struct ForEachBeatBarData { TimeSignature Signature; Beat Beat; i32 BarIndex; b8 IsBar; };
