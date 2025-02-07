@@ -60,7 +60,8 @@ struct Tempo
 	constexpr explicit Tempo(f32 bpm) : BPM(bpm) {}
 };
 
-constexpr Tempo SafetyCheckTempo(Tempo v) { return (v.BPM < 0) ? Tempo(ClampTop(v.BPM, -1.0f)) : Tempo(ClampBot(v.BPM, 1.0f)); }
+constexpr f32 MinAbsSafeBPM = 60.0f / I32Max;
+constexpr Tempo SafetyCheckTempo(Tempo v) { return (v.BPM < 0) ? Tempo(ClampTop(v.BPM, -MinAbsSafeBPM)) : Tempo(ClampBot(v.BPM, MinAbsSafeBPM)); }
 
 struct TimeSignature
 {
