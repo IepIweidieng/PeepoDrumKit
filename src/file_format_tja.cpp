@@ -730,12 +730,32 @@ namespace TJA
 					{
 						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::SetJPOSScroll);
 						i32 direction = 0;
+						b8 splitComplex = true;
+						// 3-arg form: `#JPOSSCROLL 0.017 3+2i 0`
+						// 4-arg form (splitComplex; TJAP3 1.6.x): `#JPOSSCROLL 3 100 100i 0`
 						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
 						{
 							value = ASCII::Trim(value);
 							if (valueIndex == 0) tryParseTime(value, &newCommand.Param.ChangeJPOSScroll.Duration);
-							if (valueIndex == 1) tryParseCPX(value, &newCommand.Param.ChangeJPOSScroll.Move);
-							if (valueIndex == 2) tryParseI32(value, &direction);
+							if (valueIndex == 1) {
+								tryParseCPX(value, &newCommand.Param.ChangeJPOSScroll.Move);
+								if (ASCII::ToLowerCase(value.back()) == 'i') {
+									splitComplex = false;
+								}
+							}
+							if (valueIndex == 2) {
+								if (ASCII::ToLowerCase(value.back()) == 'i') {
+									// arg 2 is move y
+									if (f32 val; splitComplex && tryParseF32(value.substr(0, value.length() - 1), &val)) {
+										newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(val);
+									} else {
+										outErrors.Push(lineIndex, "Invalid split complex number in '%.*s'", FmtStrViewArgs(token.KeyString));
+									}
+								} else {
+									++valueIndex; // arg 2 is direction
+								}
+							}
+							if (valueIndex == 3) tryParseI32(value, &direction);
 							valueIndex++;
 						});
 						if (direction == 0) {
