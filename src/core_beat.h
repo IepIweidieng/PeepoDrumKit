@@ -42,6 +42,7 @@ struct Beat
 	constexpr Beat operator-() const { return Beat(-Ticks); }
 };
 
+constexpr Beat abs(Beat beat) { return Beat(abs(beat.Ticks)); }
 inline Beat FloorBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Floor(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat RoundBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Round(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat CeilBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Ceil(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
@@ -59,7 +60,8 @@ struct Tempo
 	constexpr explicit Tempo(f32 bpm) : BPM(bpm) {}
 };
 
-constexpr Tempo SafetyCheckTempo(Tempo v) { return (v.BPM <= -1.0f) ? Tempo(-v.BPM) : Tempo(ClampBot(v.BPM, 1.0f)); }
+constexpr f32 MinAbsSafeBPM = 60.0f / I32Max;
+constexpr Tempo SafetyCheckTempo(Tempo v) { return (v.BPM < 0) ? Tempo(ClampTop(v.BPM, -MinAbsSafeBPM)) : Tempo(ClampBot(v.BPM, MinAbsSafeBPM)); }
 
 struct TimeSignature
 {
@@ -82,7 +84,7 @@ struct TimeSignature
 	constexpr i32& operator[](size_t index) { return (&Numerator)[index]; }
 };
 
-constexpr b8 IsTimeSignatureSupported(TimeSignature v) { return (v.Numerator > 0 && v.Denominator > 0) && (Beat::FromBars(1).Ticks % v.Denominator) == 0; }
+constexpr b8 IsTimeSignatureSupported(TimeSignature v) { return (v.Numerator != 0 && v.Denominator > 0) && (Beat::FromBars(1).Ticks % v.Denominator) == 0; }
 
 struct TempoChange
 {
@@ -133,6 +135,9 @@ public:
 	// NOTE: Inclusive check to be used for long notes (which must have spacing after the tail piece) and single point intersection tests (such as with a cursor)
 	T* TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
 	const T* TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
+	// bypass sanity check, for untrusted inputs
+	T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
+	const T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
 
 	void InsertOrUpdate(T valueToInsertOrUpdate);
 	void RemoveAtBeat(Beat beatToFindAndRemove);
@@ -154,14 +159,17 @@ struct TempoMapAccelerationStructure
 {
 	// NOTE: Pre calculated beat times up to the last tempo change
 	std::vector<Time> BeatTickToTimes;
+	std::vector<i32> BeatTickToHBScrollBeatTicks;
 	std::vector<TempoChange> TempoBuffer;
 	f64 FirstTempoBPM = 0.0, LastTempoBPM = 0.0;
 
 	Time ConvertBeatToTimeUsingLookupTableIndexing(Beat beat) const;
 	Beat ConvertTimeToBeatUsingLookupTableBinarySearch(Time time) const;
+	Beat ConvertTimeToBeatUsingLookupTableBinarySearch(Time time, bool truncTo0) const;
+	f64 ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(Beat beat, Time time) const;
 
 	Time GetLastCalculatedTime() const;
-	Time GetHBSCROLLApproachTime(f32 scrollSpeed, Time cursorTime, Time noteTime, const std::vector<TempoChange>& tempos) const;
+	f64 GetLastCalculatedHBScrollBeatTick() const;
 	void Rebuild(const TempoChange* inTempoChanges, size_t inTempoCount);
 };
 
@@ -185,7 +193,9 @@ public:
 	// NOTE: Must manually be called every time a TempoChange has been edited otherwise Beat <-> Time conversions will be incorrect
 	inline void RebuildAccelerationStructure() { AccelerationStructure.Rebuild(Tempo.data(), Tempo.size()); }
 	inline Time BeatToTime(Beat beat) const { return AccelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(beat); }
-	inline Beat TimeToBeat(Time time) const { return AccelerationStructure.ConvertTimeToBeatUsingLookupTableBinarySearch(time); }
+	inline Beat TimeToBeat(Time time) const { return TimeToBeat(time, false); }
+	inline Beat TimeToBeat(Time time, bool truncTo0) const { return AccelerationStructure.ConvertTimeToBeatUsingLookupTableBinarySearch(time, truncTo0); }
+	inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return AccelerationStructure.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(beat, time); }
 
 	struct ForEachBeatBarData { TimeSignature Signature; Beat Beat; i32 BarIndex; b8 IsBar; };
 	template <typename Func>
@@ -198,12 +208,13 @@ public:
 		{
 			const TimeSignatureChange* thisChange = signatureChangeIt.Next(Signature.Sorted, beatIt);
 			TimeSignature thisSignature = (thisChange == nullptr) ? FallbackTimeSignature : thisChange->Signature;
-			thisSignature.Numerator = ClampBot(thisSignature.Numerator, 1);
-			thisSignature.Denominator = ClampBot(thisSignature.Denominator, 1);
+			b8 isSignatureNegative = (thisSignature.Numerator < 0) != (thisSignature.Denominator < 0);
+			thisSignature.Numerator = (isSignatureNegative ? -1 : 1) * ClampBot(abs(thisSignature.Numerator), 1);
+			thisSignature.Denominator = ClampBot(abs(thisSignature.Denominator), 1);
 
-			const i32 beatsPerBar = thisSignature.GetBeatsPerBar();
-			const Beat durationPerBeat = thisSignature.GetDurationPerBeat();
-			const Beat durationPerBar = (durationPerBeat * beatsPerBar);
+			const i32 beatsPerBar = abs(thisSignature.GetBeatsPerBar());
+			const Beat durationPerBeat = abs(thisSignature.GetDurationPerBeat());
+			const Beat durationPerBar = abs(durationPerBeat * beatsPerBar);
 
 			if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatIt, barIndex, true }) == ControlFlow::Break)
 				return;
@@ -287,7 +298,18 @@ template <typename T>
 const T* BeatSortedList<T>::TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck) const
 {
 	assert(beatEnd >= beatStart && "Don't accidentally mix up BeatEnd with BeatDuration");
+	return this->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, inclusiveBeatCheck);
+}
 
+template <typename T>
+T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck)
+{
+	return const_cast<T*>(static_cast<const BeatSortedList<T>*>(this)->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, inclusiveBeatCheck));
+}
+
+template <typename T>
+const T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck) const
+{
 	// TODO: Optimize using binary search
 	const T* found = nullptr;
 	if (inclusiveBeatCheck)

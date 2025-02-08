@@ -9,7 +9,7 @@ Time TempoMapAccelerationStructure::ConvertBeatToTimeUsingLookupTableIndexing(Be
 	if (totalBeatTicks < 0) // NOTE: Negative tick (tempo changes are assumed to only be positive)
 	{
 		// NOTE: Calculate the duration of a Beat at the first tempo
-		const Time firstTickDuration = Time::FromSec((60.0 / FirstTempoBPM) / Beat::TicksPerBeat);
+		const Time firstTickDuration = Time::FromSec((60.0 / abs(FirstTempoBPM)) / Beat::TicksPerBeat);
 
 		// NOTE: Then scale by the negative tick
 		return firstTickDuration * totalBeatTicks;
@@ -20,7 +20,7 @@ Time TempoMapAccelerationStructure::ConvertBeatToTimeUsingLookupTableIndexing(Be
 		const Time lastTime = GetLastCalculatedTime();
 
 		// NOTE: Calculate the duration of a Beat at the last used tempo
-		const Time lastTickDuration = Time::FromSec((60.0 / LastTempoBPM) / Beat::TicksPerBeat);
+		const Time lastTickDuration = Time::FromSec((60.0 / abs(LastTempoBPM)) / Beat::TicksPerBeat);
 
 		// NOTE: Then scale by the remaining ticks
 		const i32 remainingTicks = (totalBeatTicks - beatTickToTimesCount) + 1;
@@ -34,13 +34,18 @@ Time TempoMapAccelerationStructure::ConvertBeatToTimeUsingLookupTableIndexing(Be
 
 Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearch(Time time) const
 {
+	return ConvertTimeToBeatUsingLookupTableBinarySearch(time, false);
+}
+
+Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearch(Time time, bool truncTo0) const
+{
 	const i32 beatTickToTimesCount = static_cast<i32>(BeatTickToTimes.size());
 	const Time lastTime = GetLastCalculatedTime();
 
 	if (time < Time::FromSec(0.0)) // NOTE: Negative time
 	{
 		// NOTE: Calculate the duration of a Beat at the first tempo
-		const Time firstTickDuration = Time::FromSec((60.0 / FirstTempoBPM) / Beat::TicksPerBeat);
+		const Time firstTickDuration = Time::FromSec((60.0 / abs(FirstTempoBPM)) / Beat::TicksPerBeat);
 
 		// NOTE: Then the time by the negative tick, this is assuming all tempo changes happen on positive ticks
 		return Beat(static_cast<i32>(time / firstTickDuration));
@@ -50,7 +55,7 @@ Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearc
 		const Time timePastLast = (time - lastTime);
 
 		// NOTE: Each tick past the end has a duration of this value
-		const Time lastTickDuration = Time::FromSec((60.0 / LastTempoBPM) / Beat::TicksPerBeat);
+		const Time lastTickDuration = Time::FromSec((60.0 / abs(LastTempoBPM)) / Beat::TicksPerBeat);
 
 		// NOTE: So we just have to divide the remaining ticks by the duration
 		const f64 ticks = (timePastLast / lastTickDuration);
@@ -74,7 +79,52 @@ Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearc
 				return Beat::FromTicks(mid);
 		}
 
-		return Beat::FromTicks((BeatTickToTimes[left] - time) < (time - BeatTickToTimes[right]) ? left : right);
+		// left > right
+		return Beat::FromTicks((truncTo0) ? right
+			: (BeatTickToTimes[left] - time) < (time - BeatTickToTimes[right]) ? left : right);
+	}
+}
+
+// find the integer HBScroll beat tick by `beat`, and then interpolate or extrapolate to `time`
+// allow over-extrapolating for reproducing TaikoJiro "time offset over tempo change" behavior
+f64 TempoMapAccelerationStructure::ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(Beat beat, Time time) const
+{
+	const i32 beatTickToTimesCount = static_cast<i32>(BeatTickToTimes.size());
+	const i32 totalBeatTicks = beat.Ticks;
+
+	if (totalBeatTicks < 0) // NOTE: Negative tick (tempo changes are assumed to only be positive)
+	{
+		// NOTE: Calculate the duration of a Beat at the first tempo
+		const Time firstTickDuration = Time::FromSec((60.0 / FirstTempoBPM) / Beat::TicksPerBeat);
+
+		// NOTE: Then the time by the negative tick, this is assuming all tempo changes happen on positive ticks
+		return time / firstTickDuration;
+	}
+	else if (totalBeatTicks + 1 >= beatTickToTimesCount) // NOTE: Next tick is outside the defined tempo map
+	{
+		const f64 lastHBScrollBeatTick = GetLastCalculatedHBScrollBeatTick();
+		const Time lastTime = GetLastCalculatedTime();
+		const Time timePastLast = (time - lastTime);
+
+		// NOTE: Each tick past the end has a duration of this value
+		const Time lastTickDuration = Time::FromSec((60.0 / LastTempoBPM) / Beat::TicksPerBeat);
+
+		// NOTE: So we just have to divide the remaining ticks by the duration
+		const f64 ticks = (timePastLast / lastTickDuration);
+
+		// NOTE: And add it to the last tick
+		return (lastHBScrollBeatTick + ticks);
+	}
+	else // NOTE: Use the pre calculated lookup table directly
+	{
+		// find the integer HBScroll beat tick using `beat`, and then interpolate by `time`
+		const i32 totalBeatTicks = beat.Ticks;
+		const f64 timeLeft = BeatTickToTimes.at(totalBeatTicks).Seconds;
+		const f64 timeRight = BeatTickToTimes.at(totalBeatTicks + 1).Seconds;
+		const f64 ticksLeft = BeatTickToHBScrollBeatTicks.at(totalBeatTicks);
+		const f64 ticksRight = BeatTickToHBScrollBeatTicks.at(totalBeatTicks + 1);
+
+		return ConvertRange(timeLeft, timeRight, ticksLeft, ticksRight, time.Seconds);
 	}
 }
 
@@ -83,87 +133,9 @@ Time TempoMapAccelerationStructure::GetLastCalculatedTime() const
 	return BeatTickToTimes.empty() ? Time::Zero() : BeatTickToTimes.back();
 }
 
-Time TempoMapAccelerationStructure::GetHBSCROLLApproachTime(f32 scrollSpeed, Time cursorTime, Time noteTime, const std::vector<TempoChange>& tempos) const
+f64 TempoMapAccelerationStructure::GetLastCalculatedHBScrollBeatTick() const
 {
-	f32 approachTimeDelta = (noteTime - cursorTime).ToSec_F32();
-	if (approachTimeDelta == 0) return Time(0);
-
-	f32 hbscrollTime = 0;
-	f32 playBackTime = cursorTime.ToSec_F32();
-	f32 noteApparitionTimeStamp = noteTime.ToSec_F32();
-
-	f32 bpmAtCursorTime = (tempos.size() > 0) ? tempos[0].Tempo.BPM : 120;
-	i32 idxAtStart = 0;
-
-	// Normal scroll before the beginning of the song
-	if (cursorTime.ToSec_F32() < 0) return Time(((bpmAtCursorTime * scrollSpeed) / 60.0f) * approachTimeDelta);
-	
-	// Search Cursor
-	for (size_t i = 0; i < tempos.size(); i++) {
-		TempoChange currTempo = tempos[i];
-		f32 bpmChangeTimeStamp1 = ConvertBeatToTimeUsingLookupTableIndexing(currTempo.Beat).ToSec_F32();
-		f32 bpmValue1 = currTempo.Tempo.BPM;
-
-		if (bpmChangeTimeStamp1 > playBackTime) break; 
-		bpmAtCursorTime = bpmValue1;
-		idxAtStart = i;
-		if (i == tempos.size() - 1) break;
-	}
-
-	// Quadrants
-	if (approachTimeDelta > 0) {
-		for (size_t i = idxAtStart; i < tempos.size(); i++) {
-			TempoChange currTempo = tempos[i];
-			TempoChange nextTempo = tempos[i + 1];
-
-			f32 bpmChangeTimeStamp1 = ConvertBeatToTimeUsingLookupTableIndexing(currTempo.Beat).ToSec_F32();
-			f32 bpmValue1 = currTempo.Tempo.BPM;
-			f32 deltaTime = 0;
-
-			if (bpmChangeTimeStamp1 > noteApparitionTimeStamp) break; // Done
-
-			if (i == tempos.size() - 1) {
-				// Process the last BPM change
-				deltaTime = noteApparitionTimeStamp - Max(playBackTime, bpmChangeTimeStamp1);
-			}
-			else {
-				f32 bpmChangeTimeStamp2 = ConvertBeatToTimeUsingLookupTableIndexing(nextTempo.Beat).ToSec_F32();
-				deltaTime = Min(noteApparitionTimeStamp, bpmChangeTimeStamp2) - Max(playBackTime, bpmChangeTimeStamp1);
-			}
-
-			hbscrollTime += ((bpmValue1 * scrollSpeed) / 60.0f) * deltaTime;
-		}
-	}
-	else {
-		// Negative quadrant to fix
-		return Time(((bpmAtCursorTime * scrollSpeed) / 60.0f) * approachTimeDelta);
-
-
-		for (size_t i = idxAtStart; i > 0; i--) {
-			TempoChange currTempo = tempos[i];
-			TempoChange nextTempo = tempos[i - 1];
-
-			f32 bpmChangeTimeStamp1 = ConvertBeatToTimeUsingLookupTableIndexing(currTempo.Beat).ToSec_F32();
-			f32 bpmValue1 = currTempo.Tempo.BPM;
-			f32 deltaTime = 0;
-
-			if (bpmChangeTimeStamp1 < noteApparitionTimeStamp) break; // Done
-
-			if (i == idxAtStart) {
-				// Process the first BPM change
-				deltaTime = playBackTime - Max(noteApparitionTimeStamp, bpmChangeTimeStamp1);
-			}
-			f32 bpmChangeTimeStamp2 = ConvertBeatToTimeUsingLookupTableIndexing(nextTempo.Beat).ToSec_F32();
-			deltaTime = Min(playBackTime, bpmChangeTimeStamp1) - Max(noteApparitionTimeStamp, bpmChangeTimeStamp2);
-
-			hbscrollTime -= ((bpmValue1 * scrollSpeed) / 60.0f) * deltaTime;
-		}
-
-	}
-	
-
-	return Time(hbscrollTime);
-	
+	return BeatTickToHBScrollBeatTicks.empty() ? 0.0 : BeatTickToHBScrollBeatTicks.back();
 }
 
 void TempoMapAccelerationStructure::Rebuild(const TempoChange* inTempoChanges, size_t inTempoCount)
@@ -182,25 +154,35 @@ void TempoMapAccelerationStructure::Rebuild(const TempoChange* inTempoChanges, s
 		tempoCount = TempoBuffer.size();
 	}
 
-	BeatTickToTimes.resize((tempoCount > 0) ? tempoChanges[tempoCount - 1].Beat.Ticks + 1 : 0);
+	size_t nTickValues = (tempoCount > 0) ? tempoChanges[tempoCount - 1].Beat.Ticks + 1 : 0;
+	BeatTickToTimes.resize(nTickValues);
+	BeatTickToHBScrollBeatTicks.resize(nTickValues);
 
 	f64 lastEndTime = 0.0;
+	i32 lastEndHBScrollBeatTick = 0;
 	for (size_t tempoChangeIndex = 0; tempoChangeIndex < tempoCount; tempoChangeIndex++)
 	{
 		const TempoChange& tempoChange = tempoChanges[tempoChangeIndex];
 
 		const f64 bpm = SafetyCheckTempo(tempoChange.Tempo).BPM;
 		const f64 beatDuration = (60.0 / bpm);
-		const f64 tickDuration = (beatDuration / Beat::TicksPerBeat);
+		const f64 tickDuration = abs(beatDuration / Beat::TicksPerBeat);
+		const f64 tickSign = Sign(beatDuration);
 
 		const b8 isSingleOrLastTempo = (tempoCount == 1) || (tempoChangeIndex == (tempoCount - 1));
 		const size_t timesCount = isSingleOrLastTempo ? BeatTickToTimes.size() : (tempoChanges[tempoChangeIndex + 1].Beat.Ticks);
 
-		for (size_t i = 0, t = tempoChange.Beat.Ticks; t < timesCount; t++)
-			BeatTickToTimes[t] = Time::FromSec((tickDuration * i++) + lastEndTime);
+		for (size_t i = 0, t = tempoChange.Beat.Ticks; t < timesCount; i++, t++)
+		{
+			BeatTickToTimes[t] = Time::FromSec((tickDuration * i) + lastEndTime);
+			BeatTickToHBScrollBeatTicks[t] = ((tickSign * i) + lastEndHBScrollBeatTick);
+		}
 
 		if (tempoCount > 1)
+		{
 			lastEndTime = BeatTickToTimes[timesCount - 1].ToSec() + tickDuration;
+			lastEndHBScrollBeatTick = BeatTickToHBScrollBeatTicks[timesCount - 1] + tickSign;
+		}
 
 		FirstTempoBPM = (tempoChangeIndex == 0) ? bpm : FirstTempoBPM;
 		LastTempoBPM = bpm;

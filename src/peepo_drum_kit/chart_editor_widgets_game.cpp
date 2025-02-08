@@ -232,6 +232,7 @@ namespace PeepoDrumKit
 
 	struct ForEachBarLaneData
 	{
+		Beat Beat;
 		Time Time;
 		Tempo Tempo;
 		Complex ScrollSpeed;
@@ -260,7 +261,7 @@ namespace PeepoDrumKit
 				return ControlFlow::Continue;
 
 			const Time time = course.TempoMap.BeatToTime(it.Beat);
-			perBarFunc(ForEachBarLaneData { time,
+			perBarFunc(ForEachBarLaneData { it.Beat, time,
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, it.Beat)),
 				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, it.Beat)), 
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, it.Beat)),
@@ -273,8 +274,12 @@ namespace PeepoDrumKit
 	struct ForEachNoteLaneData
 	{
 		const Note* OriginalNote;
+		Beat BeatHead;
 		Time TimeHead;
+		Time TimeHeadOffset;
+		Beat BeatTail;
 		Time TimeTail;
+		Time TimeTailOffset;
 		Tempo Tempo;
 		Complex ScrollSpeed;
 		ScrollMethod ScrollType;
@@ -292,8 +297,9 @@ namespace PeepoDrumKit
 		{
 			const Beat beat = note.BeatTime;
 			const Time head = (course.TempoMap.BeatToTime(beat) + note.TimeOffset);
-			const Time tail = (note.BeatDuration > Beat::Zero()) ? (course.TempoMap.BeatToTime(beat + note.BeatDuration) + note.TimeOffset) : head;
-			perNoteFunc(ForEachNoteLaneData { &note, head, tail,
+			const Beat beatTail = (note.BeatDuration > Beat::Zero()) ? (beat + note.BeatDuration) : beat;
+			const Time tail = (note.BeatDuration > Beat::Zero()) ? (course.TempoMap.BeatToTime(beatTail) + note.TimeOffset) : head;
+			perNoteFunc(ForEachNoteLaneData { &note, beat, head, note.TimeOffset, beatTail, tail, note.TimeOffset,
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beat)),
 				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat)),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beat)),
@@ -396,9 +402,10 @@ namespace PeepoDrumKit
 			const std::vector<TempoChange>& tempos = context.ChartSelectedCourse->TempoMap.Tempo.Sorted;
 
 			const b8 isPlayback = context.GetIsPlayback();
-			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime();
+			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime(true);
 			const Time cursorTimeOrAnimated = isPlayback ? exactCursorBeatAndTime.Time : animatedCursorTime;
-			const Beat cursorBeatOrAnimated = isPlayback ? exactCursorBeatAndTime.Beat : context.TimeToBeat(animatedCursorTime);
+			const Beat cursorBeatOrAnimatedTrunc = isPlayback ? exactCursorBeatAndTime.Beat : context.TimeToBeat(animatedCursorTime, true);
+			const f64 cursorHBScrollBeatOrAnimated = context.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimatedTrunc, cursorTimeOrAnimated);
 			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
 
 
@@ -440,7 +447,7 @@ namespace PeepoDrumKit
 
 			ForEachBarOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
 			{
-				const vec2 lane = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, it.Time, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, tempos, jposScrollChanges);
+				const vec2 lane = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, Time::Zero(), it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				const f32 laneX = lane.x, laneY = lane.y;
 
 				if (Camera.IsPointVisibleOnLane(laneX))
@@ -477,8 +484,8 @@ namespace PeepoDrumKit
 
 			ForEachNoteOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
-				const vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, it.TimeHead, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, tempos, jposScrollChanges);
-				const vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, it.TimeTail, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, tempos, jposScrollChanges);
+				const vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				const vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				const f32 laneHeadX = laneHead.x, laneHeadY = laneHead.y, laneTailX = laneTail.x, laneTailY = laneTail.y;
 
 				const Time timeSinceHeadHit = TimeSinceNoteHit(it.TimeHead, cursorTimeOrAnimated);

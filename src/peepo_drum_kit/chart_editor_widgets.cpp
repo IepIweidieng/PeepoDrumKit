@@ -415,7 +415,7 @@ namespace PeepoDrumKit
 	static constexpr f32 MaxVolumeSoftLimit = 1.0f;
 	static constexpr f32 MaxVolumeHardLimit = 4.0f;
 
-	static constexpr i32 MinTimeSignatureValue = 1;
+	static constexpr i32 MinTimeSignatureValue = -Beat::TicksPerBeat * 4;
 	static constexpr i32 MaxTimeSignatureValue = Beat::TicksPerBeat * 4;
 	static constexpr i16 MinBalloonCount = 0;
 	static constexpr i16 MaxBalloonCount = 999;
@@ -427,7 +427,7 @@ namespace PeepoDrumKit
 	// "allowed_scroll_speed_range_max" = +100
 	// "allowed_note_time_offset_range_min" = -35
 	// "allowed_note_time_offset_range_max" = +35
-	static constexpr f32 MinBPM = 0.1f;//30.0f;
+	static constexpr f32 MinBPM = -10000.0f;//30.0f;
 	static constexpr f32 MaxBPM = 10000.0f;//960.0f;
 	static constexpr f32 MinScrollSpeed = -100.0f;
 	static constexpr f32 MaxScrollSpeed = +100.0f;
@@ -1049,7 +1049,7 @@ namespace PeepoDrumKit
 					GenericMemberFlags outModifiedMembers = GenericMemberFlags_None;
 					for (const GenericMember member : { GenericMember::NoteType_V, GenericMember::I16_BalloonPopCount, GenericMember::Time_Offset,
 						GenericMember::Tempo_V, GenericMember::TimeSignature_V, GenericMember::F32_ScrollSpeed, GenericMember::B8_BarLineVisible,
-						GenericMember::I8_ScrollType, GenericMember::F32_JPOSScroll})
+						GenericMember::I8_ScrollType, GenericMember::F32_JPOSScroll, GenericMember::F32_JPOSScrollDuration})
 					{
 						if (!(commonAvailableMemberFlags & EnumToFlag(member)))
 							continue;
@@ -1123,24 +1123,8 @@ namespace PeepoDrumKit
 						case GenericMember::F32_JPOSScroll:
 						{
 							b8 areAllJPOSScrollMovesTheSame = (commonEqualMemberFlags & EnumToFlag(member));
-							b8 areAllJPOSScrollDurationsTheSame = true;
-							f32 commonDuration = 0.f, minDuration = 0.f, maxDuration = 0.f;
-							for (const auto& selectedItem : SelectedItems) 
-							{
-								const f32 duration = selectedItem.MemberValues.JPOSScrollDuration();
-								if (&selectedItem == &SelectedItems[0])
-								{
-									commonDuration = minDuration = maxDuration = duration;
-								}
-								else
-								{
-									minDuration = Min(minDuration, duration);
-									maxDuration = Max(maxDuration, duration);
-									areAllJPOSScrollDurationsTheSame &= ApproxmiatelySame(duration, commonDuration, 0.001f);
-								}
-							}
 
-							for (size_t i = 0; i < 3; i++)
+							for (size_t i = 0; i < 2; i++)
 							{
 								MultiEditWidgetParam widgetIn = {};
 								widgetIn.EnableStepButtons = true;
@@ -1158,7 +1142,7 @@ namespace PeepoDrumKit
 									widgetIn.ValueClampMin.F32 = MinJPOSScrollMove;
 									widgetIn.ValueClampMax.F32 = MaxJPOSScrollMove;
 								}
-								else if (i == 1) {
+								else {
 									widgetIn.Value.F32 = sharedValues.JPOSScrollMove().GetImaginaryPart();
 									widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
 									widgetIn.MixedValuesMin.F32 = mixedValuesMin.JPOSScrollMove().GetImaginaryPart();
@@ -1171,27 +1155,11 @@ namespace PeepoDrumKit
 									widgetIn.ValueClampMin.F32 = MinJPOSScrollMove;
 									widgetIn.ValueClampMax.F32 = MaxJPOSScrollMove;
 								}
-								else
-								{
-									widgetIn.Value.F32 = commonDuration;
-									widgetIn.HasMixedValues = !areAllJPOSScrollDurationsTheSame;
-									widgetIn.MixedValuesMin.F32 = minDuration;
-									widgetIn.MixedValuesMax.F32 = maxDuration;
-									widgetIn.ButtonStep.F32 = 0.1f;
-									widgetIn.ButtonStepFast.F32 = 0.5f;
-									widgetIn.DragLabelSpeed = 0.005f;
-									widgetIn.FormatString = "%gs";
-									widgetIn.EnableClamp = true;
-									widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
-									widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
-								}
 
 								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
 									(i == 0)
 									? UI_Str("JPOS Scroll Move")
-									: (i == 1)
-									? UI_Str("Vertical JPOS Scroll Move")
-									: UI_Str("JPOS Scroll Duration")
+									: UI_Str("Vertical JPOS Scroll Move")
 									, widgetIn);
 								if (widgetOut.HasValueExact)
 								{
@@ -1199,10 +1167,8 @@ namespace PeepoDrumKit
 									{
 										if (i == 0)
 											selectedItem.MemberValues.JPOSScrollMove().SetRealPart(widgetOut.ValueExact.F32);
-										else if (i == 1)
-											selectedItem.MemberValues.JPOSScrollMove().SetImaginaryPart(widgetOut.ValueExact.F32);
 										else
-											selectedItem.MemberValues.JPOSScrollDuration() = widgetOut.ValueExact.F32;
+											selectedItem.MemberValues.JPOSScrollMove().SetImaginaryPart(widgetOut.ValueExact.F32);
 									}
 									valueWasChanged = true;
 								}
@@ -1212,10 +1178,63 @@ namespace PeepoDrumKit
 									{
 										if (i == 0)
 											selectedItem.MemberValues.JPOSScrollMove().SetRealPart(Clamp(selectedItem.MemberValues.JPOSScrollMove().GetRealPart() + widgetOut.ValueIncrement.F32, MinJPOSScrollMove, MaxJPOSScrollMove));
-										else if (i == 1)
-											selectedItem.MemberValues.JPOSScrollMove().SetImaginaryPart(Clamp(selectedItem.MemberValues.JPOSScrollMove().GetImaginaryPart() + widgetOut.ValueIncrement.F32, MinJPOSScrollMove, MaxJPOSScrollMove));
 										else
-											selectedItem.MemberValues.JPOSScrollDuration() = Clamp(selectedItem.MemberValues.JPOSScrollDuration() + widgetOut.ValueIncrement.F32, MinJPOSScrollDuration, MaxJPOSScrollDuration);
+											selectedItem.MemberValues.JPOSScrollMove().SetImaginaryPart(Clamp(selectedItem.MemberValues.JPOSScrollMove().GetImaginaryPart() + widgetOut.ValueIncrement.F32, MinJPOSScrollMove, MaxJPOSScrollMove));
+									}
+									valueWasChanged = true;
+								}
+							}
+						} break;
+						case GenericMember::F32_JPOSScrollDuration:
+						{
+							b8 areAllJPOSScrollDurationsTheSame = true;
+							f32 commonDuration = 0.f, minDuration = 0.f, maxDuration = 0.f;
+							for (const auto& selectedItem : SelectedItems)
+							{
+								const f32 duration = selectedItem.MemberValues.JPOSScrollDuration();
+								if (&selectedItem == &SelectedItems[0])
+								{
+									commonDuration = minDuration = maxDuration = duration;
+								}
+								else
+								{
+									minDuration = Min(minDuration, duration);
+									maxDuration = Max(maxDuration, duration);
+									areAllJPOSScrollDurationsTheSame &= ApproxmiatelySame(duration, commonDuration, 0.001f);
+								}
+							}
+
+							{
+								MultiEditWidgetParam widgetIn = {};
+								widgetIn.EnableStepButtons = true;
+								widgetIn.Value.F32 = commonDuration;
+								widgetIn.HasMixedValues = !areAllJPOSScrollDurationsTheSame;
+								widgetIn.MixedValuesMin.F32 = minDuration;
+								widgetIn.MixedValuesMax.F32 = maxDuration;
+								widgetIn.ButtonStep.F32 = 0.1f;
+								widgetIn.ButtonStepFast.F32 = 0.5f;
+								widgetIn.DragLabelSpeed = 0.005f;
+								widgetIn.FormatString = "%gs";
+								widgetIn.EnableClamp = true;
+								widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
+								widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
+
+								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
+									UI_Str("JPOS Scroll Duration"),
+									widgetIn);
+								if (widgetOut.HasValueExact)
+								{
+									for (auto& selectedItem : SelectedItems)
+									{
+										selectedItem.MemberValues.JPOSScrollDuration() = widgetOut.ValueExact.F32;
+									}
+									valueWasChanged = true;
+								}
+								else if (widgetOut.HasValueIncrement)
+								{
+									for (auto& selectedItem : SelectedItems)
+									{
+										selectedItem.MemberValues.JPOSScrollDuration() = Clamp(selectedItem.MemberValues.JPOSScrollDuration() + widgetOut.ValueIncrement.F32, MinJPOSScrollDuration, MaxJPOSScrollDuration);
 									}
 									valueWasChanged = true;
 								}

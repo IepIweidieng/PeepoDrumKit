@@ -299,6 +299,14 @@ struct Complex {
 		oss << *this;
 		return oss.str();
 	}
+	// for TJA compatibility
+	std::string toStringCompat() const {
+		std::ostringstream oss;
+		oss << std::noshowpos << this->GetRealPart();
+		if (this->GetImaginaryPart() != 0)
+			oss << std::showpos << this->GetImaginaryPart() << 'i';
+		return oss.str();
+	}
 
 
 	constexpr f32 GetRealPart() const { return cpx.real(); }
@@ -328,8 +336,11 @@ struct Complex {
 	{
 		f32 real = 0.0f;
 		f32 imag = 0.0f;
-		std::regex aplusb("^(?=[iI.\\d+-])([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d]))?([+-]?(?:(?:\\d+(?:\\.\\d*)?|\.\\d+)(?:[eE][+-]?\\d+)?)?[iI])?$");
-
+#define PAT_APLUSB_RE "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d])"
+#define PAT_APLUSB_IM "[+-]?(?:(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)?[iI]"
+		std::regex aplusb("^(?=[iI.\\d+-])(" PAT_APLUSB_RE ")?\\s*(" PAT_APLUSB_IM ")?$");
+#undef PAT_APLUSB_RE
+#undef PAT_APLUSB_IM
 		std::string input;
 		in >> input;
 

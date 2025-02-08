@@ -276,7 +276,7 @@ namespace TJA
 			const std::string_view inDen = ASCII::Trim(in.substr(splitIndex + 1));
 			if (i32 outNum, outDen; ASCII::TryParseI32(inNum, outNum) && ASCII::TryParseI32(inDen, outDen))
 			{
-				*out = TimeSignature(Max(1, outNum), Max(1, outDen));
+				*out = TimeSignature(outNum, outDen);
 				return true;
 			}
 			else
@@ -729,18 +729,39 @@ namespace TJA
 					case Key::Chart_JPOSSCROLL:
 					{
 						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::SetJPOSScroll);
+						i32 direction = 0;
+						b8 splitComplex = true;
+						// 3-arg form: `#JPOSSCROLL 0.017 3+2i 0`
+						// 4-arg form (splitComplex; TJAP3 1.6.x): `#JPOSSCROLL 3 100 100i 0`
 						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
 						{
 							value = ASCII::Trim(value);
 							if (valueIndex == 0) tryParseTime(value, &newCommand.Param.ChangeJPOSScroll.Duration);
-							if (valueIndex == 1) tryParseCPX(value, &newCommand.Param.ChangeJPOSScroll.Move);
-							if (valueIndex == 2) {
-								i32 direction = 1;
-								tryParseI32(value, &direction);
-								if (direction == 0) newCommand.Param.ChangeJPOSScroll.Move.SetRealPart(-newCommand.Param.ChangeJPOSScroll.Move.GetRealPart());
+							if (valueIndex == 1) {
+								tryParseCPX(value, &newCommand.Param.ChangeJPOSScroll.Move);
+								if (ASCII::ToLowerCase(value.back()) == 'i') {
+									splitComplex = false;
+								}
 							}
+							if (valueIndex == 2) {
+								if (ASCII::ToLowerCase(value.back()) == 'i') {
+									// arg 2 is move y
+									if (f32 val; splitComplex && tryParseF32(value.substr(0, value.length() - 1), &val)) {
+										newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(val);
+									} else {
+										outErrors.Push(lineIndex, "Invalid split complex number in '%.*s'", FmtStrViewArgs(token.KeyString));
+									}
+								} else {
+									++valueIndex; // arg 2 is direction
+								}
+							}
+							if (valueIndex == 3) tryParseI32(value, &direction);
 							valueIndex++;
 						});
+						if (direction == 0) {
+							newCommand.Param.ChangeJPOSScroll.Move.SetRealPart(-newCommand.Param.ChangeJPOSScroll.Move.GetRealPart());
+							newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(-newCommand.Param.ChangeJPOSScroll.Move.GetImaginaryPart());
+						}
 					} break;
 					default: { assert(!"Unhandled Key::Chart_ switch case despite (Key::Chart_First to Key::Chart_Last) range check"); } break;
 					}
@@ -991,7 +1012,7 @@ namespace TJA
 				} break;
 				case ParsedChartCommandType::ChangeScrollSpeed:
 				{
-					appendCommandLine(out, Key::Chart_SCROLL, std::string_view(buffer, sprintf_s(buffer, "%s", command.Param.ChangeScrollSpeed.Value.toString().c_str())));
+					appendCommandLine(out, Key::Chart_SCROLL, std::string_view(buffer, sprintf_s(buffer, "%s", command.Param.ChangeScrollSpeed.Value.toStringCompat().c_str())));
 				} break;
 				case ParsedChartCommandType::ChangeBarLine:
 				{
@@ -1068,7 +1089,7 @@ namespace TJA
 				} break;
 				case ParsedChartCommandType::SetJPOSScroll:
 				{
-					appendCommandLine(out, Key::Chart_JPOSSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g %s 1", command.Param.ChangeJPOSScroll.Duration.ToSec(), command.Param.ChangeJPOSScroll.Move.toString().c_str())));
+					appendCommandLine(out, Key::Chart_JPOSSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g %s 1", command.Param.ChangeJPOSScroll.Duration.ToSec(), command.Param.ChangeJPOSScroll.Move.toStringCompat().c_str())));
 				} break;
 				default: { assert(!"Unhandled ParsedChartCommandType switch case"); } break;
 				}
@@ -1100,7 +1121,7 @@ namespace TJA
 			{
 				// HACK: Could yet again be sped up a lot using a binary search
 				const Beat inMeasureStartTime = inMeasure.StartTime;
-				const Beat inMeasureEndTime = inMeasure.StartTime + inMeasure.TimeSignature.GetDurationPerBar();
+				const Beat inMeasureEndTime = inMeasure.StartTime + abs(inMeasure.TimeSignature.GetDurationPerBar());
 				for (const auto& gogo : inGoGo)
 				{
 					if (gogo.StartTime >= inMeasureStartTime && gogo.StartTime < inMeasureEndTime)
@@ -1173,7 +1194,7 @@ namespace TJA
 
 			if (!tempBuffer.empty())
 			{
-				const Beat measureBarDuration = lastSignature.GetDurationPerBar();
+				const Beat measureBarDuration = abs(lastSignature.GetDurationPerBar());
 
 				// NOTE: Find smallest bar division to fit in all the commands then add into temp
 				//static constexpr i32 supportedBarDivisions[] = { 1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 192 };
@@ -1294,13 +1315,13 @@ namespace TJA
 			for (ConvertedMeasure& measure : out.Measures)
 			{
 				measure.StartTime = currentMeasureTime;
-				currentMeasureTime += measure.TimeSignature.GetDurationPerBar();
+				currentMeasureTime += abs(measure.TimeSignature.GetDurationPerBar());
 
 				Beat currentTimeWithinMeasure = Beat::Zero();
 				for (ConvertedNote& note : measure.Notes)
 				{
 					note.TimeWithinMeasure = currentTimeWithinMeasure;
-					currentTimeWithinMeasure += (measure.TimeSignature.GetDurationPerBar() / static_cast<i32>(measure.Notes.size()));
+					currentTimeWithinMeasure += (abs(measure.TimeSignature.GetDurationPerBar()) / static_cast<i32>(measure.Notes.size()));
 				}
 			}
 		}

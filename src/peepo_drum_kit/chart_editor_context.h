@@ -49,6 +49,8 @@ namespace PeepoDrumKit
 	public:
 		inline Time BeatToTime(Beat beat) const { return ChartSelectedCourse->TempoMap.BeatToTime(beat); }
 		inline Beat TimeToBeat(Time time) const { return ChartSelectedCourse->TempoMap.TimeToBeat(time); }
+		inline Beat TimeToBeat(Time time, bool truncTo0) const { return ChartSelectedCourse->TempoMap.TimeToBeat(time, truncTo0); }
+		inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return ChartSelectedCourse->TempoMap.BeatAndTimeToHBScrollBeatTick(beat, time); }
 
 		inline f32 GetPlaybackSpeed() { return SongVoice.GetPlaybackSpeed(); }
 		inline void SetPlaybackSpeed(f32 newSpeed) { if (!ApproxmiatelySame(SongVoice.GetPlaybackSpeed(), newSpeed)) SongVoice.SetPlaybackSpeed(newSpeed); }
@@ -86,8 +88,13 @@ namespace PeepoDrumKit
 
 		inline Beat GetCursorBeat() const
 		{
+			return GetCursorBeat(false);
+		}
+
+		inline Beat GetCursorBeat(bool truncTo0) const
+		{
 			if (SongVoice.GetIsPlaying())
-				return ChartSelectedCourse->TempoMap.TimeToBeat((SongVoice.GetPositionSmooth() + Chart.SongOffset));
+				return ChartSelectedCourse->TempoMap.TimeToBeat((SongVoice.GetPositionSmooth() + Chart.SongOffset), truncTo0);
 			else
 				return CursorBeatWhilePaused;
 		}
@@ -95,7 +102,12 @@ namespace PeepoDrumKit
 		// NOTE: Specifically to make sure the cursor time and beat are both in sync (as the song voice position is updated asynchronously)
 		inline BeatAndTime GetCursorBeatAndTime() const
 		{
-			if (SongVoice.GetIsPlaying()) { const Time t = (SongVoice.GetPositionSmooth() + Chart.SongOffset); return { ChartSelectedCourse->TempoMap.TimeToBeat(t), t }; }
+			return GetCursorBeatAndTime(false);
+		}
+
+		inline BeatAndTime GetCursorBeatAndTime(bool truncTo0) const
+		{
+			if (SongVoice.GetIsPlaying()) { const Time t = (SongVoice.GetPositionSmooth() + Chart.SongOffset); return { ChartSelectedCourse->TempoMap.TimeToBeat(t, truncTo0), t }; }
 			else { const Beat b = CursorBeatWhilePaused; return { b, ChartSelectedCourse->TempoMap.BeatToTime(b) }; }
 		}
 

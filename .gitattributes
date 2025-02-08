@@ -1,16 +1,13 @@
-# Auto detect text files and perform LF normalization
-* text=auto
-
 # Source files
-*.c text diff=cpp
-*.cc text diff=cpp
-*.cxx text diff=cpp
-*.cpp text diff=cpp
-*.c++ text diff=cpp
-*.hpp text diff=cpp
-*.h text diff=cpp
-*.h++ text diff=cpp
-*.hh text diff=cpp
+*.c diff=cpp
+*.cc diff=cpp
+*.cxx diff=cpp
+*.cpp diff=cpp
+*.c++ diff=cpp
+*.hpp diff=cpp
+*.h diff=cpp
+*.h++ diff=cpp
+*.hh diff=cpp
 
 # Compiled Object files
 *.slo binary
