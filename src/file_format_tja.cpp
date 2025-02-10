@@ -1,5 +1,6 @@
 #include "file_format_tja.h"
 #include <algorithm>
+#include <numeric>
 
 namespace TJA
 {
@@ -1197,21 +1198,16 @@ namespace TJA
 				const Beat measureBarDuration = abs(lastSignature.GetDurationPerBar());
 
 				// NOTE: Find smallest bar division to fit in all the commands then add into temp
-				//static constexpr i32 supportedBarDivisions[] = { 1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 192 };
-				//static constexpr i32 supportedBarDivisions[] = { 1, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64, 96, 192 };
-				static constexpr i32 supportedBarDivisions[] = { 1, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 30, 32, 35, 36, 40, 42, 45, 48, 56, 60, 63, 64, 70, 72, 80, 84, 90, 96, 112, 120, 126, 140, 144, 160, 168, 180, 192, 210, 224, 240, 252, 280, 288, 315, 320, 336, 360, 420, 448, 480, 504, 560, 576, 630, 672, 720, 840, 960, 1008, 1120, 1260, 1344, 1440, 1680, 2016, 2240, 2520, 2880, 3360, 4032, 5040, 6720, 10080, 20160 };
-				i32 smallestBarDivision = 20160; //192;
-				for (const i32 itDivision : supportedBarDivisions)
-				{
-					const Beat itBeatDivision = Beat::FromBars(1) / itDivision;
-					if ((measureBarDuration.Ticks % itBeatDivision.Ticks) != 0)
+				i32 tickPerNoteInThisMeasure = measureBarDuration.Ticks;
+				for (const TempCommand& c : tempBuffer) {
+					if (c.TimeWithinMeasure.Ticks <= 0)
 						continue;
-
-					if (std::all_of(tempBuffer.begin(), tempBuffer.end(), [&](const TempCommand& c) { return (c.TimeWithinMeasure.Ticks % itBeatDivision.Ticks) == 0; }))
-						smallestBarDivision = Min(smallestBarDivision, itDivision);
+					tickPerNoteInThisMeasure = std::gcd(tickPerNoteInThisMeasure, c.TimeWithinMeasure.Ticks);
+					if (tickPerNoteInThisMeasure <= 1)
+						break;
 				}
 
-				const Beat beatPerNoteInThisMeasure = Beat::FromBars(1) / smallestBarDivision;
+				const Beat beatPerNoteInThisMeasure = Beat::FromTicks(tickPerNoteInThisMeasure);
 				const i32 noteCommandsInThisMeasure = (beatPerNoteInThisMeasure == Beat::Zero()) ? 0 : (measureBarDuration.Ticks / beatPerNoteInThisMeasure.Ticks);
 
 				// NOTE: Insert empty notes based on smallestBarDivision
