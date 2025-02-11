@@ -1186,12 +1186,15 @@ namespace TJA
 				tempCommand.Param.ChangeDelay.Value = delayChange.Delay;
 			}
 
+			// inMeasure.Notes should already be ordered by beat position
+			size_t noteCommandStart = tempBuffer.size();
 			for (const ConvertedNote& note : inMeasure.Notes)
 			{
 				ParsedChartCommand& tempCommand = tempBuffer.emplace_back(TempCommand { note.TimeWithinMeasure }).ParsedCommand;
 				tempCommand.Type = ParsedChartCommandType::MeasureNotes;
 				tempCommand.Param.MeasureNotes.Notes.push_back(note.Type);
 			}
+			size_t noteCommandEnd = tempBuffer.size();
 
 			if (!tempBuffer.empty())
 			{
@@ -1210,18 +1213,25 @@ namespace TJA
 				const Beat beatPerNoteInThisMeasure = Beat::FromTicks(tickPerNoteInThisMeasure);
 				const i32 noteCommandsInThisMeasure = (beatPerNoteInThisMeasure == Beat::Zero()) ? 0 : (measureBarDuration.Ticks / beatPerNoteInThisMeasure.Ticks);
 
+				static constexpr auto isLessTick = [](const TempCommand& a, const TempCommand& b) { return (a.TimeWithinMeasure < b.TimeWithinMeasure); };
+
 				// NOTE: Insert empty notes based on smallestBarDivision
 				if (noteCommandsInThisMeasure > 0)
 				{
+					// Cached searched beat range of non-blank note commands
+					size_t commandIndex = noteCommandStart;
+
 					for (i32 noteIndex = 0; noteIndex < noteCommandsInThisMeasure; noteIndex++)
 					{
 						const Beat noteBeat = Beat::FromTicks(noteIndex * beatPerNoteInThisMeasure.Ticks);
+						auto tempCommand = TempCommand{ noteBeat };
 
 						b8 noteAlreadyExists = false;
-						for (const TempCommand& tempCommand : tempBuffer)
-						{
-							if (tempCommand.ParsedCommand.Type == ParsedChartCommandType::MeasureNotes && tempCommand.TimeWithinMeasure == noteBeat)
-								noteAlreadyExists = true;
+						auto noteNonAfterBeat = std::lower_bound(tempBuffer.begin() + commandIndex, tempBuffer.begin() + noteCommandEnd, tempCommand, isLessTick);
+						if (noteNonAfterBeat != tempBuffer.begin() + noteCommandEnd
+							&& noteNonAfterBeat->TimeWithinMeasure == noteBeat
+							) {
+							noteAlreadyExists = true;
 						}
 
 						if (!noteAlreadyExists)
@@ -1231,6 +1241,12 @@ namespace TJA
 							tempCommand.Param.MeasureNotes.Notes.push_back(NoteType::None);
 						}
 					}
+
+					// Sort non-blank notes/commands first: O(nlogn)
+					std::stable_sort(tempBuffer.begin(), tempBuffer.begin() + noteCommandEnd, isLessTick);
+					// Then include blank notes (assumed to be much more than non-blanks),
+					// which are already ordered: O(n)
+					std::inplace_merge(tempBuffer.begin(), tempBuffer.begin() + noteCommandEnd, tempBuffer.end(), isLessTick);
 
 					i32 actualNotesInThisMeasure = 0;
 					for (const TempCommand& tempCommand : tempBuffer)
@@ -1244,28 +1260,24 @@ namespace TJA
 					}
 				}
 
-				std::stable_sort(tempBuffer.begin(), tempBuffer.end(), [](const TempCommand& a, const TempCommand& b) { return (a.TimeWithinMeasure < b.TimeWithinMeasure); });
-
-				// NOTE: Merge adjacent single-note MeasureNotes commands
+				ParsedChartCommand* lastNoteCommand = nullptr;
+				for (size_t i = 0; i < tempBuffer.size(); i++)
 				{
-					for (size_t i = 0; i < tempBuffer.size(); i++)
+					TempCommand& thisCommand = tempBuffer[i];
+					// NOTE: Merge adjacent single-note MeasureNotes commands
+					if (lastNoteCommand != nullptr && (thisCommand.ParsedCommand.Type == ParsedChartCommandType::MeasureNotes))
 					{
-						TempCommand* lastCommand = (i >= 1) ? &tempBuffer[i - 1] : nullptr;
-						TempCommand& thisCommand = tempBuffer[i];
-
-						if (lastCommand != nullptr && (thisCommand.ParsedCommand.Type == ParsedChartCommandType::MeasureNotes) && (lastCommand->ParsedCommand.Type == ParsedChartCommandType::MeasureNotes))
-						{
-							for (NoteType note : thisCommand.ParsedCommand.Param.MeasureNotes.Notes)
-								lastCommand->ParsedCommand.Param.MeasureNotes.Notes.push_back(note);
-
-							tempBuffer.erase(tempBuffer.begin() + i); i--;
-							continue;
-						}
+						for (NoteType note : thisCommand.ParsedCommand.Param.MeasureNotes.Notes)
+							lastNoteCommand->Param.MeasureNotes.Notes.push_back(note);
+					}
+					else {
+						// Push first, modify later
+						outCommands.push_back(std::move(thisCommand.ParsedCommand));
+						lastNoteCommand = (outCommands.back().Type == ParsedChartCommandType::MeasureNotes) ?
+							&outCommands.back()
+							: nullptr;
 					}
 				}
-
-				for (size_t i = 0; i < tempBuffer.size(); i++)
-					outCommands.push_back(std::move(tempBuffer[i].ParsedCommand));
 				tempBuffer.clear();
 			}
 
