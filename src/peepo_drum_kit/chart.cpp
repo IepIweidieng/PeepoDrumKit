@@ -338,11 +338,14 @@ namespace PeepoDrumKit
 
 			static constexpr auto tryFindMeasureForBeat = [](std::vector<TJA::ConvertedMeasure>& measures, Beat beatToFind) -> TJA::ConvertedMeasure*
 			{
-				// TODO: Optimize using binary search
-				for (auto& measure : measures)
-					if (beatToFind >= measure.StartTime && beatToFind < (measure.StartTime + abs(measure.TimeSignature.GetDurationPerBar())))
-						return &measure;
-				return nullptr;
+				static constexpr auto isMoreBeat = [](const TJA::ConvertedMeasure& lhs, const TJA::ConvertedMeasure& rhs)
+				{
+					return lhs.StartTime > rhs.StartTime;
+				};
+				// Binary search in descending (ascending but reversed) list
+				// if found: `it` is the last element such that `beatToFind >= it->StartTime`
+				auto it = std::lower_bound(measures.rbegin(), measures.rend(), TJA::ConvertedMeasure { beatToFind }, isMoreBeat);
+				return (it == measures.rend()) ? nullptr : &*it;
 			};
 
 			for (const TempoChange& inTempoChange : inCourse.TempoMap.Tempo)
