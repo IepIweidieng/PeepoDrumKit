@@ -1099,7 +1099,7 @@ namespace TJA
 		}
 	}
 
-	void ConvertConvertedMeasuresToParsedCommands(const std::vector<ConvertedMeasure>& inMeasures, const std::vector<ConvertedGoGoRange>& inGoGo, std::vector<ParsedChartCommand>& outCommands)
+	void ConvertConvertedMeasuresToParsedCommands(const std::vector<ConvertedMeasure>& inMeasures, std::vector<ParsedChartCommand>& outCommands)
 	{
 		struct TempCommand { Beat TimeWithinMeasure; ParsedChartCommand ParsedCommand; };
 		std::vector<TempCommand> tempBuffer;
@@ -1118,18 +1118,10 @@ namespace TJA
 				lastSignature = inMeasure.TimeSignature;
 			}
 
-			if (!inGoGo.empty())
+			for (const ConvertedGoGoChange& gogoChange : inMeasure.GoGoChanges)
 			{
-				// HACK: Could yet again be sped up a lot using a binary search
-				const Beat inMeasureStartTime = inMeasure.StartTime;
-				const Beat inMeasureEndTime = inMeasure.StartTime + abs(inMeasure.TimeSignature.GetDurationPerBar());
-				for (const auto& gogo : inGoGo)
-				{
-					if (gogo.StartTime >= inMeasureStartTime && gogo.StartTime < inMeasureEndTime)
-						tempBuffer.emplace_back(TempCommand { (gogo.StartTime - inMeasureStartTime) }).ParsedCommand.Type = ParsedChartCommandType::GoGoStart;
-					if (gogo.EndTime >= inMeasureStartTime && gogo.EndTime < inMeasureEndTime)
-						tempBuffer.emplace_back(TempCommand { (gogo.EndTime - inMeasureStartTime) }).ParsedCommand.Type = ParsedChartCommandType::GoGoEnd;
-				}
+				ParsedChartCommand& tempCommand = tempBuffer.emplace_back(TempCommand{ gogoChange.TimeWithinMeasure }).ParsedCommand;
+				tempCommand.Type = (gogoChange.IsGogo) ? ParsedChartCommandType::GoGoStart : ParsedChartCommandType::GoGoEnd;
 			}
 
 			for (const ConvertedBarLineChange& barLineChange : inMeasure.BarLineChanges)

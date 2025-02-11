@@ -504,6 +504,12 @@ namespace TJA
 		std::string Lyric;
 	};
 
+	struct ConvertedGoGoChange
+	{
+		Beat TimeWithinMeasure;
+		b8 IsGogo;
+	};
+
 	struct ConvertedScrollType
 	{
 		Beat TimeWithinMeasure;
@@ -530,6 +536,7 @@ namespace TJA
 		// BUG: Can't actually change inbetween measures..?
 		std::vector<ConvertedBarLineChange> BarLineChanges;
 		std::vector<ConvertedLyricChange> LyricChanges;
+		std::vector<ConvertedGoGoChange> GoGoChanges;
 	};
 
 	struct ConvertedGoGoRange
@@ -551,7 +558,7 @@ namespace TJA
 		std::vector<ConvertedGoGoRange> GoGoRanges;
 	};
 
-	void ConvertConvertedMeasuresToParsedCommands(const std::vector<TJA::ConvertedMeasure>& inMeasures, const std::vector<ConvertedGoGoRange>& inGoGo, std::vector<TJA::ParsedChartCommand>& outCommands);
+	void ConvertConvertedMeasuresToParsedCommands(const std::vector<TJA::ConvertedMeasure>& inMeasures, std::vector<TJA::ParsedChartCommand>& outCommands);
 
 	ConvertedCourse ConvertParsedToConvertedCourse(const ParsedTJA& inContent, const ParsedCourse& inCourse);
 }
