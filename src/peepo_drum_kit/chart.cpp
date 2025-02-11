@@ -338,11 +338,14 @@ namespace PeepoDrumKit
 
 			static constexpr auto tryFindMeasureForBeat = [](std::vector<TJA::ConvertedMeasure>& measures, Beat beatToFind) -> TJA::ConvertedMeasure*
 			{
-				// TODO: Optimize using binary search
-				for (auto& measure : measures)
-					if (beatToFind >= measure.StartTime && beatToFind < (measure.StartTime + abs(measure.TimeSignature.GetDurationPerBar())))
-						return &measure;
-				return nullptr;
+				static constexpr auto isMoreBeat = [](const TJA::ConvertedMeasure& lhs, const TJA::ConvertedMeasure& rhs)
+				{
+					return lhs.StartTime > rhs.StartTime;
+				};
+				// Binary search in descending (ascending but reversed) list
+				// if found: `it` is the last element such that `beatToFind >= it->StartTime`
+				auto it = std::lower_bound(measures.rbegin(), measures.rend(), TJA::ConvertedMeasure { beatToFind }, isMoreBeat);
+				return (it == measures.rend()) ? nullptr : &*it;
 			};
 
 			for (const TempoChange& inTempoChange : inCourse.TempoMap.Tempo)
@@ -412,12 +415,21 @@ namespace PeepoDrumKit
 					outConvertedMeasure->LyricChanges.push_back(TJA::ConvertedLyricChange { (inLyric.BeatTime - outConvertedMeasure->StartTime), inLyric.Lyric });
 			}
 
-			std::vector<TJA::ConvertedGoGoRange> outConvertedGoGoRanges;
-			outConvertedGoGoRanges.reserve(inCourse.GoGoRanges.size());
+			// For go-go time events, convert each range to a pair of start & end changes
 			for (const GoGoRange& gogo : inCourse.GoGoRanges)
-				outConvertedGoGoRanges.push_back(TJA::ConvertedGoGoRange { gogo.BeatTime, (gogo.BeatTime + Max(Beat::Zero(), gogo.BeatDuration)) });
+			{
+				// start
+				TJA::ConvertedMeasure* outConvertedMeasureStart = tryFindMeasureForBeat(outConvertedMeasures, gogo.BeatTime);
+				if (assert(outConvertedMeasureStart != nullptr); outConvertedMeasureStart != nullptr)
+					outConvertedMeasureStart->GoGoChanges.push_back(TJA::ConvertedGoGoChange{ (gogo.BeatTime - outConvertedMeasureStart->StartTime), true });
+				// end
+				const Beat endTime = gogo.BeatTime + Max(Beat::Zero(), gogo.BeatDuration);
+				TJA::ConvertedMeasure* outConvertedMeasureEnd = tryFindMeasureForBeat(outConvertedMeasures, endTime);
+				if (assert(outConvertedMeasureEnd != nullptr); outConvertedMeasureEnd != nullptr)
+					outConvertedMeasureEnd->GoGoChanges.push_back(TJA::ConvertedGoGoChange{ (endTime - outConvertedMeasureEnd->StartTime), false });
+			}
 
-			TJA::ConvertConvertedMeasuresToParsedCommands(outConvertedMeasures, outConvertedGoGoRanges, outCourse.ChartCommands);
+			TJA::ConvertConvertedMeasuresToParsedCommands(outConvertedMeasures, outCourse.ChartCommands);
 		}
 
 		return true;
