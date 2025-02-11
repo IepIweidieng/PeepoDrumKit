@@ -1188,11 +1188,13 @@ namespace TJA
 
 			// inMeasure.Notes should already be ordered by beat position
 			size_t noteCommandStart = tempBuffer.size();
+			i32 actualNotesInThisMeasure = 0;
 			for (const ConvertedNote& note : inMeasure.Notes)
 			{
 				ParsedChartCommand& tempCommand = tempBuffer.emplace_back(TempCommand { note.TimeWithinMeasure }).ParsedCommand;
 				tempCommand.Type = ParsedChartCommandType::MeasureNotes;
 				tempCommand.Param.MeasureNotes.Notes.push_back(note.Type);
+				actualNotesInThisMeasure++;
 			}
 			size_t noteCommandEnd = tempBuffer.size();
 
@@ -1220,6 +1222,7 @@ namespace TJA
 				{
 					// Cached searched beat range of non-blank note commands
 					size_t commandIndex = noteCommandStart;
+					i32 alreadyExistNoteIndexes = 0;
 
 					for (i32 noteIndex = 0; noteIndex < noteCommandsInThisMeasure; noteIndex++)
 					{
@@ -1232,6 +1235,7 @@ namespace TJA
 							&& noteNonAfterBeat->TimeWithinMeasure == noteBeat
 							) {
 							noteAlreadyExists = true;
+							++alreadyExistNoteIndexes;
 						}
 
 						if (!noteAlreadyExists)
@@ -1248,12 +1252,7 @@ namespace TJA
 					// which are already ordered: O(n)
 					std::inplace_merge(tempBuffer.begin(), tempBuffer.begin() + noteCommandEnd, tempBuffer.end(), isLessTick);
 
-					i32 actualNotesInThisMeasure = 0;
-					for (const TempCommand& tempCommand : tempBuffer)
-						if (tempCommand.ParsedCommand.Type == ParsedChartCommandType::MeasureNotes)
-							actualNotesInThisMeasure++;
-
-					if (actualNotesInThisMeasure != noteCommandsInThisMeasure)
+					if (actualNotesInThisMeasure != alreadyExistNoteIndexes)
 					{
 						// BUG: Loss of precision due to integer division or overlapping notes (?)
 						// assert(false);
