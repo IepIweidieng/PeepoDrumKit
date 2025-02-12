@@ -571,11 +571,11 @@ namespace PeepoDrumKit
 							"", scaleMin, scaleMax, GuiScale(vec2(static_cast<f32>(ArrayCount(performance.FrameTimesMS)), plotLinesHeight)));
 						const Rect plotLinesRect = Gui::GetItemRect();
 
-						char overlayTextBuffer[64];
+						char overlayTextBuffer[96];
 						const auto overlayText = std::string_view(overlayTextBuffer, sprintf_s(overlayTextBuffer,
-							"%s%.3f ms\n"
-							"%s%.3f ms\n"
-							"%s%.3f ms",
+							"%s%.5g ms\n"
+							"%s%.5g ms\n"
+							"%s%.5g ms",
 							UI_Str("Average: "), averageFrameTime,
 							UI_Str("Min: "), minFrameTime,
 							UI_Str("Max: "), maxFrameTime));
