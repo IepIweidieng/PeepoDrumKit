@@ -208,6 +208,7 @@ X("KADON",								u8"カドン",									u8"咔咚", ) \
 X("Bomb",								u8"爆弾",									u8"炸弹", ) \
 X("Adlib",								u8"アドリブ",									u8"Adlib", ) \
 X("Fuseroll",							u8"時爆弾",									u8"计时弹", ) \
+X("Load Full CJKV Glyphs (slow)",		u8"全てのCJKV字形を読み込む（遅い）",			u8"载入所有 CJKV 字形（慢）", ) \
 
 #define UI_Str(in) i18n::HashToString(i18n::CompileTimeValidate<i18n::Hash(in)>(), SelectedGuiLanguage)
 #define UI_StrRuntime(in) i18n::HashToString(i18n::Hash(in), SelectedGuiLanguage)

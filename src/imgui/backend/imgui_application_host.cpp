@@ -159,49 +159,61 @@ namespace ApplicationHost
 	}
 #endif
 
-	static void ImGuiUpdateBuildFonts()
+	static void ImGuiLoadCJKVGlyphRange()
+	{
+		ImGuiIO& io = ImGui::GetIO();
+
+		// NOTE: Using the glyph ranges builder here takes around ~0.15ms in release and ~2ms in debug builds
+		static ImVector<ImWchar>		globalRangesCJKV, globalRangesEN;
+		static ImFontGlyphRangesBuilder globalRangesBuilderCJKV, globalRangesBuilderEN;
+
+		// HACK: Somewhat arbitrary non-exhaustive list of glyphs sometimes seen in song names etc.
+		static constexpr const char additionalGlyphs[] =
+			u8"ΔΨαλμχд‐’“”…′※™ⅠⅡⅤⅥⅦⅩ↑→↓∞∫≠⊆⑨▼◆◇"
+			u8"○◎★☆♂♡♢♥♦♨♪亰什儚兩凋區叩吠吼咄哭嗚嘘"
+			u8"噛囃堡姐孩學對弩彡彷徨怎怯愴戀戈捌掴撥擺朧朶"
+			u8"杓棍棕檄欅洩涵渕溟滾漾漿潘澤濤濱炸焉焔爛狗獨"
+			u8"琲甜睛筐篭繋繚繧翡舘芒范蔀蔔蔡薇薔薛蘋蘿號蛻"
+			u8"裙訶譚變賽逅邂郢雙霍霖靡韶餃驢髭魄麹麼鼠﻿";
+
+		// HACK: The mere 常用 + 人名 kanji of course aren't anywhere near sufficient, **especially** for song names and file paths.
+		//		 This *should* include *at least* the ~6000 漢字漢検１級 + common "fancy" unicode characters used as variations of the regular ASCII set.
+		//		 Creating a font atlas that big upfront however absolutely kills startup times so the only sane solution is to use dynamic glyph rasterization
+		//		 which will hopefully be fully implemented in the not too distant future :Copium: (https://github.com/ocornut/imgui/pull/3471)
+		globalRangesCJKV.clear();
+		globalRangesBuilderCJKV.Clear();
+		globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
+		globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
+		if (FontMainUseFullCJKVTarget) {
+			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
+		}
+		// HACK: Only load default ranges for debug builds to compensate for slow font (re)building
+		else if (PEEPO_DEBUG) {
+			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesDefault());
+		}
+		else {
+			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesJapanese());
+			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+		}
+		globalRangesBuilderCJKV.BuildRanges(&globalRangesCJKV);
+
+		globalRangesEN.clear();
+		globalRangesBuilderEN.Clear();
+		globalRangesBuilderEN.AddRanges(io.Fonts->GetGlyphRangesDefault());
+		globalRangesBuilderEN.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
+		globalRangesBuilderEN.BuildRanges(&globalRangesEN);
+
+		GlobalGlyphRanges.CJKV = globalRangesCJKV.Data;
+		GlobalGlyphRanges.EN = globalRangesEN.Data;
+	}
+
+	static void ImGuiUpdateBuildFonts(b8 rebuildCJKVRange)
 	{
 		// TODO: Fonts should probably be set up by the application itself instead of being tucked away here but it doesn't really matter too much for now..
 		ImGuiIO& io = ImGui::GetIO();
 
-		if (GlobalGlyphRanges.CJKV == nullptr)
-		{
-			// NOTE: Using the glyph ranges builder here takes around ~0.15ms in release and ~2ms in debug builds
-			static ImVector<ImWchar>		globalRangesCJKV, globalRangesEN;
-			static ImFontGlyphRangesBuilder globalRangesBuilderCJKV, globalRangesBuilderEN;
-
-			// HACK: Somewhat arbitrary non-exhaustive list of glyphs sometimes seen in song names etc.
-			static constexpr const char additionalGlyphs[] =
-				u8"ΔΨαλμχд‐’“”…′※™ⅠⅡⅤⅥⅦⅩ↑→↓∞∫≠⊆⑨▼◆◇"
-				u8"○◎★☆♂♡♢♥♦♨♪亰什儚兩凋區叩吠吼咄哭嗚嘘"
-				u8"噛囃堡姐孩學對弩彡彷徨怎怯愴戀戈捌掴撥擺朧朶"
-				u8"杓棍棕檄欅洩涵渕溟滾漾漿潘澤濤濱炸焉焔爛狗獨"
-				u8"琲甜睛筐篭繋繚繧翡舘芒范蔀蔔蔡薇薔薛蘋蘿號蛻"
-				u8"裙訶譚變賽逅邂郢雙霍霖靡韶餃驢髭魄麹麼鼠﻿";
-
-			// HACK: The mere 常用 + 人名 kanji of course aren't anywhere near sufficient, **especially** for song names and file paths.
-			//		 This *should* include *at least* the ~6000 漢字漢検１級 + common "fancy" unicode characters used as variations of the regular ASCII set.
-			//		 Creating a font atlas that big upfront however absolutely kills startup times so the only sane solution is to use dynamic glyph rasterization
-			//		 which will hopefully be fully implemented in the not too distant future :Copium: (https://github.com/ocornut/imgui/pull/3471)
-			globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
-			globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
-			// HACK: Only load default ranges for debug builds to compensate for slow font (re)building
-			if (PEEPO_DEBUG) {
-				globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesDefault());
-			}
-			else {
-				globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesJapanese());
-				globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-			}
-			globalRangesBuilderCJKV.BuildRanges(&globalRangesCJKV);
-
-			globalRangesBuilderEN.AddRanges(io.Fonts->GetGlyphRangesDefault());
-			globalRangesBuilderEN.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
-			globalRangesBuilderEN.BuildRanges(&globalRangesEN);
-
-			GlobalGlyphRanges.CJKV = globalRangesCJKV.Data;
-			GlobalGlyphRanges.EN = globalRangesEN.Data;
-		}
+		if (rebuildCJKVRange || GlobalGlyphRanges.CJKV == nullptr)
+			ImGuiLoadCJKVGlyphRange();
 
 		const std::string_view fontFileName = Path::GetFileName(FontFilePath);
 
@@ -248,10 +260,20 @@ namespace ApplicationHost
 		GlobalIsFirstFrameAfterFontRebuild = true;
 	}
 
+	static void ImGuiUpdateBuildFonts()
+	{
+		ImGuiUpdateBuildFonts(false);
+	}
+
 	static void ImGuiAndUserUpdateThenRenderAndPresentFrame()
 	{
 		if (!GlobalIsWindowMinimized && GlobalSwapChainWaitableObject != NULL)
 			::WaitForSingleObjectEx(GlobalSwapChainWaitableObject, 1000, true);
+
+		if (FontMainUseFullCJKVCurrent != FontMainUseFullCJKVTarget) {
+			ImGuiUpdateBuildFonts(true);
+			FontMainUseFullCJKVCurrent = FontMainUseFullCJKVTarget;
+		}
 
 		if (!ApproxmiatelySame(GuiScaleFactorTarget, GuiScaleFactorToSetNextFrame))
 		{

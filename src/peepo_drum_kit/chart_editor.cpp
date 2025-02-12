@@ -354,6 +354,8 @@ namespace PeepoDrumKit
 					if (Gui::MenuItem(labelBuffer, it.Code, (SelectedGuiLanguage == it.Language)))
 						nextLanguageToSelect = it.Language;
 				}
+				Gui::Separator();
+				Gui::MenuItem(UI_Str("Load Full CJKV Glyphs (slow)"), " ", &FontMainUseFullCJKVTarget);
 				Gui::EndMenu();
 			}
 
