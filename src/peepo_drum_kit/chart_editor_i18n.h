@@ -14,7 +14,7 @@ X("Undo History",						u8"ヒストリー",								u8"撤销历史", ) \
 X("Chart Inspector",					u8"インスペクター",							u8"谱面检查器", ) \
 X("Settings",							u8"環境設定",									u8"环境设置", ) \
 X("Usage Guide",						u8"使い方について",							u8"使用教程", ) \
-X("Update Notes",						u8"更新の履歴") \
+X("Update Notes",						u8"更新の履歴",								u8"更新记录", ) \
 X("TJA Export Debug View",				u8"TJAエクスポートテスト",						u8"TJA 导出调试视图", ) \
 X("TJA Import Test",					u8"TJAインポートテスト",						u8"TJA 导入测试", ) \
 X("Audio Test",							u8"オーディオテスト",							u8"音频测试", ) \
@@ -91,7 +91,7 @@ X("Copyright (c) 2022",					u8"Copyright (c) 2022",						u8"Copyright (c) 2022",
 X("Build Time:",						u8"ビルド時間:",								u8"构建时间：", ) \
 X("Build Date:",						u8"ビルド日付:",								u8"构建日期：", ) \
 X("Build Configuration:",				u8"ビルド構成:",								u8"构建配置：", ) \
-X("Current Version:",					u8"ビルドバージョン:") \
+X("Current Version:",					u8"ビルドバージョン:",							u8"构建版本：", ) \
 X("Debug",								u8"デバッグ",									u8"调试", ) \
 X("Release",							u8"リリース",									u8"发行", ) \
 X("Courses",							u8"コース",									u8"难度", ) \
@@ -114,16 +114,16 @@ X("Notes",								u8"音符",									u8"音符", ) \
 X("Notes (Expert)",						u8"音符 (玄人)",								u8"音符（进阶）", ) \
 X("Notes (Master)",						u8"音符 (達人)",								u8"音符（达人）", ) \
 X("Scroll Speed",						u8"スクロールスピード",						u8"滚动速度", ) \
-X("Vertical Scroll Speed",				u8"縦スクロールスピード") \
+X("Vertical Scroll Speed",				u8"縦スクロールスピード",						u8"垂直滚动速度", ) \
 X("Scroll Speed Tempo",					u8"スクロールスピードのテンポ",					u8"滚动速度 BPM", ) \
 X("Bar Line Visibility",				u8"小節線の表示",								u8"小节线可见性", ) \
 X("Go-Go Time",							u8"ゴーゴータイム",							u8"Go-Go 区间", ) \
 X("Lyrics",								u8"歌詞",									u8"歌词", ) \
-X("Scroll Type",						u8"スクロールタイプ") \
-X("JPOS Scroll",						u8"判定エリアスクロール") \
-X("JPOS Scroll Move",					u8"判定エリア移動") \
-X("Vertical JPOS Scroll Move",			u8"縦判定エリア移動") \
-X("JPOS Scroll Duration",				u8"判定エリア移動時間") \
+X("Scroll Type",						u8"スクロールタイプ",							u8"滚动方式", ) \
+X("JPOS Scroll",						u8"判定エリアスクロール",						u8"判定区移动", ) \
+X("JPOS Scroll Move",					u8"判定エリア移動",							u8"判定区移动距离", ) \
+X("Vertical JPOS Scroll Move",			u8"縦判定エリア移動",							u8"判定区垂直移动距离", ) \
+X("JPOS Scroll Duration",				u8"判定エリア移動時間",						u8"判定区移动时间", ) \
 X("Sync",								u8"タイミング",								u8"同步", ) \
 X("Chart Duration",						u8"譜面の終了時間",							u8"谱面长度", ) \
 X("Song Demo Start",					u8"音源のプレビュー時間",						u8"音乐演示开始位置", ) \
@@ -139,13 +139,13 @@ X("Chart Title",						u8"曲のタイトル",								u8"谱面标题", ) \
 X("Chart Subtitle",						u8"曲のサブタイトル",							u8"谱面子标题", ) \
 X("Chart Creator",						u8"譜面の作者名",								u8"谱面制作者", ) \
 X("Song File Name",						u8"音源のファイル名",							u8"歌曲文件名", ) \
-X("Jacket File Name",					u8"ジャケットのファイル名") \
+X("Jacket File Name",					u8"ジャケットのファイル名",						u8"歌曲封面文件名", ) \
 X("Song Volume",						u8"音源の音量",								u8"歌曲音量", ) \
 X("Sound Effect Volume",				u8"音色の音量",								u8"音效音量", ) \
 X("Selected Course",					u8"現在のコース",								u8"所选难度", ) \
 X("Difficulty Type",					u8"難易度",									u8"难度类型", ) \
 X("Difficulty Level",					u8"難易度のレベル",							u8"难度星级", ) \
-X("Difficulty Level Decimal",			u8"難易度のレベル( 小数 )") \
+X("Difficulty Level Decimal",			u8"難易度のレベル( 小数 )",					u8"难度星级小数", ) \
 X("Course Creator",						u8"コースの作者名",							u8"难度制作者", ) \
 X("Selected Items",						u8"選択した項目",								u8"所选项目", ) \
 X("( Nothing Selected )",				u8"( 選択なし )",								u8"（ 未选择项目 ）", ) \
@@ -159,15 +159,15 @@ X("Go-Go Ranges",						u8"ゴーゴータイム",							u8"Go-Go 区间", ) \
 X("Bar Line Visible",					u8"小節線の表示",								u8"显示小节线", ) \
 X("Visible",							u8"表示",									u8"显示", ) \
 X("Hidden",								u8"非表示",									u8"隐藏", ) \
-X("Scroll Types",						u8"スクロールタイプ") \
-X("JPOS Scrolls",						u8"判定座標スクロール") \
-X("NMSCROLL",							u8"普通") \
-X("HBSCROLL",							u8"HBSCROLL") \
-X("BMSCROLL",							u8"BMSCROLL") \
+X("Scroll Types",						u8"スクロールタイプ",							u8"滚动方式", ) \
+X("JPOS Scrolls",						u8"判定座標スクロール",						u8"判定区移动", ) \
+X("NMSCROLL",							u8"普通",									u8"一般", ) \
+X("HBSCROLL",							u8"HBSCROLL",								u8"HBSCROLL", ) \
+X("BMSCROLL",							u8"BMSCROLL",								u8"BMSCROLL", ) \
 X("Balloon Pop Count",					u8"風船の連打数",								u8"气球连打数", ) \
 X("Interpolate: Scroll Speed",			u8"補間: スクロールスピード",					u8"补间：滚动速度", ) \
 X("Interpolate: Scroll Speed Tempo",	u8"補間: スクロールスピードのテンポ",			u8"补间：滚动速度 BPM", ) \
-X("Interpolate: Vertical Scroll Speed",	u8"補間: 縦スクロールスピード") \
+X("Interpolate: Vertical Scroll Speed",	u8"補間: 縦スクロールスピード",					u8"补间：垂直滚动速度", ) \
 X("Time Offset",						u8"時間のオフセット",							u8"时间位移", ) \
 X("Note Type",							u8"音符の種類",								u8"音符类型", ) \
 X("Note Type Size",						u8"音符の大小",								u8"音符大小", ) \
@@ -204,10 +204,10 @@ X("Timing Taps",						u8"叩いた数",									u8"节拍数量", ) \
 X("First Beat",							u8"最初の拍",									u8"第一拍", ) \
 X("%d Taps",							u8"%d 拍",									u8"%d 拍", ) \
 X("",									u8"",										u8"", ) \
-X("KADON",								u8"カドン") \
-X("Bomb",								u8"爆弾") \
-X("Adlib",								u8"アドリブ") \
-X("Fuseroll",							u8"時爆弾") \
+X("KADON",								u8"カドン",									u8"咔咚", ) \
+X("Bomb",								u8"爆弾",									u8"炸弹", ) \
+X("Adlib",								u8"アドリブ",									u8"Adlib", ) \
+X("Fuseroll",							u8"時爆弾",									u8"计时弹", ) \
 
 #define UI_Str(in) i18n::HashToString(i18n::CompileTimeValidate<i18n::Hash(in)>(), SelectedGuiLanguage)
 #define UI_StrRuntime(in) i18n::HashToString(i18n::Hash(in), SelectedGuiLanguage)
