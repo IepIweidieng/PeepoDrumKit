@@ -1919,7 +1919,7 @@ namespace PeepoDrumKit
 			}
 		}
 
-		if (Gui::CollapsingHeader(UI_Str("Tempo"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("Events"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			b8 isAnyItemOtherThanNotesSelected = false;
 			b8 isAnyItemOtherThanScrollChangesSelected = false;

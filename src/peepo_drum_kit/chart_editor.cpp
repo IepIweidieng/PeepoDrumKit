@@ -755,7 +755,7 @@ namespace PeepoDrumKit
 		}
 		Gui::End();
 
-		if (Gui::Begin(UI_WindowName("Chart Tempo"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("Chart Events"), nullptr, ImGuiWindowFlags_None))
 		{
 			tempoWindow.DrawGui(context, timeline);
 		}
@@ -1030,7 +1030,7 @@ namespace PeepoDrumKit
 
 			Gui::DockBuilderDockWindow(UI_WindowName("Tempo Calculator"), dock.TopLeft);
 			Gui::DockBuilderDockWindow(UI_WindowName("Chart Lyrics"), dock.TopLeft);
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Tempo"), dock.TopLeft);
+			Gui::DockBuilderDockWindow(UI_WindowName("Chart Events"), dock.TopLeft);
 			Gui::DockBuilderDockWindow(UI_WindowName("TJA Export Debug View"), dock.TopLeft);
 
 			Gui::DockBuilderDockWindow(UI_WindowName("Settings"), dock.TopCenter);
