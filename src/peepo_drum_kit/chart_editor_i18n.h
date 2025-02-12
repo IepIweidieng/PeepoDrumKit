@@ -4,10 +4,12 @@
 
 #include "i18n/ja.h"
 #include "i18n/zh-CN.h"
+#include "i18n/zh-TW.h"
 
 #define PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL \
 	XX(JA, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA) \
 	XX(ZHCN, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHCN) \
+	XX(ZHTW, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHTW) \
 
 #define UI_Str(in) i18n::HashToString(i18n::CompileTimeValidate<i18n::Hash(in)>(), SelectedGuiLanguage)
 #define UI_StrRuntime(in) i18n::HashToString(i18n::Hash(in), SelectedGuiLanguage)
@@ -15,7 +17,7 @@
 
 namespace PeepoDrumKit
 {
-	enum class GuiLanguage : u8 { EN, JA, ZHCN, Count };
+	enum class GuiLanguage : u8 { EN, JA, ZHCN, ZHTW, Count };
 	inline GuiLanguage SelectedGuiLanguage = GuiLanguage::EN;
 
 	constexpr struct { GuiLanguage Language; cstr Code, Name; } GuiLanguageDefs[] =
@@ -23,6 +25,7 @@ namespace PeepoDrumKit
 		{ GuiLanguage::EN, "en", "English", },
 		{ GuiLanguage::JA, "ja", "Japanese", },
 		{ GuiLanguage::ZHCN, "zh-CN", "Simplified Chinese", },
+		{ GuiLanguage::ZHTW, "zh-TW", "Traditional Chinese", },
 	};
 	static_assert(ArrayCount(GuiLanguageDefs) == EnumCount<GuiLanguage>, "Don't forget to implement proper language code string conversion");
 

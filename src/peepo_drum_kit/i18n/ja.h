@@ -25,6 +25,7 @@ X("Language",							u8"言語") \
 X("English",							u8"英語") \
 X("Japanese",							u8"日本語") \
 X("Simplified Chinese",					u8"中国語（簡体字）") \
+X("Traditional Chinese",				u8"中国語（繁体字）") \
 X("%s (%s)",							u8"%s（%s）") \
 X("Help",								u8"ヘルプ") \
 X("Copy",								u8"コピー") \
