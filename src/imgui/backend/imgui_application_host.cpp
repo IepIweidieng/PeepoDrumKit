@@ -186,8 +186,13 @@ namespace ApplicationHost
 			globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
 			globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
 			// HACK: Only load default ranges for debug builds to compensate for slow font (re)building
-			globalRangesBuilderCJKV.AddRanges(PEEPO_DEBUG ? io.Fonts->GetGlyphRangesDefault() : io.Fonts->GetGlyphRangesJapanese());
-			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
+			if (PEEPO_DEBUG) {
+				globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesDefault());
+			}
+			else {
+				globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesJapanese());
+				globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+			}
 			globalRangesBuilderCJKV.BuildRanges(&globalRangesCJKV);
 
 			globalRangesBuilderEN.AddRanges(io.Fonts->GetGlyphRangesDefault());
