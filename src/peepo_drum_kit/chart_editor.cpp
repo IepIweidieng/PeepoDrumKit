@@ -343,20 +343,13 @@ namespace PeepoDrumKit
 
 			if (Gui::BeginMenu(UI_Str("Language")))
 			{
-				const struct { GuiLanguage Language; cstr Code, Name, CurrentName; } languages[] =
+				for (const auto& it : GuiLanguageDefs)
 				{
-					{ GuiLanguage::EN, "en", "English", UI_Str("English"), },
-					{ GuiLanguage::JA, "ja", "Japanese", UI_Str("Japanese"), },
-					{ GuiLanguage::ZHCN, "zh-CN", "Simplified Chinese", UI_Str("Simplified Chinese"), },
-				};
-				static_assert(ArrayCount(languages) == EnumCount<GuiLanguage>);
-
-				for (const auto& it : languages)
-				{
+					const cstr currentName = UI_StrRuntime(it.Name);
 					const cstr localName = i18n::HashToString(i18n::Hash(it.Name), it.Language);
 
 					char labelBuffer[128];
-					sprintf_s(labelBuffer, UI_Str("%s (%s)"), it.CurrentName, (strcmp(it.Name, it.CurrentName) == 0) ? localName : it.Name);
+					sprintf_s(labelBuffer, UI_Str("%s (%s)"), currentName, (strcmp(it.Name, currentName) == 0) ? localName : it.Name);
 
 					if (Gui::MenuItem(labelBuffer, it.Code, (SelectedGuiLanguage == it.Language)))
 						nextLanguageToSelect = it.Language;

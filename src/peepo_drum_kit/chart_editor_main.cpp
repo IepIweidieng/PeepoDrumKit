@@ -149,8 +149,7 @@ namespace PeepoDrumKit
 		ApplicationHost::UserCallbacks callbacks = {};
 
 		GuiScaleFactorTarget = ClampRoundGuiScaleFactor(PersistentApp.LastSession.GuiScale);
-		SelectedGuiLanguage = (PersistentApp.LastSession.GuiLanguage == "ja") ? GuiLanguage::JA : (PersistentApp.LastSession.GuiLanguage == "zh-CN") ? GuiLanguage::ZHCN : GuiLanguage::EN;
-		static_assert(EnumCount<GuiLanguage> == 3, "Don't forget to implement proper language code string conversion");
+		SelectedGuiLanguage = LocaleCodeToGuiLanguage(PersistentApp.LastSession.GuiLanguage);
 
 		ApplicationHost::GlobalState.SwapInterval = PersistentApp.LastSession.OSWindow_SwapInterval;
 		startupParam.WindowTitle = PeepoDrumKitApplicationTitle;
@@ -173,7 +172,7 @@ namespace PeepoDrumKit
 			Audio::Engine.ApplicationShutdown();
 
 			PersistentApp.LastSession.GuiScale = GuiScaleFactorTarget;
-			PersistentApp.LastSession.GuiLanguage = (SelectedGuiLanguage == GuiLanguage::JA) ? "ja" : (SelectedGuiLanguage == GuiLanguage::ZHCN) ? "zh-CN" : "en";
+			PersistentApp.LastSession.GuiLanguage = GuiLanguageToLocaleCode(SelectedGuiLanguage);
 			PersistentApp.LastSession.OSWindow_SwapInterval = ApplicationHost::GlobalState.SwapInterval;
 			PersistentApp.LastSession.OSWindow_Region = Rect::FromTLSize(vec2(ApplicationHost::GlobalState.WindowPosition), vec2(ApplicationHost::GlobalState.WindowSize));
 			// TODO: PersistentApp.LastSession.OSWindow_RegionRestore = ...;

@@ -217,6 +217,34 @@ namespace PeepoDrumKit
 {
 	enum class GuiLanguage : u8 { EN, JA, ZHCN, Count };
 	inline GuiLanguage SelectedGuiLanguage = GuiLanguage::EN;
+
+	constexpr struct { GuiLanguage Language; cstr Code, Name; } GuiLanguageDefs[] =
+	{
+		{ GuiLanguage::EN, "en", "English", },
+		{ GuiLanguage::JA, "ja", "Japanese", },
+		{ GuiLanguage::ZHCN, "zh-CN", "Simplified Chinese", },
+	};
+	static_assert(ArrayCount(GuiLanguageDefs) == EnumCount<GuiLanguage>, "Don't forget to implement proper language code string conversion");
+
+	// Converters; no need to optimize
+
+	inline cstr GuiLanguageToLocaleCode(GuiLanguage lang)
+	{
+		for (const auto& def : GuiLanguageDefs) {
+			if (def.Language == lang)
+				return def.Code;
+		}
+		return GuiLanguageDefs[0].Code;
+	}
+
+	inline GuiLanguage LocaleCodeToGuiLanguage(std::string_view str)
+	{
+		for (const auto& def : GuiLanguageDefs) {
+			if (def.Name == str)
+				return def.Language;
+		}
+		return GuiLanguageDefs[0].Language;
+	}
 }
 
 namespace PeepoDrumKit::i18n
