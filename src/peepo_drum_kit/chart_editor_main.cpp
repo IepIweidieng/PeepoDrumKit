@@ -131,15 +131,19 @@ namespace PeepoDrumKit
 		std::unique_ptr<char[]> fontGlyphsBuffer = nullptr;
 		{
 			size_t fontGlyphBufferSize = 0;
-#define X(en, ja) fontGlyphBufferSize += (ArrayCount(ja) - 1);
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST;
+#define XX(_locale, ...) { __VA_ARGS__ }
+#define X(_en, _l10n) { fontGlyphBufferSize += ArrayCount(_l10n) - 1; }
+			{ PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL; }
 #undef X
+#undef XX
 			fontGlyphsBuffer = std::unique_ptr<char[]>(new char[fontGlyphBufferSize + 1]);
 			fontGlyphsBuffer[fontGlyphBufferSize] = '\0';
 			char* writeHead = fontGlyphsBuffer.get();
-#define X(en, ja) { memcpy(writeHead, ja, ArrayCount(ja) - 1); writeHead += (ArrayCount(ja) - 1); }
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST;
+#define XX(_locale, ...) { __VA_ARGS__ }
+#define X(_en, _l10n) { memcpy(writeHead, _l10n, ArrayCount(_l10n) - 1); writeHead += (ArrayCount(_l10n) - 1); }
+			{ PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL; }
 #undef X
+#undef XX
 
 			ExternalGlobalFontGlyphs = std::string_view(fontGlyphsBuffer.get(), fontGlyphBufferSize);
 		}
@@ -149,8 +153,7 @@ namespace PeepoDrumKit
 		ApplicationHost::UserCallbacks callbacks = {};
 
 		GuiScaleFactorTarget = ClampRoundGuiScaleFactor(PersistentApp.LastSession.GuiScale);
-		SelectedGuiLanguage = (PersistentApp.LastSession.GuiLanguage == "ja") ? GuiLanguage::JA : GuiLanguage::EN;
-		static_assert(EnumCount<GuiLanguage> == 2, "Don't forget to implement proper language code string conversion");
+		SelectedGuiLanguage = LocaleCodeToGuiLanguage(PersistentApp.LastSession.GuiLanguage);
 
 		ApplicationHost::GlobalState.SwapInterval = PersistentApp.LastSession.OSWindow_SwapInterval;
 		startupParam.WindowTitle = PeepoDrumKitApplicationTitle;
@@ -173,7 +176,7 @@ namespace PeepoDrumKit
 			Audio::Engine.ApplicationShutdown();
 
 			PersistentApp.LastSession.GuiScale = GuiScaleFactorTarget;
-			PersistentApp.LastSession.GuiLanguage = (SelectedGuiLanguage == GuiLanguage::JA) ? "ja" : "en";
+			PersistentApp.LastSession.GuiLanguage = GuiLanguageToLocaleCode(SelectedGuiLanguage);
 			PersistentApp.LastSession.OSWindow_SwapInterval = ApplicationHost::GlobalState.SwapInterval;
 			PersistentApp.LastSession.OSWindow_Region = Rect::FromTLSize(vec2(ApplicationHost::GlobalState.WindowPosition), vec2(ApplicationHost::GlobalState.WindowSize));
 			// TODO: PersistentApp.LastSession.OSWindow_RegionRestore = ...;

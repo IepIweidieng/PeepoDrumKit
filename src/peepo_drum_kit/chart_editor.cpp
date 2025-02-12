@@ -343,23 +343,19 @@ namespace PeepoDrumKit
 
 			if (Gui::BeginMenu(UI_Str("Language")))
 			{
-				const struct { GuiLanguage Language; cstr Code, Name, CurrentName; } languages[] =
+				for (const auto& it : GuiLanguageDefs)
 				{
-					{ GuiLanguage::EN, "en", "English", UI_Str("English"), },
-					{ GuiLanguage::JA, "ja", "Japanese", UI_Str("Japanese"), },
-				};
-				static_assert(ArrayCount(languages) == EnumCount<GuiLanguage>);
-
-				for (const auto& it : languages)
-				{
+					const cstr currentName = UI_StrRuntime(it.Name);
 					const cstr localName = i18n::HashToString(i18n::Hash(it.Name), it.Language);
 
 					char labelBuffer[128];
-					sprintf_s(labelBuffer, UI_Str("%s (%s)"), it.CurrentName, (strcmp(it.Name, it.CurrentName) == 0) ? localName : it.Name);
+					sprintf_s(labelBuffer, UI_Str("%s (%s)"), currentName, (strcmp(it.Name, currentName) == 0) ? localName : it.Name);
 
 					if (Gui::MenuItem(labelBuffer, it.Code, (SelectedGuiLanguage == it.Language)))
 						nextLanguageToSelect = it.Language;
 				}
+				Gui::Separator();
+				Gui::MenuItem(UI_Str("Load Full CJKV Glyphs (slow)"), " ", &FontMainUseFullCJKVTarget);
 				Gui::EndMenu();
 			}
 
@@ -575,11 +571,11 @@ namespace PeepoDrumKit
 							"", scaleMin, scaleMax, GuiScale(vec2(static_cast<f32>(ArrayCount(performance.FrameTimesMS)), plotLinesHeight)));
 						const Rect plotLinesRect = Gui::GetItemRect();
 
-						char overlayTextBuffer[64];
+						char overlayTextBuffer[96];
 						const auto overlayText = std::string_view(overlayTextBuffer, sprintf_s(overlayTextBuffer,
-							"%s%.3f ms\n"
-							"%s%.3f ms\n"
-							"%s%.3f ms",
+							"%s%.5g ms\n"
+							"%s%.5g ms\n"
+							"%s%.5g ms",
 							UI_Str("Average: "), averageFrameTime,
 							UI_Str("Min: "), minFrameTime,
 							UI_Str("Max: "), maxFrameTime));
@@ -759,7 +755,7 @@ namespace PeepoDrumKit
 		}
 		Gui::End();
 
-		if (Gui::Begin(UI_WindowName("Chart Tempo"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("Chart Events"), nullptr, ImGuiWindowFlags_None))
 		{
 			tempoWindow.DrawGui(context, timeline);
 		}
@@ -1034,7 +1030,7 @@ namespace PeepoDrumKit
 
 			Gui::DockBuilderDockWindow(UI_WindowName("Tempo Calculator"), dock.TopLeft);
 			Gui::DockBuilderDockWindow(UI_WindowName("Chart Lyrics"), dock.TopLeft);
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Tempo"), dock.TopLeft);
+			Gui::DockBuilderDockWindow(UI_WindowName("Chart Events"), dock.TopLeft);
 			Gui::DockBuilderDockWindow(UI_WindowName("TJA Export Debug View"), dock.TopLeft);
 
 			Gui::DockBuilderDockWindow(UI_WindowName("Settings"), dock.TopCenter);

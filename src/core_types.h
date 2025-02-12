@@ -154,6 +154,9 @@ constexpr __forceinline i32 ArrayItToIndexI32(const T* itemWithinArray, const T*
 	return static_cast<i32>(ArrayItToIndex(itemWithinArray, arrayBegin));
 }
 
+// Note: Only to be used for evaluating an unpacked parameter pack in unspecified order
+constexpr __forceinline void EvalUnpackedParamsUnordered(...) { }
+
 // NOTE: Only to be used for temporary POD* function arguments
 template<typename T>
 struct PtrArg
