@@ -131,14 +131,22 @@ namespace PeepoDrumKit
 		std::unique_ptr<char[]> fontGlyphsBuffer = nullptr;
 		{
 			size_t fontGlyphBufferSize = 0;
-#define X(en, ja) fontGlyphBufferSize += (ArrayCount(ja) - 1);
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST;
+			auto addFontGlyphBufferSize = [&](const auto&... str) -> void
+			{
+				EvalUnpackedParamsUnordered((fontGlyphBufferSize += (ArrayCount(str) - 1))...);
+			};
+#define X(en, ...) { addFontGlyphBufferSize(__VA_ARGS__ ""); }
+			{ PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST; }
 #undef X
 			fontGlyphsBuffer = std::unique_ptr<char[]>(new char[fontGlyphBufferSize + 1]);
 			fontGlyphsBuffer[fontGlyphBufferSize] = '\0';
 			char* writeHead = fontGlyphsBuffer.get();
-#define X(en, ja) { memcpy(writeHead, ja, ArrayCount(ja) - 1); writeHead += (ArrayCount(ja) - 1); }
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST;
+			auto writeFontGlyphBuffer = [&](const auto&... str) -> void
+			{
+				EvalUnpackedParamsUnordered((memcpy(writeHead, str, ArrayCount(str) - 1), writeHead += (ArrayCount(str) - 1))...);
+			};
+#define X(en, ...) { writeFontGlyphBuffer(__VA_ARGS__ ""); }
+			{ PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST; }
 #undef X
 
 			ExternalGlobalFontGlyphs = std::string_view(fontGlyphsBuffer.get(), fontGlyphBufferSize);
