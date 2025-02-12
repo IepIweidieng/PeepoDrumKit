@@ -513,7 +513,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted("v1.1");
 					Gui::PopFont();
 
-					Gui::PushFont(FontMain_JP);
+					Gui::PushFont(FontMain_CJKV);
 					Gui::TextUnformatted("- Add support for #HBSCROLL and #BMSCROLL methods");
 					Gui::TextUnformatted("- Add support for the #JPOSSCROLL gimmick");
 					Gui::TextUnformatted("- Add support for complex #SCROLL changes (y axis)");
@@ -534,7 +534,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted("v1.0");
 					Gui::PopFont();
 
-					Gui::PushFont(FontMain_JP);
+					Gui::PushFont(FontMain_CJKV);
 					Gui::TextUnformatted("- Add support for the Bomb (C) note");
 					Gui::TextUnformatted("- Add support for the Fuseroll (D) note");
 					Gui::TextUnformatted("- Add support for the ADLib (F) note");
@@ -610,7 +610,7 @@ namespace PeepoDrumKit
 				Gui::PopStyleColor();
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
-				Gui::PushFont(FontMain_JP);
+				Gui::PushFont(FontMain_CJKV);
 				if (Gui::BeginTable("ControlsTable", 2, ImGuiTableFlags_BordersInner | ImGuiTableFlags_NoSavedSettings))
 				{
 					static constexpr auto row = [&](auto funcLeft, auto funcRight)

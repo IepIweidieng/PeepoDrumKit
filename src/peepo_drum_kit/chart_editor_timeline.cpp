@@ -660,7 +660,7 @@ namespace PeepoDrumKit
 		{
 			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
 
-			Gui::PushFont(FontMain_JP);
+			Gui::PushFont(FontMain_CJKV);
 			for (size_t i = 0; i < list.size(); i++)
 			{
 				const LyricChange* prevLyric = IndexOrNull(static_cast<i32>(i) - 1, list);

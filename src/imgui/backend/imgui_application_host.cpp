@@ -90,7 +90,7 @@ namespace ApplicationHost
 	static b8						GlobalIsWindowFocused = false;
 	static UINT_PTR					GlobalWindowRedrawTimerID = {};
 	static HANDLE					GlobalSwapChainWaitableObject = NULL;
-	static struct { const ImWchar *JP, *EN; } GlobalGlyphRanges = {};
+	static struct { const ImWchar *CJKV, *EN; } GlobalGlyphRanges = {};
 	static ImGuiStyle				GlobalOriginalScaleStyle = {};
 	static b8						GlobalIsFirstFrameAfterFontRebuild = true;
 #if IMGUI_HACKS_DELINEARIZE_FONTS
@@ -164,11 +164,11 @@ namespace ApplicationHost
 		// TODO: Fonts should probably be set up by the application itself instead of being tucked away here but it doesn't really matter too much for now..
 		ImGuiIO& io = ImGui::GetIO();
 
-		if (GlobalGlyphRanges.JP == nullptr)
+		if (GlobalGlyphRanges.CJKV == nullptr)
 		{
 			// NOTE: Using the glyph ranges builder here takes around ~0.15ms in release and ~2ms in debug builds
-			static ImVector<ImWchar>		globalRangesJP, globalRangesEN;
-			static ImFontGlyphRangesBuilder globalRangesBuilderJP, globalRangesBuilderEN;
+			static ImVector<ImWchar>		globalRangesCJKV, globalRangesEN;
+			static ImFontGlyphRangesBuilder globalRangesBuilderCJKV, globalRangesBuilderEN;
 
 			// HACK: Somewhat arbitrary non-exhaustive list of glyphs sometimes seen in song names etc.
 			static constexpr const char additionalGlyphs[] =
@@ -183,18 +183,18 @@ namespace ApplicationHost
 			//		 This *should* include *at least* the ~6000 漢字漢検１級 + common "fancy" unicode characters used as variations of the regular ASCII set.
 			//		 Creating a font atlas that big upfront however absolutely kills startup times so the only sane solution is to use dynamic glyph rasterization
 			//		 which will hopefully be fully implemented in the not too distant future :Copium: (https://github.com/ocornut/imgui/pull/3471)
-			globalRangesBuilderJP.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
-			globalRangesBuilderJP.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
+			globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
+			globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
 			// HACK: Only load default ranges for debug builds to compensate for slow font (re)building
-			globalRangesBuilderJP.AddRanges(PEEPO_DEBUG ? io.Fonts->GetGlyphRangesDefault() : io.Fonts->GetGlyphRangesJapanese());
-			globalRangesBuilderJP.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
-			globalRangesBuilderJP.BuildRanges(&globalRangesJP);
+			globalRangesBuilderCJKV.AddRanges(PEEPO_DEBUG ? io.Fonts->GetGlyphRangesDefault() : io.Fonts->GetGlyphRangesJapanese());
+			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
+			globalRangesBuilderCJKV.BuildRanges(&globalRangesCJKV);
 
 			globalRangesBuilderEN.AddRanges(io.Fonts->GetGlyphRangesDefault());
 			globalRangesBuilderEN.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
 			globalRangesBuilderEN.BuildRanges(&globalRangesEN);
 
-			GlobalGlyphRanges.JP = globalRangesJP.Data;
+			GlobalGlyphRanges.CJKV = globalRangesCJKV.Data;
 			GlobalGlyphRanges.EN = globalRangesEN.Data;
 		}
 
@@ -226,7 +226,7 @@ namespace ApplicationHost
 		io.FontDefault = nullptr;
 
 		// NOTE: Unfortunately Dear ImGui does not allow avoiding these copies at the moment as far as I can tell (except for maybe some super hacky "inject nullptrs before shutdown")
-		FontMain_JP = addFont(GuiScaleI32_AtTarget(FontBaseSizes[0]), GlobalGlyphRanges.JP, Ownership::Copy);
+		FontMain_CJKV = addFont(GuiScaleI32_AtTarget(FontBaseSizes[0]), GlobalGlyphRanges.CJKV, Ownership::Copy);
 		FontMedium_EN = addFont(GuiScaleI32_AtTarget(FontBaseSizes[1]), GlobalGlyphRanges.EN, Ownership::Copy);
 		FontLarge_EN = addFont(GuiScaleI32_AtTarget(FontBaseSizes[2]), GlobalGlyphRanges.EN, Ownership::Copy);
 

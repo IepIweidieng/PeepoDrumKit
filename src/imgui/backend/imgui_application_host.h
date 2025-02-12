@@ -15,11 +15,11 @@ EmbeddedIconsList GetEmbeddedIconsList();
 
 // NOTE: Exposed here specifically to be used with PushFont() / PopFont()
 struct ImFont;
-inline ImFont* FontMain_JP = nullptr;
+inline ImFont* FontMain_CJKV = nullptr;
 inline ImFont* FontMedium_EN = nullptr;
 inline ImFont* FontLarge_EN = nullptr;
-enum class BuiltInFont : u8 { FontMain_JP, FontMedium_EN, FontLarge_EN, Count };
-inline ImFont* GetBuiltInFont(BuiltInFont font) { return (font == BuiltInFont::FontMain_JP) ? FontMain_JP : (font == BuiltInFont::FontMedium_EN) ? FontMedium_EN : FontLarge_EN; }
+enum class BuiltInFont : u8 { FontMain_CJKV, FontMedium_EN, FontLarge_EN, Count };
+inline ImFont* GetBuiltInFont(BuiltInFont font) { return (font == BuiltInFont::FontMain_CJKV) ? FontMain_CJKV : (font == BuiltInFont::FontMedium_EN) ? FontMedium_EN : FontLarge_EN; }
 inline std::string_view ExternalGlobalFontGlyphs = "";
 
 inline f32 GuiScaleFactorCurrent = 1.0f;
