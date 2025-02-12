@@ -131,23 +131,19 @@ namespace PeepoDrumKit
 		std::unique_ptr<char[]> fontGlyphsBuffer = nullptr;
 		{
 			size_t fontGlyphBufferSize = 0;
-			auto addFontGlyphBufferSize = [&](const auto&... str) -> void
-			{
-				EvalUnpackedParamsUnordered((fontGlyphBufferSize += (ArrayCount(str) - 1))...);
-			};
-#define X(en, ...) { addFontGlyphBufferSize(__VA_ARGS__ ""); }
-			{ PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST; }
+#define XX(_locale, ...) { __VA_ARGS__ }
+#define X(_en, _l10n) { fontGlyphBufferSize += ArrayCount(_l10n) - 1; }
+			{ PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL; }
 #undef X
+#undef XX
 			fontGlyphsBuffer = std::unique_ptr<char[]>(new char[fontGlyphBufferSize + 1]);
 			fontGlyphsBuffer[fontGlyphBufferSize] = '\0';
 			char* writeHead = fontGlyphsBuffer.get();
-			auto writeFontGlyphBuffer = [&](const auto&... str) -> void
-			{
-				EvalUnpackedParamsUnordered((memcpy(writeHead, str, ArrayCount(str) - 1), writeHead += (ArrayCount(str) - 1))...);
-			};
-#define X(en, ...) { writeFontGlyphBuffer(__VA_ARGS__ ""); }
-			{ PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST; }
+#define XX(_locale, ...) { __VA_ARGS__ }
+#define X(_en, _l10n) { memcpy(writeHead, _l10n, ArrayCount(_l10n) - 1); writeHead += (ArrayCount(_l10n) - 1); }
+			{ PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL; }
 #undef X
+#undef XX
 
 			ExternalGlobalFontGlyphs = std::string_view(fontGlyphsBuffer.get(), fontGlyphBufferSize);
 		}

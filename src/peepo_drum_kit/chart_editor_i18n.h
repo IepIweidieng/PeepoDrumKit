@@ -2,214 +2,12 @@
 #include "core_types.h"
 #include "imgui/imgui_include.h"
 
-#define PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST \
-X("Game Preview",						u8"ゲームプレビュー",							u8"游戏预览", ) \
-X("Chart Timeline",						u8"タイムライン",								u8"谱面时间轴", ) \
-X("Chart Timeline - Debug",				u8"タイムライン - デバッグ",					u8"谱面时间轴 - 调试", ) \
-X("Chart Properties",					u8"譜面プロパティ",							u8"谱面属性", ) \
-X("Chart Events",						u8"譜面イベント",								u8"谱面事件", ) \
-X("Chart Lyrics",						u8"譜面歌詞",									u8"歌词", ) \
-X("Tempo Calculator",					u8"テンポ計算機",								u8"计拍器", ) \
-X("Undo History",						u8"ヒストリー",								u8"撤销历史", ) \
-X("Chart Inspector",					u8"インスペクター",							u8"物件属性", ) \
-X("Settings",							u8"環境設定",									u8"环境设置", ) \
-X("Usage Guide",						u8"使い方について",							u8"使用教程", ) \
-X("Update Notes",						u8"更新の履歴",								u8"更新记录", ) \
-X("TJA Export Debug View",				u8"TJAエクスポートテスト",						u8"TJA 导出调试", ) \
-X("TJA Import Test",					u8"TJAインポートテスト",						u8"TJA 导入测试", ) \
-X("Audio Test",							u8"オーディオテスト",							u8"音频测试", ) \
-X("File",								u8"ファイル",									u8"文件", ) \
-X("Edit",								u8"編集",									u8"编辑", ) \
-X("Selection",							u8"選択",									u8"选择", ) \
-X("Transform",							u8"変換",									u8"变换", ) \
-X("Window",								u8"ウィンドウ",								u8"窗口", ) \
-X("Language",							u8"言語",									u8"语言", ) \
-X("English",							u8"英語",									u8"英语", ) \
-X("Japanese",							u8"日本語",									u8"日语", ) \
-X("Simplified Chinese",					u8"中国語（簡体字）",							u8"简体中文", ) \
-X("%s (%s)",							u8"%s（%s）",								u8"%s（%s）", ) \
-X("Help",								u8"ヘルプ",									u8"帮助", ) \
-X("Copy",								u8"コピー",									u8"复制", ) \
-X("Delete",								u8"削除",									u8"删除", ) \
-X("Save",								u8"保存",									u8"保存", ) \
-X("Undo",								u8"元に戻す",									u8"撤销", ) \
-X("Redo",								u8"やり直し",									u8"重做", ) \
-X("Cut",								u8"切り取り",									u8"剪切", ) \
-X("Paste",								u8"貼り付け",									u8"粘贴", ) \
-X("Open Recent",						u8"最近使用した項目を開く",						u8"最近编辑的谱面", ) \
-X("Exit",								u8"終了",									u8"退出", ) \
-X("New Chart",							u8"新規ファイル",								u8"新建谱面", ) \
-X("Open...",							u8"ファイルを開く...",							u8"打开...", ) \
-X("Clear Items",						u8"最近使ったものをクリア",						u8"清除谱面列表", ) \
-X("Open Chart Directory...",			u8"エクスプローラーで表示する...",				u8"打开谱面文件夹", ) \
-X("Save As...",							u8"名前を付けて保存...",						u8"另存为...", ) \
-X("Refine Selection",					u8"選択を絞り込み",							u8"筛选已选择物件", ) \
-X("Select All",							u8"すべて選択",								u8"全选", ) \
-X("Clear Selection",					u8"選択を解除",								u8"取消选择", ) \
-X("Invert Selection",					u8"選択を反転",								u8"反选", ) \
-X("Start Range Selection",				u8"範囲選択を開始",							u8"设置范围选择起点", ) \
-X("End Range Selection",				u8"範囲選択を終了",							u8"设置范围选择终点", ) \
-X("From Range Selection",				u8"範囲選択以内項目を選択",						u8"选择范围内的物件", ) \
-X("Shift selection Left",				u8"選択を左に移動",							u8"左移物件选择范围", ) \
-X("Shift selection Right",				u8"選択を右に移動",							u8"右移物件选择范围", ) \
-X("Select Item Pattern xo",				u8"パターン選択 xo",							u8"模式选择：xo", ) \
-X("Select Item Pattern xoo",			u8"パターン選択 xoo",							u8"模式选择：xoo", ) \
-X("Select Item Pattern xooo",			u8"パターン選択 xooo",						u8"模式选择：xooo", ) \
-X("Select Item Pattern xxoo",			u8"パターン選択 xxoo",						u8"模式选择：xxoo", ) \
-X("Add New Pattern...",					u8"新規パターンを追加...",						u8"增加新的选择模式", ) \
-X("Select Custom Pattern",				u8"カスタムパターン",							u8"选择自定义选择模式", ) \
-X("Delete?",							u8"削除？",									u8"是否删除？", ) \
-X("Flip Note Types",					u8"音符の種類を変化",							u8"翻转音符类型", ) \
-X("Toggle Note Sizes",					u8"音符の大小を変化",							u8"切换音符大小", ) \
-X("Expand Items",						u8"選択した項目を広げ",						u8"扩展物件", ) \
-X("Compress Items",						u8"選択した項目を縮め",						u8"压缩物件", ) \
-X("2:1 (8th to 4th)",					u8"2:1 (8分 → 4分)",							u8"2:1 (8分 → 4分)", ) \
-X("3:2 (12th to 8th)",					u8"3:2 (12分 → 8分)",						u8"3:2 (12分 → 8分)", ) \
-X("4:3 (16th to 12th)",					u8"4:3 (16分 → 12分)",						u8"4:3 (16分 → 12分)", ) \
-X("1:2 (4th to 8th)",					u8"1:2 (4分 → 8分)",							u8"1:2 (4分 → 8分)", ) \
-X("2:3 (8th to 12th)",					u8"2:3 (8分 → 12分)",						u8"2:3 (8分 → 12分)", ) \
-X("3:4 (12th to 16th)",					u8"3:4 (12分 → 16分)",						u8"3:4 (12分 → 16分)", ) \
-X("Toggle VSync",						u8"垂直同期",									u8"垂直同步", ) \
-X("Toggle Fullscreen",					u8"全画面表示",								u8"全屏显示", ) \
-X("Window Size",						u8"ウィンドウサイズ",							u8"窗口大小", ) \
-X("Resize to",							u8"リサイズ",									u8"重设大小到", ) \
-X("Current Size",						u8"現在のサイズ",								u8"当前大小", ) \
-X("DPI Scale",							u8"解像度スケール",							u8"DPI 缩放", ) \
-X("Zoom In",							u8"拡大",									u8"放大", ) \
-X("Zoom Out",							u8"縮小",									u8"缩小", ) \
-X("Reset Zoom",							u8"ズームをリセット",							u8"重置缩放", ) \
-X(" Reset ",							u8" リセット ",								u8" 重置 ", ) \
-X("Current Scale",						u8"現在のスケール",							u8"当前缩放", ) \
-X("Test Menu",							u8"テスト",									u8"测试菜单", ) \
-X("Show Audio Test",					u8"オーディオテスト表示",						u8"显示音频测试", ) \
-X("Show TJA Import Test",				u8"TJAインポートテスト表示",					u8"显示 TJA 导入测试", ) \
-X("Show TJA Export View",				u8"TJAエクスポートテスト表示",					u8"显示 TJA 导出测试", ) \
-X("Show ImGui Demo",					u8"ImGui Demo表示",							u8"显示 ImGui Demo", ) \
-X("Show ImGui Style Editor",			u8"ImGui Style Editor表示",					u8"显示 ImGui 样式编辑器", ) \
-X("Reset Style Colors",					u8"Style Colorsをリセット",					u8"重置样式颜色", ) \
-X("Copyright (c) 2022",					u8"Copyright (c) 2022",						u8"Copyright (c) 2022", ) \
-X("Build Time:",						u8"ビルド時間:",								u8"构建时间：", ) \
-X("Build Date:",						u8"ビルド日付:",								u8"构建日期：", ) \
-X("Build Configuration:",				u8"ビルド構成:",								u8"构建配置：", ) \
-X("Current Version:",					u8"ビルドバージョン:",							u8"构建版本：", ) \
-X("Debug",								u8"デバッグ",									u8"调试", ) \
-X("Release",							u8"リリース",									u8"发行", ) \
-X("Courses",							u8"コース",									u8"难度", ) \
-X("Add New",							u8"追加",									u8"新建", ) \
-X("Edit...",							u8"編集...",									u8"编辑...", ) \
-X("Open Audio Device",					u8"オーディオデバイスを開く",					u8"打开音频设备", ) \
-X("Close Audio Device",					u8"オーディオデバイスを閉じる",					u8"关闭音频设备", ) \
-X("Average: ",							u8"平均値: ",								u8"平均：", ) \
-X("Min: ",								u8"最小値: ",								u8"最小：", ) \
-X("Max: ",								u8"最大値: ",								u8"最大：", ) \
-X("Use %s",								u8"%sを使用",								u8"使用 %s", ) \
-X("Peepo Drum Kit - Unsaved Changes",	u8"Peepo Drum Kit - 保存されていない変更",		u8"Peepo Drum Kit - 更改未保存", ) \
-X("Save changes to the current file?",	u8"このファイルの変更内容を保存しますか？",		u8"是否保存当前文件的更改？", ) \
-X("Save Changes",						u8"保存",									u8"保存", ) \
-X("Discard Changes",					u8"保存しない",								u8"放弃保存", ) \
-X("Cancel",								u8"キャンセル",								u8"取消", ) \
-X("Events",								u8"イベント",									u8"事件", ) \
-X("Tempo",								u8"テンポ",									u8"BPM", ) \
-X("Time Signature",						u8"拍子記号",									u8"拍号", ) \
-X("Notes",								u8"音符",									u8"音符", ) \
-X("Notes (Expert)",						u8"音符 (玄人)",								u8"音符（进阶）", ) \
-X("Notes (Master)",						u8"音符 (達人)",								u8"音符（达人）", ) \
-X("Scroll Speed",						u8"スクロールスピード",						u8"卷动速度", ) \
-X("Vertical Scroll Speed",				u8"縦スクロールスピード",						u8"垂直卷动速度", ) \
-X("Scroll Speed Tempo",					u8"スクロールスピードのテンポ",					u8"卷动速度 BPM", ) \
-X("Bar Line Visibility",				u8"小節線の表示",								u8"小节线可见性", ) \
-X("Go-Go Time",							u8"ゴーゴータイム",							u8"Go-Go 区间", ) \
-X("Lyrics",								u8"歌詞",									u8"歌词", ) \
-X("Scroll Type",						u8"スクロールタイプ",							u8"卷动方式", ) \
-X("JPOS Scroll",						u8"判定エリアスクロール",						u8"判定区移动", ) \
-X("JPOS Scroll Move",					u8"判定エリア移動",							u8"判定区移动距离", ) \
-X("Vertical JPOS Scroll Move",			u8"縦判定エリア移動",							u8"判定区垂直移动距离", ) \
-X("JPOS Scroll Duration",				u8"判定エリア移動時間",						u8"判定区移动时间", ) \
-X("Sync",								u8"タイミング",								u8"音乐同步", ) \
-X("Chart Duration",						u8"譜面の終了時間",							u8"谱面长度", ) \
-X("Song Demo Start",					u8"音源のプレビュー時間",						u8"音乐预览开始位置", ) \
-X("Song Offset",						u8"音源の再生開始時間",						u8"音乐播放时间位移", ) \
-X("Selection to Scroll Changes",		u8"選択した項目をスクロールスピードに変化",		u8"在所选物件处插入卷动速度", ) \
-X("Set Cursor",							u8"カーソルで設定",							u8"设置为光标位置", ) \
-X("Add",								u8"追加",									u8"插入", ) \
-X("Remove",								u8"削除",									u8"删除", ) \
-X("Clear",								u8"クリア",									u8"清除", ) \
-X("Set from Range Selection",			u8"範囲選択で追加",							u8"插入至选取范围", ) \
-X("Chart",								u8"創作譜面",									u8"谱面信息", ) \
-X("Chart Title",						u8"曲のタイトル",								u8"谱面标题", ) \
-X("Chart Subtitle",						u8"曲のサブタイトル",							u8"谱面子标题", ) \
-X("Chart Creator",						u8"譜面の作者名",								u8"谱面制作者", ) \
-X("Song File Name",						u8"音源のファイル名",							u8"歌曲文件名", ) \
-X("Jacket File Name",					u8"ジャケットのファイル名",						u8"歌曲封面文件名", ) \
-X("Song Volume",						u8"音源の音量",								u8"歌曲音量", ) \
-X("Sound Effect Volume",				u8"音色の音量",								u8"音效音量", ) \
-X("Selected Course",					u8"現在のコース",								u8"所选难度", ) \
-X("Difficulty Type",					u8"難易度",									u8"难度类型", ) \
-X("Difficulty Level",					u8"難易度のレベル",							u8"难度星级", ) \
-X("Difficulty Level Decimal",			u8"難易度のレベル( 小数 )",					u8"难度星级小数", ) \
-X("Course Creator",						u8"コースの作者名",							u8"难度制作者", ) \
-X("Selected Items",						u8"選択した項目",								u8"所选物件", ) \
-X("( Nothing Selected )",				u8"( 選択なし )",								u8"（ 未选择物件 ）", ) \
-X("Selected ",							u8"選択した",									u8"已选中 ", ) \
-X("Items",								u8"項目",									u8"物件", ) \
-X("Tempos",								u8"テンポ",									u8"BPM", ) \
-X("Time Signatures",					u8"拍子記号",									u8"拍号", ) \
-X("Scroll Speeds",						u8"スクロールスピード",						u8"卷动速度", ) \
-X("Bar Lines",							u8"小節線の表示",								u8"小节线", ) \
-X("Go-Go Ranges",						u8"ゴーゴータイム",							u8"Go-Go 区间", ) \
-X("Bar Line Visible",					u8"小節線の表示",								u8"显示小节线", ) \
-X("Visible",							u8"表示",									u8"显示", ) \
-X("Hidden",								u8"非表示",									u8"隐藏", ) \
-X("Scroll Types",						u8"スクロールタイプ",							u8"卷动方式", ) \
-X("JPOS Scrolls",						u8"判定座標スクロール",						u8"判定区移动", ) \
-X("NMSCROLL",							u8"普通",									u8"一般", ) \
-X("HBSCROLL",							u8"HBSCROLL",								u8"HBSCROLL", ) \
-X("BMSCROLL",							u8"BMSCROLL",								u8"BMSCROLL", ) \
-X("Balloon Pop Count",					u8"風船の連打数",								u8"气球连打数", ) \
-X("Interpolate: Scroll Speed",			u8"補間: スクロールスピード",					u8"补间：卷动速度", ) \
-X("Interpolate: Scroll Speed Tempo",	u8"補間: スクロールスピードのテンポ",			u8"补间：卷动速度 BPM", ) \
-X("Interpolate: Vertical Scroll Speed",	u8"補間: 縦スクロールスピード",					u8"补间：垂直卷动速度", ) \
-X("Time Offset",						u8"時間のオフセット",							u8"时间位移", ) \
-X("Note Type",							u8"音符の種類",								u8"音符类型", ) \
-X("Note Type Size",						u8"音符の大小",								u8"音符大小", ) \
-X("Don",								u8"ドン",									u8"咚", ) \
-X("DON",								u8"ドン (大)",								u8"咚（大）", ) \
-X("Ka",									u8"カッ",									u8"咔", ) \
-X("KA",									u8"カッ (大)",								u8"咔（大）", ) \
-X("Drumroll",							u8"連打",									u8"连打", ) \
-X("DRUMROLL",							u8"連打 (大)",								u8"连打（大）", ) \
-X("Balloon",							u8"風船",									u8"气球", ) \
-X("BALLOON",							u8"風船 (大)",								u8"气球（大）", ) \
-X("Small",								u8"小",										u8"小", ) \
-X("Big",								u8"大",										u8"大", ) \
-X("Easy",								u8"かんたん",									u8"简单", ) \
-X("Normal",								u8"ふつう",									u8"普通", ) \
-X("Hard",								u8"むずかしい",								u8"困难", ) \
-X("Oni",								u8"おに",									u8"魔王", ) \
-X("Oni-Ura",							u8"おに (裏)",								u8"魔王 (里)", ) \
-X("Single",								u8"一人",									u8"单人", ) \
-X("Double",								u8"二人",									u8"双人", ) \
-X("Description",						u8"記述",									u8"描述", ) \
-X("Time",								u8"時間",									u8"时间", ) \
-X("Initial State",						u8"初期状態",									u8"初始状态", ) \
-X("Lyrics Overview",					u8"歌詞の概要",								u8"歌词概览", ) \
-X("Edit Line",							u8"編集",									u8"编辑目前歌词", ) \
-X("(No Lyrics)",						u8"(歌詞なし)",								u8"（没有歌词）", ) \
-X("Reset",								u8"リセット",									u8"重置", ) \
-X("Tap",								u8"叩いて",									u8"点击", ) \
-X(" First Beat ",						u8"一拍",									u8" 第一拍 ", ) \
-X("Nearest Whole",						u8"平均（整数部）",							u8"平均 BPM（取整数）", ) \
-X("Nearest",							u8"平均",									u8"平均 BPM", ) \
-X("Min and Max",						u8"最小と最大",								u8"最小和最大值", ) \
-X("Timing Taps",						u8"叩いた数",									u8"节拍数量", ) \
-X("First Beat",							u8"最初の拍",									u8"第一拍", ) \
-X("%d Taps",							u8"%d 拍",									u8"%d 拍", ) \
-X("",									u8"",										u8"", ) \
-X("KADON",								u8"カドン",									u8"咔咚", ) \
-X("Bomb",								u8"爆弾",									u8"炸弹", ) \
-X("Adlib",								u8"アドリブ",									u8"Adlib", ) \
-X("Fuseroll",							u8"時爆弾",									u8"计时弹", ) \
-X("Load Full CJKV Glyphs (slow)",		u8"全てのCJKV字形を読み込む（遅い）",			u8"载入所有 CJKV 字形（慢）", ) \
+#include "i18n/ja.h"
+#include "i18n/zh-CN.h"
+
+#define PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL \
+	XX(JA, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA) \
+	XX(ZHCN, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHCN) \
 
 #define UI_Str(in) i18n::HashToString(i18n::CompileTimeValidate<i18n::Hash(in)>(), SelectedGuiLanguage)
 #define UI_StrRuntime(in) i18n::HashToString(i18n::Hash(in), SelectedGuiLanguage)
@@ -283,8 +81,8 @@ namespace PeepoDrumKit::i18n
 
 	constexpr u32 AllValidHashes[] =
 	{
-#define X(en, ja, zhCn) Hash(en),
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST
+#define X(en, ...) Hash(en),
+			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
 #undef X
 	};
 
@@ -295,11 +93,22 @@ namespace PeepoDrumKit::i18n
 
 	constexpr cstr HashToString(u32 inHash, GuiLanguage outLanguage)
 	{
-		switch (inHash)
+		switch (outLanguage)
 		{
-#define X(en, ja, zhCn) case ForceConsteval<Hash(en)>: return (outLanguage == GuiLanguage::EN) ? en : (outLanguage == GuiLanguage::ZHCN) ? zhCn : ja;
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST
+		default:
+		case GuiLanguage::EN:
+			switch (inHash) {
+#define X(_en, _l10n) case ForceConsteval<Hash(_en)>: return (_en);
+				PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
 #undef X
+			}
+			break;
+
+#define XX(_locale, ...) case GuiLanguage::_locale: switch (inHash) { __VA_ARGS__ } break;
+#define X(_en, _l10n) case ForceConsteval<Hash(_en)>: return (_l10n);
+			PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL
+#undef X
+#undef XX
 		}
 
 #if PEEPO_DEBUG
