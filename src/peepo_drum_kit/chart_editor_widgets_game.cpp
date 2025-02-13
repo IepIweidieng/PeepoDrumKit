@@ -117,12 +117,14 @@ namespace PeepoDrumKit
 				: SprID::Game_Note_DrumrollLong);
 		const SprInfo sprInfo = gfx.GetInfo(spr);
 
-		const f32 centerL = Min(centerHead.x, centerTail.x);
-		const f32 centerR = Max(centerHead.x, centerTail.x);
-		const f32 midScaleX = ((centerR - centerL) / (sprInfo.SourceSize.x)) * 3.0f;
+		const f32 midScaleX = (Distance(centerTail, centerHead) / (sprInfo.SourceSize.x)) * 3.0f;
 
 		const SprStretchtOut split = StretchMultiPartSpr(gfx, spr,
-			SprTransform::FromCenter(camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f), vec2(camera.WorldToScreenScale(1.0f))), colorTint,
+			SprTransform::FromCenter(
+				camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f),
+				vec2(camera.WorldToScreenScale(1.0f)),
+				AngleBetween(centerTail, centerHead)),
+				colorTint,
 			SprStretchtParam { 1.0f, midScaleX, 1.0f }, 3);
 
 		for (size_t i = 0; i < 3; i++)
@@ -155,14 +157,15 @@ namespace PeepoDrumKit
 		{
 			const SprInfo sprInfo = gfx.GetInfo(spr);
 
-			// BUG: Incorrect middle part scaling if the drumroll is too short
 			const f32 midAlignmentOffset = (seType == NoteSEType::DrumrollBig) ? 136.0f : 68.0f;
-			const f32 centerL = Min(centerHead.x, centerTail.x);
-			const f32 centerR = Max(centerHead.x, centerTail.x);
-			const f32 midScaleX = ((centerR - centerL - midAlignmentOffset) / (sprInfo.SourceSize.x)) * 3.0f;
+			const f32 midScaleX = (ClampBot(Distance(centerTail, centerHead) - midAlignmentOffset, 0.0f) / (sprInfo.SourceSize.x)) * 3.0f;
 
 			const SprStretchtOut split = StretchMultiPartSpr(gfx, spr,
-				SprTransform::FromCenter(camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f), vec2(camera.WorldToScreenScale(1.0f))), 0xFFFFFFFF,
+				SprTransform::FromCenter(
+					camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f),
+					vec2(camera.WorldToScreenScale(1.0f)),
+					AngleBetween(centerTail, centerHead)), // TODO: only rotate the mid part?
+				0xFFFFFFFF,
 				SprStretchtParam { 1.0f, midScaleX, 1.0f }, 3);
 
 			for (size_t i = 0; i < 3; i++)
