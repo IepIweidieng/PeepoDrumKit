@@ -484,22 +484,36 @@ namespace PeepoDrumKit
 
 			ForEachNoteOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
-				const vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				const vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				const f32 laneHeadX = laneHead.x, laneHeadY = laneHead.y, laneTailX = laneTail.x, laneTailY = laneTail.y;
+				const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
+				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+
+				b8 isVisible = true;
 
 				const Time timeSinceHeadHit = TimeSinceNoteHit(it.TimeHead, cursorTimeOrAnimated);
 				const Time timeSinceTailHit = TimeSinceNoteHit(it.TimeTail, cursorTimeOrAnimated);
-				if (it.OriginalNote->BeatDuration <= Beat::Zero() && timeSinceHeadHit >= Time::Zero())
-				{
-					if (timeSinceHeadHit <= GameNoteHitAnimationDuration)
-						ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData { ClampBot(laneHeadX, 0.0f), ClampBot(laneTailX, 0.0f), ClampBot(laneHeadY, 0.0f), ClampBot(laneTailY, 0.0f),it.OriginalNote, it.TimeHead, it.TimeTail });
+				if (IsRegularNote(it.OriginalNote->Type)) {
+					if (timeSinceHeadHit >= Time::Zero())
+						laneHead = laneTail = laneOrigin;
+					if (timeSinceHeadHit > GameNoteHitAnimationDuration)
+						isVisible = false;
 				}
-				else
-				{
-					if (Camera.IsRangeVisibleOnLane(Min(laneHeadX, laneTailX), Max(laneHeadX, laneTailX)) || (timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration))
-						ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData { laneHeadX, laneTailX, laneHeadY, laneTailY, it.OriginalNote, it.TimeHead, it.TimeTail });
+				else if (IsBalloonNote(it.OriginalNote->Type)) {
+					if (timeSinceTailHit >= Time::Zero()) {
+						laneHead = laneTail;
+						isVisible = false;
+					}
+					else if (timeSinceHeadHit >= Time::Zero())
+						laneHead = laneOrigin;
 				}
+				else { // is bar roll note
+					// flying notes in screen?
+					isVisible = ((timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration)
+						// roll body in screen?
+						|| Camera.IsRangeVisibleOnLane(Min(laneHead.x, laneTail.x), Max(laneHead.x, laneTail.x)));
+				}
+				if (isVisible)
+					ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData{ laneHead.x, laneTail.x, laneHead.y, laneTail.y, it.OriginalNote, it.TimeHead, it.TimeTail });
 			});
 
 			const Beat drummrollHitInterval = GetGridBeatSnap(*Settings.General.DrumrollAutoHitBarDivision);
@@ -507,18 +521,14 @@ namespace PeepoDrumKit
 			{
 				const Time timeSinceHit = TimeSinceNoteHit(it->NoteStartTime, cursorTimeOrAnimated);
 
-				if (it->OriginalNote->BeatDuration > Beat::Zero())
+				if (IsLongNote(it->OriginalNote->Type))
 				{
 					if (IsBalloonNote(it->OriginalNote->Type))
 					{
-						// BUG: Negative scroll speed balloons not drawn correctly
-						if (cursorTimeOrAnimated <= it->NoteEndTime)
-						{
-							if (IsFuseRoll(it->OriginalNote->Type))
-								DrawGamePreviewNoteDuration(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->Type, 0xFFFFFFFF);
-							DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(ClampBot(it->LaneHeadX, 0.0f), ClampBot(it->LaneHeadY, 0.0f)), it->OriginalNote->Type);
-							DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(ClampBot(it->LaneHeadX, 0.0f), ClampBot(it->LaneHeadY, 0.0f)), {}, it->OriginalNote->TempSEType);
-						}
+						if (IsFuseRoll(it->OriginalNote->Type))
+							DrawGamePreviewNoteDuration(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->Type, 0xFFFFFFFF);
+						DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), it->OriginalNote->Type);
+						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), {}, it->OriginalNote->TempSEType);
 					}
 					else
 					{
