@@ -148,7 +148,7 @@ namespace PeepoDrumKit
 			gfx.DrawSprite(drawList, split.Quads[i]);
 	}
 
-	static void DrawGamePreviewNoteSEText(ChartGraphicsResources& gfx, const GameCamera& camera, ImDrawList* drawList, vec2 centerHead, vec2 centerTail, NoteSEType seType)
+	static void DrawGamePreviewNoteSEText(ChartGraphicsResources& gfx, const GameCamera& camera, ImDrawList* drawList, vec2 centerHead, vec2 centerTail, Complex scrollSpeed, NoteSEType seType)
 	{
 		static constexpr f32 contentToFooterOffsetY = (GameLaneSlice.FooterCenterY() - GameLaneSlice.ContentCenterY());
 		centerHead.y += contentToFooterOffsetY;
@@ -175,13 +175,14 @@ namespace PeepoDrumKit
 			const SprInfo sprInfo = gfx.GetInfo(spr);
 
 			const f32 midAlignmentOffset = (seType == NoteSEType::DrumrollBig) ? 136.0f : 68.0f;
-			const f32 midScaleX = (ClampBot(Distance(centerTail, centerHead) - midAlignmentOffset, 0.0f) / (sprInfo.SourceSize.x)) * 3.0f;
+			const f32 distance = Distance(centerTail, centerHead);
+			const f32 midScaleX = (ClampBot(distance - midAlignmentOffset, 0.0f) / (sprInfo.SourceSize.x)) * 3.0f;
 
 			const SprStretchtOut split = StretchMultiPartSpr(gfx, spr,
 				SprTransform::FromCenter(
 					camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f),
 					vec2(camera.WorldToScreenScale(1.0f)),
-					AngleBetween(centerTail, centerHead)), // TODO: only rotate the mid part?
+					(distance < 1) ? Angle::FromRadians(arg(-scrollSpeed.cpx)) : AngleBetween(centerTail, centerHead)), // TODO: only rotate the mid part?
 				0xFFFFFFFF,
 				SprStretchtParam { 1.0f, midScaleX, 1.0f }, 3);
 
@@ -555,7 +556,7 @@ namespace PeepoDrumKit
 						if (IsFuseRoll(it->OriginalNote->Type))
 							DrawGamePreviewNoteDuration(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->Type, 0xFFFFFFFF);
 						DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), it->ScrollSpeed, it->OriginalNote->Type);
-						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), {}, it->OriginalNote->TempSEType);
+						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), {}, it->ScrollSpeed, it->OriginalNote->TempSEType);
 					}
 					else
 					{
@@ -577,7 +578,7 @@ namespace PeepoDrumKit
 						const u32 hitNoteColor = InterpolateDrumrollHitColor(it->OriginalNote->Type, hitPercentage);
 						DrawGamePreviewNoteDuration(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->Type, hitNoteColor);
 						DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), it->ScrollSpeed, it->OriginalNote->Type);
-						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->TempSEType);
+						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->ScrollSpeed, it->OriginalNote->TempSEType);
 
 						if (timeSinceHit >= Time::Zero())
 						{
@@ -610,7 +611,7 @@ namespace PeepoDrumKit
 						DrawGamePreviewNote(context.Gfx, Camera, drawList, noteCenter, it->ScrollSpeed, it->OriginalNote->Type);
 
 					if (timeSinceHit <= Time::Zero())
-						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, noteCenter, {}, it->OriginalNote->TempSEType);
+						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, noteCenter, {}, it->ScrollSpeed, it->OriginalNote->TempSEType);
 
 					if (const f32 whiteAlpha = (hitAnimation.WhiteFadeIn * hitAnimation.AlphaFadeOut); whiteAlpha > 0.0f)
 					{
