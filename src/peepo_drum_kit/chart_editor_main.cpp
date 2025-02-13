@@ -153,7 +153,7 @@ namespace PeepoDrumKit
 		ApplicationHost::UserCallbacks callbacks = {};
 
 		GuiScaleFactorTarget = ClampRoundGuiScaleFactor(PersistentApp.LastSession.GuiScale);
-		SelectedGuiLanguage = LocaleCodeToGuiLanguage(PersistentApp.LastSession.GuiLanguage);
+		SelectedGuiLanguage = PersistentApp.LastSession.GuiLanguage;
 
 		ApplicationHost::GlobalState.SwapInterval = PersistentApp.LastSession.OSWindow_SwapInterval;
 		startupParam.WindowTitle = PeepoDrumKitApplicationTitle;
@@ -163,6 +163,9 @@ namespace PeepoDrumKit
 
 		callbacks.OnStartup = []
 		{
+			i18n::RefreshLocales();
+			i18n::InitBuiltinLocale();
+			i18n::ReloadLocaleFile(SelectedGuiLanguage.c_str());
 			Audio::Engine.ApplicationStartup();
 			app = std::make_unique<ImGuiApplication>();
 		};
@@ -176,7 +179,7 @@ namespace PeepoDrumKit
 			Audio::Engine.ApplicationShutdown();
 
 			PersistentApp.LastSession.GuiScale = GuiScaleFactorTarget;
-			PersistentApp.LastSession.GuiLanguage = GuiLanguageToLocaleCode(SelectedGuiLanguage);
+			PersistentApp.LastSession.GuiLanguage = SelectedGuiLanguage;
 			PersistentApp.LastSession.OSWindow_SwapInterval = ApplicationHost::GlobalState.SwapInterval;
 			PersistentApp.LastSession.OSWindow_Region = Rect::FromTLSize(vec2(ApplicationHost::GlobalState.WindowPosition), vec2(ApplicationHost::GlobalState.WindowSize));
 			// TODO: PersistentApp.LastSession.OSWindow_RegionRestore = ...;
