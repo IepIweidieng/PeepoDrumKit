@@ -511,6 +511,7 @@ namespace PeepoDrumKit
 			ForEachNoteOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
 				const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
+				const vec2 laneOriginTail = Camera.GetHitCircleCoordinates(jposScrollChanges, it.TimeTail, tempoChanges);
 				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.TempoTail, it.ScrollSpeedTail, it.ScrollTypeTail, tempoChanges, jposScrollChanges);
 
@@ -520,7 +521,7 @@ namespace PeepoDrumKit
 				const Time timeSinceTailHit = TimeSinceNoteHit(it.TimeTail, cursorTimeOrAnimated);
 				if (IsRegularNote(it.OriginalNote->Type)) {
 					if (timeSinceHeadHit >= Time::Zero())
-						laneHead = laneTail = laneOrigin;
+						laneHead = laneTail = laneOriginTail;
 					if (timeSinceHeadHit > GameNoteHitAnimationDuration)
 						isVisible = false;
 				}
@@ -584,11 +585,13 @@ namespace PeepoDrumKit
 							{
 								const Time subHitTime = context.BeatToTime(it->OriginalNote->BeatTime + subBeat) + it->OriginalNote->TimeOffset;
 								const Time timeSinceSubHit = TimeSinceNoteHit(subHitTime, cursorTimeOrAnimated);
+								// `>` to avoid displaying extra notes when editing (still fails sometimes)
 								if (timeSinceSubHit > Time::Zero() && timeSinceSubHit <= GameNoteHitAnimationDuration)
 								{
 									// TODO: Scale duration, animation speed and path by extended lane width
 									const auto hitAnimation = GetNoteHitPathAnimation(timeSinceSubHit, Camera.ExtendedLaneWidthFactor());
-									const vec2 noteCenter = Camera.LaneToWorldSpace(ClampBot(it->LaneHeadX, 0.0f), ClampBot(it->LaneHeadY, 0.0f)) + hitAnimation.PositionOffset;
+									const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, subHitTime, tempoChanges);
+									const vec2 noteCenter = Camera.LaneToWorldSpace(laneOrigin.x, laneOrigin.y) + hitAnimation.PositionOffset;
 
 									if (hitAnimation.AlphaFadeOut >= 1.0f)
 										DrawGamePreviewNote(context.Gfx, Camera, drawList, noteCenter, it->ScrollSpeed, ToBigNoteIf(NoteType::Don, IsBigNote(it->OriginalNote->Type)));
