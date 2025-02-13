@@ -83,7 +83,20 @@ namespace PeepoDrumKit
 		return hitNoteColor;
 	}
 
-	static void DrawGamePreviewNote(ChartGraphicsResources& gfx, const GameCamera& camera, ImDrawList* drawList, vec2 center, NoteType noteType)
+	constexpr static std::pair<Angle, bool> GetNoteFaceRotationMirror(Complex scrollSpeed, NoteType noteType)
+	{
+		switch (noteType) {
+		default:
+			return {
+				Angle::FromRadians(arg((scrollSpeed.GetRealPart() >= 0) ? scrollSpeed.cpx : -scrollSpeed.cpx)),
+				(scrollSpeed.GetRealPart() < 0),
+			}; // prevent top-down rotation; mirror horizontally for negative scroll balloon
+		case NoteType::Bomb:
+			return { Angle::FromRadians(0), false }; // no rotation
+		}
+	}
+
+	static void DrawGamePreviewNote(ChartGraphicsResources& gfx, const GameCamera& camera, ImDrawList* drawList, vec2 center, Complex scrollSpeed, NoteType noteType)
 	{
 		SprID spr = SprID::Count;
 		switch (noteType)
@@ -105,7 +118,11 @@ namespace PeepoDrumKit
 		// TODO: Right part stretch animation
 		if (noteType == NoteType::Balloon) { /* ... */ }
 
-		gfx.DrawSprite(drawList, spr, SprTransform::FromCenter(camera.WorldToScreenSpace(center), vec2(camera.WorldToScreenScale(1.0f))));
+		const auto [angle, mirror] = GetNoteFaceRotationMirror(scrollSpeed, noteType);
+		gfx.DrawSprite(drawList, spr, SprTransform::FromCenter(
+			camera.WorldToScreenSpace(center),
+			vec2(camera.WorldToScreenScale(mirror ? -1.0f : 1.0f), camera.WorldToScreenScale(1.0f)),
+			angle));
 	}
 
 	static void DrawGamePreviewNoteDuration(ChartGraphicsResources& gfx, const GameCamera& camera, ImDrawList* drawList, vec2 centerHead, vec2 centerTail, NoteType noteType, u32 colorTint = 0xFFFFFFFF)
@@ -117,19 +134,21 @@ namespace PeepoDrumKit
 				: SprID::Game_Note_DrumrollLong);
 		const SprInfo sprInfo = gfx.GetInfo(spr);
 
-		const f32 centerL = Min(centerHead.x, centerTail.x);
-		const f32 centerR = Max(centerHead.x, centerTail.x);
-		const f32 midScaleX = ((centerR - centerL) / (sprInfo.SourceSize.x)) * 3.0f;
+		const f32 midScaleX = (Distance(centerTail, centerHead) / (sprInfo.SourceSize.x)) * 3.0f;
 
 		const SprStretchtOut split = StretchMultiPartSpr(gfx, spr,
-			SprTransform::FromCenter(camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f), vec2(camera.WorldToScreenScale(1.0f))), colorTint,
+			SprTransform::FromCenter(
+				camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f),
+				vec2(camera.WorldToScreenScale(1.0f)),
+				AngleBetween(centerTail, centerHead)),
+				colorTint,
 			SprStretchtParam { 1.0f, midScaleX, 1.0f }, 3);
 
 		for (size_t i = 0; i < 3; i++)
 			gfx.DrawSprite(drawList, split.Quads[i]);
 	}
 
-	static void DrawGamePreviewNoteSEText(ChartGraphicsResources& gfx, const GameCamera& camera, ImDrawList* drawList, vec2 centerHead, vec2 centerTail, NoteSEType seType)
+	static void DrawGamePreviewNoteSEText(ChartGraphicsResources& gfx, const GameCamera& camera, ImDrawList* drawList, vec2 centerHead, vec2 centerTail, Complex scrollSpeed, NoteSEType seType)
 	{
 		static constexpr f32 contentToFooterOffsetY = (GameLaneSlice.FooterCenterY() - GameLaneSlice.ContentCenterY());
 		centerHead.y += contentToFooterOffsetY;
@@ -155,14 +174,16 @@ namespace PeepoDrumKit
 		{
 			const SprInfo sprInfo = gfx.GetInfo(spr);
 
-			// BUG: Incorrect middle part scaling if the drumroll is too short
 			const f32 midAlignmentOffset = (seType == NoteSEType::DrumrollBig) ? 136.0f : 68.0f;
-			const f32 centerL = Min(centerHead.x, centerTail.x);
-			const f32 centerR = Max(centerHead.x, centerTail.x);
-			const f32 midScaleX = ((centerR - centerL - midAlignmentOffset) / (sprInfo.SourceSize.x)) * 3.0f;
+			const f32 distance = Distance(centerTail, centerHead);
+			const f32 midScaleX = (ClampBot(distance - midAlignmentOffset, 0.0f) / (sprInfo.SourceSize.x)) * 3.0f;
 
 			const SprStretchtOut split = StretchMultiPartSpr(gfx, spr,
-				SprTransform::FromCenter(camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f), vec2(camera.WorldToScreenScale(1.0f))), 0xFFFFFFFF,
+				SprTransform::FromCenter(
+					camera.WorldToScreenSpace((centerHead + centerTail) / 2.0f),
+					vec2(camera.WorldToScreenScale(1.0f)),
+					(distance < 1) ? Angle::FromRadians(arg(-scrollSpeed.cpx)) : AngleBetween(centerTail, centerHead)), // TODO: only rotate the mid part?
+				0xFFFFFFFF,
 				SprStretchtParam { 1.0f, midScaleX, 1.0f }, 3);
 
 			for (size_t i = 0; i < 3; i++)
@@ -283,6 +304,9 @@ namespace PeepoDrumKit
 		Tempo Tempo;
 		Complex ScrollSpeed;
 		ScrollMethod ScrollType;
+		struct Tempo TempoTail;
+		Complex ScrollSpeedTail;
+		ScrollMethod ScrollTypeTail;
 	};
 
 	template <typename Func>
@@ -303,6 +327,9 @@ namespace PeepoDrumKit
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beat)),
 				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat)),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beat)),
+				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beatTail)),
+				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail)),
+				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beatTail)),
 				});
 		}
 	}
@@ -452,12 +479,12 @@ namespace PeepoDrumKit
 
 				if (Camera.IsPointVisibleOnLane(laneX))
 				{
-					const vec2 tl = Camera.WorldToScreenSpace(Camera.LaneToWorldSpace(laneX, laneY) - vec2(0.0f, GameLaneSlice.Content * 0.5f));
-					const vec2 br = Camera.WorldToScreenSpace(Camera.LaneToWorldSpace(laneX, laneY) + vec2(0.0f, GameLaneSlice.Content * 0.5f));
-					drawList->AddLine(tl, br, GameLaneBarLineColor, Camera.WorldToScreenScale(GameLaneBarLineThickness));
+					const vec2 tl = Camera.LaneToWorldSpace(laneX, laneY) - Rotate(vec2(0.0f, GameLaneSlice.Content * 0.5f), GetNoteFaceRotationMirror(it.ScrollSpeed, NoteType::Count).first);
+					const vec2 br = Camera.LaneToWorldSpace(laneX, laneY) + Rotate(vec2(0.0f, GameLaneSlice.Content * 0.5f), GetNoteFaceRotationMirror(it.ScrollSpeed, NoteType::Count).first);
+					drawList->AddLine(Camera.WorldToScreenSpace(tl), Camera.WorldToScreenSpace(br), GameLaneBarLineColor, Camera.WorldToScreenScale(GameLaneBarLineThickness));
 
 					char barLineStr[32];
-					DrawGamePreviewNumericText(context.Gfx, Camera, drawList, SprTransform::FromTL(Camera.LaneToWorldSpace(laneX, laneY) + vec2(5.0f, -GameLaneSlice.Content * 0.5f + 1.0f), vec2(1.0f)),
+					DrawGamePreviewNumericText(context.Gfx, Camera, drawList, SprTransform::FromTL(tl + vec2(5.0f, 1.0f), vec2(1.0f)),
 						std::string_view(barLineStr, sprintf_s(barLineStr, "%d", it.BarIndex)));
 				}
 			});
@@ -484,22 +511,37 @@ namespace PeepoDrumKit
 
 			ForEachNoteOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
-				const vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				const vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				const f32 laneHeadX = laneHead.x, laneHeadY = laneHead.y, laneTailX = laneTail.x, laneTailY = laneTail.y;
+				const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
+				const vec2 laneOriginTail = Camera.GetHitCircleCoordinates(jposScrollChanges, it.TimeTail, tempoChanges);
+				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.TempoTail, it.ScrollSpeedTail, it.ScrollTypeTail, tempoChanges, jposScrollChanges);
+
+				b8 isVisible = true;
 
 				const Time timeSinceHeadHit = TimeSinceNoteHit(it.TimeHead, cursorTimeOrAnimated);
 				const Time timeSinceTailHit = TimeSinceNoteHit(it.TimeTail, cursorTimeOrAnimated);
-				if (it.OriginalNote->BeatDuration <= Beat::Zero() && timeSinceHeadHit >= Time::Zero())
-				{
-					if (timeSinceHeadHit <= GameNoteHitAnimationDuration)
-						ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData { ClampBot(laneHeadX, 0.0f), ClampBot(laneTailX, 0.0f), ClampBot(laneHeadY, 0.0f), ClampBot(laneTailY, 0.0f),it.OriginalNote, it.TimeHead, it.TimeTail });
+				if (IsRegularNote(it.OriginalNote->Type)) {
+					if (timeSinceHeadHit >= Time::Zero())
+						laneHead = laneTail = laneOriginTail;
+					if (timeSinceHeadHit > GameNoteHitAnimationDuration)
+						isVisible = false;
 				}
-				else
-				{
-					if (Camera.IsRangeVisibleOnLane(Min(laneHeadX, laneTailX), Max(laneHeadX, laneTailX)) || (timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration))
-						ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData { laneHeadX, laneTailX, laneHeadY, laneTailY, it.OriginalNote, it.TimeHead, it.TimeTail });
+				else if (IsBalloonNote(it.OriginalNote->Type)) {
+					if (timeSinceTailHit >= Time::Zero()) {
+						laneHead = laneTail;
+						isVisible = false;
+					}
+					else if (timeSinceHeadHit >= Time::Zero())
+						laneHead = laneOrigin;
 				}
+				else { // is bar roll note
+					// flying notes in screen?
+					isVisible = ((timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration)
+						// roll body in screen?
+						|| Camera.IsRangeVisibleOnLane(Min(laneHead.x, laneTail.x), Max(laneHead.x, laneTail.x)));
+				}
+				if (isVisible)
+					ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData{ laneHead.x, laneTail.x, laneHead.y, laneTail.y, it.ScrollSpeed, it.OriginalNote, it.TimeHead, it.TimeTail });
 			});
 
 			const Beat drummrollHitInterval = GetGridBeatSnap(*Settings.General.DrumrollAutoHitBarDivision);
@@ -507,18 +549,14 @@ namespace PeepoDrumKit
 			{
 				const Time timeSinceHit = TimeSinceNoteHit(it->NoteStartTime, cursorTimeOrAnimated);
 
-				if (it->OriginalNote->BeatDuration > Beat::Zero())
+				if (IsLongNote(it->OriginalNote->Type))
 				{
 					if (IsBalloonNote(it->OriginalNote->Type))
 					{
-						// BUG: Negative scroll speed balloons not drawn correctly
-						if (cursorTimeOrAnimated <= it->NoteEndTime)
-						{
-							if (IsFuseRoll(it->OriginalNote->Type))
-								DrawGamePreviewNoteDuration(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->Type, 0xFFFFFFFF);
-							DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(ClampBot(it->LaneHeadX, 0.0f), ClampBot(it->LaneHeadY, 0.0f)), it->OriginalNote->Type);
-							DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(ClampBot(it->LaneHeadX, 0.0f), ClampBot(it->LaneHeadY, 0.0f)), {}, it->OriginalNote->TempSEType);
-						}
+						if (IsFuseRoll(it->OriginalNote->Type))
+							DrawGamePreviewNoteDuration(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->Type, 0xFFFFFFFF);
+						DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), it->ScrollSpeed, it->OriginalNote->Type);
+						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), {}, it->ScrollSpeed, it->OriginalNote->TempSEType);
 					}
 					else
 					{
@@ -539,8 +577,8 @@ namespace PeepoDrumKit
 						const f32 hitPercentage = ConvertRangeClampOutput(0.0f, static_cast<f32>(ClampBot(maxHitCount, 4)), 0.0f, 1.0f, static_cast<f32>(drumrollHitsSoFar));
 						const u32 hitNoteColor = InterpolateDrumrollHitColor(it->OriginalNote->Type, hitPercentage);
 						DrawGamePreviewNoteDuration(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->Type, hitNoteColor);
-						DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), it->OriginalNote->Type);
-						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->OriginalNote->TempSEType);
+						DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), it->ScrollSpeed, it->OriginalNote->Type);
+						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY), Camera.LaneToWorldSpace(it->LaneTailX, it->LaneTailY), it->ScrollSpeed, it->OriginalNote->TempSEType);
 
 						if (timeSinceHit >= Time::Zero())
 						{
@@ -548,14 +586,16 @@ namespace PeepoDrumKit
 							{
 								const Time subHitTime = context.BeatToTime(it->OriginalNote->BeatTime + subBeat) + it->OriginalNote->TimeOffset;
 								const Time timeSinceSubHit = TimeSinceNoteHit(subHitTime, cursorTimeOrAnimated);
+								// `>` to avoid displaying extra notes when editing (still fails sometimes)
 								if (timeSinceSubHit > Time::Zero() && timeSinceSubHit <= GameNoteHitAnimationDuration)
 								{
 									// TODO: Scale duration, animation speed and path by extended lane width
 									const auto hitAnimation = GetNoteHitPathAnimation(timeSinceSubHit, Camera.ExtendedLaneWidthFactor());
-									const vec2 noteCenter = Camera.LaneToWorldSpace(ClampBot(it->LaneHeadX, 0.0f), ClampBot(it->LaneHeadY, 0.0f)) + hitAnimation.PositionOffset;
+									const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, subHitTime, tempoChanges);
+									const vec2 noteCenter = Camera.LaneToWorldSpace(laneOrigin.x, laneOrigin.y) + hitAnimation.PositionOffset;
 
 									if (hitAnimation.AlphaFadeOut >= 1.0f)
-										DrawGamePreviewNote(context.Gfx, Camera, drawList, noteCenter, ToBigNoteIf(NoteType::Don, IsBigNote(it->OriginalNote->Type)));
+										DrawGamePreviewNote(context.Gfx, Camera, drawList, noteCenter, it->ScrollSpeed, ToBigNoteIf(NoteType::Don, IsBigNote(it->OriginalNote->Type)));
 								}
 							}
 						}
@@ -568,10 +608,10 @@ namespace PeepoDrumKit
 					const vec2 noteCenter = Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY) + hitAnimation.PositionOffset;
 
 					if (hitAnimation.AlphaFadeOut >= 1.0f)
-						DrawGamePreviewNote(context.Gfx, Camera, drawList, noteCenter, it->OriginalNote->Type);
+						DrawGamePreviewNote(context.Gfx, Camera, drawList, noteCenter, it->ScrollSpeed, it->OriginalNote->Type);
 
 					if (timeSinceHit <= Time::Zero())
-						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, noteCenter, {}, it->OriginalNote->TempSEType);
+						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, noteCenter, {}, it->ScrollSpeed, it->OriginalNote->TempSEType);
 
 					if (const f32 whiteAlpha = (hitAnimation.WhiteFadeIn * hitAnimation.AlphaFadeOut); whiteAlpha > 0.0f)
 					{
