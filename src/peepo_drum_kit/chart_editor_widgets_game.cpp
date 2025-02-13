@@ -303,6 +303,9 @@ namespace PeepoDrumKit
 		Tempo Tempo;
 		Complex ScrollSpeed;
 		ScrollMethod ScrollType;
+		struct Tempo TempoTail;
+		Complex ScrollSpeedTail;
+		ScrollMethod ScrollTypeTail;
 	};
 
 	template <typename Func>
@@ -323,6 +326,9 @@ namespace PeepoDrumKit
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beat)),
 				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat)),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beat)),
+				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beatTail)),
+				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail)),
+				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beatTail)),
 				});
 		}
 	}
@@ -506,7 +512,7 @@ namespace PeepoDrumKit
 			{
 				const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
 				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.TempoTail, it.ScrollSpeedTail, it.ScrollTypeTail, tempoChanges, jposScrollChanges);
 
 				b8 isVisible = true;
 
