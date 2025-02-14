@@ -69,7 +69,7 @@ jobs:
           New-Item -Path $env:versionsPath -Type file
           for ($c = 0; $c -lt $env:nMessages; ++$c) {
               $commitSubject = Get-Content -Path ($env:messagePathPrefix + $c) | Select-Object -First 1
-              if ($commitSubject -match '^v?(?<version>[0-9]+(?:\.[0-9]+(?:\.[0-9]+(?:\.[0-9]+)?)?)?)(?:[^0-9]+\S*)?\s-\s') {
+              if ($commitSubject -match '^v?(?<version>[0-9]+(?:\.[0-9]+(?:\.[0-9]+(?:\.[0-9]+)?)?)?(?:[^0-9]+\S*)?)\s-\s') {
                   $hasVersion = $true
                   $version = $matches['version']
               }
@@ -95,16 +95,16 @@ jobs:
           $newVersion = $env:version
           Write-Host "Updating version in core_version.h to $newVersion"
           $version4 = "0,0,0,0"
-          if ($newVersion -match '^v?(?:(?<versionM>[0-9]+)(?:\.(?<versionN>[0-9]+)(?:\.(?<versionP>[0-9]+)(?:\.(?<versionQ>[0-9]+))?)?)?)(?:[^0-9]+\S*)?$') {
+          if ($newVersion -match '^v?(?:(?<versionM>[0-9]+)(?:\.(?<versionN>[0-9]+)(?:\.(?<versionP>[0-9]+)(?:\.(?<versionQ>[0-9]+))?)?)?(?:[^0-9]+\S*)?)$') {
             $versionM = $matches['versionM']
             $versionN = $matches['versionN'] ?? 0
             $versionP = $matches['versionP'] ?? 0
             $versionQ = $matches['versionQ'] ?? 0
             $version4 = "$versionM,$versionN,$versionP,$versionQ"
           }
-          (Get-Content src/core_version.h) \
-            -replace '^\s*#define\s+PEEPO_VERSION_STR\s+.*$' '#define PEEPO_VERSION_STR $newVersion' \
-            -replace '^\s*#define\s+PEEPO_VERSION_FOUR_PART\s+.*$' '#define PEEPO_VERSION_FOUR_PART $version4' \
+          (Get-Content src/core_version.h) `
+            -replace '^\s*#define\s+PEEPO_VERSION_STR\s+.*$',"#define PEEPO_VERSION_STR `"v$newVersion`"" `
+            -replace '^\s*#define\s+PEEPO_VERSION_FOUR_PART\s+.*$',"#define PEEPO_VERSION_FOUR_PART $version4" `
             | Set-Content src/core_version.h
 
       - name: Get current date
@@ -223,8 +223,6 @@ jobs:
         with:
           tag_name: v${{ env.version }}
           release_name: PeepoDrumKit v${{ env.version }}
-          # TODO: what to put?
-          body: |
           draft: false
           prerelease: false
 
@@ -238,6 +236,6 @@ jobs:
         with:
           file: "PeepoDrumKit.Win.x64.zip"
           overwrite: true
-          tag_name: ${{ env.versionLast }}
+          tag_name: v${{ env.versionLast }}
           draft: false
           token: ${{ secrets.GITHUB_TOKEN }}
