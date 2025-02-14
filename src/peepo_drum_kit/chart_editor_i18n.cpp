@@ -1,4 +1,4 @@
-#include "chart_editor_i18n.h"
+﻿#include "chart_editor_i18n.h"
 
 namespace PeepoDrumKit::i18n
 {
