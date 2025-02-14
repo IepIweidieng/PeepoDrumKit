@@ -46,57 +46,71 @@ namespace PeepoDrumKit::i18n
 	{
 		std::filesystem::create_directories("locales");
 		{
-			std::fstream localeFile("locales/en.txt", std::ios::out | std::ios::trunc);
+			std::fstream localeFile("locales/en.ini", std::ios::out | std::ios::trunc);
 
-			localeFile << "Name: English" << std::endl;
-			localeFile << "Lang: en" << std::endl;
-			localeFile << "Font: NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
+			localeFile << "[Info]" << std::endl;
+			localeFile << "Name = English" << std::endl;
+			localeFile << "Lang = en" << std::endl;
+			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
+			localeFile << "[Translations]" << std::endl;
 #define X(en, ja) \
+			(localeFile << "HASH_"); \
 			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << ": " << en << std::endl);
+			(localeFile << " = " << en << std::endl);
 			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
 #undef X
 		}
 
 		{
-			std::fstream localeFile("locales/jp.txt", std::ios::out | std::ios::trunc);
+			std::fstream localeFile("locales/jp.ini", std::ios::out | std::ios::trunc);
 
-			localeFile << u8"Name: 日本語" << std::endl;
-			localeFile << "Lang: jp" << std::endl;
-			localeFile << "Font: NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
+			localeFile << "[Info]" << std::endl;
+			localeFile << u8"Name = 日本語" << std::endl;
+			localeFile << "Lang = jp" << std::endl;
+			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
+			localeFile << "[Translations]" << std::endl;
 #define X(en, ja) \
+			(localeFile << "HASH_"); \
 			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << ": " << ja << std::endl);
+			(localeFile << " = " << ja << std::endl);
 			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
 #undef X
 		}
 
 		{
-			std::fstream localeFile("locales/zh-cn.txt", std::ios::out | std::ios::trunc);
+			std::fstream localeFile("locales/zh-cn.ini", std::ios::out | std::ios::trunc);
 
-			localeFile << u8"Name: 中文（中国）" << std::endl;
-			localeFile << "Lang: zh-cn" << std::endl;
-			localeFile << "Font: NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
+			localeFile << "[Info]" << std::endl;
+			localeFile << u8"Name = 中文（中国）" << std::endl;
+			localeFile << "Lang = zh-cn" << std::endl;
+			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/13_NotoSansMonoCJKsc.zip
+			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
+			localeFile << "[Translations]" << std::endl;
 #define X(en, ja) \
+			(localeFile << "HASH_"); \
 			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << ": " << ja << std::endl);
+			(localeFile << " = " << ja << std::endl);
 			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHCN
 #undef X
 		}
 
 		{
-			std::fstream localeFile("locales/zh-tw.txt", std::ios::out | std::ios::trunc);
+			std::fstream localeFile("locales/zh-tw.ini", std::ios::out | std::ios::trunc);
 
-			localeFile << u8"Name: 中文（台灣）" << std::endl;
-			localeFile << "Lang: zh-tw" << std::endl;
-			localeFile << "Font: NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
+			localeFile << "[Info]" << std::endl;
+			localeFile << u8"Name = 中文（台灣）" << std::endl;
+			localeFile << "Lang = zh-tw" << std::endl;
+			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/14_NotoSansMonoCJKtc.zip
+			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
+			localeFile << "[Translations]" << std::endl;
 #define X(en, ja) \
+			(localeFile << "HASH_"); \
 			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << ": " << ja << std::endl);
+			(localeFile << " = " << ja << std::endl);
 			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHTW
 #undef X
 		}
@@ -117,29 +131,39 @@ namespace PeepoDrumKit::i18n
 			if (entry.is_regular_file())
 			{
 				std::fstream localeFile(entry.path(), std::ios::in);
-				if (!localeFile.is_open()) continue;
-				std::string line;
-				LocaleEntry localeEntry;
-				bool nameFound = false;
-				bool langFound = false;
-				while (std::getline(localeFile, line))
-				{
-					if (line.empty()) continue;
-					if (line[0] == '#') continue;
-					if (line.find("Name: ") != std::string::npos && !nameFound)
-					{
-						localeEntry.name = line.substr(6);
-						nameFound = true;
-					}
-					else if (line.find("Lang: ") != std::string::npos && !langFound)
-					{
-						localeEntry.id = line.substr(6);
-						langFound = true;
-					}
-					if (nameFound && langFound) break;
-				}
+				std::stringstream strBuffer;
+				strBuffer << localeFile.rdbuf();
+				std::string content = strBuffer.str();
 				localeFile.close();
-				if (nameFound && langFound && localeEntry.id != "en")
+
+				using namespace PeepoDrumKit::Ini;
+
+				std::string_view sectionName;
+				LocaleEntry localeEntry {
+					std::string(),
+					std::string()
+				};
+
+				IniParser iniParser;
+
+				auto sectionFunc = [&](const IniParser::SectionIt& section) {};
+
+				auto keyValueFunc = [&](const IniParser::KeyValueIt& keyValue) {
+					if (iniParser.CurrentSection != "Info") return;
+
+					if (keyValue.Key == "Name")
+					{
+						localeEntry.name = std::string(keyValue.Value);
+					}
+					else if (keyValue.Key == "Lang")
+					{
+						localeEntry.id = std::string(keyValue.Value);
+					}
+				};
+
+				iniParser.ForEachIniKeyValueLine(content, sectionFunc, keyValueFunc);
+
+				if (localeEntry.id != "en")
 					LocaleEntries.push_back(localeEntry);
 			}
 		}
@@ -149,35 +173,43 @@ namespace PeepoDrumKit::i18n
 	void ReloadLocaleFile(cstr languageId)
 	{
 		HashStringMapMutex.lock();
+		std::cout << "Reloading locale to id " << languageId << std::endl;
 		InitBuiltinLocaleWithoutLock();
-		std::string localeFilePath = "locales/" + std::string(languageId) + ".txt";
+		std::string localeFilePath = "locales/" + std::string(languageId) + ".ini";
 		std::fstream localeFile(localeFilePath, std::ios::in);
 		if (!localeFile.is_open())
 		{
 			localeFile.close();
 			localeFile.open(localeFilePath, std::ios::in);
 		}
-		std::string line;
-		while (std::getline(localeFile, line))
-		{
-			if (line.empty()) continue;
-			if (line[0] == '#') continue;
-			size_t colonPos = line.find(':');
-			if (colonPos == std::string::npos) continue;
-			std::string hashStr = line.substr(0, colonPos);
-			if (hashStr.length() == 8)
-			{
-				try {
-					u32 hash = std::stoul(hashStr, nullptr, 16);
-					HashStringMap[hash] = line.substr(colonPos + 2);
-					std::cout << "Override hash "  << hashStr << " to " << HashStringMap[hash] << std::endl;
-				}
-				catch (...)
-				{
-					continue;
-				}
+		std::stringstream strBuffer;
+		strBuffer << localeFile.rdbuf();
+		std::string content = strBuffer.str();
+		localeFile.close();
+
+		using namespace PeepoDrumKit::Ini;
+
+		std::string_view sectionName;
+		IniParser iniParser;
+
+		auto sectionFunc = [&](const IniParser::SectionIt& section) {};
+
+		auto keyValueFunc = [&](const IniParser::KeyValueIt& keyValue) {
+			if (iniParser.CurrentSection != "Translations") return;
+			// TODO: Replace this code with identifier-based translation string parsing
+			if (keyValue.Key.size() != 13 || keyValue.Key.substr(0, 5) != "HASH_") return;
+			try {
+				u32 hash = std::stoul(std::string(keyValue.Key.substr(5)), nullptr, 16);
+				HashStringMap[hash] = keyValue.Value;
 			}
-		}
+			catch (std::exception _e)
+			{
+				std::cout << "Failed to parse hash " << keyValue.Key << std::endl;
+			}
+		};
+
+		iniParser.ForEachIniKeyValueLine(content, sectionFunc, keyValueFunc);
+		
 		HashStringMapMutex.unlock();
 	}
 }

@@ -11,6 +11,8 @@
 #include "i18n/zh-CN.h"
 #include "i18n/zh-TW.h"
 
+#include "chart_editor_settings.h"
+
 #define PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL \
 	XX(JA, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA) \
 	XX(ZHCN, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHCN) \
