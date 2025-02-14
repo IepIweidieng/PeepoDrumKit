@@ -26,16 +26,16 @@ namespace PeepoDrumKit::i18n
 
 	cstr HashToString(u32 inHash)
 	{
-		HashStringMapMutex.lock_shared();
-		// if (HashStringMap.empty()) InitBuiltinLocale();
-		for (auto it = HashStringMap.begin(); it != HashStringMap.end(); ++it)
-			if (it->first == inHash)
-			{
+		{
+			HashStringMapMutex.lock_shared();
+			defer { HashStringMapMutex.unlock_shared(); };
+			// if (HashStringMap.empty()) InitBuiltinLocale();
+			auto it = HashStringMap.find(inHash);
+			if (it != HashStringMap.end()) {
 				cstr result = it->second.c_str();
-				HashStringMapMutex.unlock_shared();
 				return result;
 			}
-		HashStringMapMutex.unlock_shared();
+		}
 
 #if PEEPO_DEBUG
 		assert(!"Missing string entry"); return nullptr;
@@ -67,7 +67,7 @@ namespace PeepoDrumKit::i18n
 			std::fstream localeFile("locales/jp.ini", std::ios::out | std::ios::trunc);
 
 			localeFile << "[Info]" << std::endl;
-			localeFile << u8"Name = ÈÕ±¾ÕZ" << std::endl;
+			localeFile << u8"Name = æ—¥æœ¬èªž" << std::endl;
 			localeFile << "Lang = jp" << std::endl;
 			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
@@ -84,7 +84,7 @@ namespace PeepoDrumKit::i18n
 			std::fstream localeFile("locales/zh-cn.ini", std::ios::out | std::ios::trunc);
 
 			localeFile << "[Info]" << std::endl;
-			localeFile << u8"Name = ÖÐÎÄ£¨ÖÐ¹ú£©" << std::endl;
+			localeFile << u8"Name = ä¸­æ–‡ï¼ˆä¸­å›½ï¼‰" << std::endl;
 			localeFile << "Lang = zh-cn" << std::endl;
 			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/13_NotoSansMonoCJKsc.zip
 			localeFile << "Font = NotoSansCJKsc-Regular.otf" << std::endl << std::endl;
@@ -102,7 +102,7 @@ namespace PeepoDrumKit::i18n
 			std::fstream localeFile("locales/zh-tw.ini", std::ios::out | std::ios::trunc);
 
 			localeFile << "[Info]" << std::endl;
-			localeFile << u8"Name = ÖÐÎÄ£¨Ì¨ž³£©" << std::endl;
+			localeFile << u8"Name = ä¸­æ–‡ï¼ˆå°ç£ï¼‰" << std::endl;
 			localeFile << "Lang = zh-tw" << std::endl;
 			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/14_NotoSansMonoCJKtc.zip
 			localeFile << "Font = NotoSansCJKtc-Regular.otf" << std::endl << std::endl;
