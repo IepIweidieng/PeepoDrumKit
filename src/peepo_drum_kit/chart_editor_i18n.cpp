@@ -9,6 +9,7 @@ namespace PeepoDrumKit::i18n
 
 	static void InitBuiltinLocaleWithoutLock()
 	{
+		FontMainFileNameTarget = FontMainFileNameDefault;
 		HashStringMap.clear();
 
 #define X(en, jp) HashStringMap[Hash(en)] = std::string(en);
@@ -195,6 +196,14 @@ namespace PeepoDrumKit::i18n
 		auto sectionFunc = [&](const IniParser::SectionIt& section) {};
 
 		auto keyValueFunc = [&](const IniParser::KeyValueIt& keyValue) {
+			if (iniParser.CurrentSection == "Info")
+			{
+				if (keyValue.Key == "Font")
+				{
+					FontMainFileNameTarget = keyValue.Value;
+				}
+				return;
+			}
 			if (iniParser.CurrentSection != "Translations") return;
 			// TODO: Replace this code with identifier-based translation string parsing
 			if (keyValue.Key.size() != 13 || keyValue.Key.substr(0, 5) != "HASH_") return;

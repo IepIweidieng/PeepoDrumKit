@@ -33,7 +33,6 @@ namespace PeepoDrumKit::i18n
 		std::string id;
 		std::string name;
 	};
-	extern std::string SelectedLocaleFontName; // assets/NotoSansCJKjp-Regular.otf
 	extern std::vector<LocaleEntry> LocaleEntries;
 
 	void InitBuiltinLocale();

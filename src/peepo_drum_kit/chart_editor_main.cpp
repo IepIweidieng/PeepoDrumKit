@@ -169,6 +169,10 @@ namespace PeepoDrumKit
 			Audio::Engine.ApplicationStartup();
 			app = std::make_unique<ImGuiApplication>();
 		};
+		callbacks.OnBeforeUpdate = []
+		{
+			app->OnUpdate();
+		};
 		callbacks.OnUpdate = []
 		{
 			app->OnUpdate();
