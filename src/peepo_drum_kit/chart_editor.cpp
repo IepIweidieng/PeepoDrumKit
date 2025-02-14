@@ -1,4 +1,4 @@
-#include "chart_editor.h"
+﻿#include "chart_editor.h"
 #include "core_build_info.h"
 #include "chart_editor_undo.h"
 #include "audio/audio_file_formats.h"
@@ -89,8 +89,14 @@ namespace PeepoDrumKit
 	{
 		if (Gui::BeginMenuBar())
 		{
-			GuiLanguage nextLanguageToSelect = SelectedGuiLanguage;
-			defer { SelectedGuiLanguage = nextLanguageToSelect; };
+			std::string nextLanguageToSelect = SelectedGuiLanguage;
+			defer {
+				if (nextLanguageToSelect != SelectedGuiLanguage)
+				{
+					SelectedGuiLanguage = nextLanguageToSelect;
+					i18n::ReloadLocaleFile(SelectedGuiLanguage.c_str());
+				}
+			};
 
 			if (Gui::BeginMenu(UI_Str("File")))
 			{
@@ -343,19 +349,21 @@ namespace PeepoDrumKit
 
 			if (Gui::BeginMenu(UI_Str("Language")))
 			{
-				for (const auto& it : GuiLanguageDefs)
+				for (const auto& it : i18n::LocaleEntries)
 				{
-					const cstr currentName = UI_StrRuntime(it.Name);
-					const cstr localName = i18n::HashToString(i18n::Hash(it.Name), it.Language);
+					// This should not be localized, just display as is
+					std::string buffer = it.name;
+					buffer += " (";
+					buffer += it.id;
+					buffer += ")";
 
-					char labelBuffer[128];
-					sprintf_s(labelBuffer, UI_Str("%s (%s)"), currentName, (strcmp(it.Name, currentName) == 0) ? localName : it.Name);
-
-					if (Gui::MenuItem(labelBuffer, it.Code, (SelectedGuiLanguage == it.Language)))
-						nextLanguageToSelect = it.Language;
+					if (Gui::MenuItem(buffer.c_str(), 0, SelectedGuiLanguage == it.id))
+						nextLanguageToSelect = it.id;
 				}
 				Gui::Separator();
 				Gui::MenuItem(UI_Str("Load Full CJKV Glyphs (slow)"), " ", &FontMainUseFullCJKVTarget);
+				if (Gui::MenuItem("Export Builtin Locale Files"))
+					i18n::ExportBuiltinLocaleFiles();
 				Gui::EndMenu();
 			}
 

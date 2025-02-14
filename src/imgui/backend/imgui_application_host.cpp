@@ -184,6 +184,7 @@ namespace ApplicationHost
 		globalRangesBuilderCJKV.Clear();
 		globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
 		globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
+		globalRangesBuilderCJKV.AddText(LanguageLabelsGlobalFontGlyphs.c_str(), LanguageLabelsGlobalFontGlyphs.c_str() + LanguageLabelsGlobalFontGlyphs.size());
 		if (FontMainUseFullCJKVTarget) {
 			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
 		}
@@ -209,13 +210,14 @@ namespace ApplicationHost
 
 	static void ImGuiUpdateBuildFonts(b8 rebuildCJKVRange)
 	{
+		std::cout << "ImGuiUpdateBuildFonts(" << rebuildCJKVRange << ")" << std::endl;
 		// TODO: Fonts should probably be set up by the application itself instead of being tucked away here but it doesn't really matter too much for now..
 		ImGuiIO& io = ImGui::GetIO();
 
 		if (rebuildCJKVRange || GlobalGlyphRanges.CJKV == nullptr)
 			ImGuiLoadCJKVGlyphRange();
 
-		const std::string_view fontFileName = Path::GetFileName(FontFilePath);
+		//const std::string_view fontFileName = Path::GetFileName(FontFilePath);
 
 		enum class Ownership : u8 { Copy, Move };
 		auto addFont = [&](i32 fontSizePixels, const ImWchar* glyphRanges, Ownership ownership) -> ImFont*
@@ -225,7 +227,7 @@ namespace ApplicationHost
 			{
 				fontConfig.FontDataOwnedByAtlas = (ownership == Ownership::Move) ? true : false;
 				fontConfig.EllipsisChar = '\0';
-				sprintf_s(fontConfig.Name, "%.*s, %dpx", FmtStrViewArgs(fontFileName), fontSizePixels);
+				//sprintf_s(fontConfig.Name, "%.*s, %dpx", FmtStrViewArgs(fontFileName), fontSizePixels);
 				return io.Fonts->AddFontFromMemoryTTF(GlobalState.FontFileContent, static_cast<int>(GlobalState.FontFileContentSize), static_cast<f32>(fontSizePixels), &fontConfig, glyphRanges);
 			}
 			else
@@ -251,8 +253,10 @@ namespace ApplicationHost
 		ImGuiAddEmeddedIconsToFontAtlas();
 #endif
 
-		if (rebuild)
+		if (rebuild) {
+			std::cout << "ImGuiUpdateBuildFonts: RecreateFontTexture" << std::endl;
 			ImGui_ImplDX11_RecreateFontTexture();
+		}
 
 #if IMGUI_HACKS_DELINEARIZE_FONTS
 		GlobalLastUsedDelinearizedFontGamma = IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA;
@@ -265,10 +269,55 @@ namespace ApplicationHost
 		ImGuiUpdateBuildFonts(false);
 	}
 
+	static void LoadFontToGlobalState(std::string& fontFilePath)
+	{
+		std::string fullFontFilePath = "assets/" + fontFilePath;
+		std::cout << "LoadFontToGlobalState: " << fullFontFilePath << std::endl;
+		while (GlobalState.FontFileContent == nullptr)
+		{
+			GlobalState.FontFileContent = ImFileLoadToMemory(fullFontFilePath.c_str(), "rb", &GlobalState.FontFileContentSize, 0);
+			if (GlobalState.FontFileContent == nullptr || GlobalState.FontFileContentSize <= 0)
+			{
+				char messageBuffer[2048];
+				const int messageLength = sprintf_s(messageBuffer,
+					"Failed to read font file:\n"
+					"\"%s\"\n"
+					"\n"
+					"Please ensure the program was installed correctly and is run from within the correct working directory.\n"
+					"\n"
+					"Working directory:\n"
+					"\"%s\"\n"
+					"Executable directory:\n"
+					"\"%s\"\n"
+					"\n"
+					"[ Abort ] to exit application\n"
+					"[ Retry ]  to read file again\n"
+					"[ Ignore ] to continue with fallback font\n"
+					, fullFontFilePath.c_str(), Directory::GetWorkingDirectory().c_str(), Directory::GetExecutableDirectory().c_str());
+
+				const Shell::MessageBoxResult result = Shell::ShowMessageBox(
+					std::string_view(messageBuffer, messageLength), "Peepo Drum Kit - Startup Error",
+					Shell::MessageBoxButtons::AbortRetryIgnore, Shell::MessageBoxIcon::Error, GlobalState.NativeWindowHandle);
+
+				if (result == Shell::MessageBoxResult::Abort) { ::ExitProcess(-1); }
+				if (result == Shell::MessageBoxResult::Retry) { continue; }
+				if (result == Shell::MessageBoxResult::Ignore) { break; }
+			}
+		}
+	}
+
 	static void ImGuiAndUserUpdateThenRenderAndPresentFrame()
 	{
 		if (!GlobalIsWindowMinimized && GlobalSwapChainWaitableObject != NULL)
 			::WaitForSingleObjectEx(GlobalSwapChainWaitableObject, 1000, true);
+		
+		if (FontMainFileNameCurrent != FontMainFileNameTarget) {
+			IM_FREE(GlobalState.FontFileContent);
+			GlobalState.FontFileContent = nullptr;
+			LoadFontToGlobalState(FontMainFileNameTarget);
+			ImGuiUpdateBuildFonts();
+			FontMainFileNameCurrent = FontMainFileNameTarget;
+		}
 
 		if (FontMainUseFullCJKVCurrent != FontMainUseFullCJKVTarget) {
 			ImGuiUpdateBuildFonts(true);
@@ -417,44 +466,10 @@ namespace ApplicationHost
 
 		userCallbacks.OnStartup();
 
-		while (GlobalState.FontFileContent == nullptr)
-		{
-			GlobalState.FontFileContent = ImFileLoadToMemory(FontFilePath, "rb", &GlobalState.FontFileContentSize, 0);
-			if (GlobalState.FontFileContent == nullptr || GlobalState.FontFileContentSize <= 0)
-			{
-				char messageBuffer[2048];
-				const int messageLength = sprintf_s(messageBuffer,
-					"Failed to read font file:\n"
-					"\"%s\"\n"
-					"\n"
-					"Please ensure the program was installed correctly and is run from within the correct working directory.\n"
-					"\n"
-					"Working directory:\n"
-					"\"%s\"\n"
-					"Executable directory:\n"
-					"\"%s\"\n"
-					"\n"
-					"[ Abort ] to exit application\n"
-					"[ Retry ]  to read file again\n"
-					"[ Ignore ] to continue with fallback font\n"
-					, FontFilePath, Directory::GetWorkingDirectory().c_str(), Directory::GetExecutableDirectory().c_str());
-
-				const Shell::MessageBoxResult result = Shell::ShowMessageBox(
-					std::string_view(messageBuffer, messageLength), "Peepo Drum Kit - Startup Error",
-					Shell::MessageBoxButtons::AbortRetryIgnore, Shell::MessageBoxIcon::Error, GlobalState.NativeWindowHandle);
-
-				if (result == Shell::MessageBoxResult::Abort) { ::ExitProcess(-1); }
-				if (result == Shell::MessageBoxResult::Retry) { continue; }
-				if (result == Shell::MessageBoxResult::Ignore) { break; }
-			}
-		}
-
 		GuiScaleFactorToSetNextFrame = GuiScaleFactorCurrent = GuiScaleFactorTarget;
 		GlobalOriginalScaleStyle = ImGui::GetStyle();
 		if (!ApproxmiatelySame(GuiScaleFactorTarget, 1.0f))
 			ImGui::GetStyle().ScaleAllSizes(GuiScaleFactorTarget);
-
-		ImGuiUpdateBuildFonts();
 
 		b8 done = false;
 		while (!done)

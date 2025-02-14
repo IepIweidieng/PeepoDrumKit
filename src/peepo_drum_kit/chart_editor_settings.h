@@ -307,4 +307,73 @@ namespace PeepoDrumKit
 
 	SettingsReflectionMap StaticallyInitializeAppSettingsReflectionMap();
 	inline const SettingsReflectionMap AppSettingsReflectionMap = StaticallyInitializeAppSettingsReflectionMap();
+
+
+	namespace Ini
+	{
+		struct IniParser
+		{
+			SettingsParseResult Result = {};
+			i32 LineIndex = 0;
+			std::string_view CurrentSection = "";
+
+			struct SectionIt { std::string_view Line, Section; };
+			struct KeyValueIt { std::string_view Line, Key, Value; };
+
+			inline void Error(cstr errorMessage) { Result.HasError = true; Result.ErrorLineIndex = LineIndex; Result.ErrorMessage = errorMessage; }
+			inline void Error_InvalidInt() { Error("Invalid int"); }
+			inline void Error_InvalidFloat() { Error("Invalid float"); }
+			inline void Error_InvalidRect() { Error("Invalid rect"); }
+			inline void Error_InvalidBool() { Error("Invalid bool"); }
+
+
+			template <typename SectionFunc, typename KeyValueFunc>
+			inline void ForEachIniKeyValueLine(std::string_view fileContent, SectionFunc sectionFunc, KeyValueFunc keyValueFunc)
+			{
+				ASCII::ForEachLineInMultiLineString(fileContent, false, [&](std::string_view line)
+					{
+						defer{ LineIndex++; };
+						if (Result.HasError)
+							return;
+
+						line = ASCII::Trim(line);
+						if (ASCII::IsAllWhitespace(line) || line[0] == ';' || line[0] == '#')
+							return;
+
+						const size_t commentIndex = line.find_first_of(';');
+						if (commentIndex != std::string_view::npos)
+							line = ASCII::TrimRight(line.substr(0, commentIndex));
+
+						if (line[0] == '[')
+						{
+							const size_t clsoingIndex = line.find_first_of(']');
+							if (clsoingIndex == std::string_view::npos)
+								return Error("Missing closing ']' for section");
+
+							if (clsoingIndex != line.size() - 1)
+								return Error("Unexpected trailing data");
+
+							const std::string_view section = ASCII::Trim(line.substr(sizeof('['), line.size() - (sizeof('[') + sizeof(']'))));
+
+							CurrentSection = section;
+							sectionFunc(SectionIt{ line, section });
+						}
+						else
+						{
+							const size_t separatorIndex = line.find_first_of('=');
+							if (separatorIndex == std::string_view::npos)
+								return Error("Missing '=' separator");
+
+							const std::string_view key = ASCII::Trim(line.substr(0, separatorIndex));
+							const std::string_view value = ASCII::Trim(line.substr(separatorIndex + 1));
+
+							if (key.empty())
+								return Error("Empty key");
+
+							keyValueFunc(KeyValueIt{ line, key, value });
+						}
+					});
+			}
+		};
+	}
 }

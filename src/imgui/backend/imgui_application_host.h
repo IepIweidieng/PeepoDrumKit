@@ -21,8 +21,12 @@ inline ImFont* FontLarge_EN = nullptr;
 enum class BuiltInFont : u8 { FontMain_CJKV, FontMedium_EN, FontLarge_EN, Count };
 inline ImFont* GetBuiltInFont(BuiltInFont font) { return (font == BuiltInFont::FontMain_CJKV) ? FontMain_CJKV : (font == BuiltInFont::FontMedium_EN) ? FontMedium_EN : FontLarge_EN; }
 inline std::string_view ExternalGlobalFontGlyphs = "";
+inline std::string LanguageLabelsGlobalFontGlyphs = "";
 inline bool FontMainUseFullCJKVCurrent = false;
 inline bool FontMainUseFullCJKVTarget = FontMainUseFullCJKVCurrent;
+inline std::string FontMainFileNameDefault = "NotoSansCJKjp-Regular.otf";
+inline std::string FontMainFileNameTarget = FontMainFileNameDefault;
+inline std::string FontMainFileNameCurrent = "";
 
 inline f32 GuiScaleFactorCurrent = 1.0f;
 inline f32 GuiScaleFactorTarget = GuiScaleFactorCurrent;
@@ -92,6 +96,7 @@ namespace ApplicationHost
 	enum class CloseResponse : u8 { Exit, SupressExit };
 
 	using StartupFunc = void(*)();
+	using BeforeUpdateFunc = void(*)();
 	using UpdateFunc = void(*)();
 	using ShutdownFunc = void(*)();
 	using WindowCloseRequestFunc = CloseResponse(*)();
@@ -99,6 +104,7 @@ namespace ApplicationHost
 	struct UserCallbacks
 	{
 		StartupFunc OnStartup;
+		BeforeUpdateFunc OnBeforeUpdate;
 		UpdateFunc OnUpdate;
 		ShutdownFunc OnShutdown;
 		WindowCloseRequestFunc OnWindowCloseRequest;

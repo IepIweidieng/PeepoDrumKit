@@ -2,56 +2,45 @@
 #include "core_types.h"
 #include "imgui/imgui_include.h"
 
+#include <shared_mutex>
+#include <filesystem>
+#include <fstream>
+#include <unordered_map>
+
 #include "i18n/ja.h"
 #include "i18n/zh-CN.h"
 #include "i18n/zh-TW.h"
+
+#include "chart_editor_settings.h"
 
 #define PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL \
 	XX(JA, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA) \
 	XX(ZHCN, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHCN) \
 	XX(ZHTW, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHTW) \
 
-#define UI_Str(in) i18n::HashToString(i18n::CompileTimeValidate<i18n::Hash(in)>(), SelectedGuiLanguage)
-#define UI_StrRuntime(in) i18n::HashToString(i18n::Hash(in), SelectedGuiLanguage)
-#define UI_WindowName(in) i18n::ToStableName(in, i18n::CompileTimeValidate<i18n::Hash(in)>(), SelectedGuiLanguage).Data
+#define UI_Str(in) i18n::HashToString(i18n::CompileTimeValidate<i18n::Hash(in)>())
+#define UI_StrRuntime(in) i18n::HashToString(i18n::Hash(in))
+#define UI_WindowName(in) i18n::ToStableName(in, i18n::CompileTimeValidate<i18n::Hash(in)>()).Data
 
 namespace PeepoDrumKit
 {
-	enum class GuiLanguage : u8 { EN, JA, ZHCN, ZHTW, Count };
-	inline GuiLanguage SelectedGuiLanguage = GuiLanguage::EN;
-
-	constexpr struct { GuiLanguage Language; cstr Code, Name; } GuiLanguageDefs[] =
-	{
-		{ GuiLanguage::EN, "en", "English", },
-		{ GuiLanguage::JA, "ja", "Japanese", },
-		{ GuiLanguage::ZHCN, "zh-CN", "Simplified Chinese", },
-		{ GuiLanguage::ZHTW, "zh-TW", "Traditional Chinese", },
-	};
-	static_assert(ArrayCount(GuiLanguageDefs) == EnumCount<GuiLanguage>, "Don't forget to implement proper language code string conversion");
-
-	// Converters; no need to optimize
-
-	inline cstr GuiLanguageToLocaleCode(GuiLanguage lang)
-	{
-		for (const auto& def : GuiLanguageDefs) {
-			if (def.Language == lang)
-				return def.Code;
-		}
-		return GuiLanguageDefs[0].Code;
-	}
-
-	inline GuiLanguage LocaleCodeToGuiLanguage(std::string_view str)
-	{
-		for (const auto& def : GuiLanguageDefs) {
-			if (def.Name == str)
-				return def.Language;
-		}
-		return GuiLanguageDefs[0].Language;
-	}
+	inline std::string SelectedGuiLanguage = std::string("en");
 }
 
 namespace PeepoDrumKit::i18n
 {
+	struct LocaleEntry {
+		std::string id;
+		std::string name;
+	};
+	extern std::vector<LocaleEntry> LocaleEntries;
+
+	void InitBuiltinLocale();
+	void RefreshLocales();
+	void ReloadLocaleFile(cstr languageId = "en");
+	void ExportBuiltinLocaleFiles();
+	cstr HashToString(u32 inHash);
+
 	constexpr ImU32 Crc32LookupTable[256] =
 	{
 		0x00000000,0x77073096,0xEE0E612C,0x990951BA,0x076DC419,0x706AF48F,0xE963A535,0x9E6495A3,0x0EDB8832,0x79DCB8A4,0xE0D5E91E,0x97D2D988,0x09B64C2B,0x7EB17CBD,0xE7B82D07,0x90BF1D91,
@@ -94,36 +83,12 @@ namespace PeepoDrumKit::i18n
 	template <u32 InHash>
 	constexpr u32 CompileTimeValidate() { static_assert(IsValidHash(InHash), "Unknown string"); return InHash; }
 
-	constexpr cstr HashToString(u32 inHash, GuiLanguage outLanguage)
-	{
-		switch (outLanguage)
-		{
-		default:
-		case GuiLanguage::EN:
-			switch (inHash) {
-#define X(_en, _l10n) case ForceConsteval<Hash(_en)>: return (_en);
-				PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
-#undef X
-			}
-			break;
-
-#define XX(_locale, ...) case GuiLanguage::_locale: switch (inHash) { __VA_ARGS__ } break;
-#define X(_en, _l10n) case ForceConsteval<Hash(_en)>: return (_l10n);
-			PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL
-#undef X
-#undef XX
-		}
-
-#if PEEPO_DEBUG
-		assert(!"Missing string entry"); return nullptr;
-#endif
-		return "(undefined)";
-	}
+	cstr HashToString(u32 inHash);
 
 	struct StableNameBuffer { char Data[128]; };
-	inline StableNameBuffer ToStableName(cstr inString, u32 inHash, GuiLanguage outLanguage)
+	inline StableNameBuffer ToStableName(cstr inString, u32 inHash)
 	{
-		cstr translatedString = HashToString(inHash, outLanguage);
+		cstr translatedString = HashToString(inHash);
 		StableNameBuffer buffer;
 
 		char* out = &buffer.Data[0];
