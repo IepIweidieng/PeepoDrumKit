@@ -579,9 +579,9 @@ namespace PeepoDrumKit
 
 						char overlayTextBuffer[96];
 						const auto overlayText = std::string_view(overlayTextBuffer, sprintf_s(overlayTextBuffer,
-							"%s%.3g ms\n"
-							"%s%.3g ms\n"
-							"%s%.3g ms",
+							"%s%.5g ms\n"
+							"%s%.5g ms\n"
+							"%s%.5g ms",
 							UI_Str("Average: "), averageFrameTime,
 							UI_Str("Min: "), minFrameTime,
 							UI_Str("Max: "), maxFrameTime));
