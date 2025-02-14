@@ -1,4 +1,4 @@
-#include "chart_editor.h"
+﻿#include "chart_editor.h"
 #include "core_build_info.h"
 #include "chart_editor_undo.h"
 #include "audio/audio_file_formats.h"
@@ -360,6 +360,8 @@ namespace PeepoDrumKit
 					if (Gui::MenuItem(buffer.c_str(), 0, SelectedGuiLanguage == it.id))
 						nextLanguageToSelect = it.id;
 				}
+				Gui::Separator();
+				Gui::MenuItem(UI_Str("Load Full CJKV Glyphs (slow)"), " ", &FontMainUseFullCJKVTarget);
 				if (Gui::MenuItem("Export Builtin Locale Files"))
 					i18n::ExportBuiltinLocaleFiles();
 				Gui::EndMenu();
