@@ -184,6 +184,7 @@ namespace ApplicationHost
 		globalRangesBuilderCJKV.Clear();
 		globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
 		globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
+		globalRangesBuilderCJKV.AddText(LanguageLabelsGlobalFontGlyphs.c_str(), LanguageLabelsGlobalFontGlyphs.c_str() + LanguageLabelsGlobalFontGlyphs.size());
 		if (FontMainUseFullCJKVTarget) {
 			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
 		}

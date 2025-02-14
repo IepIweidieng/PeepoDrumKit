@@ -125,6 +125,7 @@ namespace PeepoDrumKit::i18n
 			std::string("en"),
 			std::string("English")
 		});
+		LanguageLabelsGlobalFontGlyphs.clear();
 
 		std::filesystem::directory_iterator dirIter("locales");
 		for (const auto& entry : dirIter)
@@ -155,6 +156,7 @@ namespace PeepoDrumKit::i18n
 					if (keyValue.Key == "Name")
 					{
 						localeEntry.name = std::string(keyValue.Value);
+						LanguageLabelsGlobalFontGlyphs.append(localeEntry.name);
 					}
 					else if (keyValue.Key == "Lang")
 					{
