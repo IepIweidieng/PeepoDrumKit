@@ -87,7 +87,7 @@ namespace PeepoDrumKit::i18n
 			localeFile << u8"Name = 中文（中国）" << std::endl;
 			localeFile << "Lang = zh-cn" << std::endl;
 			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/13_NotoSansMonoCJKsc.zip
-			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
+			localeFile << "Font = NotoSansCJKsc-Regular.otf" << std::endl << std::endl;
 
 			localeFile << "[Translations]" << std::endl;
 #define X(en, ja) \
@@ -105,7 +105,7 @@ namespace PeepoDrumKit::i18n
 			localeFile << u8"Name = 中文（台灣）" << std::endl;
 			localeFile << "Lang = zh-tw" << std::endl;
 			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/14_NotoSansMonoCJKtc.zip
-			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
+			localeFile << "Font = NotoSansCJKtc-Regular.otf" << std::endl << std::endl;
 
 			localeFile << "[Translations]" << std::endl;
 #define X(en, ja) \
