@@ -5,7 +5,7 @@
 #include <shared_mutex>
 #include <filesystem>
 #include <fstream>
-#include <map>
+#include <unordered_map>
 
 #include "i18n/ja.h"
 #include "i18n/zh-CN.h"

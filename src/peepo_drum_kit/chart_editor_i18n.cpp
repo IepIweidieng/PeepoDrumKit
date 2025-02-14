@@ -2,7 +2,7 @@
 
 namespace PeepoDrumKit::i18n
 {
-	static std::map<u32, std::string> HashStringMap;
+	static std::unordered_map<u32, std::string> HashStringMap;
 	static std::shared_mutex HashStringMapMutex;
 	std::string SelectedFontName = "NotoSansCJKjp-Regular.otf";
 	std::vector<LocaleEntry> LocaleEntries;
