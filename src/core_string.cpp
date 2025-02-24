@@ -122,6 +122,6 @@ namespace ASCII
 	b8 TryParseCPX(std::string_view string, Complex& out) {
 		std::istringstream in(std::string{string});
 		in >> out;
-		return in.good();
+		return static_cast<bool>(in); // allow eof, reject fail & bad
 	}
 }
