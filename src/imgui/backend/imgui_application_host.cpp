@@ -161,6 +161,16 @@ namespace ApplicationHost
 
 	static void ImGuiLoadCJKVGlyphRange()
 	{
+		if (ExternalGlobalFontGlyphsTarget.has_value()) {
+			ExternalGlobalFontGlyphs = std::move(ExternalGlobalFontGlyphsTarget.value());
+			ExternalGlobalFontGlyphsTarget.reset();
+		}
+		else if (GlobalGlyphRanges.CJKV != nullptr
+			&& FontMainUseFullCJKVCurrent == FontMainUseFullCJKVTarget
+			) {
+			return;
+		}
+
 		ImGuiIO& io = ImGui::GetIO();
 
 		// NOTE: Using the glyph ranges builder here takes around ~0.15ms in release and ~2ms in debug builds
@@ -183,7 +193,7 @@ namespace ApplicationHost
 		globalRangesCJKV.clear();
 		globalRangesBuilderCJKV.Clear();
 		globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
-		globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
+		globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.c_str(), ExternalGlobalFontGlyphs.c_str() + ExternalGlobalFontGlyphs.size());
 		globalRangesBuilderCJKV.AddText(LanguageLabelsGlobalFontGlyphs.c_str(), LanguageLabelsGlobalFontGlyphs.c_str() + LanguageLabelsGlobalFontGlyphs.size());
 		if (FontMainUseFullCJKVTarget) {
 			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
@@ -206,16 +216,16 @@ namespace ApplicationHost
 
 		GlobalGlyphRanges.CJKV = globalRangesCJKV.Data;
 		GlobalGlyphRanges.EN = globalRangesEN.Data;
+
+		FontMainUseFullCJKVCurrent = FontMainUseFullCJKVTarget;
 	}
 
-	static void ImGuiUpdateBuildFonts(b8 rebuildCJKVRange)
+	static void ImGuiUpdateBuildFonts()
 	{
-		std::cout << "ImGuiUpdateBuildFonts(" << rebuildCJKVRange << ")" << std::endl;
 		// TODO: Fonts should probably be set up by the application itself instead of being tucked away here but it doesn't really matter too much for now..
 		ImGuiIO& io = ImGui::GetIO();
 
-		if (rebuildCJKVRange || GlobalGlyphRanges.CJKV == nullptr)
-			ImGuiLoadCJKVGlyphRange();
+		ImGuiLoadCJKVGlyphRange();
 
 		//const std::string_view fontFileName = Path::GetFileName(FontFilePath);
 
@@ -262,11 +272,6 @@ namespace ApplicationHost
 		GlobalLastUsedDelinearizedFontGamma = IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA;
 #endif
 		GlobalIsFirstFrameAfterFontRebuild = true;
-	}
-
-	static void ImGuiUpdateBuildFonts()
-	{
-		ImGuiUpdateBuildFonts(false);
 	}
 
 	static void LoadFontToGlobalState(std::string& fontFilePath)
@@ -318,10 +323,10 @@ namespace ApplicationHost
 			ImGuiUpdateBuildFonts();
 			FontMainFileNameCurrent = FontMainFileNameTarget;
 		}
-
-		if (FontMainUseFullCJKVCurrent != FontMainUseFullCJKVTarget) {
-			ImGuiUpdateBuildFonts(true);
-			FontMainUseFullCJKVCurrent = FontMainUseFullCJKVTarget;
+		else if (ExternalGlobalFontGlyphsTarget.has_value()
+			|| FontMainUseFullCJKVCurrent != FontMainUseFullCJKVTarget
+			) {
+			ImGuiUpdateBuildFonts();
 		}
 
 		if (!ApproxmiatelySame(GuiScaleFactorTarget, GuiScaleFactorToSetNextFrame))

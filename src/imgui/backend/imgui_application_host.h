@@ -20,7 +20,8 @@ inline ImFont* FontMedium_EN = nullptr;
 inline ImFont* FontLarge_EN = nullptr;
 enum class BuiltInFont : u8 { FontMain_CJKV, FontMedium_EN, FontLarge_EN, Count };
 inline ImFont* GetBuiltInFont(BuiltInFont font) { return (font == BuiltInFont::FontMain_CJKV) ? FontMain_CJKV : (font == BuiltInFont::FontMedium_EN) ? FontMedium_EN : FontLarge_EN; }
-inline std::string_view ExternalGlobalFontGlyphs = "";
+inline std::string ExternalGlobalFontGlyphs = "";
+inline std::optional<std::string> ExternalGlobalFontGlyphsTarget = std::nullopt;
 inline std::string LanguageLabelsGlobalFontGlyphs = "";
 inline bool FontMainUseFullCJKVCurrent = false;
 inline bool FontMainUseFullCJKVTarget = FontMainUseFullCJKVCurrent;

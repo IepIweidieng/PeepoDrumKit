@@ -169,5 +169,19 @@ namespace PeepoDrumKit::i18n
 		iniParser.ForEachIniKeyValueLine(content, sectionFunc, keyValueFunc);
 		
 		HashStringMapMutex.unlock();
+
+		// refresh list of necessary font glyphs in the localization
+		std::string fontGlyphBuffer;
+		if (languageId != std::string_view("en")) {
+			size_t fontGlyphBufferSize = 0;
+			for (const auto& [key, value] : HashStringMap) {
+				fontGlyphBufferSize += value.length();
+			}
+			fontGlyphBuffer.reserve(fontGlyphBufferSize);
+			for (const auto& [key, value] : HashStringMap) {
+				fontGlyphBuffer += value;
+			}
+		}
+		ExternalGlobalFontGlyphsTarget = std::move(fontGlyphBuffer);
 	}
 }
