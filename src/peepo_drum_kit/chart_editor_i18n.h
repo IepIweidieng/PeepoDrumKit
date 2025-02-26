@@ -7,16 +7,218 @@
 #include <fstream>
 #include <unordered_map>
 
-#include "i18n/ja.h"
-#include "i18n/zh-CN.h"
-#include "i18n/zh-TW.h"
-
 #include "chart_editor_settings.h"
 
-#define PEEPODRUMKIT_UI_STRINGS_XX_X_MACRO_LIST_ALL \
-	XX(JA, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA) \
-	XX(ZHCN, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHCN) \
-	XX(ZHTW, PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHTW) \
+#define PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN \
+X("Game Preview") \
+X("Chart Timeline") \
+X("Chart Timeline - Debug") \
+X("Chart Properties") \
+X("Chart Events") \
+X("Chart Lyrics") \
+X("Tempo Calculator") \
+X("Undo History") \
+X("Chart Inspector") \
+X("Settings") \
+X("Usage Guide") \
+X("Update Notes") \
+X("TJA Export Debug View") \
+X("TJA Import Test") \
+X("Audio Test") \
+X("File") \
+X("Edit") \
+X("Selection") \
+X("Transform") \
+X("Window") \
+X("Language") \
+X("English") \
+X("Japanese") \
+X("Simplified Chinese") \
+X("Traditional Chinese") \
+X("%s (%s)") \
+X("Help") \
+X("Copy") \
+X("Delete") \
+X("Save") \
+X("Undo") \
+X("Redo") \
+X("Cut") \
+X("Paste") \
+X("Open Recent") \
+X("Exit") \
+X("New Chart") \
+X("Open...") \
+X("Clear Items") \
+X("Open Chart Directory...") \
+X("Save As...") \
+X("Refine Selection") \
+X("Select All") \
+X("Clear Selection") \
+X("Invert Selection") \
+X("Start Range Selection") \
+X("End Range Selection") \
+X("From Range Selection") \
+X("Shift selection Left") \
+X("Shift selection Right") \
+X("Select Item Pattern xo") \
+X("Select Item Pattern xoo") \
+X("Select Item Pattern xooo") \
+X("Select Item Pattern xxoo") \
+X("Add New Pattern...") \
+X("Select Custom Pattern") \
+X("Delete?") \
+X("Flip Note Types") \
+X("Toggle Note Sizes") \
+X("Expand Items") \
+X("Compress Items") \
+X("2:1 (8th to 4th)") \
+X("3:2 (12th to 8th)") \
+X("4:3 (16th to 12th)") \
+X("1:2 (4th to 8th)") \
+X("2:3 (8th to 12th)") \
+X("3:4 (12th to 16th)") \
+X("Toggle VSync") \
+X("Toggle Fullscreen") \
+X("Window Size") \
+X("Resize to") \
+X("Current Size") \
+X("DPI Scale") \
+X("Zoom In") \
+X("Zoom Out") \
+X("Reset Zoom") \
+X(" Reset ") \
+X("Current Scale") \
+X("Test Menu") \
+X("Show Audio Test") \
+X("Show TJA Import Test") \
+X("Show TJA Export View") \
+X("Show ImGui Demo") \
+X("Show ImGui Style Editor") \
+X("Reset Style Colors") \
+X("Copyright (c) 2022") \
+X("Build Time:") \
+X("Build Date:") \
+X("Build Configuration:") \
+X("Current Version:") \
+X("Debug") \
+X("Release") \
+X("Courses") \
+X("Add New") \
+X("Edit...") \
+X("Open Audio Device") \
+X("Close Audio Device") \
+X("Average: ") \
+X("Min: ") \
+X("Max: ") \
+X("Use %s") \
+X("Peepo Drum Kit - Unsaved Changes") \
+X("Save changes to the current file?") \
+X("Save Changes") \
+X("Discard Changes") \
+X("Cancel") \
+X("Events") \
+X("Tempo") \
+X("Time Signature") \
+X("Notes") \
+X("Notes (Expert)") \
+X("Notes (Master)") \
+X("Scroll Speed") \
+X("Vertical Scroll Speed") \
+X("Scroll Speed Tempo") \
+X("Bar Line Visibility") \
+X("Go-Go Time") \
+X("Lyrics") \
+X("Scroll Type") \
+X("JPOS Scroll") \
+X("JPOS Scroll Move") \
+X("Vertical JPOS Scroll Move") \
+X("JPOS Scroll Duration") \
+X("Sync") \
+X("Chart Duration") \
+X("Song Demo Start") \
+X("Song Offset") \
+X("Selection to Scroll Changes") \
+X("Set Cursor") \
+X("Add") \
+X("Remove") \
+X("Clear") \
+X("Set from Range Selection") \
+X("Chart") \
+X("Chart Title") \
+X("Chart Subtitle") \
+X("Chart Creator") \
+X("Song File Name") \
+X("Jacket File Name") \
+X("Song Volume") \
+X("Sound Effect Volume") \
+X("Selected Course") \
+X("Difficulty Type") \
+X("Difficulty Level") \
+X("Difficulty Level Decimal") \
+X("Course Creator") \
+X("Selected Items") \
+X("( Nothing Selected )") \
+X("Selected ") \
+X("Items") \
+X("Tempos") \
+X("Time Signatures") \
+X("Scroll Speeds") \
+X("Bar Lines") \
+X("Go-Go Ranges") \
+X("Bar Line Visible") \
+X("Visible") \
+X("Hidden") \
+X("Scroll Types") \
+X("JPOS Scrolls") \
+X("NMSCROLL") \
+X("HBSCROLL") \
+X("BMSCROLL") \
+X("Balloon Pop Count") \
+X("Interpolate: Scroll Speed") \
+X("Interpolate: Scroll Speed Tempo") \
+X("Interpolate: Vertical Scroll Speed") \
+X("Time Offset") \
+X("Note Type") \
+X("Note Type Size") \
+X("Don") \
+X("DON") \
+X("Ka") \
+X("KA") \
+X("Drumroll") \
+X("DRUMROLL") \
+X("Balloon") \
+X("BALLOON") \
+X("Small") \
+X("Big") \
+X("Easy") \
+X("Normal") \
+X("Hard") \
+X("Oni") \
+X("Oni-Ura") \
+X("Single") \
+X("Double") \
+X("Description") \
+X("Time") \
+X("Initial State") \
+X("Lyrics Overview") \
+X("Edit Line") \
+X("(No Lyrics)") \
+X("Reset") \
+X("Tap") \
+X(" First Beat ") \
+X("Nearest Whole") \
+X("Nearest") \
+X("Min and Max") \
+X("Timing Taps") \
+X("First Beat") \
+X("%d Taps") \
+X("") \
+X("KADON") \
+X("Bomb") \
+X("Adlib") \
+X("Fuseroll") \
+X("Load Full CJKV Glyphs (slow)") \
+/* empty last line */
 
 #define UI_Str(in) i18n::HashToString(i18n::CompileTimeValidate<i18n::Hash(in)>())
 #define UI_StrRuntime(in) i18n::HashToString(i18n::Hash(in))
@@ -73,8 +275,8 @@ namespace PeepoDrumKit::i18n
 
 	constexpr u32 AllValidHashes[] =
 	{
-#define X(en, ...) Hash(en),
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
+#define X(en) Hash(en),
+			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
 	};
 

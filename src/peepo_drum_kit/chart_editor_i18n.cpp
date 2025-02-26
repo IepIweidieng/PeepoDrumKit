@@ -12,8 +12,8 @@ namespace PeepoDrumKit::i18n
 		FontMainFileNameTarget = FontMainFileNameDefault;
 		HashStringMap.clear();
 
-#define X(en, jp) HashStringMap[Hash(en)] = std::string(en);
-		PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
+#define X(en) HashStringMap[Hash(en)] = std::string(en);
+		PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
 	}
 
@@ -55,11 +55,11 @@ namespace PeepoDrumKit::i18n
 			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
 			localeFile << "[Translations]" << std::endl;
-#define X(en, ja) \
+#define X(en) \
 			(localeFile << "HASH_"); \
 			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
 			(localeFile << " = " << en << std::endl);
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
+			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
 		}
 	}
