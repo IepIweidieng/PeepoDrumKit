@@ -52,12 +52,6 @@ X("MENU_SELECTION",									"Selection") \
 X("MENU_TRANSFORM",									"Transform") \
 X("MENU_WINDOW",									"Window") \
 X("MENU_LANGUAGE",									"Language") \
-/* language menu */ \
-X("LANGUAGE_EN",									"English") \
-X("LANGUAGE_JA",									"Japanese") \
-X("LANGUAGE_ZH_CN",									"Simplified Chinese") \
-X("LANGUAGE_ZH_TW",									"Traditional Chinese") \
-X("LANGUAGE_FMT_%s_LOCAL_%s_EN",					"%s (%s)") \
 /* help menu */ \
 X("MENU_HELP",										"Help") \
 X("ACT_EDIT_COPY",									"Copy") \
