@@ -9,6 +9,25 @@
 
 #include "chart_editor_settings.h"
 
+/* should keep unchanged for compatibility */
+#define PEEPODRUMKIT_UI_STRINGS_STABLE_X_MACRO_LIST_EN	\
+X("TAB_TIMELINE_DEBUG",			"Chart Timeline - Debug") \
+X("TAB_TIMELINE",				"Chart Timeline") \
+X("TAB_EVENTS",					"Chart Tempo") \
+X("TAB_LYRICS",					"Chart Lyrics") \
+X("TAB_TEMPO_CALCULATOR",		"Tempo Calculator") \
+X("TAB_TJA_EXPORT_DEBUG_VIEW",	"TJA Export Debug View") \
+X("TAB_SETTINGS",				"Settings") \
+X("TAB_USAGE_GUIDE",			"Usage Guide") \
+X("TAB_UPDATE_NOTES",			"Update Notes") \
+X("TAB_GAME_PREVIEW",			"Game Preview") \
+X("TAB_AUDIO_TEST",				"Audio Test") \
+X("TAB_TJA_IMPORT_TEST",		"TJA Import Test") \
+X("TAB_UNDO_HISTORY",			"Undo History") \
+X("TAB_CHART_PROPERTIES",		"Chart Properties") \
+X("TAB_INSPECTOR",				"Chart Inspector") \
+/* empty last line */
+
 #define PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN	\
 /* tab names */ \
 X("TAB_GAME_PREVIEW",								"Game Preview") \
@@ -304,6 +323,9 @@ namespace PeepoDrumKit::i18n
 #define X(key, en) Hash(key),
 			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
+#define X(key, en) Hash(key),
+			PEEPODRUMKIT_UI_STRINGS_STABLE_X_MACRO_LIST_EN
+#undef X
 	};
 
 	constexpr b8 IsValidHash(u32 inHash) { for (u32 it : AllValidHashes) { if (it == inHash) return true; } return false; }
@@ -313,10 +335,24 @@ namespace PeepoDrumKit::i18n
 
 	cstr HashToString(u32 inHash);
 
+	constexpr cstr HashToStableString(u32 inHash)
+	{
+		switch (inHash) {
+#define X(key, en) case Hash(key): return en;
+			PEEPODRUMKIT_UI_STRINGS_STABLE_X_MACRO_LIST_EN
+#undef X
+			default:
+				return nullptr;
+		}
+	}
+
 	struct StableNameBuffer { char Data[128]; };
 	inline StableNameBuffer ToStableName(cstr inString, u32 inHash)
 	{
 		cstr translatedString = HashToString(inHash);
+		cstr stableString = HashToStableString(inHash);
+		if (stableString != nullptr)
+			inString = stableString;
 		StableNameBuffer buffer;
 
 		char* out = &buffer.Data[0];
