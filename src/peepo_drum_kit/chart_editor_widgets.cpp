@@ -716,8 +716,8 @@ namespace PeepoDrumKit
 		{
 			Gui::PushFont(FontMedium_EN);
 			Gui::TableSetupScrollFreeze(0, 1);
-			Gui::TableSetupColumn(UI_Str("Description"), ImGuiTableColumnFlags_None);
-			Gui::TableSetupColumn(UI_Str("Time"), ImGuiTableColumnFlags_None);
+			Gui::TableSetupColumn(UI_Str("UNDO_HISTORY_DESCRIPTION"), ImGuiTableColumnFlags_None);
+			Gui::TableSetupColumn(UI_Str("UNDO_HISTORY_TIME"), ImGuiTableColumnFlags_None);
 			Gui::TableHeadersRow();
 			Gui::PopFont();
 
@@ -734,7 +734,7 @@ namespace PeepoDrumKit
 				return clicked;
 			};
 
-			if (undoCommandRow(Undo::CommandInfo { UI_Str("Initial State") }, CPUTime {}, nullptr, undoStack.empty()))
+			if (undoCommandRow(Undo::CommandInfo { UI_Str("UNDO_HISTORY_INITIAL_STATE") }, CPUTime {}, nullptr, undoStack.empty()))
 				context.Undo.Undo(undoStack.size());
 
 			if (!undoStack.empty())
@@ -803,7 +803,7 @@ namespace PeepoDrumKit
 				Gui::PushStyleColor(ImGuiCol_ButtonHovered, (Calculator.TapCount > 0 && !hasTimedOut) ? animatedButtonColor : Gui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
 				Gui::PushStyleColor(ImGuiCol_ButtonActive, (Calculator.TapCount > 0 && !hasTimedOut) ? animatedButtonColor : Gui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 
-				char buttonName[32]; sprintf_s(buttonName, (Calculator.TapCount == 0) ? UI_Str("Tap") : (Calculator.TapCount == 1) ? UI_Str(" First Beat ") : "%.2f BPM", Calculator.LastTempo.BPM);
+				char buttonName[32]; sprintf_s(buttonName, (Calculator.TapCount == 0) ? UI_Str("ACT_TEMPO_CALCULATOR_TAP") : (Calculator.TapCount == 1) ? UI_Str("INFO_TEMPO_CALCULATOR_TAP_FIRST_BEAT") : "%.2f BPM", Calculator.LastTempo.BPM);
 				if (tapPressed | Gui::ButtonEx(buttonName, vec2(-1.0f, Gui::GetFrameHeightWithSpacing() * 3.0f), ImGuiButtonFlags_PressedOnClick))
 				{
 					context.SfxVoicePool.PlaySound(SoundEffectType::MetronomeBeat);
@@ -816,7 +816,7 @@ namespace PeepoDrumKit
 
 			Gui::PushStyleColor(ImGuiCol_Text, Gui::GetStyleColorVec4((Calculator.TapCount > 0) ? ImGuiCol_Text : ImGuiCol_TextDisabled));
 			Gui::PushStyleColor(ImGuiCol_Button, Gui::GetStyleColorVec4(resetDown ? ImGuiCol_ButtonActive : ImGuiCol_Button));
-			if (resetPressed | Gui::Button(UI_Str("Reset"), vec2(-1.0f, Gui::GetFrameHeightWithSpacing() * 1.0f)))
+			if (resetPressed | Gui::Button(UI_Str("ACT_TEMPO_CALCULATOR_RESET"), vec2(-1.0f, Gui::GetFrameHeightWithSpacing() * 1.0f)))
 			{
 				if (Calculator.TapCount > 0)
 					context.SfxVoicePool.PlaySound(SoundEffectType::MetronomeBar);
@@ -838,24 +838,24 @@ namespace PeepoDrumKit
 				Gui::TableSetColumnIndex(0); Gui::AlignTextToFramePadding(); funcLeft();
 				Gui::TableSetColumnIndex(1); Gui::AlignTextToFramePadding(); Gui::SetNextItemWidth(-1.0f); funcRight();
 			};
-			row([&] { Gui::TextUnformatted(UI_Str("Nearest Whole")); }, [&]
+			row([&] { Gui::TextUnformatted(UI_Str("LABEL_TEMPO_CALCULATOR_NEAREST_WHOLE")); }, [&]
 			{
 				f32 v = Round(Calculator.LastTempo.BPM);
 				Gui::InputFloat("##NearestWhole", &v, 0.0f, 0.0f, formatStrBPM_g, ImGuiInputTextFlags_ReadOnly);
 			});
-			row([&] { Gui::TextUnformatted(UI_Str("Nearest")); }, [&]
+			row([&] { Gui::TextUnformatted(UI_Str("LABEL_TEMPO_CALCULATOR_NEAREST")); }, [&]
 			{
 				f32 v = Calculator.LastTempo.BPM;
 				Gui::InputFloat("##Nearest", &v, 0.0f, 0.0f, formatStrBPM_2f, ImGuiInputTextFlags_ReadOnly);
 			});
-			row([&] { Gui::TextUnformatted(UI_Str("Min and Max")); }, [&]
+			row([&] { Gui::TextUnformatted(UI_Str("LABEL_TEMPO_CALCULATOR_MIN_AND_MAX")); }, [&]
 			{
 				f32 v[2] = { Calculator.LastTempoMin.BPM, Calculator.LastTempoMax.BPM };
 				Gui::InputFloat2("##MinMax", v, formatStrBPM_2f, ImGuiInputTextFlags_ReadOnly);
 			});
-			row([&] { Gui::TextUnformatted(UI_Str("Timing Taps")); }, [&]
+			row([&] { Gui::TextUnformatted(UI_Str("LABEL_TEMPO_CALCULATOR_TAPS")); }, [&]
 			{
-				Gui::Text((Calculator.TapCount == 1) ? UI_Str("First Beat") : UI_Str("%d Taps"), Calculator.TapCount);
+				Gui::Text((Calculator.TapCount == 1) ? UI_Str("INFO_TEMPO_CALCULATOR_TAPS_FIRST_BEAT") : UI_Str("INFO_TEMPO_CALCULATOR_TAPS_FMT_%d_TAPS"), Calculator.TapCount);
 			});
 			// NOTE: ReadOnly InputFloats specifically to allow easy copy and paste
 			Gui::EndTable();
@@ -871,7 +871,7 @@ namespace PeepoDrumKit
 		auto& chart = context.Chart;
 		auto& course = *context.ChartSelectedCourse;
 
-		if (Gui::CollapsingHeader(UI_Str("Selected Items"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("DETAILS_INSPECTOR_SELECTED_ITEMS"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			defer { SelectedItems.clear(); };
 			BeatSortedForwardIterator<TempoChange> scrollTempoChangeIt {};
@@ -975,7 +975,7 @@ namespace PeepoDrumKit
 				Gui::PushItemFlag(ImGuiItemFlags_Disabled, true);
 				Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
 				Gui::PushStyleColor(ImGuiCol_Button, 0x00000000);
-				Gui::Button(UI_Str("( Nothing Selected )"), { Gui::GetContentRegionAvail().x, Gui::GetFrameHeight() * 2.0f });
+				Gui::Button(UI_Str("INFO_INSPECTOR_NOTHING_SELECTED"), { Gui::GetContentRegionAvail().x, Gui::GetFrameHeight() * 2.0f });
 				Gui::PopStyleColor(2);
 				Gui::PopItemFlag();
 				Gui::PopFont();
@@ -984,17 +984,17 @@ namespace PeepoDrumKit
 			{
 				if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 				{
-					const cstr listTypeNames[] = { UI_Str("Tempos"), UI_Str("Time Signatures"), UI_Str("Notes"), UI_Str("Notes"), UI_Str("Notes"), UI_Str("Scroll Speeds"), UI_Str("Bar Lines"), UI_Str("Go-Go Ranges"), UI_Str("Lyrics"), UI_Str("Scroll Types"), UI_Str("JPOS Scrolls"), };
+					const cstr listTypeNames[] = { UI_Str("SELECTED_EVENTS_TEMPOS"), UI_Str("SELECTED_EVENTS_TIME_SIGNATURES"), UI_Str("EVENT_NOTES"), UI_Str("EVENT_NOTES"), UI_Str("EVENT_NOTES"), UI_Str("SELECTED_EVENTS_SCROLL_SPEEDS"), UI_Str("SELECTED_EVENTS_BAR_LINE_VISIBILITIES"), UI_Str("SELECTED_EVENTS_GO_GO_RANGES"), UI_Str("EVENT_LYRICS"), UI_Str("SELECTED_EVENTS_SCROLL_TYPES"), UI_Str("SELECTED_EVENTS_JPOS_SCROLLS"), };
 					static_assert(ArrayCount(listTypeNames) == EnumCount<GenericList>);
 
 					Gui::Property::Property([&]
 					{
-						std::string_view selectedListName = (commonListType < GenericList::Count) ? listTypeNames[EnumToIndex(commonListType)] : UI_Str("Items");
+						std::string_view selectedListName = (commonListType < GenericList::Count) ? listTypeNames[EnumToIndex(commonListType)] : UI_Str("SELECTED_EVENTS_ITEMS");
 						if (SelectedItems.size() == 1 && ASCII::EndsWith(selectedListName, 's'))
 							selectedListName = selectedListName.substr(0, selectedListName.size() - sizeof('s'));
 
 						Gui::AlignTextToFramePadding();
-						Gui::Text("%s%.*s: %zu", UI_Str("Selected "), FmtStrViewArgs(selectedListName), SelectedItems.size());
+						Gui::Text("%s%.*s: %zu", UI_Str("INFO_INSPECTOR_SELECTED_ITEM"), FmtStrViewArgs(selectedListName), SelectedItems.size());
 					});
 					Gui::Property::Value([&]()
 					{
@@ -1014,7 +1014,7 @@ namespace PeepoDrumKit
 
 					if (commonListType >= GenericList::Count)
 					{
-						Gui::Property::PropertyTextValueFunc(UI_Str("Refine Selection"), [&]
+						Gui::Property::PropertyTextValueFunc(UI_Str("ACT_SELECTION_REFINE"), [&]
 						{
 							for (GenericList list = {}; list < GenericList::Count; IncrementEnum(list))
 							{
@@ -1059,10 +1059,10 @@ namespace PeepoDrumKit
 						{
 						case GenericMember::B8_BarLineVisible:
 						{
-							Gui::Property::PropertyTextValueFunc(UI_Str("Bar Line Visible"), [&]
+							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_PROP_BAR_LINE_VISIBLE"), [&]
 							{
 								enum class VisibilityType { Visible, Hidden, Count };
-								const cstr visibilityTypeNames[] = { UI_Str("Visible"), UI_Str("Hidden"), };
+								const cstr visibilityTypeNames[] = { UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN"), };
 								auto v = !(commonEqualMemberFlags & EnumToFlag(member)) ? VisibilityType::Count : sharedValues.BarLineVisible() ? VisibilityType::Visible : VisibilityType::Hidden;
 
 								Gui::PushItemWidth(-1.0f);
@@ -1098,7 +1098,7 @@ namespace PeepoDrumKit
 							widgetIn.EnableDragLabel = true;
 							widgetIn.DragLabelSpeed = 0.05f;
 							Gui::BeginDisabled(!isAnyBalloonNoteSelected);
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("Balloon Pop Count"), widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("EVENT_PROP_BALLOON_POP_COUNT"), widgetIn);
 							Gui::EndDisabled();
 
 							if (widgetOut.HasValueExact)
@@ -1158,8 +1158,8 @@ namespace PeepoDrumKit
 
 								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
 									(i == 0)
-									? UI_Str("JPOS Scroll Move")
-									: UI_Str("Vertical JPOS Scroll Move")
+									? UI_Str("EVENT_PROP_JPOS_SCROLL_MOVE")
+									: UI_Str("EVENT_PROP_VERTICAL_JPOS_SCROLL_MOVE")
 									, widgetIn);
 								if (widgetOut.HasValueExact)
 								{
@@ -1220,7 +1220,7 @@ namespace PeepoDrumKit
 								widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
 
 								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
-									UI_Str("JPOS Scroll Duration"),
+									UI_Str("EVENT_PROP_JPOS_SCROLL_DURATION"),
 									widgetIn);
 								if (widgetOut.HasValueExact)
 								{
@@ -1307,10 +1307,10 @@ namespace PeepoDrumKit
 								}
 								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
 									(i == 0) 
-										? UI_Str("Scroll Speed") 
+										? UI_Str("EVENT_SCROLL_SPEED") 
 										: (i == 1)
-											? UI_Str("Vertical Scroll Speed")
-											: UI_Str("Scroll Speed Tempo")
+											? UI_Str("EVENT_PROP_VERTICAL_SCROLL_SPEED")
+											: UI_Str("EVENT_PROP_SCROLL_SPEED_TEMPO")
 									, widgetIn);
 								if (widgetOut.HasValueExact)
 								{
@@ -1422,10 +1422,10 @@ namespace PeepoDrumKit
 
 								Gui::BeginDisabled(isSelectionTooSmall);
 								if ((i == 0) 
-									? GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Scroll Speed"), inOutStartEnd, 0.1f, 0.5f, MinScrollSpeed, MaxScrollSpeed, "%gx", previewStrings)
+									? GuiPropertyRangeInterpolationEditWidget(UI_Str("EVENT_PROP_INTERPOLATE_SCROLL_SPEED"), inOutStartEnd, 0.1f, 0.5f, MinScrollSpeed, MaxScrollSpeed, "%gx", previewStrings)
 									: (i == 1)
-									? GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Vertical Scroll Speed"), inOutStartEnd, 0.1f, 0.5f, MinScrollSpeed, MaxScrollSpeed, "%gix", previewStrings)
-									: GuiPropertyRangeInterpolationEditWidget(UI_Str("Interpolate: Scroll Speed Tempo"), inOutStartEnd, 1.0f, 10.0f, MinBPM, MaxBPM, "%g BPM", previewStrings))
+									? GuiPropertyRangeInterpolationEditWidget(UI_Str("EVENT_PROP_INTERPOLATE_VERTICAL_SCROLL_SPEED"), inOutStartEnd, 0.1f, 0.5f, MinScrollSpeed, MaxScrollSpeed, "%gix", previewStrings)
+									: GuiPropertyRangeInterpolationEditWidget(UI_Str("EVENT_PROP_INTERPOLATE_SCROLL_SPEED_TEMPO"), inOutStartEnd, 1.0f, 10.0f, MinBPM, MaxBPM, "%g BPM", previewStrings))
 								{
 									for (auto& thisItem : SelectedItems)
 									{
@@ -1453,7 +1453,7 @@ namespace PeepoDrumKit
 							widgetIn.EnableDragLabel = true;
 							widgetIn.DragLabelSpeed = 1.0f;
 							widgetIn.FormatString = "%g ms";
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("Time Offset"), widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("EVENT_PROP_TIME_OFFSET"), widgetIn);
 							if (widgetOut.HasValueExact || widgetOut.HasValueIncrement)
 							{
 								if (widgetOut.HasValueExact)
@@ -1494,9 +1494,9 @@ namespace PeepoDrumKit
 								perNoteTypeHasAtLeastOneSelected[EnumToIndex(noteType)] = true;
 							}
 
-							Gui::Property::PropertyTextValueFunc(UI_Str("Note Type"), [&]
+							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_PROP_NOTE_TYPE"), [&]
 							{
-								const cstr noteTypeNames[] = { UI_Str("Don"), UI_Str("DON"), UI_Str("Ka"), UI_Str("KA"), UI_Str("Drumroll"), UI_Str("DRUMROLL"), UI_Str("Balloon"), UI_Str("BALLOON"), UI_Str("KADON"), UI_Str("Bomb"), UI_Str("Adlib"), UI_Str("Fuseroll") };
+								const cstr noteTypeNames[] = { UI_Str("NOTE_TYPE_DON"), UI_Str("NOTE_TYPE_DON_BIG"), UI_Str("NOTE_TYPE_KA"), UI_Str("NOTE_TYPE_KA_BIG"), UI_Str("NOTE_TYPE_DRUMROLL"), UI_Str("NOTE_TYPE_DRUMROLL_BIG"), UI_Str("NOTE_TYPE_BALLOON"), UI_Str("NOTE_TYPE_BALLOON_EX"), UI_Str("NOTE_TYPE_KADON"), UI_Str("NOTE_TYPE_BOMB"), UI_Str("NOTE_TYPE_ADLIB"), UI_Str("NOTE_TYPE_FUSEROLL") };
 
 								static_assert(ArrayCount(noteTypeNames) == EnumCount<NoteType>);
 
@@ -1540,10 +1540,10 @@ namespace PeepoDrumKit
 								}
 							});
 
-							Gui::Property::PropertyTextValueFunc(UI_Str("Note Type Size"), [&]
+							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_PROP_NOTE_TYPE_SIZE"), [&]
 							{
 								enum class NoteSizeType { Small, Big, Count };
-								const cstr noteSizeTypeNames[] = { UI_Str("Small"), UI_Str("Big"), };
+								const cstr noteSizeTypeNames[] = { UI_Str("NOTE_TYPE_SIZE_SMALL"), UI_Str("NOTE_TYPE_SIZE_BIG"), };
 								auto v = (!areAllSelectedNotesSmall && !areAllSelectedNotesBig) ? NoteSizeType::Count : IsBigNote(sharedValues.NoteType()) ? NoteSizeType::Big : NoteSizeType::Small;
 
 								Gui::PushItemWidth(-1.0f);
@@ -1575,7 +1575,7 @@ namespace PeepoDrumKit
 							widgetIn.EnableClamp = true;
 							widgetIn.ValueClampMin.F32 = MinBPM;
 							widgetIn.ValueClampMax.F32 = MaxBPM;
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("Tempo"), widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("EVENT_TEMPO"), widgetIn);
 
 							if (widgetOut.HasValueExact)
 							{
@@ -1618,7 +1618,7 @@ namespace PeepoDrumKit
 							widgetIn.EnableDragLabel = false;
 							widgetIn.FormatString = "%d";
 							widgetIn.TextColorOverride = isAnyTimeSignatureInvalid ? &InputTextWarningTextColor : nullptr;
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("Time Signature"), widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(UI_Str("EVENT_TIME_SIGNATURE"), widgetIn);
 
 							if (widgetOut.HasValueExact || widgetOut.HasValueIncrement)
 							{
@@ -1641,10 +1641,10 @@ namespace PeepoDrumKit
 						} break;
 						case GenericMember::I8_ScrollType:
 						{
-							Gui::Property::PropertyTextValueFunc(UI_Str("Scroll Type"), [&]
+							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_SCROLL_TYPE"), [&]
 								{
 									enum class ScrollMethods { NMSCROLL, HBSCROLL, BMSCROLL, Count };
-									const cstr scrollTypeNames[] = { UI_Str("NMSCROLL"), UI_Str("HBSCROLL"), UI_Str("BMSCROLL"), };
+									const cstr scrollTypeNames[] = { UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL"), };
 									const i16 selectedType = sharedValues.ScrollType();
 
 									auto v = !(commonEqualMemberFlags & EnumToFlag(member))
@@ -1711,29 +1711,29 @@ namespace PeepoDrumKit
 		auto& chart = context.Chart;
 		auto& course = *context.ChartSelectedCourse;
 
-		if (Gui::CollapsingHeader(UI_Str("Chart"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("DETAILS_CHART_PROPERTIES_CHART"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 			{
-				Gui::Property::PropertyTextValueFunc(UI_Str("Chart Title"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_TITLE"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (Gui::InputTextWithHint("##ChartTitle", "n/a", &chart.ChartTitle.Base()))
 						context.Undo.NotifyChangesWereMade();
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Chart Subtitle"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_SUBTITLE"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (Gui::InputTextWithHint("##ChartSubtitle", "n/a", &chart.ChartSubtitle.Base()))
 						context.Undo.NotifyChangesWereMade();
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Chart Creator"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_CREATOR"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (Gui::InputTextWithHint("##ChartCreator", "n/a", &chart.ChartCreator))
 						context.Undo.NotifyChangesWereMade();
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Song File Name"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_SONG_FILE_NAME"), [&]
 				{
 					const b8 songIsLoading = in.IsSongAsyncLoading;
 					cstr loadingText = SongLoadingTextAnimation.UpdateFrameAndGetText(songIsLoading, Gui::DeltaTime());
@@ -1754,7 +1754,7 @@ namespace PeepoDrumKit
 						out.BrowseOpenSong = true;
 					}
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Jacket File Name"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_JACKET_FILE_NAME"), [&]
 					{
 						
 						const b8 jacketIsLoading = in.IsJacketAsyncLoading;
@@ -1776,7 +1776,7 @@ namespace PeepoDrumKit
 							out.BrowseOpenJacket = true;
 						}
 					});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Song Volume"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_SONG_VOLUME"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (f32 v = ToPercent(chart.SongVolume); Gui::SliderFloat("##SongVolume", &v, ToPercent(MinVolume), ToPercent(MaxVolumeSoftLimit), "%.0f%%"))
@@ -1785,7 +1785,7 @@ namespace PeepoDrumKit
 						context.Undo.NotifyChangesWereMade();
 					}
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Sound Effect Volume"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_SOUND_EFFECT_VOLUME"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (f32 v = ToPercent(chart.SoundEffectVolume); Gui::SliderFloat("##SoundEffectVolume", &v, ToPercent(MinVolume), ToPercent(MaxVolumeSoftLimit), "%.0f%%"))
@@ -1798,11 +1798,11 @@ namespace PeepoDrumKit
 			}
 		}
 
-		if (Gui::CollapsingHeader(UI_Str("Selected Course"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("DETAILS_CHART_PROPERTIES_COURSE"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 			{
-				Gui::Property::PropertyTextValueFunc(UI_Str("Difficulty Type"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_TYPE"), [&]
 				{
 					cstr difficultyTypeNames[ArrayCount(DifficultyTypeNames)];
 					for (size_t i = 0; i < ArrayCount(DifficultyTypeNames); i++)
@@ -1812,13 +1812,13 @@ namespace PeepoDrumKit
 					if (Gui::ComboEnum("##DifficultyType", &course.Type, difficultyTypeNames))
 						context.Undo.NotifyChangesWereMade();
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Difficulty Level"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_LEVEL"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (GuiDifficultyLevelStarSliderWidget("##DifficultyLevel", &course.Level, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
 						context.Undo.NotifyChangesWereMade();
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("Difficulty Level Decimal"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_LEVEL_DECIMAL"), [&]
 					{
 						Gui::SetNextItemWidth(-1.0f);
 						if (GuiDifficultyDecimalLevelStarSliderWidget("##DifficultyLevelDecimal", &course.Decimal, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
@@ -1828,7 +1828,7 @@ namespace PeepoDrumKit
 				Gui::Property::PropertyTextValueFunc("Score Init (TODO)", [&] { Gui::Text("%d", course.ScoreInit); });
 				Gui::Property::PropertyTextValueFunc("Score Diff (TODO)", [&] { Gui::Text("%d", course.ScoreDiff); });
 #endif
-				Gui::Property::PropertyTextValueFunc(UI_Str("Course Creator"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_CREATOR"), [&]
 				{
 					const cstr hint = (course.CourseCreator.empty() && !chart.ChartCreator.empty()) ? chart.ChartCreator.c_str() : "n/a";
 					Gui::SetNextItemWidth(-1.0f);
@@ -1848,7 +1848,7 @@ namespace PeepoDrumKit
 		auto& chart = context.Chart;
 		auto& course = *context.ChartSelectedCourse;
 
-		if (Gui::CollapsingHeader(UI_Str("Sync"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("DETAILS_EVENTS_SYNC"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 			{
@@ -1881,7 +1881,7 @@ namespace PeepoDrumKit
 								*inOutValue = ConvertTimeSpace(Time::FromSec(v), displaySpace, storageSpace, context.Chart);
 								valueChanged = true;
 							}
-							else if (i.Index == 1 && Gui::Button(UI_Str("Set Cursor"), { Gui::CalcItemWidth(), 0.0f }))
+							else if (i.Index == 1 && Gui::Button(UI_Str("ACT_SYNC_SET_CURSOR"), { Gui::CalcItemWidth(), 0.0f }))
 							{
 								*inOutValue = ClampBot(ConvertTimeSpace(context.GetCursorTime(), TimeSpace::Chart, storageSpace, context.Chart), Time::Zero());
 								context.Undo.DisallowMergeForLastCommand();
@@ -1894,16 +1894,16 @@ namespace PeepoDrumKit
 					return valueChanged;
 				};
 
-				if (Time v = chart.ChartDuration; guiPropertyDragTimeAndSetCursorTimeButtonWidgets(context, timeline.Camera, UI_Str("Chart Duration"), &v, TimeSpace::Chart))
+				if (Time v = chart.ChartDuration; guiPropertyDragTimeAndSetCursorTimeButtonWidgets(context, timeline.Camera, UI_Str("SYNC_CHART_DURATION"), &v, TimeSpace::Chart))
 					context.Undo.Execute<Commands::ChangeChartDuration>(&chart, v);
 
-				if (Time v = chart.SongDemoStartTime; guiPropertyDragTimeAndSetCursorTimeButtonWidgets(context, timeline.Camera, UI_Str("Song Demo Start"), &v, TimeSpace::Song))
+				if (Time v = chart.SongDemoStartTime; guiPropertyDragTimeAndSetCursorTimeButtonWidgets(context, timeline.Camera, UI_Str("SYNC_SONG_DEMO_START"), &v, TimeSpace::Song))
 					context.Undo.Execute<Commands::ChangeSongDemoStartTime>(&chart, v);
 
 				Gui::Property::Property([&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = chart.SongOffset.ToMS_F32(); GuiDragLabelFloat(UI_Str("Song Offset"), &v, TimelineDragScalarSpeedAtZoomMS(timeline.Camera)))
+					if (f32 v = chart.SongOffset.ToMS_F32(); GuiDragLabelFloat(UI_Str("SYNC_SONG_OFFSET"), &v, TimelineDragScalarSpeedAtZoomMS(timeline.Camera)))
 						context.Undo.Execute<Commands::ChangeSongOffset>(&chart, Time::FromMS(v));
 				});
 				Gui::Property::Value([&]
@@ -1919,7 +1919,7 @@ namespace PeepoDrumKit
 			}
 		}
 
-		if (Gui::CollapsingHeader(UI_Str("Events"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("DETAILS_CHART_EVENT_EVENTS"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			b8 isAnyItemOtherThanNotesSelected = false;
 			b8 isAnyItemOtherThanScrollChangesSelected = false;
@@ -1958,7 +1958,7 @@ namespace PeepoDrumKit
 				Gui::Property::Property([&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = tempoAtCursor.BPM; GuiDragLabelFloat(UI_Str("Tempo"), &v, 1.0f, MinBPM, MaxBPM, ImGuiSliderFlags_AlwaysClamp))
+					if (f32 v = tempoAtCursor.BPM; GuiDragLabelFloat(UI_Str("EVENT_TEMPO"), &v, 1.0f, MinBPM, MaxBPM, ImGuiSliderFlags_AlwaysClamp))
 						insertOrUpdateCursorTempoChange(Tempo(v));
 				});
 				Gui::Property::Value([&]
@@ -1970,18 +1970,18 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.TempoMap.Tempo);
 					if (!disallowRemoveButton && tempoChangeAtCursor != nullptr && tempoChangeAtCursor->Beat == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 							context.Undo.Execute<Commands::RemoveTempoChange>(&course.TempoMap, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
 							insertOrUpdateCursorTempoChange(tempoAtCursor);
 					}
 					Gui::PopID();
 				});
 
-				Gui::Property::PropertyTextValueFunc(UI_Str("Time Signature"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_TIME_SIGNATURE"), [&]
 				{
 					const TimeSignatureChange* signatureChangeAtCursor = course.TempoMap.Signature.TryFindLastAtBeat(cursorBeat);
 					const TimeSignature signatureAtCursor = (signatureChangeAtCursor != nullptr) ? signatureChangeAtCursor->Signature : FallbackTimeSignature;
@@ -2002,12 +2002,12 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.TempoMap.Signature);
 					if (!disallowRemoveButton && signatureChangeAtCursor != nullptr && signatureChangeAtCursor->Beat == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 							context.Undo.Execute<Commands::RemoveTimeSignatureChange>(&course.TempoMap, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
 							insertOrUpdateCursorSignatureChange(signatureAtCursor);
 					}
 					Gui::PopID();
@@ -2026,7 +2026,7 @@ namespace PeepoDrumKit
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (Complex v = (scrollChangeChangeAtCursor == nullptr) ? Complex(1.0f, 0.0f) : scrollChangeChangeAtCursor->ScrollSpeed;
-						GuiDragLabelFloat(UI_Str("Scroll Speed"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
+						GuiDragLabelFloat(UI_Str("EVENT_SCROLL_SPEED"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
 						insertOrUpdateCursorScrollSpeedChange(v);
 				});
 				Gui::Property::Value([&]
@@ -2057,18 +2057,18 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.ScrollChanges);
 					if (!disallowRemoveButton && scrollChangeChangeAtCursor != nullptr && scrollChangeChangeAtCursor->BeatTime == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 							context.Undo.Execute<Commands::RemoveScrollChange>(&course.ScrollChanges, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
 							insertOrUpdateCursorScrollSpeedChange((scrollChangeChangeAtCursor != nullptr) ? scrollChangeChangeAtCursor->ScrollSpeed : Complex(1.0f, 0.0f));
 					}
 					Gui::PopID();
 				});
 
-				Gui::Property::PropertyTextValueFunc(UI_Str("Bar Line Visibility"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_BAR_LINE_VISIBILITY"), [&]
 				{
 					const BarLineChange* barLineChangeAtCursor = course.BarLineChanges.TryFindLastAtBeat(cursorBeat);
 					auto insertOrUpdateCursorBarLineChange = [&](b8 newIsVisible)
@@ -2096,24 +2096,24 @@ namespace PeepoDrumKit
 					};
 
 					Gui::SetNextItemWidth(-1.0f);
-					if (b8 v = (barLineChangeAtCursor == nullptr) ? true : barLineChangeAtCursor->IsVisible; guiOnOffButton("##OnOffBarLineAtCursor", UI_Str("Visible"), UI_Str("Hidden"), &v))
+					if (b8 v = (barLineChangeAtCursor == nullptr) ? true : barLineChangeAtCursor->IsVisible; guiOnOffButton("##OnOffBarLineAtCursor", UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN"), &v))
 						insertOrUpdateCursorBarLineChange(v);
 
 					Gui::PushID(&course.BarLineChanges);
 					if (!disallowRemoveButton && barLineChangeAtCursor != nullptr && barLineChangeAtCursor->BeatTime == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 							context.Undo.Execute<Commands::RemoveBarLineChange>(&course.BarLineChanges, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
 							insertOrUpdateCursorBarLineChange((barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : true);
 					}
 					Gui::PopID();
 				});
 
-				Gui::Property::PropertyTextValueFunc(UI_Str("Scroll Type"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_SCROLL_TYPE"), [&]
 				{
 						const ScrollType* ScrollTypeAtCursor = course.ScrollTypes.TryFindLastAtBeat(cursorBeat);
 						auto insertOrUpdateCursorScrollType = [&](ScrollMethod newMethod)
@@ -2145,18 +2145,18 @@ namespace PeepoDrumKit
 						};
 
 						Gui::SetNextItemWidth(-1.0f);
-						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; guiOnOffButton("##ScrollTypeAtCursor", UI_Str("NMSCROLL"), UI_Str("HBSCROLL"), UI_Str("BMSCROLL"), &v))
+						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; guiOnOffButton("##ScrollTypeAtCursor", UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL"), &v))
 							insertOrUpdateCursorScrollType(v);
 
 						Gui::PushID(&course.BarLineChanges);
 						if (!disallowRemoveButton && ScrollTypeAtCursor != nullptr && ScrollTypeAtCursor->BeatTime == cursorBeat)
 						{
-							if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 								context.Undo.Execute<Commands::RemoveScrollType>(&course.ScrollTypes, cursorBeat);
 						}
 						else
 						{
-							if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
 								insertOrUpdateCursorScrollType((ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : ScrollMethod::NMSCROLL);
 						}
 						Gui::PopID();
@@ -2175,7 +2175,7 @@ namespace PeepoDrumKit
 					{
 						Gui::SetNextItemWidth(-1.0f);
 						if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
-							GuiDragLabelFloat(UI_Str("JPOS Scroll"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.5f, MinJPOSScrollMove, MaxJPOSScrollMove, ImGuiSliderFlags_AlwaysClamp))
+							GuiDragLabelFloat(UI_Str("EVENT_JPOS_SCROLL"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.5f, MinJPOSScrollMove, MaxJPOSScrollMove, ImGuiSliderFlags_AlwaysClamp))
 							insertOrUpdateCursorJPOSScrollChange(v, (JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration);
 					});
 				Gui::Property::Value([&]
@@ -2214,12 +2214,12 @@ namespace PeepoDrumKit
 						Gui::PushID(&course.JPOSScrollChanges);
 						if (!disallowRemoveButton && JPOSScrollChangeAtCursor != nullptr && JPOSScrollChangeAtCursor->BeatTime == cursorBeat)
 						{
-							if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 								context.Undo.Execute<Commands::RemoveJPOSScroll>(&course.JPOSScrollChanges, cursorBeat);
 						}
 						else
 						{
-							if (Gui::Button(UI_Str("Add"), vec2(-1.0f, 0.0f)))
+							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
 								insertOrUpdateCursorJPOSScrollChange(
 									(JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move,
 									(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
@@ -2229,14 +2229,14 @@ namespace PeepoDrumKit
 					});
 
 
-				Gui::Property::PropertyTextValueFunc(UI_Str("Go-Go Time"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_GO_GO_TIME"), [&]
 				{
 					const GoGoRange* gogoRangeAtCursor = course.GoGoRanges.TryFindOverlappingBeat(cursorBeat, cursorBeat);
 					const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
 
 					Gui::PushID(&course.GoGoRanges);
 					Gui::BeginDisabled(!hasRangeSelection);
-					if (Gui::Button(UI_Str("Set from Range Selection"), vec2(-1.0f, 0.0f)))
+					if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), vec2(-1.0f, 0.0f)))
 					{
 						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
 						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
@@ -2252,7 +2252,7 @@ namespace PeepoDrumKit
 					Gui::EndDisabled();
 
 					Gui::BeginDisabled(gogoRangeAtCursor == nullptr);
-					if (Gui::Button(UI_Str("Remove"), vec2(-1.0f, 0.0f)))
+					if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 					{
 						if (gogoRangeAtCursor != nullptr)
 							context.Undo.Execute<Commands::RemoveGoGoRange>(&course.GoGoRanges, gogoRangeAtCursor->BeatTime);
@@ -2267,7 +2267,7 @@ namespace PeepoDrumKit
 			}
 
 			Gui::BeginDisabled(!isAnyItemOtherThanScrollChangesSelected);
-			if (Gui::Button(UI_Str("Selection to Scroll Changes"), vec2(-1.0f, 0.0f)))
+			if (Gui::Button(UI_Str("ACT_EVENT_SELECTION_TO_SCROLL_CHANGES"), vec2(-1.0f, 0.0f)))
 				timeline.ExecuteConvertSelectionToScrollChanges(context);
 			Gui::EndDisabled();
 		}
@@ -2326,7 +2326,7 @@ namespace PeepoDrumKit
 		auto& course = *context.ChartSelectedCourse;
 		const TimeSpace timeSpace = *Settings.General.DisplayTimeInSongSpace ? TimeSpace::Song : TimeSpace::Chart;
 
-		if (Gui::CollapsingHeader(UI_Str("Lyrics Overview"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("DETAILS_LYRICS_OVERVIEW"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			if (!IsAllLyricsInputActiveThisFrame)
 			{
@@ -2336,7 +2336,7 @@ namespace PeepoDrumKit
 
 			// BUG: Made ImGuiInputTextFlags_ReadOnly for now to avoid round-trip time conversion error
 			Gui::SetNextItemWidth(-1.0f);
-			if (Gui::InputTextMultilineWithHint("##AllLyrics", UI_Str("(No Lyrics)"), &AllLyricsBuffer, { -1.0f, Gui::GetContentRegionAvail().y * 0.65f }, ImGuiInputTextFlags_ReadOnly))
+			if (Gui::InputTextMultilineWithHint("##AllLyrics", UI_Str("INFO_LYRICS_NO_LYRICS"), &AllLyricsBuffer, { -1.0f, Gui::GetContentRegionAvail().y * 0.65f }, ImGuiInputTextFlags_ReadOnly))
 			{
 				SortedLyricsList newLyrics;
 				ConvertAllLyricsFromString(timeSpace, chart.SongOffset, context.ChartSelectedCourse->TempoMap, AllLyricsBuffer, newLyrics);
@@ -2352,7 +2352,7 @@ namespace PeepoDrumKit
 			if (IsAllLyricsInputActiveThisFrame && !IsAllLyricsInputActiveLastFrame) AllLyricsCopyOnMadeActive = AllLyricsBuffer;
 		}
 
-		if (Gui::CollapsingHeader(UI_Str("Edit Line"), ImGuiTreeNodeFlags_DefaultOpen))
+		if (Gui::CollapsingHeader(UI_Str("DETAILS_LYRICS_EDIT_LINE"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			const Beat cursorBeat = FloorBeatToGrid(context.GetCursorBeat(), GetGridBeatSnap(timeline.CurrentGridBarDivision));
 			const LyricChange* lyricChangeAtCursor = context.ChartSelectedCourse->Lyrics.TryFindLastAtBeat(cursorBeat);
@@ -2396,7 +2396,7 @@ namespace PeepoDrumKit
 
 			Gui::PushID(&course.Lyrics);
 			Gui::SetNextItemWidth(-1.0f);
-			if (i32 clicked = guiDoubleButton(UI_Str("Clear"), UI_Str("Remove")); clicked > -1)
+			if (i32 clicked = guiDoubleButton(UI_Str("ACT_EVENT_CLEAR"), UI_Str("ACT_EVENT_REMOVE")); clicked > -1)
 			{
 				if (clicked == 0)
 				{

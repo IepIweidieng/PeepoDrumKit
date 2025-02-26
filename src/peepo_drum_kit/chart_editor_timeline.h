@@ -86,17 +86,17 @@ namespace PeepoDrumKit
 
 	constexpr std::string_view TimelineRowTypeNames[EnumCount<TimelineRowType>] =
 	{
-		"Tempo",
-		"Time Signature",
-		"Notes",
-		"Notes (Expert)",
-		"Notes (Master)",
-		"Scroll Speed",
-		"Bar Line Visibility",
-		"Go-Go Time",
-		"Lyrics",
-		"Scroll Type",
-		"JPOS Scroll",
+		"EVENT_TEMPO",
+		"EVENT_TIME_SIGNATURE",
+		"EVENT_NOTES",
+		"EVENT_NOTES_EXPERT",
+		"EVENT_NOTES_MASTER",
+		"EVENT_SCROLL_SPEED",
+		"EVENT_BAR_LINE_VISIBILITY",
+		"EVENT_GO_GO_TIME",
+		"EVENT_LYRICS",
+		"EVENT_SCROLL_TYPE",
+		"EVENT_JPOS_SCROLL",
 	};
 
 	constexpr GenericList TimelineRowToGenericList(TimelineRowType row)

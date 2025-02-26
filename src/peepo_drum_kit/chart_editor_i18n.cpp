@@ -12,7 +12,7 @@ namespace PeepoDrumKit::i18n
 		FontMainFileNameTarget = FontMainFileNameDefault;
 		HashStringMap.clear();
 
-#define X(en) HashStringMap[Hash(en)] = std::string(en);
+#define X(key, en) HashStringMap[Hash(key)] = std::string(en);
 		PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
 	}
@@ -55,10 +55,8 @@ namespace PeepoDrumKit::i18n
 			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
 			localeFile << "[Translations]" << std::endl;
-#define X(en) \
-			(localeFile << "HASH_"); \
-			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << " = " << en << std::endl);
+#define X(key, en) \
+			(localeFile << key << " = " << en << std::endl);
 			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
 		}
@@ -154,15 +152,8 @@ namespace PeepoDrumKit::i18n
 				return;
 			}
 			if (iniParser.CurrentSection != "Translations") return;
-			// TODO: Replace this code with identifier-based translation string parsing
-			if (keyValue.Key.size() != 13 || keyValue.Key.substr(0, 5) != "HASH_") return;
-			try {
-				u32 hash = std::stoul(std::string(keyValue.Key.substr(5)), nullptr, 16);
+			if (u32 hash = Hash(keyValue.Key); IsValidHash(hash)) {
 				HashStringMap[hash] = keyValue.ValueUntrimmed;
-			}
-			catch (std::exception _e)
-			{
-				std::cout << "Failed to parse hash " << keyValue.Key << std::endl;
 			}
 		};
 
