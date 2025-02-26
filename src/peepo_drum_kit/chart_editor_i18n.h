@@ -125,6 +125,7 @@ X("INFO_HELP_BUILD_CONFIGURATION",					"Build Configuration:") \
 X("INFO_HELP_CURRENT_VERSION",						"Current Version:") \
 X("BUILD_CONFIGURATION_DEBUG",						"Debug") \
 X("BUILD_CONFIGURATION_RELEASE",					"Release") \
+X("BUILD_CONFIGURATION_UNKNOWN",					"Unknown") \
 /* difficulty menu */ \
 X("MENU_COURSES",									"Courses") \
 X("ACT_COURSES_ADD_NEW",							"Add New") \
