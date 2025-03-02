@@ -12,8 +12,8 @@ namespace PeepoDrumKit::i18n
 		FontMainFileNameTarget = FontMainFileNameDefault;
 		HashStringMap.clear();
 
-#define X(en, jp) HashStringMap[Hash(en)] = std::string(en);
-		PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
+#define X(key, en) HashStringMap[Hash(key)] = std::string(en);
+		PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
 	}
 
@@ -55,64 +55,9 @@ namespace PeepoDrumKit::i18n
 			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
 
 			localeFile << "[Translations]" << std::endl;
-#define X(en, ja) \
-			(localeFile << "HASH_"); \
-			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << " = " << en << std::endl);
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
-#undef X
-		}
-
-		{
-			std::fstream localeFile("locales/jp.ini", std::ios::out | std::ios::trunc);
-
-			localeFile << "[Info]" << std::endl;
-			localeFile << u8"Name = 日本語" << std::endl;
-			localeFile << "Lang = jp" << std::endl;
-			localeFile << "Font = NotoSansCJKjp-Regular.otf" << std::endl << std::endl;
-
-			localeFile << "[Translations]" << std::endl;
-#define X(en, ja) \
-			(localeFile << "HASH_"); \
-			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << " = " << ja << std::endl);
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_JA
-#undef X
-		}
-
-		{
-			std::fstream localeFile("locales/zh-cn.ini", std::ios::out | std::ios::trunc);
-
-			localeFile << "[Info]" << std::endl;
-			localeFile << u8"Name = 简体中文" << std::endl;
-			localeFile << "Lang = zh-cn" << std::endl;
-			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/13_NotoSansMonoCJKsc.zip
-			localeFile << "Font = NotoSansCJKsc-Regular.otf" << std::endl << std::endl;
-
-			localeFile << "[Translations]" << std::endl;
-#define X(en, ja) \
-			(localeFile << "HASH_"); \
-			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << " = " << ja << std::endl);
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHCN
-#undef X
-		}
-
-		{
-			std::fstream localeFile("locales/zh-tw.ini", std::ios::out | std::ios::trunc);
-
-			localeFile << "[Info]" << std::endl;
-			localeFile << u8"Name = 繁體中文" << std::endl;
-			localeFile << "Lang = zh-tw" << std::endl;
-			// TODO: Replace this with https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/14_NotoSansMonoCJKtc.zip
-			localeFile << "Font = NotoSansCJKtc-Regular.otf" << std::endl << std::endl;
-
-			localeFile << "[Translations]" << std::endl;
-#define X(en, ja) \
-			(localeFile << "HASH_"); \
-			(localeFile << std::hex << std::setw(8) << std::setfill('0') << Hash(en)); \
-			(localeFile << " = " << ja << std::endl);
-			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_ZHTW
+#define X(key, en) \
+			(localeFile << key << " = " << en << std::endl);
+			PEEPODRUMKIT_UI_STRINGS_X_MACRO_LIST_EN
 #undef X
 		}
 	}
@@ -207,20 +152,27 @@ namespace PeepoDrumKit::i18n
 				return;
 			}
 			if (iniParser.CurrentSection != "Translations") return;
-			// TODO: Replace this code with identifier-based translation string parsing
-			if (keyValue.Key.size() != 13 || keyValue.Key.substr(0, 5) != "HASH_") return;
-			try {
-				u32 hash = std::stoul(std::string(keyValue.Key.substr(5)), nullptr, 16);
+			if (u32 hash = Hash(keyValue.Key); IsValidHash(hash)) {
 				HashStringMap[hash] = keyValue.ValueUntrimmed;
-			}
-			catch (std::exception _e)
-			{
-				std::cout << "Failed to parse hash " << keyValue.Key << std::endl;
 			}
 		};
 
 		iniParser.ForEachIniKeyValueLine(content, sectionFunc, keyValueFunc);
 		
 		HashStringMapMutex.unlock();
+
+		// refresh list of necessary font glyphs in the localization
+		std::string fontGlyphBuffer;
+		if (languageId != std::string_view("en")) {
+			size_t fontGlyphBufferSize = 0;
+			for (const auto& [key, value] : HashStringMap) {
+				fontGlyphBufferSize += value.length();
+			}
+			fontGlyphBuffer.reserve(fontGlyphBufferSize);
+			for (const auto& [key, value] : HashStringMap) {
+				fontGlyphBuffer += value;
+			}
+		}
+		ExternalGlobalFontGlyphsTarget = std::move(fontGlyphBuffer);
 	}
 }

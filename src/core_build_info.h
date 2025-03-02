@@ -36,7 +36,11 @@ namespace BuildInfo
 
 	constexpr cstr CompilationTime() { return TimeFormattedAs_mm_hh_ss; }
 	constexpr cstr CompilationDate() { return DateFormattedAs_yyyy_MM_dd; }
-	constexpr cstr BuildConfiguration() { return PEEPO_DEBUG ? "Debug" : PEEPO_RELEASE ? "Release" : "Unknown"; }
+	constexpr cstr BuildConfiguration() {
+		return PEEPO_DEBUG ? "BUILD_CONFIGURATION_DEBUG"
+			: PEEPO_RELEASE ? "BUILD_CONFIGURATION_RELEASE"
+			: "BUILD_CONFIGURATION_UNKNOWN";
+	}
 	constexpr cstr CurrentVersion() { return PEEPO_VERSION_STR; }
 	inline const Date CompilationDateParsed = Date::FromString(DateFormattedAs_yyyy_MM_dd);
 }

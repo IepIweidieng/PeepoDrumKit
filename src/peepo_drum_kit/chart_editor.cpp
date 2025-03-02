@@ -98,12 +98,12 @@ namespace PeepoDrumKit
 				}
 			};
 
-			if (Gui::BeginMenu(UI_Str("File")))
+			if (Gui::BeginMenu(UI_Str("MENU_FILE")))
 			{
-				if (Gui::MenuItem(UI_Str("New Chart"), ToShortcutString(*Settings.Input.Editor_ChartNew).Data)) { CheckOpenSaveConfirmationPopupThenCall([&] { CreateNewChart(context); }); }
-				if (Gui::MenuItem(UI_Str("Open..."), ToShortcutString(*Settings.Input.Editor_ChartOpen).Data)) { CheckOpenSaveConfirmationPopupThenCall([&] { OpenLoadChartFileDialog(context); }); }
+				if (Gui::MenuItem(UI_Str("ACT_FILE_NEW_CHART"), ToShortcutString(*Settings.Input.Editor_ChartNew).Data)) { CheckOpenSaveConfirmationPopupThenCall([&] { CreateNewChart(context); }); }
+				if (Gui::MenuItem(UI_Str("ACT_FILE_OPEN"), ToShortcutString(*Settings.Input.Editor_ChartOpen).Data)) { CheckOpenSaveConfirmationPopupThenCall([&] { OpenLoadChartFileDialog(context); }); }
 
-				if (Gui::BeginMenu(UI_Str("Open Recent"), !PersistentApp.RecentFiles.SortedPaths.empty()))
+				if (Gui::BeginMenu(UI_Str("ACT_FILE_OPEN_RECENT"), !PersistentApp.RecentFiles.SortedPaths.empty()))
 				{
 					for (size_t i = 0; i < PersistentApp.RecentFiles.SortedPaths.size(); i++)
 					{
@@ -123,17 +123,17 @@ namespace PeepoDrumKit
 						}
 					}
 					Gui::Separator();
-					if (Gui::MenuItem(UI_Str("Clear Items")))
+					if (Gui::MenuItem(UI_Str("ACT_FILE_CLEAR_ITEMS")))
 						PersistentApp.RecentFiles.SortedPaths.clear();
 					Gui::EndMenu();
 				}
 
-				if (Gui::MenuItem(UI_Str("Open Chart Directory..."), ToShortcutString(*Settings.Input.Editor_ChartOpenDirectory).Data, nullptr, CanOpenChartDirectoryInFileExplorer(context))) { OpenChartDirectoryInFileExplorer(context); }
+				if (Gui::MenuItem(UI_Str("ACT_FILE_OPEN_CHART_DIRECTORY"), ToShortcutString(*Settings.Input.Editor_ChartOpenDirectory).Data, nullptr, CanOpenChartDirectoryInFileExplorer(context))) { OpenChartDirectoryInFileExplorer(context); }
 				Gui::Separator();
-				if (Gui::MenuItem(UI_Str("Save"), ToShortcutString(*Settings.Input.Editor_ChartSave).Data)) { TrySaveChartOrOpenSaveAsDialog(context); }
-				if (Gui::MenuItem(UI_Str("Save As..."), ToShortcutString(*Settings.Input.Editor_ChartSaveAs).Data)) { OpenChartSaveAsDialog(context); }
+				if (Gui::MenuItem(UI_Str("ACT_EDIT_SAVE"), ToShortcutString(*Settings.Input.Editor_ChartSave).Data)) { TrySaveChartOrOpenSaveAsDialog(context); }
+				if (Gui::MenuItem(UI_Str("ACT_FILE_SAVE_AS"), ToShortcutString(*Settings.Input.Editor_ChartSaveAs).Data)) { OpenChartSaveAsDialog(context); }
 				Gui::Separator();
-				if (Gui::MenuItem(UI_Str("Exit"), ToShortcutString(InputBinding(ImGuiKey_F4, ImGuiModFlags_Alt)).Data))
+				if (Gui::MenuItem(UI_Str("ACT_FILE_EXIT"), ToShortcutString(InputBinding(ImGuiKey_F4, ImGuiModFlags_Alt)).Data))
 					tryToCloseApplicationOnNextFrame = true;
 				Gui::EndMenu();
 			}
@@ -143,53 +143,53 @@ namespace PeepoDrumKit
 			const b8 isAnyItemSelected = (selectedItemCount > 0);
 			const b8 isAnyNoteSelected = (selectedNoteCount > 0);
 
-			if (Gui::BeginMenu(UI_Str("Edit")))
+			if (Gui::BeginMenu(UI_Str("MENU_EDIT")))
 			{
-				if (Gui::MenuItem(UI_Str("Undo"), ToShortcutString(*Settings.Input.Editor_Undo).Data, nullptr, context.Undo.CanUndo())) { context.Undo.Undo(); }
-				if (Gui::MenuItem(UI_Str("Redo"), ToShortcutString(*Settings.Input.Editor_Redo).Data, nullptr, context.Undo.CanRedo())) { context.Undo.Redo(); }
+				if (Gui::MenuItem(UI_Str("ACT_EDIT_UNDO"), ToShortcutString(*Settings.Input.Editor_Undo).Data, nullptr, context.Undo.CanUndo())) { context.Undo.Undo(); }
+				if (Gui::MenuItem(UI_Str("ACT_EDIT_REDO"), ToShortcutString(*Settings.Input.Editor_Redo).Data, nullptr, context.Undo.CanRedo())) { context.Undo.Redo(); }
 				Gui::Separator();
-				if (Gui::MenuItem(UI_Str("Cut"), ToShortcutString(*Settings.Input.Timeline_Cut).Data, nullptr, isAnyItemSelected)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Cut); }
-				if (Gui::MenuItem(UI_Str("Copy"), ToShortcutString(*Settings.Input.Timeline_Copy).Data, nullptr, isAnyItemSelected)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Copy); }
-				if (Gui::MenuItem(UI_Str("Paste"), ToShortcutString(*Settings.Input.Timeline_Paste).Data, nullptr, true)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Paste); }
-				if (Gui::MenuItem(UI_Str("Delete"), ToShortcutString(*Settings.Input.Timeline_DeleteSelection).Data, nullptr, isAnyItemSelected)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Delete); }
+				if (Gui::MenuItem(UI_Str("ACT_EDIT_CUT"), ToShortcutString(*Settings.Input.Timeline_Cut).Data, nullptr, isAnyItemSelected)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Cut); }
+				if (Gui::MenuItem(UI_Str("ACT_EDIT_COPY"), ToShortcutString(*Settings.Input.Timeline_Copy).Data, nullptr, isAnyItemSelected)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Copy); }
+				if (Gui::MenuItem(UI_Str("ACT_EDIT_PASTE"), ToShortcutString(*Settings.Input.Timeline_Paste).Data, nullptr, true)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Paste); }
+				if (Gui::MenuItem(UI_Str("ACT_EDIT_DELETE"), ToShortcutString(*Settings.Input.Timeline_DeleteSelection).Data, nullptr, isAnyItemSelected)) { timeline.ExecuteClipboardAction(context, ClipboardAction::Delete); }
 				Gui::Separator();
-				if (Gui::MenuItem(UI_Str("Settings"), ToShortcutString(*Settings.Input.Editor_OpenSettings).Data)) { PersistentApp.LastSession.ShowWindow_Settings = focusSettingsWindowNextFrame = true; }
+				if (Gui::MenuItem(UI_Str("TAB_SETTINGS"), ToShortcutString(*Settings.Input.Editor_OpenSettings).Data)) { PersistentApp.LastSession.ShowWindow_Settings = focusSettingsWindowNextFrame = true; }
 				Gui::EndMenu();
 			}
 
-			if (Gui::BeginMenu(UI_Str("Selection")))
+			if (Gui::BeginMenu(UI_Str("MENU_SELECTION")))
 			{
 				const b8 setRangeSelectionStartNext = (!timeline.RangeSelection.IsActive || timeline.RangeSelection.HasEnd);
-				if (Gui::MenuItem(setRangeSelectionStartNext ? UI_Str("Start Range Selection") : UI_Str("End Range Selection"), ToShortcutString(*Settings.Input.Timeline_StartEndRangeSelection).Data))
+				if (Gui::MenuItem(setRangeSelectionStartNext ? UI_Str("ACT_SELECTION_START_RANGE") : UI_Str("ACT_SELECTION_END_RANGE"), ToShortcutString(*Settings.Input.Timeline_StartEndRangeSelection).Data))
 					timeline.StartEndRangeSelectionAtCursor(context);
 				Gui::Separator();
 
 				SelectionActionParam param {};
-				if (Gui::MenuItem(UI_Str("Select All"), ToShortcutString(*Settings.Input.Timeline_SelectAll).Data))
+				if (Gui::MenuItem(UI_Str("ACT_SELECTION_SELECT_ALL"), ToShortcutString(*Settings.Input.Timeline_SelectAll).Data))
 					timeline.ExecuteSelectionAction(context, SelectionAction::SelectAll, param);
-				if (Gui::MenuItem(UI_Str("Clear Selection"), ToShortcutString(*Settings.Input.Timeline_ClearSelection).Data, false, isAnyItemSelected))
+				if (Gui::MenuItem(UI_Str("ACT_SELECTION_CLEAR"), ToShortcutString(*Settings.Input.Timeline_ClearSelection).Data, false, isAnyItemSelected))
 					timeline.ExecuteSelectionAction(context, SelectionAction::UnselectAll, param);
-				if (Gui::MenuItem(UI_Str("Invert Selection"), ToShortcutString(*Settings.Input.Timeline_InvertSelection).Data))
+				if (Gui::MenuItem(UI_Str("ACT_SELECTION_INVERT"), ToShortcutString(*Settings.Input.Timeline_InvertSelection).Data))
 					timeline.ExecuteSelectionAction(context, SelectionAction::InvertAll, param);
-				if (Gui::MenuItem(UI_Str("From Range Selection"), ToShortcutString(*Settings.Input.Timeline_SelectAllWithinRangeSelection).Data, nullptr, timeline.RangeSelection.IsActiveAndHasEnd()))
+				if (Gui::MenuItem(UI_Str("ACT_SELECTION_FROM_RANGE"), ToShortcutString(*Settings.Input.Timeline_SelectAllWithinRangeSelection).Data, nullptr, timeline.RangeSelection.IsActiveAndHasEnd()))
 					timeline.ExecuteSelectionAction(context, SelectionAction::SelectAllWithinRangeSelection, param);
 				Gui::Separator();
 
-				if (Gui::BeginMenu(UI_Str("Refine Selection")))
+				if (Gui::BeginMenu(UI_Str("ACT_SELECTION_REFINE")))
 				{
-					if (Gui::MenuItem(UI_Str("Shift selection Left"), ToShortcutString(*Settings.Input.Timeline_ShiftSelectionLeft).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_SELECTION_SHIFT_LEFT"), ToShortcutString(*Settings.Input.Timeline_ShiftSelectionLeft).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteSelectionAction(context, SelectionAction::PerRowShiftSelected, param.SetShiftDelta(-1));
-					if (Gui::MenuItem(UI_Str("Shift selection Right"), ToShortcutString(*Settings.Input.Timeline_ShiftSelectionRight).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_SELECTION_SHIFT_RIGHT"), ToShortcutString(*Settings.Input.Timeline_ShiftSelectionRight).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteSelectionAction(context, SelectionAction::PerRowShiftSelected, param.SetShiftDelta(+1));
 					Gui::Separator();
 
-					if (Gui::MenuItem(UI_Str("Select Item Pattern xo"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xo).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_SELECTION_ITEM_PATTERN_XO"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xo).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteSelectionAction(context, SelectionAction::PerRowSelectPattern, param.SetPattern("xo"));
-					if (Gui::MenuItem(UI_Str("Select Item Pattern xoo"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xoo).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_SELECTION_ITEM_PATTERN_XOO"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xoo).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteSelectionAction(context, SelectionAction::PerRowSelectPattern, param.SetPattern("xoo"));
-					if (Gui::MenuItem(UI_Str("Select Item Pattern xooo"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xooo).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_SELECTION_ITEM_PATTERN_XOOO"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xooo).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteSelectionAction(context, SelectionAction::PerRowSelectPattern, param.SetPattern("xooo"));
-					if (Gui::MenuItem(UI_Str("Select Item Pattern xxoo"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xxoo).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_SELECTION_ITEM_PATTERN_XXOO"), ToShortcutString(*Settings.Input.Timeline_SelectItemPattern_xxoo).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteSelectionAction(context, SelectionAction::PerRowSelectPattern, param.SetPattern("xxoo"));
 					Gui::Separator();
 
@@ -201,7 +201,7 @@ namespace PeepoDrumKit
 					};
 
 					const b8 disableAddNew = (customPatterns->V.size() >= 6);
-					if (Gui::Selectable(UI_Str("Add New Pattern..."), false, ImGuiSelectableFlags_DontClosePopups | (disableAddNew ? ImGuiSelectableFlags_Disabled : 0)))
+					if (Gui::Selectable(UI_Str("ACT_SELECTION_ADD_NEW_PATTERN"), false, ImGuiSelectableFlags_DontClosePopups | (disableAddNew ? ImGuiSelectableFlags_Disabled : 0)))
 					{
 						static constexpr std::string_view defaultPattern = "xoooooo";
 						const std::string_view newPattern = defaultPattern.substr(0, ClampTop<size_t>(customPatterns->V.size() + 2, defaultPattern.size()));
@@ -213,7 +213,7 @@ namespace PeepoDrumKit
 
 					for (size_t i = 0; i < customPatterns->V.size(); i++)
 					{
-						char label[64]; sprintf_s(label, "%s %c", UI_Str("Select Custom Pattern"), static_cast<char>('A' + i));
+						char label[64]; sprintf_s(label, "%s %c", UI_Str("ACT_SELECTION_CUSTOM_PATTERN"), static_cast<char>('A' + i));
 						if (Gui::MenuItem(label, (i < ArrayCount(customBindings)) ? ToShortcutString(**customBindings[i]).Data : "", nullptr, isAnyItemSelected && customPatterns->V[i].Data[0] != '\0'))
 							timeline.ExecuteSelectionAction(context, SelectionAction::PerRowSelectPattern, param.SetPattern(customPatterns->V[i].Data));
 					}
@@ -230,7 +230,7 @@ namespace PeepoDrumKit
 
 							static constexpr auto textFilterSelectionPattern = [](ImGuiInputTextCallbackData* data) -> int { return (data->EventChar == 'x' || data->EventChar == 'o') ? 0 : 1; };
 							Gui::SetNextItemWidth(Gui::GetContentRegionAvail().x);
-							if (Gui::InputTextWithHint("##", UI_Str("Delete?"), customPatterns->V[i].Data, sizeof(CustomSelectionPattern::Data), ImGuiInputTextFlags_CallbackCharFilter, textFilterSelectionPattern))
+							if (Gui::InputTextWithHint("##", UI_Str("PROMPT_SELECTION_CUSTOM_PATTERN_DELETE"), customPatterns->V[i].Data, sizeof(CustomSelectionPattern::Data), ImGuiInputTextFlags_CallbackCharFilter, textFilterSelectionPattern))
 							{
 								customPatterns.SetHasValueIfNotDefault();
 								Settings_Mutable.IsDirty = true;
@@ -257,32 +257,32 @@ namespace PeepoDrumKit
 				Gui::EndMenu();
 			}
 
-			if (Gui::BeginMenu(UI_Str("Transform")))
+			if (Gui::BeginMenu(UI_Str("MENU_TRANSFORM")))
 			{
 				TransformActionParam param {};
-				if (Gui::MenuItem(UI_Str("Flip Note Types"), ToShortcutString(*Settings.Input.Timeline_FlipNoteType).Data, nullptr, isAnyNoteSelected))
+				if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_FLIP_NOTE_TYPES"), ToShortcutString(*Settings.Input.Timeline_FlipNoteType).Data, nullptr, isAnyNoteSelected))
 					timeline.ExecuteTransformAction(context, TransformAction::FlipNoteType, param);
-				if (Gui::MenuItem(UI_Str("Toggle Note Sizes"), ToShortcutString(*Settings.Input.Timeline_ToggleNoteSize).Data, nullptr, isAnyNoteSelected))
+				if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_TOGGLE_NOTE_SIZES"), ToShortcutString(*Settings.Input.Timeline_ToggleNoteSize).Data, nullptr, isAnyNoteSelected))
 					timeline.ExecuteTransformAction(context, TransformAction::ToggleNoteSize, param);
 
-				if (Gui::BeginMenu(UI_Str("Expand Items")))
+				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_EXPAND_ITEMS")))
 				{
-					if (Gui::MenuItem(UI_Str("2:1 (8th to 4th)"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_2To1).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_1"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_2To1).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 1));
-					if (Gui::MenuItem(UI_Str("3:2 (12th to 8th)"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_3To2).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_2"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_3To2).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 2));
-					if (Gui::MenuItem(UI_Str("4:3 (16th to 12th)"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_4To3).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_4_3"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_4To3).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(4, 3));
 					Gui::EndMenu();
 				}
 
-				if (Gui::BeginMenu(UI_Str("Compress Items")))
+				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_COMPRESS_ITEMS")))
 				{
-					if (Gui::MenuItem(UI_Str("1:2 (4th to 8th)"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_1To2).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_1_2"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_1To2).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(1, 2));
-					if (Gui::MenuItem(UI_Str("2:3 (8th to 12th)"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_2To3).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_3"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_2To3).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 3));
-					if (Gui::MenuItem(UI_Str("3:4 (12th to 16th)"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_3To4).Data, nullptr, isAnyItemSelected))
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_4"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_3To4).Data, nullptr, isAnyItemSelected))
 						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 4));
 					Gui::EndMenu();
 				}
@@ -290,15 +290,15 @@ namespace PeepoDrumKit
 				Gui::EndMenu();
 			}
 
-			if (Gui::BeginMenu(UI_Str("Window")))
+			if (Gui::BeginMenu(UI_Str("MENU_WINDOW")))
 			{
-				if (b8 v = (ApplicationHost::GlobalState.SwapInterval != 0); Gui::MenuItem(UI_Str("Toggle VSync"), ToShortcutString(*Settings.Input.Editor_ToggleVSync).Data, &v))
+				if (b8 v = (ApplicationHost::GlobalState.SwapInterval != 0); Gui::MenuItem(UI_Str("ACT_WINDOW_TOGGLE_VSYNC"), ToShortcutString(*Settings.Input.Editor_ToggleVSync).Data, &v))
 					ApplicationHost::GlobalState.SwapInterval = v ? 1 : 0;
 
-				if (Gui::MenuItem(UI_Str("Toggle Fullscreen"), ToShortcutString(*Settings.Input.Editor_ToggleFullscreen).Data, ApplicationHost::GlobalState.IsBorderlessFullscreen))
+				if (Gui::MenuItem(UI_Str("ACT_WINDOW_TOGGLE_FULLSCREEN"), ToShortcutString(*Settings.Input.Editor_ToggleFullscreen).Data, ApplicationHost::GlobalState.IsBorderlessFullscreen))
 					ApplicationHost::GlobalState.SetBorderlessFullscreenNextFrame = !ApplicationHost::GlobalState.IsBorderlessFullscreen;
 
-				if (Gui::BeginMenu(UI_Str("Window Size")))
+				if (Gui::BeginMenu(UI_Str("ACT_WINDOW_SIZE")))
 				{
 					const b8 allowResize = !ApplicationHost::GlobalState.IsBorderlessFullscreen;
 					const ivec2 currentResolution = ApplicationHost::GlobalState.WindowSize;
@@ -316,29 +316,29 @@ namespace PeepoDrumKit
 					char labelBuffer[128];
 					for (auto[resolution, name] : presetResolutions)
 					{
-						sprintf_s(labelBuffer, "%s %dx%d", UI_Str("Resize to"), resolution.x, resolution.y);
+						sprintf_s(labelBuffer, "%s %dx%d", UI_Str("ACT_WINDOW_RESIZE_TO"), resolution.x, resolution.y);
 						if (Gui::MenuItem(labelBuffer, name, (resolution == currentResolution), allowResize))
 							ApplicationHost::GlobalState.SetWindowSizeNextFrame = resolution;
 					}
 
 					Gui::Separator();
-					sprintf_s(labelBuffer, "%s: %dx%d", UI_Str("Current Size"), currentResolution.x, currentResolution.y);
+					sprintf_s(labelBuffer, "%s: %dx%d", UI_Str("INFO_WINDOW_CURRENT_SIZE"), currentResolution.x, currentResolution.y);
 					Gui::MenuItem(labelBuffer, nullptr, nullptr, false);
 
 					Gui::EndMenu();
 				}
 
-				if (Gui::BeginMenu(UI_Str("DPI Scale")))
+				if (Gui::BeginMenu(UI_Str("ACT_WINDOW_DPI_SCALE")))
 				{
 					const f32 guiScaleFactorToSetNextFrame = GuiScaleFactorToSetNextFrame;
-					if (Gui::MenuItem(UI_Str("Zoom In"), ToShortcutString(*Settings.Input.Editor_IncreaseGuiScale).Data, nullptr, CanZoomInGuiScale())) ZoomInGuiScale();
-					if (Gui::MenuItem(UI_Str("Zoom Out"), ToShortcutString(*Settings.Input.Editor_DecreaseGuiScale).Data, nullptr, CanZoomOutGuiScale())) ZoomOutGuiScale();
-					if (Gui::MenuItem(UI_Str("Reset Zoom"), ToShortcutString(*Settings.Input.Editor_ResetGuiScale).Data, nullptr, CanZoomResetGuiScale())) ZoomResetGuiScale();
+					if (Gui::MenuItem(UI_Str("ACT_WINDOW_DPI_SCALE_ZOOM_IN"), ToShortcutString(*Settings.Input.Editor_IncreaseGuiScale).Data, nullptr, CanZoomInGuiScale())) ZoomInGuiScale();
+					if (Gui::MenuItem(UI_Str("ACT_WINDOW_DPI_SCALE_ZOOM_OUT"), ToShortcutString(*Settings.Input.Editor_DecreaseGuiScale).Data, nullptr, CanZoomOutGuiScale())) ZoomOutGuiScale();
+					if (Gui::MenuItem(UI_Str("ACT_WINDOW_DPI_SCALE_RESET_ZOOM"), ToShortcutString(*Settings.Input.Editor_ResetGuiScale).Data, nullptr, CanZoomResetGuiScale())) ZoomResetGuiScale();
 
 					if (guiScaleFactorToSetNextFrame != GuiScaleFactorToSetNextFrame) { if (!zoomPopup.IsOpen) zoomPopup.Open(); zoomPopup.OnChange(); }
 
 					Gui::Separator();
-					char labelBuffer[128]; sprintf_s(labelBuffer, "%s: %g%%", UI_Str("Current Scale"), ToPercent(GuiScaleFactorTarget));
+					char labelBuffer[128]; sprintf_s(labelBuffer, "%s: %g%%", UI_Str("INFO_WINDOW_DPI_SCALE_CURRENT"), ToPercent(GuiScaleFactorTarget));
 					Gui::MenuItem(labelBuffer, nullptr, nullptr, false);
 
 					Gui::EndMenu();
@@ -347,7 +347,7 @@ namespace PeepoDrumKit
 				Gui::EndMenu();
 			}
 
-			if (Gui::BeginMenu(UI_Str("Language")))
+			if (Gui::BeginMenu(UI_Str("MENU_LANGUAGE")))
 			{
 				for (const auto& it : i18n::LocaleEntries)
 				{
@@ -361,23 +361,23 @@ namespace PeepoDrumKit
 						nextLanguageToSelect = it.id;
 				}
 				Gui::Separator();
-				Gui::MenuItem(UI_Str("Load Full CJKV Glyphs (slow)"), " ", &FontMainUseFullCJKVTarget);
+				Gui::MenuItem(UI_Str("ACT_LANGUAGE_LOAD_FULL_CJKV_GLYPHS"), " ", &FontMainUseFullCJKVTarget);
 				if (Gui::MenuItem("Export Builtin Locale Files"))
 					i18n::ExportBuiltinLocaleFiles();
 				Gui::EndMenu();
 			}
 
-			if ((PEEPO_DEBUG || PersistentApp.LastSession.ShowWindow_TestMenu) && Gui::BeginMenu(UI_Str("Test Menu")))
+			if ((PEEPO_DEBUG || PersistentApp.LastSession.ShowWindow_TestMenu) && Gui::BeginMenu(UI_Str("MENU_TEST")))
 			{
-				Gui::MenuItem(UI_Str("Show Audio Test"), "(Debug)", &PersistentApp.LastSession.ShowWindow_AudioTest);
-				Gui::MenuItem(UI_Str("Show TJA Import Test"), "(Debug)", &PersistentApp.LastSession.ShowWindow_TJAImportTest);
-				Gui::MenuItem(UI_Str("Show TJA Export View"), "(Debug)", &PersistentApp.LastSession.ShowWindow_TJAExportTest);
+				Gui::MenuItem(UI_Str("ACT_TEST_SHOW_AUDIO_TEST"), "(Debug)", &PersistentApp.LastSession.ShowWindow_AudioTest);
+				Gui::MenuItem(UI_Str("ACT_TEST_SHOW_TJA_IMPORT_TEST"), "(Debug)", &PersistentApp.LastSession.ShowWindow_TJAImportTest);
+				Gui::MenuItem(UI_Str("ACT_TEST_SHOW_TJA_EXPORT_VIEW"), "(Debug)", &PersistentApp.LastSession.ShowWindow_TJAExportTest);
 #if !defined(IMGUI_DISABLE_DEMO_WINDOWS)
 				Gui::Separator();
-				Gui::MenuItem(UI_Str("Show ImGui Demo"), " ", &PersistentApp.LastSession.ShowWindow_ImGuiDemo);
-				Gui::MenuItem(UI_Str("Show ImGui Style Editor"), " ", &PersistentApp.LastSession.ShowWindow_ImGuiStyleEditor);
+				Gui::MenuItem(UI_Str("ACT_TEST_SHOW_IMGUI_DEMO"), " ", &PersistentApp.LastSession.ShowWindow_ImGuiDemo);
+				Gui::MenuItem(UI_Str("ACT_TEST_SHOW_IMGUI_STYLE_EDITOR"), " ", &PersistentApp.LastSession.ShowWindow_ImGuiStyleEditor);
 				Gui::Separator();
-				if (Gui::MenuItem(UI_Str("Reset Style Colors"), " "))
+				if (Gui::MenuItem(UI_Str("ACT_TEST_RESET_STYLE_COLORS"), " "))
 					GuiStyleColorPeepoDrumKit();
 #endif
 
@@ -396,16 +396,16 @@ namespace PeepoDrumKit
 				Gui::EndMenu();
 			}
 
-			if (Gui::BeginMenu(UI_Str("Help")))
+			if (Gui::BeginMenu(UI_Str("MENU_HELP")))
 			{
-				Gui::MenuItem(UI_Str("Copyright (c) 2022"), "Samyuu", false, false);
-				Gui::MenuItem(UI_Str("Build Time:"), BuildInfo::CompilationTime(), false, false);
-				Gui::MenuItem(UI_Str("Build Date:"), BuildInfo::CompilationDate(), false, false);
-				Gui::MenuItem(UI_Str("Build Configuration:"), UI_Str(BuildInfo::BuildConfiguration()), false, false);
-				Gui::MenuItem(UI_Str("Current Version:"), BuildInfo::CurrentVersion(), false, false);
+				Gui::MenuItem(UI_Str("INFO_HELP_COPYRIGHT_YEAR"), "Samyuu", false, false);
+				Gui::MenuItem(UI_Str("INFO_HELP_BUILD_TIME"), BuildInfo::CompilationTime(), false, false);
+				Gui::MenuItem(UI_Str("INFO_HELP_BUILD_DATE"), BuildInfo::CompilationDate(), false, false);
+				Gui::MenuItem(UI_Str("INFO_HELP_BUILD_CONFIGURATION"), UI_Str(BuildInfo::BuildConfiguration()), false, false);
+				Gui::MenuItem(UI_Str("INFO_HELP_CURRENT_VERSION"), BuildInfo::CurrentVersion(), false, false);
 				Gui::Separator();
-				if (Gui::MenuItem(UI_Str("Usage Guide"), ToShortcutString(*Settings.Input.Editor_OpenHelp).Data)) { PersistentApp.LastSession.ShowWindow_Help = focusHelpWindowNextFrame = true; }
-				if (Gui::MenuItem(UI_Str("Update Notes"), ToShortcutString(*Settings.Input.Editor_OpenUpdateNotes).Data)) { PersistentApp.LastSession.ShowWindow_UpdateNotes = focusUpdateNotesWindowNextFrame = true; }
+				if (Gui::MenuItem(UI_Str("TAB_USAGE_GUIDE"), ToShortcutString(*Settings.Input.Editor_OpenHelp).Data)) { PersistentApp.LastSession.ShowWindow_Help = focusHelpWindowNextFrame = true; }
+				if (Gui::MenuItem(UI_Str("TAB_UPDATE_NOTES"), ToShortcutString(*Settings.Input.Editor_OpenUpdateNotes).Data)) { PersistentApp.LastSession.ShowWindow_UpdateNotes = focusUpdateNotesWindowNextFrame = true; }
 				Gui::EndMenu();
 			}
 
@@ -439,17 +439,17 @@ namespace PeepoDrumKit
 
 			{
 				Gui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-				if (Gui::BeginMenu(UI_Str("Courses")))
+				if (Gui::BeginMenu(UI_Str("MENU_COURSES")))
 				{
-					if (Gui::BeginMenu(UI_Str("Add New")))
+					if (Gui::BeginMenu(UI_Str("ACT_COURSES_ADD_NEW")))
 					{
 						const struct { DifficultyType dType; cstr CurrentName; } difficulties[] =
 						{
-							{ DifficultyType::Easy, UI_Str("Easy"), },
-							{ DifficultyType::Normal, UI_Str("Normal"), },
-							{ DifficultyType::Hard, UI_Str("Hard"), },
-							{ DifficultyType::Oni, UI_Str("Oni"), },
-							{ DifficultyType::OniUra, UI_Str("Oni-Ura"), },
+							{ DifficultyType::Easy, UI_Str("DIFFICULTY_TYPE_EASY"), },
+							{ DifficultyType::Normal, UI_Str("DIFFICULTY_TYPE_NORMAL"), },
+							{ DifficultyType::Hard, UI_Str("DIFFICULTY_TYPE_HARD"), },
+							{ DifficultyType::Oni, UI_Str("DIFFICULTY_TYPE_ONI"), },
+							{ DifficultyType::OniUra, UI_Str("DIFFICULTY_TYPE_ONI_URA"), },
 						};
 						static_assert(ArrayCount(difficulties) == EnumCount<DifficultyType>);
 
@@ -470,7 +470,7 @@ namespace PeepoDrumKit
 						Gui::EndMenu();
 					}
 
-					Gui::MenuItem(UI_Str("Edit..."), "(TODO)", nullptr, false);
+					Gui::MenuItem(UI_Str("ACT_COURSES_EDIT"), "(TODO)", nullptr, false);
 					Gui::EndMenu();
 				}
 
@@ -491,7 +491,7 @@ namespace PeepoDrumKit
 								DifficultyTypeNames[EnumToIndex(course->Type)]), 
 								static_cast<i32>(course->Level), 
 								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : "-"),
-								UI_Str("Single"), 
+								UI_Str("PLAYER_SIDE_STYLE_SINGLE"), 
 								course.get());
 							const b8 setSelectedThisFrame = (course.get() == context.ChartSelectedCourse && course.get() != lastFrameSelectedCoursePtrID);
 
@@ -527,9 +527,9 @@ namespace PeepoDrumKit
 				if (Gui::BeginMenu(audioTextBuffer))
 				{
 					const b8 deviceIsOpen = Audio::Engine.GetIsStreamOpenRunning();
-					if (Gui::MenuItem(UI_Str("Open Audio Device"), nullptr, false, !deviceIsOpen))
+					if (Gui::MenuItem(UI_Str("ACT_AUDIO_OPEN_DEVICE"), nullptr, false, !deviceIsOpen))
 						Audio::Engine.OpenStartStream();
-					if (Gui::MenuItem(UI_Str("Close Audio Device"), nullptr, false, deviceIsOpen))
+					if (Gui::MenuItem(UI_Str("ACT_AUDIO_CLOSE_DEVICE"), nullptr, false, deviceIsOpen))
 						Audio::Engine.StopCloseStream();
 					Gui::Separator();
 
@@ -537,7 +537,7 @@ namespace PeepoDrumKit
 					for (const Audio::Backend backendType : availableBackends)
 					{
 						char labelBuffer[128];
-						sprintf_s(labelBuffer, UI_Str("Use %s"), backendToString(backendType));
+						sprintf_s(labelBuffer, UI_Str("ACT_AUDIO_USE_FMT_%s_DEVICE"), backendToString(backendType));
 						if (Gui::MenuItem(labelBuffer, nullptr, (backendType == currentBackend), (backendType != currentBackend)))
 							Audio::Engine.SetBackend(backendType);
 					}
@@ -584,9 +584,9 @@ namespace PeepoDrumKit
 							"%s%.5g ms\n"
 							"%s%.5g ms\n"
 							"%s%.5g ms",
-							UI_Str("Average: "), averageFrameTime,
-							UI_Str("Min: "), minFrameTime,
-							UI_Str("Max: "), maxFrameTime));
+							UI_Str("INFO_LATENCY_AVERAGE"), averageFrameTime,
+							UI_Str("INFO_LATENCY_MIN"), minFrameTime,
+							UI_Str("INFO_LATENCY_MAX"), maxFrameTime));
 
 						const vec2 overlayTextSize = Gui::CalcTextSize(overlayText);
 						const Rect overlayTextRect = Rect::FromTLSize(plotLinesRect.GetCenter() - (overlayTextSize * 0.5f) - vec2(0.0f, plotLinesRect.GetHeight() / 4.0f), overlayTextSize);
@@ -710,7 +710,7 @@ namespace PeepoDrumKit
 
 		if (PersistentApp.LastSession.ShowWindow_Help)
 		{
-			if (Gui::Begin(UI_WindowName("Usage Guide"), &PersistentApp.LastSession.ShowWindow_Help, ImGuiWindowFlags_None))
+			if (Gui::Begin(UI_WindowName("TAB_USAGE_GUIDE"), &PersistentApp.LastSession.ShowWindow_Help, ImGuiWindowFlags_None))
 			{
 				helpWindow.DrawGui(context);
 			}
@@ -720,7 +720,7 @@ namespace PeepoDrumKit
 
 		if (PersistentApp.LastSession.ShowWindow_UpdateNotes)
 		{
-			if (Gui::Begin(UI_WindowName("Update Notes"), &PersistentApp.LastSession.ShowWindow_UpdateNotes, ImGuiWindowFlags_None))
+			if (Gui::Begin(UI_WindowName("TAB_UPDATE_NOTES"), &PersistentApp.LastSession.ShowWindow_UpdateNotes, ImGuiWindowFlags_None))
 			{
 				updateNotesWindow.DrawGui(context);
 			}
@@ -730,7 +730,7 @@ namespace PeepoDrumKit
 
 		if (PersistentApp.LastSession.ShowWindow_Settings)
 		{
-			if (Gui::Begin(UI_WindowName("Settings"), &PersistentApp.LastSession.ShowWindow_Settings, ImGuiWindowFlags_None))
+			if (Gui::Begin(UI_WindowName("TAB_SETTINGS"), &PersistentApp.LastSession.ShowWindow_Settings, ImGuiWindowFlags_None))
 			{
 				if (settingsWindow.DrawGui(context, Settings_Mutable))
 					Settings_Mutable.IsDirty = true;
@@ -739,37 +739,37 @@ namespace PeepoDrumKit
 			Gui::End();
 		}
 
-		if (Gui::Begin(UI_WindowName("Chart Inspector"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("TAB_INSPECTOR"), nullptr, ImGuiWindowFlags_None))
 		{
 			chartInspectorWindow.DrawGui(context);
 		}
 		Gui::End();
 
-		if (Gui::Begin(UI_WindowName("Undo History"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("TAB_UNDO_HISTORY"), nullptr, ImGuiWindowFlags_None))
 		{
 			undoHistoryWindow.DrawGui(context);
 		}
 		Gui::End();
 
-		if (Gui::Begin(UI_WindowName("Tempo Calculator"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("TAB_TEMPO_CALCULATOR"), nullptr, ImGuiWindowFlags_None))
 		{
 			tempoCalculatorWindow.DrawGui(context);
 		}
 		Gui::End();
 
-		if (Gui::Begin(UI_WindowName("Chart Lyrics"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("TAB_LYRICS"), nullptr, ImGuiWindowFlags_None))
 		{
 			lyricsWindow.DrawGui(context, timeline);
 		}
 		Gui::End();
 
-		if (Gui::Begin(UI_WindowName("Chart Events"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("TAB_EVENTS"), nullptr, ImGuiWindowFlags_None))
 		{
 			tempoWindow.DrawGui(context, timeline);
 		}
 		Gui::End();
 
-		if (Gui::Begin(UI_WindowName("Chart Properties"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("TAB_CHART_PROPERTIES"), nullptr, ImGuiWindowFlags_None))
 		{
 			ChartPropertiesWindowIn in = {};
 			in.IsSongAsyncLoading = loadSongFuture.valid();
@@ -790,17 +790,17 @@ namespace PeepoDrumKit
 		Gui::End();
 
 #if PEEPO_DEBUG // DEBUG: Manually submit debug window before the timeline window is drawn for better tab ordering
-		if (Gui::Begin(UI_WindowName("Chart Timeline - Debug"))) { /* ... */ } Gui::End();
+		if (Gui::Begin(UI_WindowName("TAB_TIMELINE_DEBUG"))) { /* ... */ } Gui::End();
 #endif
 
-		if (Gui::Begin(UI_WindowName("Game Preview"), nullptr, ImGuiWindowFlags_None))
+		if (Gui::Begin(UI_WindowName("TAB_GAME_PREVIEW"), nullptr, ImGuiWindowFlags_None))
 		{
 			gamePreview.DrawGui(context, timeline.Camera.WorldSpaceXToTime(timeline.WorldSpaceCursorXAnimationCurrent));
 		}
 		Gui::End();
 
 		// NOTE: Always update the timeline even if the window isn't visible so that child-windows can be docked properly and hit sounds can always be heard
-		Gui::Begin(UI_WindowName("Chart Timeline"), nullptr, ImGuiWindowFlags_None);
+		Gui::Begin(UI_WindowName("TAB_TIMELINE"), nullptr, ImGuiWindowFlags_None);
 		timeline.DrawGui(context);
 		Gui::End();
 
@@ -826,7 +826,7 @@ namespace PeepoDrumKit
 
 			if (PersistentApp.LastSession.ShowWindow_TJAImportTest)
 			{
-				if (Gui::Begin(UI_WindowName("TJA Import Test"), &PersistentApp.LastSession.ShowWindow_TJAImportTest, ImGuiWindowFlags_None))
+				if (Gui::Begin(UI_WindowName("TAB_TJA_IMPORT_TEST"), &PersistentApp.LastSession.ShowWindow_TJAImportTest, ImGuiWindowFlags_None))
 				{
 					tjaTestWindow.DrawGui();
 					if (tjaTestWindow.WasTJAEditedThisFrame)
@@ -849,7 +849,7 @@ namespace PeepoDrumKit
 
 			if (PersistentApp.LastSession.ShowWindow_AudioTest)
 			{
-				if (Gui::Begin(UI_WindowName("Audio Test"), &PersistentApp.LastSession.ShowWindow_AudioTest, ImGuiWindowFlags_None))
+				if (Gui::Begin(UI_WindowName("TAB_AUDIO_TEST"), &PersistentApp.LastSession.ShowWindow_AudioTest, ImGuiWindowFlags_None))
 				{
 					audioTestWindow.DrawGui();
 					Gui::End();
@@ -859,7 +859,7 @@ namespace PeepoDrumKit
 			// DEBUG: LIVE PREVIEW PagMan
 			if (PersistentApp.LastSession.ShowWindow_TJAExportTest)
 			{
-				if (Gui::Begin(UI_WindowName("TJA Export Debug View"), &PersistentApp.LastSession.ShowWindow_TJAExportTest, ImGuiWindowFlags_MenuBar))
+				if (Gui::Begin(UI_WindowName("TAB_TJA_EXPORT_DEBUG_VIEW"), &PersistentApp.LastSession.ShowWindow_TJAExportTest, ImGuiWindowFlags_MenuBar))
 				{
 					static struct { b8 RoundTripCheck = false, Update = true; i32 Changes = -1, Undos = 0, Redos = 0; std::string Text, DebugLog; ChartProject DebugChart; ::TextEditor Editor = CreateImGuiColorTextEditWithNiceTheme(); } exportDebugViewData;
 
@@ -944,7 +944,7 @@ namespace PeepoDrumKit
 				Gui::EndDisabled();
 
 				Gui::SameLine(0.0f, 0.0f);
-				if (Gui::Button(UI_Str(" Reset "))) { ZoomResetGuiScale(); zoomPopup.OnChange(); }
+				if (Gui::Button(UI_Str("ACT_ZOOM_POPUP_RESET_ZOOM"))) { ZoomResetGuiScale(); zoomPopup.OnChange(); }
 			}
 			Gui::End();
 
@@ -967,7 +967,7 @@ namespace PeepoDrumKit
 
 		// NOTE: Save confirmation popup
 		{
-			static constexpr cstr saveConfirmationPopupID = "Peepo Drum Kit - Unsaved Changes";
+			static constexpr cstr saveConfirmationPopupID = "INFO_MSGBOX_UNSAVED";
 			if (saveConfirmationPopup.OpenOnNextFrame) { Gui::OpenPopup(UI_WindowName(saveConfirmationPopupID)); saveConfirmationPopup.OpenOnNextFrame = false; }
 
 			const ImGuiViewport* mainViewport = Gui::GetMainViewport();
@@ -984,16 +984,16 @@ namespace PeepoDrumKit
 					// NOTE: Manual child size calculation required for proper dynamic scaling
 					Gui::BeginChild("TextChild", vec2((buttonSize.x * 3.0f) + Gui::GetStyle().ItemSpacing.x, Gui::GetFontSize() * 3.0f), true, ImGuiWindowFlags_NoBackground);
 					Gui::AlignTextToFramePadding();
-					Gui::TextUnformatted(UI_Str("Save changes to the current file?"));
+					Gui::TextUnformatted(UI_Str("PROMPT_MSGBOX_UNSAVED_SAVE_CHANGES"));
 					Gui::EndChild();
 				}
 				Gui::PopFont();
 
-				const b8 clickedYes = Gui::Button(UI_Str("Save Changes"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_YesOrOk, false));
+				const b8 clickedYes = Gui::Button(UI_Str("ACT_MSGBOX_UNSAVED_SAVE_CHANGES"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_YesOrOk, false));
 				Gui::SameLine();
-				const b8 clickedNo = Gui::Button(UI_Str("Discard Changes"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_No, false));
+				const b8 clickedNo = Gui::Button(UI_Str("ACT_MSGBOX_UNSAVED_DISCARD_CHANGES"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_No, false));
 				Gui::SameLine();
-				const b8 clickedCancel = Gui::Button(UI_Str("Cancel"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_Cancel, false));
+				const b8 clickedCancel = Gui::Button(UI_Str("ACT_MSGBOX_CANCEL"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_Cancel, false));
 
 				if (clickedYes || clickedNo || clickedCancel)
 				{
@@ -1033,27 +1033,27 @@ namespace PeepoDrumKit
 
 			// HACK: Shitty dock tab order. Windows which are "Gui::Begin()"-added last (ones with higher focus priority) are always put on the right
 			//		 and it doesn't look like there's an easy way to change this...
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Timeline - Debug"), dock.Bot);
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Timeline"), dock.Bot);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_TIMELINE_DEBUG"), dock.Bot);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_TIMELINE"), dock.Bot);
 
-			Gui::DockBuilderDockWindow(UI_WindowName("Tempo Calculator"), dock.TopLeft);
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Lyrics"), dock.TopLeft);
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Events"), dock.TopLeft);
-			Gui::DockBuilderDockWindow(UI_WindowName("TJA Export Debug View"), dock.TopLeft);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_TEMPO_CALCULATOR"), dock.TopLeft);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_LYRICS"), dock.TopLeft);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_EVENTS"), dock.TopLeft);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_TJA_EXPORT_DEBUG_VIEW"), dock.TopLeft);
 
-			Gui::DockBuilderDockWindow(UI_WindowName("Settings"), dock.TopCenter);
-			Gui::DockBuilderDockWindow(UI_WindowName("Usage Guide"), dock.TopCenter);
-			Gui::DockBuilderDockWindow(UI_WindowName("Update Notes"), dock.TopCenter);
-			Gui::DockBuilderDockWindow(UI_WindowName("Game Preview"), dock.TopCenter);
-			Gui::DockBuilderDockWindow(UI_WindowName("Audio Test"), dock.TopCenter);
-			Gui::DockBuilderDockWindow(UI_WindowName("TJA Import Test"), dock.TopCenter);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_SETTINGS"), dock.TopCenter);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_USAGE_GUIDE"), dock.TopCenter);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_UPDATE_NOTES"), dock.TopCenter);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_GAME_PREVIEW"), dock.TopCenter);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_AUDIO_TEST"), dock.TopCenter);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_TJA_IMPORT_TEST"), dock.TopCenter);
 			Gui::DockBuilderDockWindow("Dear ImGui Demo", dock.TopCenter);
 			Gui::DockBuilderDockWindow("ImGui Style Editor", dock.TopCenter);
 
-			Gui::DockBuilderDockWindow(UI_WindowName("Undo History"), dock.TopRight);
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Properties"), dock.TopRight);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_UNDO_HISTORY"), dock.TopRight);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_CHART_PROPERTIES"), dock.TopRight);
 
-			Gui::DockBuilderDockWindow(UI_WindowName("Chart Inspector"), dock.TopRightBot);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_INSPECTOR"), dock.TopRightBot);
 		}
 		Gui::DockBuilderFinish(dockSpaceID);
 	}

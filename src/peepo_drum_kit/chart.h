@@ -115,11 +115,11 @@ namespace PeepoDrumKit
 
 	constexpr cstr DifficultyTypeNames[EnumCount<DifficultyType>] =
 	{
-		"Easy",
-		"Normal",
-		"Hard",
-		"Oni",
-		"Oni-Ura",
+		"DIFFICULTY_TYPE_EASY",
+		"DIFFICULTY_TYPE_NORMAL",
+		"DIFFICULTY_TYPE_HARD",
+		"DIFFICULTY_TYPE_ONI",
+		"DIFFICULTY_TYPE_ONI_URA",
 	};
 
 	enum class DifficultyLevel : u8
