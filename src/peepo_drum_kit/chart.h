@@ -558,8 +558,10 @@ namespace PeepoDrumKit
 		inline void SetIsSelected(ChartCourse& c, b8 isSelected) const { GenericMemberUnion v {}; v.B8 = isSelected; TrySetGeneric(c, List, Index, GenericMember::B8_IsSelected, v); }
 		inline Beat GetBeat(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Start, v); return v.Beat; }
 		inline Beat GetBeatDuration(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Duration, v); return v.Beat; }
+		inline std::tuple<bool, Time> GetTimeDuration(const ChartCourse& c) const { GenericMemberUnion v{}; return { TryGetGeneric(c, List, Index, GenericMember::F32_JPOSScrollDuration, v), Time::FromSec(v.F32) }; }
 		inline void SetBeat(ChartCourse& c, Beat beat) const { GenericMemberUnion v {}; v.Beat = beat; TrySetGeneric(c, List, Index, GenericMember::Beat_Start, v); }
 		inline void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { GenericMemberUnion v{}; v.Beat = beatDuration; TrySetGeneric(c, List, Index, GenericMember::Beat_Duration, v); }
+		inline void SetTimeDuration(ChartCourse& c, Time timeDuration) const { GenericMemberUnion v{}; v.F32 = timeDuration.Seconds; TrySetGeneric(c, List, Index, GenericMember::F32_JPOSScrollDuration, v); }
 	};
 
 	template <typename Func>

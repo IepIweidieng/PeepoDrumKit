@@ -1812,11 +1812,12 @@ namespace PeepoDrumKit
 
 						for (size_t i = 0; i < GetGenericListCount(selectedCourse, list); i++)
 						{
-							GenericMemberUnion beatStart, beatDuration, isSelected, noteType;
+							GenericMemberUnion beatStart, beatDuration, isSelected, noteType, timeDuration;
 							if (TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, isSelected) && isSelected.B8)
 							{
 								const b8 hasBeatStart = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, beatStart);
 								const b8 hasBeatDuration = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, beatDuration);
+								const b8 hasTimeDuration = TryGetGeneric(selectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, timeDuration);
 
 								const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
 								vec2 centerTail = center;
@@ -1832,6 +1833,10 @@ namespace PeepoDrumKit
 								if (hasBeatDuration && beatDuration.Beat > Beat::Zero()) {
 									// TODO: Proper hitboxses (at least for gogo range and lyrics?)
 									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat + beatDuration.Beat)), 0.0f)).x, screenRectCenter.y);
+									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
+								}
+								else if (hasTimeDuration) {
+									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat) + Time::FromSec(timeDuration.F32)), 0.0f)).x, screenRectCenter.y);
 									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
 								}
 
@@ -1873,6 +1878,7 @@ namespace PeepoDrumKit
 					auto itemSelected = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, out); return out.B8; };
 					auto itemStart = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, out); return out.Beat; };
 					auto itemDuration = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, out); return out.Beat; };
+					auto itemTimeDuration = [&](GenericList list, size_t i) -> std::tuple<bool, Time> { GenericMemberUnion out; return { TryGetGeneric(selectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, out), Time::FromSec(out.F32) }; };
 					auto checkCanSelectedItemsBeDragged = [&](GenericList list, Beat beatIncrement, b8 tailOnly) -> b8
 					{
 						const i32 listCount = static_cast<i32>(GetGenericListCount(selectedCourse, list));
@@ -1912,10 +1918,20 @@ namespace PeepoDrumKit
 						{
 							for (i32 thisIndex = 0; thisIndex < listCount; thisIndex++)
 							{
-								if (itemSelected(list, thisIndex) && itemDuration(list, thisIndex) > Beat::Zero())
-								{
+								if (!itemSelected(list, thisIndex))
+									continue;
+								if (itemDuration(list, thisIndex) > Beat::Zero()) {
 									if (itemDuration(list, thisIndex) + beatIncrement <= Beat::Zero())
 										return false;
+								}
+								else if (auto [hasTimeDuration, timeDuration] = itemTimeDuration(list, thisIndex); hasTimeDuration) {
+									const Time startTime = context.BeatToTime(itemStart(list, thisIndex));
+									const Time endTime = startTime + timeDuration;
+									const Beat endBeatTrunc = context.TimeToBeat(endTime, true);
+									const Beat beatDurationTrunc = endBeatTrunc - itemStart(list, thisIndex);
+									if (beatDurationTrunc + beatIncrement < Beat::Zero()) {
+										return false;
+									}
 								}
 							}
 						}
@@ -1991,13 +2007,29 @@ namespace PeepoDrumKit
 
 								ForEachSelectedChartItem(selectedCourse, [&](const ForEachChartItemData& it)
 								{
-									if (isTail && it.GetBeatDuration(selectedCourse) <= Beat::Zero())
-										return;
 									auto& data = itemsToChange.emplace_back();
 									data.Index = it.Index;
 									data.List = it.List;
-									data.Member = (isTail ? GenericMember::Beat_Duration : GenericMember::Beat_Start);
-									data.NewValue.Beat = (isTail ? it.GetBeatDuration(selectedCourse) : it.GetBeat(selectedCourse)) + dragBeatIncrement;
+									if (!isTail) {
+										data.Member = GenericMember::Beat_Start;
+										data.NewValue.Beat = it.GetBeat(selectedCourse) + dragBeatIncrement;
+									}
+									else if (auto beatDuration = it.GetBeatDuration(selectedCourse); beatDuration > Beat::Zero()) {
+										data.Member = GenericMember::Beat_Duration;
+										data.NewValue.Beat = beatDuration + dragBeatIncrement;
+									}
+									else if (auto [hasTimeDuration, timeDuration] = it.GetTimeDuration(selectedCourse); hasTimeDuration) {
+										data.Member = GenericMember::F32_JPOSScrollDuration;
+										const Beat startBeat = it.GetBeat(selectedCourse);
+										const Time startTime = context.BeatToTime(it.GetBeat(selectedCourse));
+										const Time endTime = startTime + timeDuration;
+										const Beat endBeatTrunc = context.TimeToBeat(endTime, true);
+										const Time residualTime = endTime - context.BeatToTime(endBeatTrunc);
+										data.NewValue.F32 = (context.BeatToTime(endBeatTrunc + dragBeatIncrement) + residualTime - startTime).Seconds;
+									}
+									else {
+										itemsToChange.pop_back(); // no changes
+									}
 								});
 
 								if (isTail)
