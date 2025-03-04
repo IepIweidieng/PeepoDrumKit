@@ -1849,7 +1849,7 @@ namespace PeepoDrumKit
 					auto itemSelected = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, out); return out.B8; };
 					auto itemStart = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, out); return out.Beat; };
 					auto itemDuration = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, out); return out.Beat; };
-					auto checkCanSelectedItemsBeMoved = [&](GenericList list, Beat beatIncrement) -> b8
+					auto checkCanSelectedItemsBeDragged = [&](GenericList list, Beat beatIncrement, b8 tailOnly) -> b8
 					{
 						const i32 listCount = static_cast<i32>(GetGenericListCount(selectedCourse, list));
 						if (listCount <= 0)
@@ -1865,7 +1865,9 @@ namespace PeepoDrumKit
 							{
 								const i32 nextIndex = thisIndex + 1;
 								const b8 hasNext = (nextIndex < listCount);
-								if (itemSelected(list, thisIndex) && hasNext && !itemSelected(list, nextIndex))
+								if (itemSelected(list, thisIndex) && hasNext
+									&& (tailOnly ? (itemDuration(list, thisIndex) > Beat::Zero()) : !itemSelected(list, nextIndex))
+									)
 								{
 									const Beat thisEnd = itemStart(list, thisIndex) + itemDuration(list, thisIndex);
 									const Beat nextStart = itemStart(list, nextIndex);
@@ -1879,6 +1881,17 @@ namespace PeepoDrumKit
 										if (thisEnd + beatIncrement > nextStart)
 											return false;
 									}
+								}
+							}
+						}
+						else if (tailOnly)
+						{
+							for (i32 thisIndex = 0; thisIndex < listCount; thisIndex++)
+							{
+								if (itemSelected(list, thisIndex) && itemDuration(list, thisIndex) > Beat::Zero())
+								{
+									if (itemDuration(list, thisIndex) + beatIncrement <= Beat::Zero())
+										return false;
 								}
 							}
 						}
@@ -1922,9 +1935,10 @@ namespace PeepoDrumKit
 
 					if (dragBeatIncrement != Beat::Zero() && wasMouseMovedOrScrolled)
 					{
+						const b8 isTail = (SelectedItemDrag.ActiveTarget == EDragTarget::Tail);
 						b8 allItemsCanBeMoved = true;
 						for (GenericList list = {}; list < GenericList::Count; IncrementEnum(list))
-							allItemsCanBeMoved &= checkCanSelectedItemsBeMoved(list, dragBeatIncrement);
+							allItemsCanBeMoved &= checkCanSelectedItemsBeDragged(list, dragBeatIncrement, isTail);
 
 						if (allItemsCanBeMoved)
 						{
@@ -1936,9 +1950,15 @@ namespace PeepoDrumKit
 								std::vector<Commands::ChangeMultipleNoteBeats::Data> noteBeatsToChange;
 								noteBeatsToChange.reserve(selectedItemCount);
 								for (const Note& note : notes)
-									if (note.IsSelected) { auto& data = noteBeatsToChange.emplace_back(); data.Index = ArrayItToIndex(&note, &notes[0]); data.NewBeat = (note.BeatTime + dragBeatIncrement); }
-
-								context.Undo.Execute<Commands::ChangeMultipleNoteBeats_MoveNotes>(&notes, std::move(noteBeatsToChange));
+									if (note.IsSelected && !(isTail && note.BeatDuration <= Beat::Zero())) {
+										auto& data = noteBeatsToChange.emplace_back();
+										data.Index = ArrayItToIndex(&note, &notes[0]);
+										data.NewValue = ((isTail ? note.BeatDuration : note.BeatTime) + dragBeatIncrement);
+									}
+								if (isTail)
+									context.Undo.Execute<Commands::ChangeMultipleNoteBeatDurations_AdjustRollNoteDurations>(&notes, std::move(noteBeatsToChange));
+								else
+									context.Undo.Execute<Commands::ChangeMultipleNoteBeats_MoveNotes>(&notes, std::move(noteBeatsToChange));
 							}
 							else
 							{
@@ -1947,14 +1967,19 @@ namespace PeepoDrumKit
 
 								ForEachSelectedChartItem(selectedCourse, [&](const ForEachChartItemData& it)
 								{
+									if (isTail && it.GetBeatDuration(selectedCourse) <= Beat::Zero())
+										return;
 									auto& data = itemsToChange.emplace_back();
 									data.Index = it.Index;
 									data.List = it.List;
-									data.Member = GenericMember::Beat_Start;
-									data.NewValue.Beat = it.GetBeat(selectedCourse) + dragBeatIncrement;
+									data.Member = (isTail ? GenericMember::Beat_Duration : GenericMember::Beat_Start);
+									data.NewValue.Beat = (isTail ? it.GetBeatDuration(selectedCourse) : it.GetBeat(selectedCourse)) + dragBeatIncrement;
 								});
 
-								context.Undo.Execute<Commands::ChangeMultipleGenericProperties_MoveItems>(&selectedCourse, std::move(itemsToChange));
+								if (isTail)
+									context.Undo.Execute<Commands::ChangeMultipleGenericProperties_AdjustItemDurations>(&selectedCourse, std::move(itemsToChange));
+								else
+									context.Undo.Execute<Commands::ChangeMultipleGenericProperties_MoveItems>(&selectedCourse, std::move(itemsToChange));
 							}
 
 							for (const Note& note : notes)
