@@ -500,8 +500,10 @@ namespace PeepoDrumKit
 		// NOTE: Little helpers here just for convenience
 		Beat GetBeat(GenericList list) const;
 		Beat GetBeatDuration(GenericList list) const;
+		std::tuple<bool, Time> GetTimeDuration(GenericList list) const;
 		void SetBeat(GenericList list, Beat newValue);
 		void SetBeatDuration(GenericList list, Beat newValue);
+		void SetTimeDuration(GenericList list, Time newValue);
 
 		GenericListStruct(const GenericListStruct& other) {
 			// Perform a deep copy of data within the union and other members
@@ -519,8 +521,10 @@ namespace PeepoDrumKit
 
 		inline Beat GetBeat() const { return Value.GetBeat(List); }
 		inline Beat GetBeatDuration() const { return Value.GetBeatDuration(List); }
+		inline std::tuple<bool, Time> GetTimeDuration() const { return Value.GetTimeDuration(List); }
 		inline void SetBeat(Beat newValue) { Value.SetBeat(List, newValue); }
 		inline void SetBeatDuration(Beat newValue) { Value.SetBeatDuration(List, newValue); }
+		inline void SetTimeDuration(Time newValue) { Value.SetTimeDuration(List, newValue); }
 
 		// Default constructor
 		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}

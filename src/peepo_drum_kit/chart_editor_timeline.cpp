@@ -1648,6 +1648,8 @@ namespace PeepoDrumKit
 				itemToAdd.SetBeat((((itemToAdd.GetBeat() - firstBeat) / param.TimeRatio[1]) * param.TimeRatio[0]) + firstBeat);
 				if (itemToAdd.GetBeatDuration() > Beat::Zero())
 					itemToAdd.SetBeatDuration(Max(Beat::FromTicks(1), (itemToAdd.GetBeatDuration() / param.TimeRatio[1]) * param.TimeRatio[0]));
+				if (auto [hasTimeDuration, timeDuration] = itemToAdd.GetTimeDuration(); hasTimeDuration)
+					itemToAdd.SetTimeDuration((timeDuration / param.TimeRatio[1]) * param.TimeRatio[0]);
 
 				if (IsNotesList(itemToAdd.List))
 					itemToAdd.Value.POD.Note.ClickAnimationTimeRemaining = itemToAdd.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;

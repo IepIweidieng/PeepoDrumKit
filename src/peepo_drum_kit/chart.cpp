@@ -458,6 +458,26 @@ namespace PeepoDrumKit
 		}
 	}
 
+	inline f32* GetGenericListStructRawTimeDurationPtr(GenericListStruct& in, GenericList list)
+	{
+		switch (list)
+		{
+		case GenericList::TempoChanges:
+		case GenericList::SignatureChanges:
+		case GenericList::Notes_Normal:
+		case GenericList::Notes_Expert:
+		case GenericList::Notes_Master:
+		case GenericList::ScrollChanges:
+		case GenericList::BarLineChanges:
+		case GenericList::GoGoRanges:
+		case GenericList::Lyrics:
+		case GenericList::ScrollType:
+			return nullptr;
+		case GenericList::JPOSScroll: return &in.POD.JPOSScroll.Duration;
+		default: assert(false); return nullptr;
+		}
+	}
+
 	Beat GenericListStruct::GetBeat(GenericList list) const
 	{
 		return *GetGenericListStructRawBeatPtr(*const_cast<GenericListStruct*>(this), list).Start;
@@ -467,6 +487,12 @@ namespace PeepoDrumKit
 	{
 		const auto ptrs = GetGenericListStructRawBeatPtr(*const_cast<GenericListStruct*>(this), list);
 		return (ptrs.Duration != nullptr) ? *ptrs.Duration : Beat::Zero();
+	}
+
+	std::tuple<bool, Time> GenericListStruct::GetTimeDuration(GenericList list) const
+	{
+		const auto ptrs = GetGenericListStructRawTimeDurationPtr(*const_cast<GenericListStruct*>(this), list);
+		return (ptrs != nullptr) ? std::make_tuple(true, Time::FromSec(*ptrs)) : std::make_tuple(false, Time::Zero());
 	}
 
 	void GenericListStruct::SetBeat(GenericList list, Beat newValue)
@@ -479,6 +505,13 @@ namespace PeepoDrumKit
 		auto ptrs = GetGenericListStructRawBeatPtr(*this, list);
 		if (ptrs.Duration != nullptr)
 			*ptrs.Duration = newValue;
+	}
+
+	void GenericListStruct::SetTimeDuration(GenericList list, Time newValue)
+	{
+		auto ptrs = GetGenericListStructRawTimeDurationPtr(*this, list);
+		if (ptrs != nullptr)
+			*ptrs = newValue.Seconds;
 	}
 
 	size_t GetGenericMember_RawByteSize(GenericMember member)
