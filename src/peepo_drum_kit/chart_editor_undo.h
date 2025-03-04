@@ -599,14 +599,15 @@ namespace PeepoDrumKit
 			Undo::CommandInfo GetInfo() const override { return { "Cut Notes" }; }
 		};
 
-		struct ChangeSingleNoteType : Undo::Command
+		template <typename TAttr, TAttr Note::*Attr>
+		struct ChangeSingleNoteAttribute : Undo::Command
 		{
-			struct Data { size_t Index; NoteType NewType, OldType; };
+			struct Data { size_t Index; TAttr NewValue, OldValue; };
 
-			ChangeSingleNoteType(SortedNotesList* notes, Data newData) : Notes(notes), NewData(std::move(newData)) { NewData.OldType = (*Notes)[NewData.Index].Type; }
+			ChangeSingleNoteAttribute(SortedNotesList* notes, Data newData) : Notes(notes), NewData(std::move(newData)) { NewData.OldValue = (*Notes)[NewData.Index].*Attr; }
 
-			void Undo() override { (*Notes)[NewData.Index].Type = NewData.OldType; }
-			void Redo() override { (*Notes)[NewData.Index].Type = NewData.NewType; }
+			void Undo() override { (*Notes)[NewData.Index].*Attr = NewData.OldValue; }
+			void Redo() override { (*Notes)[NewData.Index].*Attr = NewData.NewValue; }
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override
 			{
@@ -617,38 +618,39 @@ namespace PeepoDrumKit
 				if (NewData.Index != other->NewData.Index)
 					return Undo::MergeResult::Failed;
 
-				NewData.NewType = other->NewData.NewType;
+				NewData.NewValue = other->NewData.NewValue;
 
 				return Undo::MergeResult::ValueUpdated;
 			}
 
-			Undo::CommandInfo GetInfo() const override { return { "Change Note Type" }; }
+			Undo::CommandInfo GetInfo() const override { return { "Change Note Attribute" }; }
 
 			SortedNotesList* Notes;
 			Data NewData;
 		};
 
-		struct ChangeMultipleNoteTypes : Undo::Command
+		template <typename TAttr, TAttr Note::* Attr>
+		struct ChangeMultipleNoteAttributes : Undo::Command
 		{
-			struct Data { size_t Index; NoteType NewType, OldType; };
+			struct Data { size_t Index; TAttr NewValue, OldValue; };
 
-			ChangeMultipleNoteTypes(SortedNotesList* notes, std::vector<Data> newData)
+			ChangeMultipleNoteAttributes(SortedNotesList* notes, std::vector<Data> newData)
 				: Notes(notes), NewData(std::move(newData))
 			{
 				for (auto& newData : NewData)
-					newData.OldType = (*Notes)[newData.Index].Type;
+					newData.OldValue = (*Notes)[newData.Index].*Attr;
 			}
 
 			void Undo() override
 			{
 				for (const auto& newData : NewData)
-					(*Notes)[newData.Index].Type = newData.OldType;
+					(*Notes)[newData.Index].*Attr = newData.OldValue;
 			}
 
 			void Redo() override
 			{
 				for (const auto& newData : NewData)
-					(*Notes)[newData.Index].Type = newData.NewType;
+					(*Notes)[newData.Index].*Attr = newData.NewValue;
 			}
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override
@@ -667,15 +669,27 @@ namespace PeepoDrumKit
 				}
 
 				for (size_t i = 0; i < NewData.size(); i++)
-					NewData[i].NewType = other->NewData[i].NewType;
+					NewData[i].NewValue = other->NewData[i].NewValue;
 
 				return Undo::MergeResult::ValueUpdated;
 			}
 
-			Undo::CommandInfo GetInfo() const override { return { "Change Note Types" }; }
+			Undo::CommandInfo GetInfo() const override { return { "Change Note Attributes" }; }
 
 			SortedNotesList* Notes;
 			std::vector<Data> NewData;
+		};
+
+		struct ChangeSingleNoteType : ChangeSingleNoteAttribute<decltype(Note::Type), &Note::Type>
+		{
+			using ChangeSingleNoteAttribute::ChangeSingleNoteAttribute;
+			Undo::CommandInfo GetInfo() const override { return { "Change Note Type" }; }
+		};
+
+		struct ChangeMultipleNoteTypes : ChangeMultipleNoteAttributes<decltype(Note::Type), &Note::Type>
+		{
+			using ChangeMultipleNoteAttributes::ChangeMultipleNoteAttributes;
+			Undo::CommandInfo GetInfo() const override { return { "Change Note Types" }; }
 		};
 
 		struct ChangeMultipleNoteTypes_FlipTypes : ChangeMultipleNoteTypes
@@ -690,55 +704,10 @@ namespace PeepoDrumKit
 			Undo::CommandInfo GetInfo() const override { return { "Toggle Note Sizes" }; }
 		};
 
-		struct ChangeMultipleNoteBeats : Undo::Command
+		struct ChangeMultipleNoteBeats : ChangeMultipleNoteAttributes<decltype(Note::BeatTime), &Note::BeatTime>
 		{
-			struct Data { size_t Index; Beat NewBeat, OldBeat; };
-
-			ChangeMultipleNoteBeats(SortedNotesList* notes, std::vector<Data> data) : Notes(notes), NewData(std::move(data))
-			{
-				for (auto& newData : NewData)
-					newData.OldBeat = (*Notes)[newData.Index].BeatTime;
-			}
-
-			void Undo() override
-			{
-				for (const auto& newData : NewData)
-					(*Notes)[newData.Index].BeatTime = newData.OldBeat;
-				// TODO: Assert sorted (?)
-			}
-
-			void Redo() override
-			{
-				for (const auto& newData : NewData)
-					(*Notes)[newData.Index].BeatTime = newData.NewBeat;
-				// TODO: Assert sorted (?)
-			}
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->Notes != Notes)
-					return Undo::MergeResult::Failed;
-
-				if (other->NewData.size() != NewData.size())
-					return Undo::MergeResult::Failed;
-
-				for (size_t i = 0; i < NewData.size(); i++)
-				{
-					if (NewData[i].Index != other->NewData[i].Index)
-						return Undo::MergeResult::Failed;
-				}
-
-				for (size_t i = 0; i < NewData.size(); i++)
-					NewData[i].NewBeat = other->NewData[i].NewBeat;
-
-				return Undo::MergeResult::ValueUpdated;
-			}
-
+			using ChangeMultipleNoteAttributes::ChangeMultipleNoteAttributes;
 			Undo::CommandInfo GetInfo() const override { return { "Change Note Beats" }; }
-
-			SortedNotesList* Notes;
-			std::vector<Data> NewData;
 		};
 
 		struct ChangeMultipleNoteBeats_MoveNotes : ChangeMultipleNoteBeats

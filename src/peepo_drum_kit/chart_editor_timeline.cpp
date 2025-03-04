@@ -1561,12 +1561,12 @@ namespace PeepoDrumKit
 					{
 						auto& data = noteTypesToChange.emplace_back();
 						data.Index = ArrayItToIndex(&note, &notes[0]);
-						data.NewType = FlipNote(note.Type);
+						data.NewValue = FlipNote(note.Type);
 						note.ClickAnimationTimeRemaining = note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 					}
 				}
 
-				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewType));
+				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewValue));
 				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_FlipTypes>(&notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
@@ -1590,12 +1590,12 @@ namespace PeepoDrumKit
 					{
 						auto& data = noteTypesToChange.emplace_back();
 						data.Index = ArrayItToIndex(&note, &notes[0]);
-						data.NewType = ToggleNoteSize(note.Type);
+						data.NewValue = ToggleNoteSize(note.Type);
 						note.ClickAnimationTimeRemaining = note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 					}
 				}
 
-				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewType));
+				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewValue));
 				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_ToggleSizes>(&notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
