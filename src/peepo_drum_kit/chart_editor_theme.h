@@ -76,6 +76,11 @@ namespace PeepoDrumKit
 	inline u32 TimelineLyricsBackgroundColorOuter = 0xFF46494D;
 	inline u32 TimelineLyricsBackgroundColorInner = 0xFF323438;
 
+	inline u32 TimelineJPOSScrollBackgroundColorBorder = 0x1E1E1E1E;
+	inline u32 TimelineJPOSScrollBackgroundColorBorderSelected = 0xDCFFFFFF;
+	inline u32 TimelineJPOSScrollBackgroundColorOuter = 0xDC5C3B81;
+	inline u32 TimelineJPOSScrollBackgroundColorInner = 0xFF323438;
+
 	inline u32 TimelineHorizontalRowLineColor = 0x2D7D7D7D;
 	inline u32 TimelineGridBarLineColor = 0x807D7D7D;
 	inline u32 TimelineGridBeatLineColor = 0x2D7D7D7D;
@@ -101,9 +106,7 @@ namespace PeepoDrumKit
 	inline u32 TimelineScrollChangeComplexLineColor = 0xDC1DA386;
 	inline u32 TimelineBarLineChangeLineColor = 0xDCBE9E2C;
 	inline u32 TimelineScrollTypeLineColor = 0xDCE2E222;
-	inline u32 TimelineJPOSScrollChangeLineColor = 0xDC7B22D4;
 	inline u32 TimelineSelectedItemLineColor = 0xDCFFFFFF;
-	
 
 	inline u32 TimelineSongDemoStartMarkerColorFill = 0x3B75AD85;
 	inline u32 TimelineSongDemoStartMarkerColorBorder = 0xB375AD85;

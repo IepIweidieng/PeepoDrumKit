@@ -65,6 +65,11 @@ namespace PeepoDrumKit
 				{ "Timeline Lyrics Background Outer", &TimelineLyricsBackgroundColorOuter },
 				{ "Timeline Lyrics Background Inner", &TimelineLyricsBackgroundColorInner },
 				NamedColorU32Pointer {},
+				{ "Timeline JPosScroll Background Border", &TimelineJPOSScrollBackgroundColorBorder },
+				{ "Timeline JPosScroll Background Border (Selected)", &TimelineJPOSScrollBackgroundColorBorderSelected },
+				{ "Timeline JPosScroll Background Outer", &TimelineJPOSScrollBackgroundColorOuter },
+				{ "Timeline JPosScroll Background Inner", &TimelineJPOSScrollBackgroundColorInner },
+				NamedColorU32Pointer {},
 				{ "Timeline Horizontal Row Line", &TimelineHorizontalRowLineColor },
 				{ "Grid Bar Line", &TimelineGridBarLineColor },
 				{ "Grid Beat Line", &TimelineGridBeatLineColor },
@@ -87,7 +92,6 @@ namespace PeepoDrumKit
 				{ "Timeline Scroll Change Line", &TimelineScrollChangeLineColor },
 				{ "Timeline Scroll Change (Complex) Line", &TimelineScrollChangeComplexLineColor },
 				{ "Timeline Scroll Type Line", &TimelineScrollTypeLineColor },
-				{ "Timeline JPOSScroll Change Line", &TimelineJPOSScrollChangeLineColor },
 				{ "Timeline Bar Line Change Line", &TimelineBarLineChangeLineColor },
 				{ "Timeline Selected Item Line", &TimelineSelectedItemLineColor },
 				NamedColorU32Pointer {},
@@ -494,6 +498,11 @@ namespace PeepoDrumKit
 		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 0.0f, selected ? TimelineLyricsBackgroundColorBorderSelected : TimelineLyricsBackgroundColorBorder, TimelineLyricsBackgroundColorOuter, TimelineLyricsBackgroundColorInner });
 	}
 
+	static void DrawTimelineJPOSScrollBackground(ImDrawList* drawList, vec2 tl, vec2 br, b8 selected)
+	{
+		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam{ tl, br, 1.0f, 1.0f, selected ? TimelineJPOSScrollBackgroundColorBorderSelected : TimelineJPOSScrollBackgroundColorBorder, TimelineJPOSScrollBackgroundColorOuter, TimelineJPOSScrollBackgroundColorInner });
+	}
+
 	static void DrawTimelineContentWaveform(const ChartTimeline& timeline, ImDrawList* drawList, Time chartSongOffset, const Audio::WaveformMipChain& waveformL, const Audio::WaveformMipChain& waveformR, f32 waveformAnimation)
 	{
 		const f32 waveformAnimationScale = Clamp(waveformAnimation, 0.0f, 1.0f);
@@ -718,7 +727,11 @@ namespace PeepoDrumKit
 			for (const auto& it : list)
 			{
 				const Time startTime = context.BeatToTime(GetBeat(it));
-				if (startTime < visibleTime.Min || startTime > visibleTime.Max)
+				Time endTime = startTime;
+				if constexpr (std::is_same_v<T, JPOSScrollChange>) {
+					endTime = startTime + Time::FromSec(it.Duration);
+				}
+				if (endTime < visibleTime.Min || startTime > visibleTime.Max)
 					continue;
 
 				const vec2 localSpaceTL = vec2(camera.TimeToLocalSpaceX(startTime), rowIt.LocalY);
@@ -734,11 +747,20 @@ namespace PeepoDrumKit
 					if constexpr (std::is_same_v<T, ScrollChange>) { text = std::string_view(b, sprintf_s(b, "%sx", it.ScrollSpeed.toString().c_str())); lineColor = it.ScrollSpeed.IsReal() ? TimelineScrollChangeLineColor : TimelineScrollChangeComplexLineColor; }
 					if constexpr (std::is_same_v<T, BarLineChange>) { text = it.IsVisible ? "On" : "Off"; lineColor = TimelineBarLineChangeLineColor; }
 					if constexpr (std::is_same_v<T, ScrollType>) { text = std::string_view(b, sprintf_s(b, "%s", it.Method_ToString().c_str())); lineColor = TimelineScrollTypeLineColor; }
-					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s (%g)", it.Move.toString().c_str(), it.Duration)); lineColor = TimelineJPOSScrollChangeLineColor; }
+					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s (%g)", it.Move.toString().c_str(), it.Duration)); }
 
 					const vec2 textSize = Gui::CalcTextSize(text);
-					drawListContent->AddRectFilled(vec2(timeline.LocalToScreenSpace(localSpaceTL).x, textPosition.y), textPosition + textSize, TimelineBackgroundColor);
-					drawListContent->AddLine(timeline.LocalToScreenSpace(localSpaceTL + vec2(0.0f, 1.0f)), timeline.LocalToScreenSpace(localSpaceBL), it.IsSelected ? TimelineSelectedItemLineColor : lineColor);
+
+					if constexpr (std::is_same_v<T, JPOSScrollChange>) {
+						static constexpr f32 margin = 1.0f;
+						const vec2 localTL = vec2(camera.TimeToLocalSpaceX(startTime), 0.0f) + vec2(0.0f, rowIt.LocalY + margin);
+						const vec2 localBR = vec2(camera.TimeToLocalSpaceX(endTime), 0.0f) + vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight - (margin * 2.0f));
+						DrawTimelineJPOSScrollBackground(drawListContent, timeline.LocalToScreenSpace(localTL) + vec2(0.0f, 2.0f), timeline.LocalToScreenSpace(localBR), it.IsSelected);
+					}
+					else {
+						drawListContent->AddRectFilled(vec2(timeline.LocalToScreenSpace(localSpaceTL).x, textPosition.y), textPosition + textSize, TimelineBackgroundColor);
+						drawListContent->AddLine(timeline.LocalToScreenSpace(localSpaceTL + vec2(0.0f, 1.0f)), timeline.LocalToScreenSpace(localSpaceBL), it.IsSelected ? TimelineSelectedItemLineColor : lineColor);
+					}
 					Gui::AddTextWithDropShadow(drawListContent, textPosition, textColor, text, TimelineItemTextColorShadow);
 
 					if (it.IsSelected)
