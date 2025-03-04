@@ -295,18 +295,20 @@ namespace PeepoDrumKit
 	struct ForEachNoteLaneData
 	{
 		const Note* OriginalNote;
-		Beat BeatHead;
-		Time TimeHead;
-		Time TimeHeadOffset;
-		Beat BeatTail;
-		Time TimeTail;
-		Time TimeTailOffset;
+		Beat Beat;
+		Time Time;
+		struct Time TimeOffset;
 		Tempo Tempo;
 		Complex ScrollSpeed;
 		ScrollMethod ScrollType;
-		struct Tempo TempoTail;
-		Complex ScrollSpeedTail;
-		ScrollMethod ScrollTypeTail;
+		struct {
+			struct Beat Beat;
+			struct Time Time;
+			struct Time TimeOffset;
+			struct Tempo Tempo;
+			Complex ScrollSpeed;
+			ScrollMethod ScrollType;
+		} Tail;
 	};
 
 	template <typename Func>
@@ -323,14 +325,17 @@ namespace PeepoDrumKit
 			const Time head = (course.TempoMap.BeatToTime(beat) + note.TimeOffset);
 			const Beat beatTail = (note.BeatDuration > Beat::Zero()) ? (beat + note.BeatDuration) : beat;
 			const Time tail = (note.BeatDuration > Beat::Zero()) ? (course.TempoMap.BeatToTime(beatTail) + note.TimeOffset) : head;
-			perNoteFunc(ForEachNoteLaneData { &note, beat, head, note.TimeOffset, beatTail, tail, note.TimeOffset,
+			perNoteFunc(ForEachNoteLaneData { &note, beat, head, note.TimeOffset,
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beat)),
 				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat)),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beat)),
-				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beatTail)),
-				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail)),
-				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beatTail)),
-				});
+				{
+					beatTail, tail, note.TimeOffset,
+					TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beatTail)),
+					ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail)),
+					ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beatTail)),
+				},
+			});
 		}
 	}
 
@@ -512,14 +517,14 @@ namespace PeepoDrumKit
 			ForEachNoteOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
 				const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
-				const vec2 laneOriginTail = Camera.GetHitCircleCoordinates(jposScrollChanges, it.TimeTail, tempoChanges);
-				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeHead, it.BeatHead, it.TimeHeadOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.TimeTail, it.BeatTail, it.TimeTailOffset, it.TempoTail, it.ScrollSpeedTail, it.ScrollTypeTail, tempoChanges, jposScrollChanges);
+				const vec2 laneOriginTail = Camera.GetHitCircleCoordinates(jposScrollChanges, it.Tail.Time, tempoChanges);
+				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.TimeOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.TimeOffset, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
 
 				b8 isVisible = true;
 
-				const Time timeSinceHeadHit = TimeSinceNoteHit(it.TimeHead, cursorTimeOrAnimated);
-				const Time timeSinceTailHit = TimeSinceNoteHit(it.TimeTail, cursorTimeOrAnimated);
+				const Time timeSinceHeadHit = TimeSinceNoteHit(it.Time, cursorTimeOrAnimated);
+				const Time timeSinceTailHit = TimeSinceNoteHit(it.Tail.Time, cursorTimeOrAnimated);
 				if (IsRegularNote(it.OriginalNote->Type)) {
 					if (timeSinceHeadHit >= Time::Zero())
 						laneHead = laneTail = laneOriginTail;
@@ -541,7 +546,7 @@ namespace PeepoDrumKit
 						|| Camera.IsRangeVisibleOnLane(Min(laneHead.x, laneTail.x), Max(laneHead.x, laneTail.x)));
 				}
 				if (isVisible)
-					ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData{ laneHead.x, laneTail.x, laneHead.y, laneTail.y, it.ScrollSpeed, it.OriginalNote, it.TimeHead, it.TimeTail });
+					ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData{ laneHead.x, laneTail.x, laneHead.y, laneTail.y, it.ScrollSpeed, it.OriginalNote, it.Time, it.Tail.Time });
 			});
 
 			const Beat drummrollHitInterval = GetGridBeatSnap(*Settings.General.DrumrollAutoHitBarDivision);
