@@ -216,10 +216,12 @@ namespace PeepoDrumKit
 		b8 IsCameraMouseGrabActive = false;
 		b8 IsCursorMouseScrubActive = false;
 
+		enum class EDragTarget : u8 { None, Body, Tail };
+
 		struct SelectedItemDragData
 		{
-			b8 IsActive;
-			b8 IsHovering;
+			EDragTarget ActiveTarget;
+			EDragTarget HoverTarget;
 			Beat MouseBeatThisFrame;
 			Beat MouseBeatLastFrame;
 			Beat BeatOnMouseDown;

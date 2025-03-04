@@ -570,11 +570,13 @@ namespace PeepoDrumKit
 
 				const vec2 localTL = vec2(timeline.Camera.TimeToLocalSpaceX(startTime), rowIt.LocalY);
 				const vec2 localCenter = localTL + vec2(0.0f, rowIt.LocalHeight * 0.5f);
+				vec2 localTR = localTL;
+				vec2 localCenterEnd = localCenter;
 
 				if (it.BeatDuration > Beat::Zero())
 				{
-					const vec2 localTR = vec2(timeline.Camera.TimeToLocalSpaceX(endTime), rowIt.LocalY);
-					const vec2 localCenterEnd = localTR + vec2(0.0f, rowIt.LocalHeight * 0.5f);
+					localTR = vec2(timeline.Camera.TimeToLocalSpaceX(endTime), rowIt.LocalY);
+					localCenterEnd = localTR + vec2(0.0f, rowIt.LocalHeight * 0.5f);
 					DrawTimelineNoteDuration(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), timeline.LocalToScreenSpace(localCenterEnd), it.Type);
 				}
 
@@ -591,6 +593,8 @@ namespace PeepoDrumKit
 
 					const vec2 hitBoxSize = vec2(GuiScale((IsBigNote(it.Type) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall)));
 					timeline.TempSelectionBoxesDrawBuffer.push_back(ChartTimeline::TempDrawSelectionBox { Rect::FromCenterSize(timeline.LocalToScreenSpace(localCenter - vec2(localSpaceTimeOffsetX, 0.0f)), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
+					if (it.BeatDuration > Beat::Zero())
+						timeline.TempSelectionBoxesDrawBuffer.push_back(ChartTimeline::TempDrawSelectionBox{ Rect::FromCenterSize(timeline.LocalToScreenSpace(localCenterEnd - vec2(localSpaceTimeOffsetX, 0.0f)), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
 				}
 			}
 
@@ -1765,14 +1769,14 @@ namespace PeepoDrumKit
 					atLeastOneSelectedItemIsTempoChange |= (it.List == GenericList::TempoChanges);
 				});
 
-				if (SelectedItemDrag.IsActive && !Gui::IsMouseDown(ImGuiMouseButton_Left))
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None && !Gui::IsMouseDown(ImGuiMouseButton_Left))
 					SelectedItemDrag = {};
 
-				SelectedItemDrag.IsHovering = false;
+				SelectedItemDrag.HoverTarget = EDragTarget::None;
 				SelectedItemDrag.MouseBeatLastFrame = SelectedItemDrag.MouseBeatThisFrame;
 				SelectedItemDrag.MouseBeatThisFrame = FloorBeatToCurrentGrid(context.TimeToBeat(Camera.LocalSpaceXToTime(ScreenToLocalSpace(MousePosThisFrame).x)));
 
-				if (selectedItemCount > 0 && IsContentWindowHovered && !SelectedItemDrag.IsActive)
+				if (selectedItemCount > 0 && IsContentWindowHovered && SelectedItemDrag.ActiveTarget == EDragTarget::None)
 				{
 					ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
 					{
@@ -1790,30 +1794,38 @@ namespace PeepoDrumKit
 								const b8 hasBeatStart = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, beatStart);
 								const b8 hasBeatDuration = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, beatDuration);
 
-								Rect screenHitbox = {};
-								if (isNotesRow)
-								{
+								const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
+								vec2 centerTail = center;
+
+								f32 hitboxSize = TimelineSelectedNoteHitBoxSizeSmall;
+								if (isNotesRow) {
 									TryGetGeneric(selectedCourse, list, i, GenericMember::NoteType_V, noteType);
-
-									const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
-									screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(IsBigNote(noteType.NoteType) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall)));
+									hitboxSize = (IsBigNote(noteType.NoteType) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall);
 								}
-								else
-								{
+
+								Rect screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(hitboxSize)));
+								Rect screenHitboxTail = screenHitbox;
+								if (hasBeatDuration && beatDuration.Beat > Beat::Zero()) {
 									// TODO: Proper hitboxses (at least for gogo range and lyrics?)
-									const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
-									screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(TimelineSelectedNoteHitBoxSizeSmall)));
+									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat + beatDuration.Beat)), 0.0f)).x, screenRectCenter.y);
+									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
 								}
 
-								if (screenHitbox.Contains(MousePosThisFrame))
-								{
-									SelectedItemDrag.IsHovering = true;
-									if (Gui::IsMouseClicked(ImGuiMouseButton_Left))
+								for (const auto& [hitbox, target] : {
+									std::make_tuple(screenHitbox, EDragTarget::Body),
+									std::make_tuple(screenHitboxTail, EDragTarget::Tail),
+									}) {
+									if (hitbox.Contains(MousePosThisFrame))
 									{
-										SelectedItemDrag.IsActive = true;
-										SelectedItemDrag.BeatOnMouseDown = SelectedItemDrag.MouseBeatThisFrame;
-										SelectedItemDrag.BeatDistanceMovedSoFar = Beat::Zero();
-										context.Undo.DisallowMergeForLastCommand();
+										SelectedItemDrag.HoverTarget = target;
+										if (Gui::IsMouseClicked(ImGuiMouseButton_Left))
+										{
+											SelectedItemDrag.ActiveTarget = target;
+											SelectedItemDrag.BeatOnMouseDown = SelectedItemDrag.MouseBeatThisFrame;
+											SelectedItemDrag.BeatDistanceMovedSoFar = Beat::Zero();
+											context.Undo.DisallowMergeForLastCommand();
+										}
+										break;
 									}
 								}
 							}
@@ -1821,10 +1833,10 @@ namespace PeepoDrumKit
 					});
 				}
 
-				if (SelectedItemDrag.IsActive || SelectedItemDrag.IsHovering)
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None || SelectedItemDrag.HoverTarget != EDragTarget::None)
 					Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 
-				if (SelectedItemDrag.IsActive)
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None)
 				{
 					// TODO: Maybe should set active ID here too... thought that then conflicts with WindowIsHovered and other actions
 					// Gui::SetActiveID(Gui::GetID(&SelectedItemDrag), Gui::GetCurrentWindow());
@@ -1832,7 +1844,7 @@ namespace PeepoDrumKit
 					context.Undo.ResetMergeTimeThresholdStopwatch();
 				}
 
-				if (SelectedItemDrag.IsActive)
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None)
 				{
 					auto itemSelected = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, out); return out.B8; };
 					auto itemStart = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, out); return out.Beat; };
@@ -1956,7 +1968,7 @@ namespace PeepoDrumKit
 				}
 			}
 
-			if (IsContentWindowHovered && !SelectedItemDrag.IsHovering && Gui::IsMouseClicked(ImGuiMouseButton_Left))
+			if (IsContentWindowHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
 			{
 				const Time oldCursorTime = context.GetCursorTime();
 				const f32 oldCursorLocalSpaceX = Camera.TimeToLocalSpaceX(oldCursorTime);
@@ -1988,7 +2000,7 @@ namespace PeepoDrumKit
 
 			// NOTE: Header bar cursor scrubbing
 			{
-				if (IsContentHeaderWindowHovered && !SelectedItemDrag.IsHovering && Gui::IsMouseClicked(ImGuiMouseButton_Left))
+				if (IsContentHeaderWindowHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
 					IsCursorMouseScrubActive = true;
 
 				if (!Gui::IsMouseDown(ImGuiMouseButton_Left) || !Gui::IsMousePosValid())
