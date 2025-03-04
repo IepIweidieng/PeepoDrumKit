@@ -599,10 +599,13 @@ namespace PeepoDrumKit
 			Undo::CommandInfo GetInfo() const override { return { "Cut Notes" }; }
 		};
 
+		template <typename TAttr>
+		struct NoteAttributeData { size_t Index; TAttr NewValue, OldValue; };
+
 		template <typename TAttr, TAttr Note::*Attr>
 		struct ChangeSingleNoteAttribute : Undo::Command
 		{
-			struct Data { size_t Index; TAttr NewValue, OldValue; };
+			using Data = NoteAttributeData<TAttr>;
 
 			ChangeSingleNoteAttribute(SortedNotesList* notes, Data newData) : Notes(notes), NewData(std::move(newData)) { NewData.OldValue = (*Notes)[NewData.Index].*Attr; }
 
@@ -632,7 +635,7 @@ namespace PeepoDrumKit
 		template <typename TAttr, TAttr Note::* Attr>
 		struct ChangeMultipleNoteAttributes : Undo::Command
 		{
-			struct Data { size_t Index; TAttr NewValue, OldValue; };
+			using Data = NoteAttributeData<TAttr>;
 
 			ChangeMultipleNoteAttributes(SortedNotesList* notes, std::vector<Data> newData)
 				: Notes(notes), NewData(std::move(newData))
