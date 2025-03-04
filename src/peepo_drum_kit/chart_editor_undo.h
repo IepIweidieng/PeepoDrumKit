@@ -718,6 +718,18 @@ namespace PeepoDrumKit
 			using ChangeMultipleNoteBeats::ChangeMultipleNoteBeats;
 			Undo::CommandInfo GetInfo() const override { return { "Move Notes" }; }
 		};
+
+		struct ChangeMultipleNoteBeatDurations : ChangeMultipleNoteAttributes<decltype(Note::BeatDuration), &Note::BeatDuration>
+		{
+			using ChangeMultipleNoteAttributes::ChangeMultipleNoteAttributes;
+			Undo::CommandInfo GetInfo() const override { return { "Change Note Beat Durations" }; }
+		};
+
+		struct ChangeMultipleNoteBeatDurations_AdjustRollNoteDurations : ChangeMultipleNoteBeatDurations
+		{
+			using ChangeMultipleNoteBeatDurations::ChangeMultipleNoteBeatDurations;
+			Undo::CommandInfo GetInfo() const override { return { "Adjust Roll Note Durations" }; }
+		};
 	}
 
 	// NOTE: Generic chart commands
@@ -889,6 +901,12 @@ namespace PeepoDrumKit
 		{
 			using ChangeMultipleGenericProperties::ChangeMultipleGenericProperties;
 			Undo::CommandInfo GetInfo() const override { return { "Move Items" }; }
+		};
+
+		struct ChangeMultipleGenericProperties_AdjustItemDurations : ChangeMultipleGenericProperties
+		{
+			using ChangeMultipleGenericProperties::ChangeMultipleGenericProperties;
+			Undo::CommandInfo GetInfo() const override { return { "Adjust Item Durations" }; }
 		};
 
 		struct RemoveThenAddMultipleGenericItems : Undo::Command
