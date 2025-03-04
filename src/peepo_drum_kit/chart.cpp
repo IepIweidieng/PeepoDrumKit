@@ -474,6 +474,13 @@ namespace PeepoDrumKit
 		*GetGenericListStructRawBeatPtr(*this, list).Start = newValue;
 	}
 
+	void GenericListStruct::SetBeatDuration(GenericList list, Beat newValue)
+	{
+		auto ptrs = GetGenericListStructRawBeatPtr(*this, list);
+		if (ptrs.Duration != nullptr)
+			*ptrs.Duration = newValue;
+	}
+
 	size_t GetGenericMember_RawByteSize(GenericMember member)
 	{
 		switch (member)

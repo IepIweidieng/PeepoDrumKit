@@ -501,6 +501,7 @@ namespace PeepoDrumKit
 		Beat GetBeat(GenericList list) const;
 		Beat GetBeatDuration(GenericList list) const;
 		void SetBeat(GenericList list, Beat newValue);
+		void SetBeatDuration(GenericList list, Beat newValue);
 
 		GenericListStruct(const GenericListStruct& other) {
 			// Perform a deep copy of data within the union and other members
@@ -519,6 +520,7 @@ namespace PeepoDrumKit
 		inline Beat GetBeat() const { return Value.GetBeat(List); }
 		inline Beat GetBeatDuration() const { return Value.GetBeatDuration(List); }
 		inline void SetBeat(Beat newValue) { Value.SetBeat(List, newValue); }
+		inline void SetBeatDuration(Beat newValue) { Value.SetBeatDuration(List, newValue); }
 
 		// Default constructor
 		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}
@@ -557,6 +559,7 @@ namespace PeepoDrumKit
 		inline Beat GetBeat(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Start, v); return v.Beat; }
 		inline Beat GetBeatDuration(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Duration, v); return v.Beat; }
 		inline void SetBeat(ChartCourse& c, Beat beat) const { GenericMemberUnion v {}; v.Beat = beat; TrySetGeneric(c, List, Index, GenericMember::Beat_Start, v); }
+		inline void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { GenericMemberUnion v{}; v.Beat = beatDuration; TrySetGeneric(c, List, Index, GenericMember::Beat_Duration, v); }
 	};
 
 	template <typename Func>
