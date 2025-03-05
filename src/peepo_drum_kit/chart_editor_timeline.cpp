@@ -2489,8 +2489,10 @@ namespace PeepoDrumKit
 					{
 						const vec2 screenSelectionMin = LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.GetMin()));
 						const vec2 screenSelectionMax = LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.GetMax()));
-						const Beat selectionBeatMin = context.TimeToBeat(Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMin().x));
-						const Beat selectionBeatMax = context.TimeToBeat(Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMax().x));
+						const Time selectionTimeMin = Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMin().x);
+						const Time selectionTimeMax = Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMax().x);
+						const Beat selectionBeatMin = context.TimeToBeat(selectionTimeMin);
+						const Beat selectionBeatMax = context.TimeToBeat(selectionTimeMax);
 
 						ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
 						{
@@ -2500,7 +2502,9 @@ namespace PeepoDrumKit
 							enum class XIntersectionTest : u8 { Tips, Full };
 							enum class YIntersectionTest : u8 { Center, FullRow };
 							const XIntersectionTest xIntersectionTest = IsNotesList(list) ? XIntersectionTest::Tips : XIntersectionTest::Full;
-							const YIntersectionTest yIntersectionTest = (list == GenericList::GoGoRanges || list == GenericList::Lyrics) ? YIntersectionTest::FullRow : YIntersectionTest::Center;
+							const YIntersectionTest yIntersectionTest = (list == GenericList::GoGoRanges || list == GenericList::Lyrics || list == GenericList::JPOSScroll) ?
+								YIntersectionTest::FullRow
+								: YIntersectionTest::Center;
 
 							const Rect screenRowRect = Rect(LocalToScreenSpace(vec2(0.0f, rowIt.LocalY)), LocalToScreenSpace(vec2(Regions.Content.GetWidth(), rowIt.LocalY + rowIt.LocalHeight)));
 							const f32 screenMinY = (yIntersectionTest == YIntersectionTest::Center) ? screenRowRect.GetCenter().y : screenRowRect.TL.y;
@@ -2508,19 +2512,26 @@ namespace PeepoDrumKit
 
 							for (size_t i = 0; i < GetGenericListCount(*context.ChartSelectedCourse, list); i++)
 							{
-								GenericMemberUnion beatStart, beatDuration, isSelected;
+								GenericMemberUnion beatStart, beatDuration, timeDuration, isSelected;
 								const b8 hasBeatStart = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::Beat_Start, beatStart);
 								const b8 hasBeatDuration = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::Beat_Duration, beatDuration);
+								const b8 hasTimeDuration = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, timeDuration);
 								const b8 hasIsSelected = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::B8_IsSelected, isSelected);
 								assert(hasBeatStart && hasIsSelected);
 
 								const Beat beatMin = beatStart.Beat;
-								const Beat beatEnd = hasBeatDuration ? (beatStart.Beat + beatDuration.Beat) : beatStart.Beat;
-								const Beat beatMax = (xIntersectionTest == XIntersectionTest::Full) ? beatEnd : beatMin;
-								const b8 isInsideSelectionBox = (
-									((beatMin <= selectionBeatMax) && (beatMax >= selectionBeatMin))
-									|| ((xIntersectionTest == XIntersectionTest::Tips) && (beatEnd <= selectionBeatMax) && (beatEnd >= selectionBeatMin))
-								) && (screenMinY <= screenSelectionMax.y) && (screenMaxY >= screenSelectionMin.y);
+								const Beat beatMax = hasBeatDuration ? (beatStart.Beat + beatDuration.Beat) : beatStart.Beat;
+								b8 isXInsideSelectionBox;
+								if (hasTimeDuration) {
+									const Time timeMax = context.BeatToTime(beatMin) + Time::FromSec(timeDuration.F32);
+									isXInsideSelectionBox = (((beatMin <= selectionBeatMax) && (timeMax >= selectionTimeMin))
+										&& (!(xIntersectionTest == XIntersectionTest::Tips) || (beatMin >= selectionBeatMin) || (timeMax <= selectionTimeMax)));
+								}
+								else {
+									isXInsideSelectionBox = (((beatMin <= selectionBeatMax) && (beatMax >= selectionBeatMin))
+										&& (!(xIntersectionTest == XIntersectionTest::Tips) || (beatMin >= selectionBeatMin) || (beatMax <= selectionBeatMax)));
+								}
+								const b8 isInsideSelectionBox = isXInsideSelectionBox && (screenMinY <= screenSelectionMax.y) && (screenMaxY >= screenSelectionMin.y);
 
 								switch (BoxSelection.Action)
 								{
