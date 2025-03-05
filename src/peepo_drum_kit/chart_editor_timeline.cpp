@@ -456,21 +456,29 @@ namespace PeepoDrumKit
 		Gui::DisableFontPixelSnap(false);
 	}
 
-	struct DrawTimelineRectBaseParam { vec2 TL, BR; f32 TriScaleL, TriScaleR; u32 ColorBorder, ColorOuter, ColorInner; };
+	struct DrawTimelineRectBaseParam { vec2 TL, BR; f32 TriScaleL, TriScaleR; u32 ColorBorder, ColorOuter, ColorInner; b8 selected; };
 	static void DrawTimelineRectBaseWithStartEndTriangles(ImDrawList* drawList, DrawTimelineRectBaseParam param)
 	{
 		const f32 outerOffset = ClampBot(GuiScale(2.0f), 1.0f);
 		const f32 innerOffset = ClampBot(GuiScale(5.0f), 1.0f);
-		const Rect borderRect = Rect(param.TL, param.BR);
-		Rect outerRect = Rect(param.TL + vec2(outerOffset), param.BR - vec2(outerOffset)); if (outerRect.GetWidth() < outerOffset) outerRect.BR.x = outerRect.TL.x + outerOffset;
-		Rect innerRect = Rect(param.TL + vec2(innerOffset), param.BR - vec2(innerOffset)); if (innerRect.GetWidth() < outerOffset) innerRect.BR.x = innerRect.TL.x + outerOffset;
+		Rect borderRect = Rect(param.TL, param.BR);
 
 		drawList->AddRectFilled(borderRect.TL, borderRect.BR, param.ColorBorder);
-		drawList->AddRectFilled(outerRect.TL, outerRect.BR, param.ColorOuter);
-		drawList->AddRectFilled(innerRect.TL, innerRect.BR, param.ColorInner);
 
-		if (outerRect.GetWidth() > outerOffset)
-		{
+		Rect outerRect = Rect(param.TL + vec2(outerOffset), param.BR - vec2(outerOffset));
+		if (outerRect.GetWidth() < 1.0f) {
+			// prevent shrinking further but cannot preserve full outline; center and draw as a single line
+			outerRect.BR.x = outerRect.TL.x = param.TL.x + ClampBot(borderRect.GetWidth() / 2, 0.0f);
+			drawList->AddLine(outerRect.TL, outerRect.BR, param.ColorOuter);
+		}
+		else {
+			drawList->AddRectFilled(outerRect.TL, outerRect.BR, param.ColorOuter);
+		}
+
+		Rect innerRect = Rect(param.TL + vec2(innerOffset), param.BR - vec2(innerOffset));
+		if (innerRect.GetWidth() > 0) {
+			drawList->AddRectFilled(innerRect.TL, innerRect.BR, param.ColorInner);
+
 			const f32 triH = (param.BR.y - param.TL.y) - innerOffset;
 			const f32 triW = ClampTop(triH, (param.BR.x - param.TL.x) - innerOffset);
 			if (param.TriScaleL > 0.0f)
@@ -483,6 +491,16 @@ namespace PeepoDrumKit
 			else if (param.TriScaleR < 0.0f)
 				drawList->AddTriangleFilled(outerRect.BR, outerRect.BR - vec2(triW, triH), outerRect.BR - vec2(0.0f, triH), param.ColorOuter);
 		}
+
+		if (param.selected && borderRect.GetWidth() < 2 * outerOffset) { // border would be too thin; re-highlight
+			if (borderRect.GetWidth() < 1.0f) { // too thin even if re-highlighted; draw as single line
+				borderRect.BR.x = borderRect.TL.x = param.TL.x;
+				drawList->AddLine(borderRect.TL, borderRect.BR, param.ColorBorder);
+			}
+			else {
+				drawList->AddRectFilled(borderRect.TL, borderRect.BR, param.ColorBorder);
+			}
+		}
 	}
 
 	static void DrawTimelineGoGoTimeBackground(ImDrawList* drawList, vec2 tl, vec2 br, f32 animationScale, b8 selected)
@@ -490,17 +508,17 @@ namespace PeepoDrumKit
 		const f32 centerX = (br.x + tl.x) * 0.5f;
 		tl.x = Lerp(centerX, tl.x, animationScale);
 		br.x = Lerp(centerX, br.x, animationScale);
-		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 1.0f, selected ? TimelineGoGoBackgroundColorBorderSelected : TimelineGoGoBackgroundColorBorder, TimelineGoGoBackgroundColorOuter, TimelineGoGoBackgroundColorInner });
+		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 1.0f, selected ? TimelineGoGoBackgroundColorBorderSelected : TimelineGoGoBackgroundColorBorder, TimelineGoGoBackgroundColorOuter, TimelineGoGoBackgroundColorInner, selected });
 	}
 
 	static void DrawTimelineLyricsBackground(ImDrawList* drawList, vec2 tl, vec2 br, b8 selected)
 	{
-		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 0.0f, selected ? TimelineLyricsBackgroundColorBorderSelected : TimelineLyricsBackgroundColorBorder, TimelineLyricsBackgroundColorOuter, TimelineLyricsBackgroundColorInner });
+		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 0.0f, selected ? TimelineLyricsBackgroundColorBorderSelected : TimelineLyricsBackgroundColorBorder, TimelineLyricsBackgroundColorOuter, TimelineLyricsBackgroundColorInner, selected });
 	}
 
 	static void DrawTimelineJPOSScrollBackground(ImDrawList* drawList, vec2 tl, vec2 br, b8 selected)
 	{
-		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam{ tl, br, 1.0f, 1.0f, selected ? TimelineJPOSScrollBackgroundColorBorderSelected : TimelineJPOSScrollBackgroundColorBorder, TimelineJPOSScrollBackgroundColorOuter, TimelineJPOSScrollBackgroundColorInner });
+		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam{ tl, br, 1.0f, 1.0f, selected ? TimelineJPOSScrollBackgroundColorBorderSelected : TimelineJPOSScrollBackgroundColorBorder, TimelineJPOSScrollBackgroundColorOuter, TimelineJPOSScrollBackgroundColorInner, selected });
 	}
 
 	static void DrawTimelineContentWaveform(const ChartTimeline& timeline, ImDrawList* drawList, Time chartSongOffset, const Audio::WaveformMipChain& waveformL, const Audio::WaveformMipChain& waveformR, f32 waveformAnimation)
