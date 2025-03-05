@@ -2538,10 +2538,11 @@ namespace PeepoDrumKit
 								const b8 hasIsSelected = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::B8_IsSelected, isSelected);
 								assert(hasBeatStart && hasIsSelected);
 
+								// Note: Ignore negative-length body
 								const Beat beatMin = beatStart.Beat;
-								const Beat beatMax = hasBeatDuration ? (beatStart.Beat + beatDuration.Beat) : beatStart.Beat;
+								const Beat beatMax = hasBeatDuration ? (beatStart.Beat + ClampBot(beatDuration.Beat, Beat::Zero())) : beatStart.Beat;
 								b8 isXInsideSelectionBox;
-								if (hasTimeDuration) {
+								if (hasTimeDuration && timeDuration.F32 > 0) {
 									const Time timeMax = context.BeatToTime(beatMin) + Time::FromSec(timeDuration.F32);
 									isXInsideSelectionBox = (((beatMin <= selectionBeatMax) && (timeMax >= selectionTimeMin))
 										&& (!(xIntersectionTest == XIntersectionTest::Tips) || (beatMin >= selectionBeatMin) || (timeMax <= selectionTimeMax)));
