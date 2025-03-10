@@ -40,7 +40,7 @@ namespace PeepoDrumKit
 
 	constexpr b8 IsDonNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::DonBig); }
 	constexpr b8 IsKaNote(NoteType v) { return (v == NoteType::Ka) || (v == NoteType::KaBig); }
-	constexpr b8 IsSmallNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::Ka) || (v == NoteType::Drumroll) || (v == NoteType::Balloon); }
+	constexpr b8 IsSmallNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::Ka) || (v == NoteType::Drumroll) || (v == NoteType::Balloon) || (v == NoteType::Fuse); }
 	constexpr b8 IsBigNote(NoteType v) { return !IsSmallNote(v); }
 	constexpr b8 IsDrumrollNote(NoteType v) { return (v == NoteType::Drumroll) || (v == NoteType::DrumrollBig); }
 	constexpr b8 IsBalloonNote(NoteType v) { return (v == NoteType::Balloon) || (v == NoteType::BalloonSpecial) || (v == NoteType::Fuse); }
@@ -500,7 +500,10 @@ namespace PeepoDrumKit
 		// NOTE: Little helpers here just for convenience
 		Beat GetBeat(GenericList list) const;
 		Beat GetBeatDuration(GenericList list) const;
+		std::tuple<bool, Time> GetTimeDuration(GenericList list) const;
 		void SetBeat(GenericList list, Beat newValue);
+		void SetBeatDuration(GenericList list, Beat newValue);
+		void SetTimeDuration(GenericList list, Time newValue);
 
 		GenericListStruct(const GenericListStruct& other) {
 			// Perform a deep copy of data within the union and other members
@@ -518,7 +521,10 @@ namespace PeepoDrumKit
 
 		inline Beat GetBeat() const { return Value.GetBeat(List); }
 		inline Beat GetBeatDuration() const { return Value.GetBeatDuration(List); }
+		inline std::tuple<bool, Time> GetTimeDuration() const { return Value.GetTimeDuration(List); }
 		inline void SetBeat(Beat newValue) { Value.SetBeat(List, newValue); }
+		inline void SetBeatDuration(Beat newValue) { Value.SetBeatDuration(List, newValue); }
+		inline void SetTimeDuration(Time newValue) { Value.SetTimeDuration(List, newValue); }
 
 		// Default constructor
 		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}
@@ -556,7 +562,10 @@ namespace PeepoDrumKit
 		inline void SetIsSelected(ChartCourse& c, b8 isSelected) const { GenericMemberUnion v {}; v.B8 = isSelected; TrySetGeneric(c, List, Index, GenericMember::B8_IsSelected, v); }
 		inline Beat GetBeat(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Start, v); return v.Beat; }
 		inline Beat GetBeatDuration(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Duration, v); return v.Beat; }
+		inline std::tuple<bool, Time> GetTimeDuration(const ChartCourse& c) const { GenericMemberUnion v{}; return { TryGetGeneric(c, List, Index, GenericMember::F32_JPOSScrollDuration, v), Time::FromSec(v.F32) }; }
 		inline void SetBeat(ChartCourse& c, Beat beat) const { GenericMemberUnion v {}; v.Beat = beat; TrySetGeneric(c, List, Index, GenericMember::Beat_Start, v); }
+		inline void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { GenericMemberUnion v{}; v.Beat = beatDuration; TrySetGeneric(c, List, Index, GenericMember::Beat_Duration, v); }
+		inline void SetTimeDuration(ChartCourse& c, Time timeDuration) const { GenericMemberUnion v{}; v.F32 = timeDuration.Seconds; TrySetGeneric(c, List, Index, GenericMember::F32_JPOSScrollDuration, v); }
 	};
 
 	template <typename Func>

@@ -629,7 +629,7 @@ struct Time
 	constexpr Time operator*(const i32 other) const { return FromSec(Seconds * other); }
 
 	constexpr f64 operator/(const Time& other) const { return Seconds / other.Seconds; }
-	constexpr f64 operator/(const f64 other) const { return Seconds / other; }
+	constexpr Time operator/(const f64 other) const { return Time::FromSec(Seconds / other); }
 
 	constexpr Time operator+() const { return Time(+Seconds); }
 	constexpr Time operator-() const { return Time(-Seconds); }

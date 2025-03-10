@@ -65,6 +65,11 @@ namespace PeepoDrumKit
 				{ "Timeline Lyrics Background Outer", &TimelineLyricsBackgroundColorOuter },
 				{ "Timeline Lyrics Background Inner", &TimelineLyricsBackgroundColorInner },
 				NamedColorU32Pointer {},
+				{ "Timeline JPosScroll Background Border", &TimelineJPOSScrollBackgroundColorBorder },
+				{ "Timeline JPosScroll Background Border (Selected)", &TimelineJPOSScrollBackgroundColorBorderSelected },
+				{ "Timeline JPosScroll Background Outer", &TimelineJPOSScrollBackgroundColorOuter },
+				{ "Timeline JPosScroll Background Inner", &TimelineJPOSScrollBackgroundColorInner },
+				NamedColorU32Pointer {},
 				{ "Timeline Horizontal Row Line", &TimelineHorizontalRowLineColor },
 				{ "Grid Bar Line", &TimelineGridBarLineColor },
 				{ "Grid Beat Line", &TimelineGridBeatLineColor },
@@ -87,7 +92,6 @@ namespace PeepoDrumKit
 				{ "Timeline Scroll Change Line", &TimelineScrollChangeLineColor },
 				{ "Timeline Scroll Change (Complex) Line", &TimelineScrollChangeComplexLineColor },
 				{ "Timeline Scroll Type Line", &TimelineScrollTypeLineColor },
-				{ "Timeline JPOSScroll Change Line", &TimelineJPOSScrollChangeLineColor },
 				{ "Timeline Bar Line Change Line", &TimelineBarLineChangeLineColor },
 				{ "Timeline Selected Item Line", &TimelineSelectedItemLineColor },
 				NamedColorU32Pointer {},
@@ -452,21 +456,29 @@ namespace PeepoDrumKit
 		Gui::DisableFontPixelSnap(false);
 	}
 
-	struct DrawTimelineRectBaseParam { vec2 TL, BR; f32 TriScaleL, TriScaleR; u32 ColorBorder, ColorOuter, ColorInner; };
+	struct DrawTimelineRectBaseParam { vec2 TL, BR; f32 TriScaleL, TriScaleR; u32 ColorBorder, ColorOuter, ColorInner; b8 selected; };
 	static void DrawTimelineRectBaseWithStartEndTriangles(ImDrawList* drawList, DrawTimelineRectBaseParam param)
 	{
 		const f32 outerOffset = ClampBot(GuiScale(2.0f), 1.0f);
 		const f32 innerOffset = ClampBot(GuiScale(5.0f), 1.0f);
-		const Rect borderRect = Rect(param.TL, param.BR);
-		Rect outerRect = Rect(param.TL + vec2(outerOffset), param.BR - vec2(outerOffset)); if (outerRect.GetWidth() < outerOffset) outerRect.BR.x = outerRect.TL.x + outerOffset;
-		Rect innerRect = Rect(param.TL + vec2(innerOffset), param.BR - vec2(innerOffset)); if (innerRect.GetWidth() < outerOffset) innerRect.BR.x = innerRect.TL.x + outerOffset;
+		Rect borderRect = Rect(param.TL, param.BR);
 
 		drawList->AddRectFilled(borderRect.TL, borderRect.BR, param.ColorBorder);
-		drawList->AddRectFilled(outerRect.TL, outerRect.BR, param.ColorOuter);
-		drawList->AddRectFilled(innerRect.TL, innerRect.BR, param.ColorInner);
 
-		if (outerRect.GetWidth() > outerOffset)
-		{
+		Rect outerRect = Rect(param.TL + vec2(outerOffset), param.BR - vec2(outerOffset));
+		if (outerRect.GetWidth() < 1.0f) {
+			// prevent shrinking further but cannot preserve full outline; center and draw as a single line
+			outerRect.BR.x = outerRect.TL.x = param.TL.x + ClampBot(borderRect.GetWidth() / 2, 0.0f);
+			drawList->AddLine(outerRect.TL, outerRect.BR, param.ColorOuter);
+		}
+		else {
+			drawList->AddRectFilled(outerRect.TL, outerRect.BR, param.ColorOuter);
+		}
+
+		Rect innerRect = Rect(param.TL + vec2(innerOffset), param.BR - vec2(innerOffset));
+		if (innerRect.GetWidth() > 0) {
+			drawList->AddRectFilled(innerRect.TL, innerRect.BR, param.ColorInner);
+
 			const f32 triH = (param.BR.y - param.TL.y) - innerOffset;
 			const f32 triW = ClampTop(triH, (param.BR.x - param.TL.x) - innerOffset);
 			if (param.TriScaleL > 0.0f)
@@ -479,6 +491,16 @@ namespace PeepoDrumKit
 			else if (param.TriScaleR < 0.0f)
 				drawList->AddTriangleFilled(outerRect.BR, outerRect.BR - vec2(triW, triH), outerRect.BR - vec2(0.0f, triH), param.ColorOuter);
 		}
+
+		if (param.selected && borderRect.GetWidth() < 2 * outerOffset) { // border would be too thin; re-highlight
+			if (borderRect.GetWidth() < 1.0f) { // too thin even if re-highlighted; draw as single line
+				borderRect.BR.x = borderRect.TL.x = param.TL.x;
+				drawList->AddLine(borderRect.TL, borderRect.BR, param.ColorBorder);
+			}
+			else {
+				drawList->AddRectFilled(borderRect.TL, borderRect.BR, param.ColorBorder);
+			}
+		}
 	}
 
 	static void DrawTimelineGoGoTimeBackground(ImDrawList* drawList, vec2 tl, vec2 br, f32 animationScale, b8 selected)
@@ -486,12 +508,17 @@ namespace PeepoDrumKit
 		const f32 centerX = (br.x + tl.x) * 0.5f;
 		tl.x = Lerp(centerX, tl.x, animationScale);
 		br.x = Lerp(centerX, br.x, animationScale);
-		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 1.0f, selected ? TimelineGoGoBackgroundColorBorderSelected : TimelineGoGoBackgroundColorBorder, TimelineGoGoBackgroundColorOuter, TimelineGoGoBackgroundColorInner });
+		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 1.0f, selected ? TimelineGoGoBackgroundColorBorderSelected : TimelineGoGoBackgroundColorBorder, TimelineGoGoBackgroundColorOuter, TimelineGoGoBackgroundColorInner, selected });
 	}
 
 	static void DrawTimelineLyricsBackground(ImDrawList* drawList, vec2 tl, vec2 br, b8 selected)
 	{
-		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 0.0f, selected ? TimelineLyricsBackgroundColorBorderSelected : TimelineLyricsBackgroundColorBorder, TimelineLyricsBackgroundColorOuter, TimelineLyricsBackgroundColorInner });
+		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam { tl, br, 1.0f, 0.0f, selected ? TimelineLyricsBackgroundColorBorderSelected : TimelineLyricsBackgroundColorBorder, TimelineLyricsBackgroundColorOuter, TimelineLyricsBackgroundColorInner, selected });
+	}
+
+	static void DrawTimelineJPOSScrollBackground(ImDrawList* drawList, vec2 tl, vec2 br, b8 selected)
+	{
+		DrawTimelineRectBaseWithStartEndTriangles(drawList, DrawTimelineRectBaseParam{ tl, br, 1.0f, 1.0f, selected ? TimelineJPOSScrollBackgroundColorBorderSelected : TimelineJPOSScrollBackgroundColorBorder, TimelineJPOSScrollBackgroundColorOuter, TimelineJPOSScrollBackgroundColorInner, selected });
 	}
 
 	static void DrawTimelineContentWaveform(const ChartTimeline& timeline, ImDrawList* drawList, Time chartSongOffset, const Audio::WaveformMipChain& waveformL, const Audio::WaveformMipChain& waveformR, f32 waveformAnimation)
@@ -570,11 +597,13 @@ namespace PeepoDrumKit
 
 				const vec2 localTL = vec2(timeline.Camera.TimeToLocalSpaceX(startTime), rowIt.LocalY);
 				const vec2 localCenter = localTL + vec2(0.0f, rowIt.LocalHeight * 0.5f);
+				vec2 localTR = localTL;
+				vec2 localCenterEnd = localCenter;
 
 				if (it.BeatDuration > Beat::Zero())
 				{
-					const vec2 localTR = vec2(timeline.Camera.TimeToLocalSpaceX(endTime), rowIt.LocalY);
-					const vec2 localCenterEnd = localTR + vec2(0.0f, rowIt.LocalHeight * 0.5f);
+					localTR = vec2(timeline.Camera.TimeToLocalSpaceX(endTime), rowIt.LocalY);
+					localCenterEnd = localTR + vec2(0.0f, rowIt.LocalHeight * 0.5f);
 					DrawTimelineNoteDuration(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), timeline.LocalToScreenSpace(localCenterEnd), it.Type);
 				}
 
@@ -591,6 +620,8 @@ namespace PeepoDrumKit
 
 					const vec2 hitBoxSize = vec2(GuiScale((IsBigNote(it.Type) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall)));
 					timeline.TempSelectionBoxesDrawBuffer.push_back(ChartTimeline::TempDrawSelectionBox { Rect::FromCenterSize(timeline.LocalToScreenSpace(localCenter - vec2(localSpaceTimeOffsetX, 0.0f)), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
+					if (it.BeatDuration > Beat::Zero())
+						timeline.TempSelectionBoxesDrawBuffer.push_back(ChartTimeline::TempDrawSelectionBox{ Rect::FromCenterSize(timeline.LocalToScreenSpace(localCenterEnd - vec2(localSpaceTimeOffsetX, 0.0f)), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
 				}
 			}
 
@@ -714,7 +745,11 @@ namespace PeepoDrumKit
 			for (const auto& it : list)
 			{
 				const Time startTime = context.BeatToTime(GetBeat(it));
-				if (startTime < visibleTime.Min || startTime > visibleTime.Max)
+				Time endTime = startTime;
+				if constexpr (std::is_same_v<T, JPOSScrollChange>) {
+					endTime = startTime + Time::FromSec(it.Duration);
+				}
+				if (endTime < visibleTime.Min || startTime > visibleTime.Max)
 					continue;
 
 				const vec2 localSpaceTL = vec2(camera.TimeToLocalSpaceX(startTime), rowIt.LocalY);
@@ -730,11 +765,21 @@ namespace PeepoDrumKit
 					if constexpr (std::is_same_v<T, ScrollChange>) { text = std::string_view(b, sprintf_s(b, "%sx", it.ScrollSpeed.toString().c_str())); lineColor = it.ScrollSpeed.IsReal() ? TimelineScrollChangeLineColor : TimelineScrollChangeComplexLineColor; }
 					if constexpr (std::is_same_v<T, BarLineChange>) { text = it.IsVisible ? "On" : "Off"; lineColor = TimelineBarLineChangeLineColor; }
 					if constexpr (std::is_same_v<T, ScrollType>) { text = std::string_view(b, sprintf_s(b, "%s", it.Method_ToString().c_str())); lineColor = TimelineScrollTypeLineColor; }
-					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s (%g)", it.Move.toString().c_str(), it.Duration)); lineColor = TimelineJPOSScrollChangeLineColor; }
+					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s", it.Move.toString().c_str())); }
 
 					const vec2 textSize = Gui::CalcTextSize(text);
+
 					drawListContent->AddRectFilled(vec2(timeline.LocalToScreenSpace(localSpaceTL).x, textPosition.y), textPosition + textSize, TimelineBackgroundColor);
-					drawListContent->AddLine(timeline.LocalToScreenSpace(localSpaceTL + vec2(0.0f, 1.0f)), timeline.LocalToScreenSpace(localSpaceBL), it.IsSelected ? TimelineSelectedItemLineColor : lineColor);
+					if constexpr (std::is_same_v<T, JPOSScrollChange>) {
+						// draw bar background; still need the simple text background if too narrow
+						static constexpr f32 margin = 1.0f;
+						const vec2 localTL = vec2(camera.TimeToLocalSpaceX(startTime), 0.0f) + vec2(0.0f, rowIt.LocalY + margin);
+						const vec2 localBR = vec2(camera.TimeToLocalSpaceX(endTime), 0.0f) + vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight - (margin * 2.0f));
+						DrawTimelineJPOSScrollBackground(drawListContent, timeline.LocalToScreenSpace(localTL) + vec2(0.0f, 2.0f), timeline.LocalToScreenSpace(localBR), it.IsSelected);
+					}
+					else {
+						drawListContent->AddLine(timeline.LocalToScreenSpace(localSpaceTL + vec2(0.0f, 1.0f)), timeline.LocalToScreenSpace(localSpaceBL), it.IsSelected ? TimelineSelectedItemLineColor : lineColor);
+					}
 					Gui::AddTextWithDropShadow(drawListContent, textPosition, textColor, text, TimelineItemTextColorShadow);
 
 					if (it.IsSelected)
@@ -1561,12 +1606,12 @@ namespace PeepoDrumKit
 					{
 						auto& data = noteTypesToChange.emplace_back();
 						data.Index = ArrayItToIndex(&note, &notes[0]);
-						data.NewType = FlipNote(note.Type);
+						data.NewValue = FlipNote(note.Type);
 						note.ClickAnimationTimeRemaining = note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 					}
 				}
 
-				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewType));
+				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewValue));
 				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_FlipTypes>(&notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
@@ -1590,12 +1635,12 @@ namespace PeepoDrumKit
 					{
 						auto& data = noteTypesToChange.emplace_back();
 						data.Index = ArrayItToIndex(&note, &notes[0]);
-						data.NewType = ToggleNoteSize(note.Type);
+						data.NewValue = ToggleNoteSize(note.Type);
 						note.ClickAnimationTimeRemaining = note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 					}
 				}
 
-				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewType));
+				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewValue));
 				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_ToggleSizes>(&notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
@@ -1620,6 +1665,10 @@ namespace PeepoDrumKit
 
 				auto& itemToAdd = itemsToAdd.emplace_back(itemToRemove);
 				itemToAdd.SetBeat((((itemToAdd.GetBeat() - firstBeat) / param.TimeRatio[1]) * param.TimeRatio[0]) + firstBeat);
+				if (itemToAdd.GetBeatDuration() > Beat::Zero())
+					itemToAdd.SetBeatDuration(Max(Beat::FromTicks(1), (itemToAdd.GetBeatDuration() / param.TimeRatio[1]) * param.TimeRatio[0]));
+				if (auto [hasTimeDuration, timeDuration] = itemToAdd.GetTimeDuration(); hasTimeDuration)
+					itemToAdd.SetTimeDuration((timeDuration / param.TimeRatio[1]) * param.TimeRatio[0]);
 
 				if (IsNotesList(itemToAdd.List))
 					itemToAdd.Value.POD.Note.ClickAnimationTimeRemaining = itemToAdd.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
@@ -1765,14 +1814,14 @@ namespace PeepoDrumKit
 					atLeastOneSelectedItemIsTempoChange |= (it.List == GenericList::TempoChanges);
 				});
 
-				if (SelectedItemDrag.IsActive && !Gui::IsMouseDown(ImGuiMouseButton_Left))
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None && !Gui::IsMouseDown(ImGuiMouseButton_Left))
 					SelectedItemDrag = {};
 
-				SelectedItemDrag.IsHovering = false;
+				SelectedItemDrag.HoverTarget = EDragTarget::None;
 				SelectedItemDrag.MouseBeatLastFrame = SelectedItemDrag.MouseBeatThisFrame;
 				SelectedItemDrag.MouseBeatThisFrame = FloorBeatToCurrentGrid(context.TimeToBeat(Camera.LocalSpaceXToTime(ScreenToLocalSpace(MousePosThisFrame).x)));
 
-				if (selectedItemCount > 0 && IsContentWindowHovered && !SelectedItemDrag.IsActive)
+				if (selectedItemCount > 0 && IsContentWindowHovered && SelectedItemDrag.ActiveTarget == EDragTarget::None)
 				{
 					ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
 					{
@@ -1784,36 +1833,49 @@ namespace PeepoDrumKit
 
 						for (size_t i = 0; i < GetGenericListCount(selectedCourse, list); i++)
 						{
-							GenericMemberUnion beatStart, beatDuration, isSelected, noteType;
+							GenericMemberUnion beatStart, beatDuration, isSelected, noteType, timeDuration;
 							if (TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, isSelected) && isSelected.B8)
 							{
 								const b8 hasBeatStart = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, beatStart);
 								const b8 hasBeatDuration = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, beatDuration);
+								const b8 hasTimeDuration = TryGetGeneric(selectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, timeDuration);
 
-								Rect screenHitbox = {};
-								if (isNotesRow)
-								{
+								const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
+								vec2 centerTail = center;
+
+								f32 hitboxSize = TimelineSelectedNoteHitBoxSizeSmall;
+								if (isNotesRow) {
 									TryGetGeneric(selectedCourse, list, i, GenericMember::NoteType_V, noteType);
-
-									const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
-									screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(IsBigNote(noteType.NoteType) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall)));
+									hitboxSize = (IsBigNote(noteType.NoteType) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall);
 								}
-								else
-								{
+
+								Rect screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(hitboxSize)));
+								Rect screenHitboxTail = screenHitbox;
+								if (hasBeatDuration && beatDuration.Beat > Beat::Zero()) {
 									// TODO: Proper hitboxses (at least for gogo range and lyrics?)
-									const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
-									screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(TimelineSelectedNoteHitBoxSizeSmall)));
+									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat + beatDuration.Beat)), 0.0f)).x, screenRectCenter.y);
+									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
+								}
+								else if (hasTimeDuration) {
+									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat) + Time::FromSec(timeDuration.F32)), 0.0f)).x, screenRectCenter.y);
+									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
 								}
 
-								if (screenHitbox.Contains(MousePosThisFrame))
-								{
-									SelectedItemDrag.IsHovering = true;
-									if (Gui::IsMouseClicked(ImGuiMouseButton_Left))
+								for (const auto& [hitbox, target] : {
+									std::make_tuple(screenHitbox, EDragTarget::Body),
+									std::make_tuple(screenHitboxTail, EDragTarget::Tail),
+									}) {
+									if (hitbox.Contains(MousePosThisFrame))
 									{
-										SelectedItemDrag.IsActive = true;
-										SelectedItemDrag.BeatOnMouseDown = SelectedItemDrag.MouseBeatThisFrame;
-										SelectedItemDrag.BeatDistanceMovedSoFar = Beat::Zero();
-										context.Undo.DisallowMergeForLastCommand();
+										SelectedItemDrag.HoverTarget = target;
+										if (Gui::IsMouseClicked(ImGuiMouseButton_Left))
+										{
+											SelectedItemDrag.ActiveTarget = target;
+											SelectedItemDrag.BeatOnMouseDown = SelectedItemDrag.MouseBeatThisFrame;
+											SelectedItemDrag.BeatDistanceMovedSoFar = Beat::Zero();
+											context.Undo.DisallowMergeForLastCommand();
+										}
+										break;
 									}
 								}
 							}
@@ -1821,10 +1883,10 @@ namespace PeepoDrumKit
 					});
 				}
 
-				if (SelectedItemDrag.IsActive || SelectedItemDrag.IsHovering)
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None || SelectedItemDrag.HoverTarget != EDragTarget::None)
 					Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 
-				if (SelectedItemDrag.IsActive)
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None)
 				{
 					// TODO: Maybe should set active ID here too... thought that then conflicts with WindowIsHovered and other actions
 					// Gui::SetActiveID(Gui::GetID(&SelectedItemDrag), Gui::GetCurrentWindow());
@@ -1832,12 +1894,13 @@ namespace PeepoDrumKit
 					context.Undo.ResetMergeTimeThresholdStopwatch();
 				}
 
-				if (SelectedItemDrag.IsActive)
+				if (SelectedItemDrag.ActiveTarget != EDragTarget::None)
 				{
 					auto itemSelected = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, out); return out.B8; };
 					auto itemStart = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, out); return out.Beat; };
 					auto itemDuration = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, out); return out.Beat; };
-					auto checkCanSelectedItemsBeMoved = [&](GenericList list, Beat beatIncrement) -> b8
+					auto itemTimeDuration = [&](GenericList list, size_t i) -> std::tuple<bool, Time> { GenericMemberUnion out; return { TryGetGeneric(selectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, out), Time::FromSec(out.F32) }; };
+					auto checkCanSelectedItemsBeDragged = [&](GenericList list, Beat beatIncrement, b8 tailOnly) -> b8
 					{
 						const i32 listCount = static_cast<i32>(GetGenericListCount(selectedCourse, list));
 						if (listCount <= 0)
@@ -1853,7 +1916,9 @@ namespace PeepoDrumKit
 							{
 								const i32 nextIndex = thisIndex + 1;
 								const b8 hasNext = (nextIndex < listCount);
-								if (itemSelected(list, thisIndex) && hasNext && !itemSelected(list, nextIndex))
+								if (itemSelected(list, thisIndex) && hasNext
+									&& (tailOnly ? (itemDuration(list, thisIndex) > Beat::Zero()) : !itemSelected(list, nextIndex))
+									)
 								{
 									const Beat thisEnd = itemStart(list, thisIndex) + itemDuration(list, thisIndex);
 									const Beat nextStart = itemStart(list, nextIndex);
@@ -1866,6 +1931,27 @@ namespace PeepoDrumKit
 									{
 										if (thisEnd + beatIncrement > nextStart)
 											return false;
+									}
+								}
+							}
+						}
+						else if (tailOnly)
+						{
+							for (i32 thisIndex = 0; thisIndex < listCount; thisIndex++)
+							{
+								if (!itemSelected(list, thisIndex))
+									continue;
+								if (itemDuration(list, thisIndex) > Beat::Zero()) {
+									if (itemDuration(list, thisIndex) + beatIncrement <= Beat::Zero())
+										return false;
+								}
+								else if (auto [hasTimeDuration, timeDuration] = itemTimeDuration(list, thisIndex); hasTimeDuration) {
+									const Time startTime = context.BeatToTime(itemStart(list, thisIndex));
+									const Time endTime = startTime + timeDuration;
+									const Beat endBeatTrunc = context.TimeToBeat(endTime, true);
+									const Beat beatDurationTrunc = endBeatTrunc - itemStart(list, thisIndex);
+									if (beatDurationTrunc + beatIncrement < Beat::Zero()) {
+										return false;
 									}
 								}
 							}
@@ -1910,9 +1996,10 @@ namespace PeepoDrumKit
 
 					if (dragBeatIncrement != Beat::Zero() && wasMouseMovedOrScrolled)
 					{
+						const b8 isTail = (SelectedItemDrag.ActiveTarget == EDragTarget::Tail);
 						b8 allItemsCanBeMoved = true;
 						for (GenericList list = {}; list < GenericList::Count; IncrementEnum(list))
-							allItemsCanBeMoved &= checkCanSelectedItemsBeMoved(list, dragBeatIncrement);
+							allItemsCanBeMoved &= checkCanSelectedItemsBeDragged(list, dragBeatIncrement, isTail);
 
 						if (allItemsCanBeMoved)
 						{
@@ -1924,9 +2011,15 @@ namespace PeepoDrumKit
 								std::vector<Commands::ChangeMultipleNoteBeats::Data> noteBeatsToChange;
 								noteBeatsToChange.reserve(selectedItemCount);
 								for (const Note& note : notes)
-									if (note.IsSelected) { auto& data = noteBeatsToChange.emplace_back(); data.Index = ArrayItToIndex(&note, &notes[0]); data.NewBeat = (note.BeatTime + dragBeatIncrement); }
-
-								context.Undo.Execute<Commands::ChangeMultipleNoteBeats_MoveNotes>(&notes, std::move(noteBeatsToChange));
+									if (note.IsSelected && !(isTail && note.BeatDuration <= Beat::Zero())) {
+										auto& data = noteBeatsToChange.emplace_back();
+										data.Index = ArrayItToIndex(&note, &notes[0]);
+										data.NewValue = ((isTail ? note.BeatDuration : note.BeatTime) + dragBeatIncrement);
+									}
+								if (isTail)
+									context.Undo.Execute<Commands::ChangeMultipleNoteBeatDurations_AdjustRollNoteDurations>(&notes, std::move(noteBeatsToChange));
+								else
+									context.Undo.Execute<Commands::ChangeMultipleNoteBeats_MoveNotes>(&notes, std::move(noteBeatsToChange));
 							}
 							else
 							{
@@ -1938,11 +2031,32 @@ namespace PeepoDrumKit
 									auto& data = itemsToChange.emplace_back();
 									data.Index = it.Index;
 									data.List = it.List;
-									data.Member = GenericMember::Beat_Start;
-									data.NewValue.Beat = it.GetBeat(selectedCourse) + dragBeatIncrement;
+									if (!isTail) {
+										data.Member = GenericMember::Beat_Start;
+										data.NewValue.Beat = it.GetBeat(selectedCourse) + dragBeatIncrement;
+									}
+									else if (auto beatDuration = it.GetBeatDuration(selectedCourse); beatDuration > Beat::Zero()) {
+										data.Member = GenericMember::Beat_Duration;
+										data.NewValue.Beat = beatDuration + dragBeatIncrement;
+									}
+									else if (auto [hasTimeDuration, timeDuration] = it.GetTimeDuration(selectedCourse); hasTimeDuration) {
+										data.Member = GenericMember::F32_JPOSScrollDuration;
+										const Beat startBeat = it.GetBeat(selectedCourse);
+										const Time startTime = context.BeatToTime(it.GetBeat(selectedCourse));
+										const Time endTime = startTime + timeDuration;
+										const Beat endBeatTrunc = context.TimeToBeat(endTime, true);
+										const Time residualTime = endTime - context.BeatToTime(endBeatTrunc);
+										data.NewValue.F32 = (context.BeatToTime(endBeatTrunc + dragBeatIncrement) + residualTime - startTime).Seconds;
+									}
+									else {
+										itemsToChange.pop_back(); // no changes
+									}
 								});
 
-								context.Undo.Execute<Commands::ChangeMultipleGenericProperties_MoveItems>(&selectedCourse, std::move(itemsToChange));
+								if (isTail)
+									context.Undo.Execute<Commands::ChangeMultipleGenericProperties_AdjustItemDurations>(&selectedCourse, std::move(itemsToChange));
+								else
+									context.Undo.Execute<Commands::ChangeMultipleGenericProperties_MoveItems>(&selectedCourse, std::move(itemsToChange));
 							}
 
 							for (const Note& note : notes)
@@ -1956,7 +2070,7 @@ namespace PeepoDrumKit
 				}
 			}
 
-			if (IsContentWindowHovered && !SelectedItemDrag.IsHovering && Gui::IsMouseClicked(ImGuiMouseButton_Left))
+			if (IsContentWindowHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
 			{
 				const Time oldCursorTime = context.GetCursorTime();
 				const f32 oldCursorLocalSpaceX = Camera.TimeToLocalSpaceX(oldCursorTime);
@@ -1988,7 +2102,7 @@ namespace PeepoDrumKit
 
 			// NOTE: Header bar cursor scrubbing
 			{
-				if (IsContentHeaderWindowHovered && !SelectedItemDrag.IsHovering && Gui::IsMouseClicked(ImGuiMouseButton_Left))
+				if (IsContentHeaderWindowHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
 					IsCursorMouseScrubActive = true;
 
 				if (!Gui::IsMouseDown(ImGuiMouseButton_Left) || !Gui::IsMousePosValid())
@@ -2394,32 +2508,50 @@ namespace PeepoDrumKit
 					{
 						const vec2 screenSelectionMin = LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.GetMin()));
 						const vec2 screenSelectionMax = LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.GetMax()));
-						const Beat selectionBeatMin = context.TimeToBeat(Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMin().x));
-						const Beat selectionBeatMax = context.TimeToBeat(Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMax().x));
+						const Time selectionTimeMin = Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMin().x);
+						const Time selectionTimeMax = Camera.WorldSpaceXToTime(BoxSelection.WorldSpaceRect.GetMax().x);
+						const Beat selectionBeatMin = context.TimeToBeat(selectionTimeMin);
+						const Beat selectionBeatMax = context.TimeToBeat(selectionTimeMax);
 
 						ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
 						{
 							const GenericList list = TimelineRowToGenericList(rowIt.RowType);
 							const b8 isNotesRow = IsNotesList(list);
 
-							enum class IntersectionTest : u8 { Center, FullRow };
-							const IntersectionTest intersectionTest = (list == GenericList::GoGoRanges || list == GenericList::Lyrics) ? IntersectionTest::FullRow : IntersectionTest::Center;
+							enum class XIntersectionTest : u8 { Tips, Full };
+							enum class YIntersectionTest : u8 { Center, FullRow };
+							const XIntersectionTest xIntersectionTest = IsNotesList(list) ? XIntersectionTest::Tips : XIntersectionTest::Full;
+							const YIntersectionTest yIntersectionTest = (list == GenericList::GoGoRanges || list == GenericList::Lyrics || list == GenericList::JPOSScroll) ?
+								YIntersectionTest::FullRow
+								: YIntersectionTest::Center;
 
 							const Rect screenRowRect = Rect(LocalToScreenSpace(vec2(0.0f, rowIt.LocalY)), LocalToScreenSpace(vec2(Regions.Content.GetWidth(), rowIt.LocalY + rowIt.LocalHeight)));
-							const f32 screenMinY = (intersectionTest == IntersectionTest::Center) ? screenRowRect.GetCenter().y : screenRowRect.TL.y;
-							const f32 screenMaxY = (intersectionTest == IntersectionTest::Center) ? screenRowRect.GetCenter().y : screenRowRect.BR.y;
+							const f32 screenMinY = (yIntersectionTest == YIntersectionTest::Center) ? screenRowRect.GetCenter().y : screenRowRect.TL.y;
+							const f32 screenMaxY = (yIntersectionTest == YIntersectionTest::Center) ? screenRowRect.GetCenter().y : screenRowRect.BR.y;
 
 							for (size_t i = 0; i < GetGenericListCount(*context.ChartSelectedCourse, list); i++)
 							{
-								GenericMemberUnion beatStart, beatDuration, isSelected;
+								GenericMemberUnion beatStart, beatDuration, timeDuration, isSelected;
 								const b8 hasBeatStart = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::Beat_Start, beatStart);
 								const b8 hasBeatDuration = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::Beat_Duration, beatDuration);
+								const b8 hasTimeDuration = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, timeDuration);
 								const b8 hasIsSelected = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::B8_IsSelected, isSelected);
 								assert(hasBeatStart && hasIsSelected);
 
+								// Note: Ignore negative-length body
 								const Beat beatMin = beatStart.Beat;
-								const Beat beatMax = (hasBeatDuration && !isNotesRow) ? (beatStart.Beat + beatDuration.Beat) : beatStart.Beat;
-								const b8 isInsideSelectionBox = (beatMin <= selectionBeatMax) && (beatMax >= selectionBeatMin) && (screenMinY <= screenSelectionMax.y) && (screenMaxY >= screenSelectionMin.y);
+								const Beat beatMax = hasBeatDuration ? (beatStart.Beat + ClampBot(beatDuration.Beat, Beat::Zero())) : beatStart.Beat;
+								b8 isXInsideSelectionBox;
+								if (hasTimeDuration && timeDuration.F32 > 0) {
+									const Time timeMax = context.BeatToTime(beatMin) + Time::FromSec(timeDuration.F32);
+									isXInsideSelectionBox = (((beatMin <= selectionBeatMax) && (timeMax >= selectionTimeMin))
+										&& (!(xIntersectionTest == XIntersectionTest::Tips) || (beatMin >= selectionBeatMin) || (timeMax <= selectionTimeMax)));
+								}
+								else {
+									isXInsideSelectionBox = (((beatMin <= selectionBeatMax) && (beatMax >= selectionBeatMin))
+										&& (!(xIntersectionTest == XIntersectionTest::Tips) || (beatMin >= selectionBeatMin) || (beatMax <= selectionBeatMax)));
+								}
+								const b8 isInsideSelectionBox = isXInsideSelectionBox && (screenMinY <= screenSelectionMax.y) && (screenMaxY >= screenSelectionMin.y);
 
 								switch (BoxSelection.Action)
 								{
