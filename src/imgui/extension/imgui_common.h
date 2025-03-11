@@ -37,7 +37,7 @@ namespace ImGui
 	void AddTextCentered(ImDrawList* drawList, Rect rectToCenterWithin, std::string_view text, Rect clippingRect);
 
 	void AddTextWithDropShadow(ImDrawList* drawList, vec2 textPosition, u32 textColor, std::string_view text, u32 shadowColor = 0xFF000000, vec2 shadowOffset = vec2(1.0f));
-	void AddTextWithDropShadow(ImDrawList* drawList, const ImFont* font, f32 fontSize, vec2 textPosition, u32 textColor, std::string_view text, f32 wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = nullptr, u32 shadowColor = 0xFF000000, vec2 shadowOffset = vec2(1.0f));
+	void AddTextWithDropShadow(ImDrawList* drawList, ImFont* font, f32 fontSize, vec2 textPosition, u32 textColor, std::string_view text, f32 wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = nullptr, u32 shadowColor = 0xFF000000, vec2 shadowOffset = vec2(1.0f));
 
 	b8 InputText(cstr label, std::string* str, ImGuiInputTextFlags flags = 0, ImGuiInputTextCallback callback = nullptr, void* user_data = nullptr);
 	b8 InputTextMultiline(cstr label, std::string* str, const ImVec2& size = ImVec2(0, 0), ImGuiInputTextFlags flags = 0, ImGuiInputTextCallback callback = nullptr, void* user_data = nullptr);

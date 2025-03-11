@@ -99,7 +99,7 @@ namespace ImGui
 		drawList->AddText(textPosition, textColor, StringViewStart(text), StringViewEnd(text));
 	}
 
-	void AddTextWithDropShadow(ImDrawList* drawList, const ImFont* font, f32 fontSize, vec2 textPosition, u32 textColor, std::string_view text, f32 wrap_width, const ImVec4* cpu_fine_clip_rect, u32 shadowColor, vec2 shadowOffset)
+	void AddTextWithDropShadow(ImDrawList* drawList, ImFont* font, f32 fontSize, vec2 textPosition, u32 textColor, std::string_view text, f32 wrap_width, const ImVec4* cpu_fine_clip_rect, u32 shadowColor, vec2 shadowOffset)
 	{
 		drawList->AddText(font, fontSize, textPosition + shadowOffset, shadowColor, StringViewStart(text), StringViewEnd(text), wrap_width, cpu_fine_clip_rect);
 		drawList->AddText(font, fontSize, textPosition, textColor, StringViewStart(text), StringViewEnd(text), wrap_width, cpu_fine_clip_rect);

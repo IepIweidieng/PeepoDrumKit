@@ -446,7 +446,7 @@ namespace PeepoDrumKit
 	static void DrawTimelineNoteBalloonPopCount(ChartGraphicsResources& gfx, ImDrawList* drawList, vec2 center, f32 scale, i32 popCount)
 	{
 		char buffer[32]; const auto text = std::string_view(buffer, sprintf_s(buffer, "%d", popCount));
-		const ImFont* font = FontLarge_EN;
+		ImFont* const font = FontLarge_EN;
 		const f32 fontSize = (font->FontSize * scale);
 		const vec2 textSize = font->CalcTextSizeA(fontSize, F32Max, -1.0f, Gui::StringViewStart(text), Gui::StringViewEnd(text));
 		const vec2 textPosition = (center - (textSize * 0.5f)) - vec2(0.0f, 1.0f);
