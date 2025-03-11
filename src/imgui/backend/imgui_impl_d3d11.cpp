@@ -490,7 +490,7 @@ void ImGui_ImplDX11_InvalidateDeviceObjects()
 		return;
 
 	if (bd->FontSampler) { bd->FontSampler->Release(); bd->FontSampler = nullptr; }
-	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(nullptr); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
+	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(0); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
 	if (bd->IndexBuffer) { bd->IndexBuffer->Release(); bd->IndexBuffer = nullptr; }
 	if (bd->VertexBuffer) { bd->VertexBuffer->Release(); bd->VertexBuffer = nullptr; }
 	if (bd->BlendState) { bd->BlendState->Release(); bd->BlendState = nullptr; }
@@ -512,7 +512,7 @@ bool ImGui_ImplDX11_RecreateFontTexture()
 		return false;
 
 	if (bd->FontSampler) { bd->FontSampler->Release(); bd->FontSampler = nullptr; }
-	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(nullptr); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
+	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(0); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
 	ImGui_ImplDX11_CreateFontsTexture();
 	return true;
 }
@@ -814,7 +814,7 @@ namespace CustomDraw
 	ivec2 GPUTexture::GetSize() const { auto* data = ResolveHandle(Handle); return data ? data->Desc.Size : ivec2(0, 0); }
 	vec2 GPUTexture::GetSizeF32() const { return vec2(GetSize()); }
 	GPUPixelFormat GPUTexture::GetFormat() const { auto* data = ResolveHandle(Handle); return data ? data->Desc.Format : GPUPixelFormat {}; }
-	ImTextureID GPUTexture::GetTexID() const { auto* data = ResolveHandle(Handle); return data ? data->ResourceView : nullptr; }
+	ImTextureID GPUTexture::GetTexID() const { auto* data = ResolveHandle(Handle); return data ? (ImTextureID)data->ResourceView : 0; }
 
 	// NOTE: The most obvious way to extend this would be to either add an enum command type + a union of parameters
 	//		 or (better?) a per command type commands vector with the render callback userdata storing a packed type+index
