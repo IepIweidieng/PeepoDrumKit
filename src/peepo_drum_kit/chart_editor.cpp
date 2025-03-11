@@ -478,7 +478,7 @@ namespace PeepoDrumKit
 				{
 					// NOTE: To essentially make these tab items look similar to regular menu items (the inverted Active <-> Hovered colors are not a mistake)
 					Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-					Gui::PushStyleColor(ImGuiCol_TabActive, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+					Gui::PushStyleColor(ImGuiCol_TabSelected, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
 					if (Gui::BeginTabBar("MenuBarTabs", ImGuiTabBarFlags_FittingPolicyScroll))
 					{
 						// HACK: How to properly manage the imgui selected tab internal state..?
