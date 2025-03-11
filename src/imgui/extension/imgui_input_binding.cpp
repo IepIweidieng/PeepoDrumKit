@@ -83,6 +83,18 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_F10, 			"F10", "F10", },
 	{ ImGuiKey_F11, 			"F11", "F11", },
 	{ ImGuiKey_F12,				"F12", "F12", },
+	{ ImGuiKey_F13,				"F13", "F13", },
+	{ ImGuiKey_F14,				"F14", "F14", },
+	{ ImGuiKey_F15,				"F15", "F15", },
+	{ ImGuiKey_F16,				"F16", "F16", },
+	{ ImGuiKey_F17,				"F17", "F17", },
+	{ ImGuiKey_F18,				"F18", "F18", },
+	{ ImGuiKey_F19,				"F19", "F19", },
+	{ ImGuiKey_F20,				"F20", "F20", },
+	{ ImGuiKey_F21,				"F21", "F21", },
+	{ ImGuiKey_F22,				"F22", "F22", },
+	{ ImGuiKey_F23,				"F23", "F23", },
+	{ ImGuiKey_F24,				"F24", "F24", },
 	{ ImGuiKey_Apostrophe,		"Apostrophe", "'", "Apostrophe", },         // '
 	{ ImGuiKey_Comma,           "Comma", ",", "Comma", },                   // ,
 	{ ImGuiKey_Minus,           "Minus", "-", "Minus", },                   // -
@@ -116,6 +128,8 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_KeypadAdd,		"KeypadAdd", "Keypad Add", },
 	{ ImGuiKey_KeypadEnter,		"KeypadEnter", "Keypad Enter", },
 	{ ImGuiKey_KeypadEqual,		"KeypadEqual", "Keypad Equal", },
+	{ ImGuiKey_AppBack,		"AppBack", "App Back", },
+	{ ImGuiKey_AppForward,		"AppForward", "App Forward", },
 
 	{ ImGuiKey_GamepadStart,		"GamepadStart", "Gamepad Start", },              // Menu (Xbox)          + (Switch)   Start/Options (PS) // --
 	{ ImGuiKey_GamepadBack,			"GamepadBack", "Gamepad Back", },                // View (Xbox)          - (Switch)   Share (PS)         // --
@@ -142,11 +156,6 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_GamepadRStickUp,		"GamepadRStickUp", "Gamepad RStick Up", },       // [Analog]
 	{ ImGuiKey_GamepadRStickDown,	"GamepadRStickDown", "Gamepad RStick Down", },   // [Analog]
 
-	{ ImGuiKey_ModCtrl,  "ModCtrl", "Ctrl", "Control", },
-	{ ImGuiKey_ModShift, "ModShift", "Shift", },
-	{ ImGuiKey_ModAlt, 	 "ModAlt", "Alt", },
-	{ ImGuiKey_ModSuper, "ModSuper", "Super", },
-
 	{ ImGuiKey_MouseLeft,   "MouseLeft", "Mouse Left", },
 	{ ImGuiKey_MouseRight,  "MouseRight", "Mouse Right", },
 	{ ImGuiKey_MouseMiddle, "MouseMiddle", "Mouse Middle", },
@@ -154,6 +163,11 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_MouseX2,		"MouseX2", "Mouse X2", },
 	{ ImGuiKey_MouseWheelX, "MouseWheelX", "Mouse Wheel X", },
 	{ ImGuiKey_MouseWheelY, "MouseWheelY", "Mouse Wheel Y", },
+
+	{ ImGuiKey_ReservedForModCtrl,  "ModCtrl", "Ctrl", "Control", },
+	{ ImGuiKey_ReservedForModShift, "ModShift", "Shift", },
+	{ ImGuiKey_ReservedForModAlt, 	 "ModAlt", "Alt", },
+	{ ImGuiKey_ReservedForModSuper, "ModSuper", "Super", },
 };
 
 static constexpr b8 CompileTimeValidateNamedImGuiKeyInfoTable(const ImGuiKeyInfo* namedImGuiKeyInfoTable)
@@ -173,6 +187,10 @@ static_assert(CompileTimeValidateNamedImGuiKeyInfoTable(NamedImGuiKeyInfoTable))
 
 static constexpr ImGuiKeyInfo GetImGuikeyInfo(ImGuiKey key)
 {
+	// Special storage location for mods
+	if (key & ImGuiMod_Mask_)
+		key = ImGui::ConvertSingleModFlagToKey(key);
+
 	if (key == ImGuiKey_None)
 		return ImGuiKeyInfo { ImGuiKey_None, "None" };
 	else if (key < ImGuiKey_NamedKey_BEGIN || key >= ImGuiKey_NamedKey_END)
