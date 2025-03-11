@@ -878,7 +878,7 @@ void TextEditor::Render()
 
 	assert(mLineBuffer.empty());
 
-	auto contentSize = ImGui::GetWindowContentRegionMax();
+	auto contentSize = ImGui::GetContentRegionAvail();
 	auto drawList = ImGui::GetWindowDrawList();
 	float longest(mTextStart);
 
