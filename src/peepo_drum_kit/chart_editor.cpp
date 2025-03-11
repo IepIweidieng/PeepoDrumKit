@@ -201,7 +201,7 @@ namespace PeepoDrumKit
 					};
 
 					const b8 disableAddNew = (customPatterns->V.size() >= 6);
-					if (Gui::Selectable(UI_Str("ACT_SELECTION_ADD_NEW_PATTERN"), false, ImGuiSelectableFlags_DontClosePopups | (disableAddNew ? ImGuiSelectableFlags_Disabled : 0)))
+					if (Gui::Selectable(UI_Str("ACT_SELECTION_ADD_NEW_PATTERN"), false, ImGuiSelectableFlags_NoAutoClosePopups | (disableAddNew ? ImGuiSelectableFlags_Disabled : 0)))
 					{
 						static constexpr std::string_view defaultPattern = "xoooooo";
 						const std::string_view newPattern = defaultPattern.substr(0, ClampTop<size_t>(customPatterns->V.size() + 2, defaultPattern.size()));

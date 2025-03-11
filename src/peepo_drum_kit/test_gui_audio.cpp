@@ -218,7 +218,7 @@ namespace PeepoDrumKit
 				Gui::TableNextRow();
 				Gui::TableNextColumn();
 				{
-					const b8 selectableClicked = Gui::Selectable("##SourcePreview", sourceIsPreviewing, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap);
+					const b8 selectableClicked = Gui::Selectable("##SourcePreview", sourceIsPreviewing, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
 					const b8 selectableHovered = Gui::IsItemHovered();
 					const b8 selectableRightClicked = (selectableHovered && Gui::IsMouseClicked(ImGuiMouseButton_Right));
 					const Rect selectableRect = Gui::GetItemRect();
