@@ -195,11 +195,11 @@ static constexpr cstr ImGuiMouseButtonToCString(ImGuiMouseButton button)
 }
 
 template <typename Func>
-static constexpr void ForEachImGuiKeyInKeyModFlags(ImGuiModFlags modifiers, Func func)
+static constexpr void ForEachImGuiKeyInKeyModFlags(ImGuiKeyChord modifiers, Func func)
 {
-	if (modifiers & ImGuiModFlags_Ctrl) func(ImGuiKey_ModCtrl);
-	if (modifiers & ImGuiModFlags_Shift) func(ImGuiKey_ModShift);
-	if (modifiers & ImGuiModFlags_Alt) func(ImGuiKey_ModAlt);
+	if (modifiers & ImGuiMod_Ctrl) func(ImGuiKey_ModCtrl);
+	if (modifiers & ImGuiMod_Shift) func(ImGuiKey_ModShift);
+	if (modifiers & ImGuiMod_Alt) func(ImGuiKey_ModAlt);
 }
 
 InputFormatBuffer ToShortcutString(ImGuiKey key)
@@ -210,7 +210,7 @@ InputFormatBuffer ToShortcutString(ImGuiKey key)
 	return out;
 }
 
-InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiModFlags modifiers)
+InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiKeyChord modifiers)
 {
 	InputFormatBuffer out {};
 	char* bufferWriteHead = out.Data;
@@ -227,7 +227,7 @@ InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiModFlags modifiers)
 		}
 	};
 
-	if (modifiers != ImGuiModFlags_None)
+	if (modifiers != ImGuiMod_None)
 		ForEachImGuiKeyInKeyModFlags(modifiers, [&](ImGuiKey modifierKey) { append(GetImGuikeyInfo(modifierKey).DisplayName); append(" + "); });
 	append(GetImGuikeyInfo(key).DisplayName);
 
@@ -270,9 +270,9 @@ void InputBindingToStorageString(const MultiInputBinding& in, std::string& strin
 		}
 		else if (binding.Type == InputBindingType::Keyboard)
 		{
-			if (binding.KeyModifiers & ImGuiModFlags_Ctrl) { stringToAppendTo += "Ctrl+"; }
-			if (binding.KeyModifiers & ImGuiModFlags_Shift) { stringToAppendTo += "Shift+"; }
-			if (binding.KeyModifiers & ImGuiModFlags_Alt) { stringToAppendTo += "Alt+"; }
+			if (binding.KeyModifiers & ImGuiMod_Ctrl) { stringToAppendTo += "Ctrl+"; }
+			if (binding.KeyModifiers & ImGuiMod_Shift) { stringToAppendTo += "Shift+"; }
+			if (binding.KeyModifiers & ImGuiMod_Alt) { stringToAppendTo += "Alt+"; }
 
 			const ImGuiKeyInfo keyInfo = GetImGuikeyInfo(binding.KeyOrButton);
 			stringToAppendTo += (keyInfo.EnumName != nullptr) ? keyInfo.EnumName : "None";
@@ -303,8 +303,8 @@ b8 InputBindingFromStorageString(std::string_view stringToParse, MultiInputBindi
 		if (ASCII::IsAllWhitespace(in) || out.Count + 1 >= MultiInputBinding::MaxCount)
 			return;
 
-		ImGuiModFlags outMod = ImGuiModFlags_None;
-		auto parseMod = [&](ImGuiModFlags mod, std::string_view name)
+		ImGuiKeyChord outMod = ImGuiMod_None;
+		auto parseMod = [&](ImGuiKeyChord mod, std::string_view name)
 		{
 			if (ASCII::StartsWithInsensitive(in, name))
 			{
@@ -312,9 +312,9 @@ b8 InputBindingFromStorageString(std::string_view stringToParse, MultiInputBindi
 				if (plusIndex != std::string_view::npos) { outMod |= mod; in = ASCII::TrimLeft(in.substr(plusIndex + sizeof('+'))); }
 			}
 		};
-		parseMod(ImGuiModFlags_Ctrl, "Ctrl");
-		parseMod(ImGuiModFlags_Shift, "Shift");
-		parseMod(ImGuiModFlags_Alt, "Alt");
+		parseMod(ImGuiMod_Ctrl, "Ctrl");
+		parseMod(ImGuiMod_Shift, "Shift");
+		parseMod(ImGuiMod_Alt, "Alt");
 
 		ImGuiKey outKey = ImGuiKey_None;
 		for (const ImGuiKeyInfo& info : NamedImGuiKeyInfoTable)
@@ -332,7 +332,7 @@ b8 InputBindingFromStorageString(std::string_view stringToParse, MultiInputBindi
 
 struct InternalInputExtraFrameData
 {
-	ImGuiModFlags ModifiersDown;
+	ImGuiKeyChord ModifiersDown;
 	f32 TimeSinceLastModifiersChange;
 };
 
@@ -363,7 +363,7 @@ namespace ImGui
 		return ThisFrameInputExData.TimeSinceLastModifiersChange >= keyDuration;
 	}
 
-	static b8 Internal_AreModifiersDownFirst(ImGuiKey key, ImGuiModFlags modifiers)
+	static b8 Internal_AreModifiersDownFirst(ImGuiKey key, ImGuiKeyChord modifiers)
 	{
 		const f32 keyDuration = ImGui::IsNamedKey(key) ? ImGui::GetKeyData(key)->DownDuration : 0.0f;
 		b8 allLonger = true;
@@ -371,12 +371,12 @@ namespace ImGui
 		return allLonger;
 	}
 
-	b8 AreAllModifiersDown(ImGuiModFlags modifiers)
+	b8 AreAllModifiersDown(ImGuiKeyChord modifiers)
 	{
 		return ((GImGui->IO.KeyMods & modifiers) == modifiers);
 	}
 
-	b8 AreOnlyModifiersDown(ImGuiModFlags modifiers)
+	b8 AreOnlyModifiersDown(ImGuiKeyChord modifiers)
 	{
 		return (GImGui->IO.KeyMods == modifiers);
 	}

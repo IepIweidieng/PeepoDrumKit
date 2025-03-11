@@ -45,16 +45,16 @@ enum ImGuiMouseButtonEx_ : ImGuiMouseButton
 };
 
 // HACK: Common combinations just to make definding key bindings a little easier
-enum ImGuiModFlagsEx_
+enum ImGuiModEx_
 {
-	// ImGuiModFlags_None = 0,
-	// ImGuiModFlags_Ctrl = 1 << 0,
-	// ImGuiModFlags_Shift = 1 << 1,
-	// ImGuiModFlags_Alt = 1 << 2,
-	// ImGuiModFlags_Super = 1 << 3,
-	ImGuiModFlags_CtrlShift = (1 << 0) | (1 << 1),				 // ImGuiModFlags_Ctrl | ImGuiModFlags_Shift
-	ImGuiModFlags_CtrlShiftAlt = (1 << 0) | (1 << 1) | (1 << 2), // ImGuiModFlags_Ctrl | ImGuiModFlags_Shift | ImGuiModFlags_Alt
-	ImGuiModFlags_ShiftAlt = (1 << 1) | (1 << 2),				 //						 ImGuiModFlags_Shift | ImGuiModFlags_Alt
+	// ImGuiMod_None = 0,
+	// ImGuiMod_Ctrl = 1 << 0,
+	// ImGuiMod_Shift = 1 << 1,
+	// ImGuiMod_Alt = 1 << 2,
+	// ImGuiMod_Super = 1 << 3,
+	ImGuiMod_CtrlShift = (1 << 0) | (1 << 1),				 // ImGuiMod_Ctrl | ImGuiMod_Shift
+	ImGuiMod_CtrlShiftAlt = (1 << 0) | (1 << 1) | (1 << 2), // ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiMod_Alt
+	ImGuiMod_ShiftAlt = (1 << 1) | (1 << 2),				 //						 ImGuiMod_Shift | ImGuiMod_Alt
 };
 
 //---- Define assertion handler. Defaults to calling assert().

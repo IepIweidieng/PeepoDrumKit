@@ -9,11 +9,11 @@ enum class InputBindingType : u8 { None, Keyboard, Mouse, Count };
 struct InputBinding
 {
 	InputBindingType Type = InputBindingType::None;
-	u8 KeyModifiers = 0; // NOTE: Keyboard -> ImGuiModFlags | Mouse -> None
+	u8 KeyModifiers = 0; // NOTE: Keyboard -> ImGuiKeyChord | Mouse -> None
 	u16 KeyOrButton = 0; // NOTE: Keyboard -> ImGuiKey		| Mouse -> ImGuiMouseButton
 
 	constexpr InputBinding() = default;
-	explicit constexpr InputBinding(ImGuiKey key, ImGuiModFlags modifiers) : Type(InputBindingType::Keyboard), KeyModifiers(modifiers), KeyOrButton(key) {}
+	explicit constexpr InputBinding(ImGuiKey key, ImGuiKeyChord modifiers) : Type(InputBindingType::Keyboard), KeyModifiers(modifiers), KeyOrButton(key) {}
 	explicit constexpr InputBinding(ImGuiMouseButton mouseButton) : Type(InputBindingType::Mouse), KeyOrButton(mouseButton) {}
 
 	constexpr b8 operator!=(const InputBinding& other) const { return !(*this == other); }
@@ -28,8 +28,8 @@ struct InputBinding
 
 static_assert(sizeof(InputBinding) == sizeof(u32));
 
-// NOTE: Separate "constructor-functions" beacuse a default ImGuiModFlags can't be used inside the constructor itself due to non "class enum" type ambiguity between ImGuiKey and ImGuiMouseButton
-constexpr InputBinding KeyBinding(ImGuiKey key, ImGuiModFlags modifiers = ImGuiModFlags_None) { return InputBinding(key, modifiers); }
+// NOTE: Separate "constructor-functions" beacuse a default ImGuiKeyChord can't be used inside the constructor itself due to non "class enum" type ambiguity between ImGuiKey and ImGuiMouseButton
+constexpr InputBinding KeyBinding(ImGuiKey key, ImGuiKeyChord modifiers = ImGuiMod_None) { return InputBinding(key, modifiers); }
 constexpr InputBinding MouseBinding(ImGuiMouseButton mouseButton) { return InputBinding(mouseButton); }
 
 struct MultiInputBinding
@@ -67,7 +67,7 @@ enum class InputModifierBehavior
 struct InputFormatBuffer { char Data[128]; };
 // NOTE: Specifically to be displayed inside menu items
 InputFormatBuffer ToShortcutString(ImGuiKey key);
-InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiModFlags modifiers);
+InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiKeyChord modifiers);
 InputFormatBuffer ToShortcutString(const InputBinding& binding);
 InputFormatBuffer ToShortcutString(const MultiInputBinding& binding);
 
@@ -80,8 +80,8 @@ void ImGui_UpdateInternalInputExtraDataAtEndOfFrame();
 
 namespace ImGui
 {
-	b8 AreAllModifiersDown(ImGuiModFlags modifiers);
-	b8 AreOnlyModifiersDown(ImGuiModFlags modifiers);
+	b8 AreAllModifiersDown(ImGuiKeyChord modifiers);
+	b8 AreOnlyModifiersDown(ImGuiKeyChord modifiers);
 
 	b8 IsDown(const InputBinding& binding, InputModifierBehavior behavior = InputModifierBehavior::Strict);
 	b8 IsPressed(const InputBinding& binding, b8 repeat = true, InputModifierBehavior behavior = InputModifierBehavior::Strict);
