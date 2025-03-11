@@ -217,7 +217,10 @@ namespace ImGui
 		char buf[64];
 		DataTypeFormatString(buf, IM_ARRAYSIZE(buf), data_type, p_data, format);
 
-		flags |= ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_NoMarkEdited; // We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
+		// Disable the MarkItemEdited() call in InputText but keep ImGuiItemStatusFlags_Edited.
+		// We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
+		g.NextItemData.ItemFlags |= ImGuiItemFlags_NoMarkEdited;
+		flags |= ImGuiInputTextFlags_AutoSelectAll;
 
 		InputScalarWithButtonsResult result = {};
 		if (p_step != NULL)
@@ -313,6 +316,8 @@ namespace ImGui
 
 			style.Colors[ImGuiCol_Text] = backup_text_color;
 		}
+
+		g.LastItemData.ItemFlags &= ~ImGuiItemFlags_NoMarkEdited;
 		if (result.ValueChanged)
 			MarkItemEdited(g.LastItemData.ID);
 
