@@ -183,7 +183,7 @@ namespace ImGui
 		const f32 frameHeight = GetFrameHeight();
 
 		PushID(inOutValue);
-		const b8 buttonClicked = ButtonEx(label, vec2((buttonSize.x <= 0.0f) ? frameHeight : buttonSize.x, (buttonSize.y <= 0.0f) ? frameHeight : buttonSize.y), ImGuiButtonFlags_Repeat | ImGuiButtonFlags_DontClosePopups);
+		const b8 buttonClicked = ButtonEx(label, vec2((buttonSize.x <= 0.0f) ? frameHeight : buttonSize.x, (buttonSize.y <= 0.0f) ? frameHeight : buttonSize.y), ImGuiItemFlags_ButtonRepeat);
 		PopID();
 
 		if (buttonClicked)
@@ -244,7 +244,7 @@ namespace ImGui
 			const ImVec2 backup_frame_padding = style.FramePadding;
 
 			style.FramePadding.x = style.FramePadding.y;
-			ImGuiButtonFlags button_flags = ImGuiButtonFlags_Repeat | ImGuiButtonFlags_DontClosePopups;
+			ImGuiButtonFlags button_flags = ImGuiItemFlags_ButtonRepeat;
 			if (flags & ImGuiInputTextFlags_ReadOnly)
 				BeginDisabled();
 			SameLine(0, button_spacing_x);
