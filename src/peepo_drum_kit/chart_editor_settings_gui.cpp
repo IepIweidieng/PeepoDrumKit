@@ -117,10 +117,10 @@ namespace PeepoDrumKit
 
 			Gui::SetActiveID(Gui::GetID(&inOutBinding), Gui::GetCurrentWindow());
 
-			for (ImGuiKey keyCode = ImGuiKey_NamedKey_BEGIN; keyCode < ImGuiKey_NamedKey_END; keyCode++)
+			for (int keyCode = ImGuiKey_NamedKey_BEGIN; keyCode < ImGuiKey_NamedKey_END; keyCode++)
 			{
-				if (Gui::IsKeyReleased(keyCode) && !Gui::IsMouseKey(keyCode))
-					finishAsignment(true, KeyBinding(keyCode, Gui::GetIO().KeyMods));
+				if (Gui::IsKeyReleased((ImGuiKey)keyCode) && !Gui::IsMouseKey((ImGuiKey)keyCode))
+					finishAsignment(true, KeyBinding((ImGuiKey)keyCode, Gui::GetIO().KeyMods));
 			}
 		}
 
