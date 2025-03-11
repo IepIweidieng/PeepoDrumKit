@@ -215,9 +215,9 @@ static constexpr cstr ImGuiMouseButtonToCString(ImGuiMouseButton button)
 template <typename Func>
 static constexpr void ForEachImGuiKeyInKeyModFlags(ImGuiKeyChord modifiers, Func func)
 {
-	if (modifiers & ImGuiMod_Ctrl) func(ImGuiKey_ModCtrl);
-	if (modifiers & ImGuiMod_Shift) func(ImGuiKey_ModShift);
-	if (modifiers & ImGuiMod_Alt) func(ImGuiKey_ModAlt);
+	if (modifiers & ImGuiMod_Ctrl) func(ImGuiMod_Ctrl);
+	if (modifiers & ImGuiMod_Shift) func(ImGuiMod_Shift);
+	if (modifiers & ImGuiMod_Alt) func(ImGuiMod_Alt);
 }
 
 InputFormatBuffer ToShortcutString(ImGuiKey key)
