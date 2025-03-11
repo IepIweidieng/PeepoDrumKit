@@ -48,13 +48,13 @@ enum ImGuiMouseButtonEx_ : ImGuiMouseButton
 enum ImGuiModEx_
 {
 	// ImGuiMod_None = 0,
-	// ImGuiMod_Ctrl = 1 << 0,
-	// ImGuiMod_Shift = 1 << 1,
-	// ImGuiMod_Alt = 1 << 2,
-	// ImGuiMod_Super = 1 << 3,
-	ImGuiMod_CtrlShift = (1 << 0) | (1 << 1),				 // ImGuiMod_Ctrl | ImGuiMod_Shift
-	ImGuiMod_CtrlShiftAlt = (1 << 0) | (1 << 1) | (1 << 2), // ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiMod_Alt
-	ImGuiMod_ShiftAlt = (1 << 1) | (1 << 2),				 //						 ImGuiMod_Shift | ImGuiMod_Alt
+	// ImGuiMod_Ctrl = 1 << 12,
+	// ImGuiMod_Shift = 1 << 13,
+	// ImGuiMod_Alt = 1 << 14,
+	// ImGuiMod_Super = 1 << 15,
+	ImGuiMod_CtrlShift = (1 << 12) | (1 << 13),				 // ImGuiMod_Ctrl | ImGuiMod_Shift
+	ImGuiMod_CtrlShiftAlt = (1 << 12) | (1 << 13) | (1 << 14), // ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiMod_Alt
+	ImGuiMod_ShiftAlt = (1 << 13) | (1 << 14),				 //						 ImGuiMod_Shift | ImGuiMod_Alt
 };
 
 //---- Define assertion handler. Defaults to calling assert().

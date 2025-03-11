@@ -256,7 +256,7 @@ InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiKeyChord modifiers)
 InputFormatBuffer ToShortcutString(const InputBinding& binding)
 {
 	if (binding.Type == InputBindingType::Keyboard)
-		return ToShortcutString((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers);
+		return ToShortcutString((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers());
 	else if (binding.Type == InputBindingType::Mouse)
 	{
 		InputFormatBuffer out {};
@@ -288,9 +288,9 @@ void InputBindingToStorageString(const MultiInputBinding& in, std::string& strin
 		}
 		else if (binding.Type == InputBindingType::Keyboard)
 		{
-			if (binding.KeyModifiers & ImGuiMod_Ctrl) { stringToAppendTo += "Ctrl+"; }
-			if (binding.KeyModifiers & ImGuiMod_Shift) { stringToAppendTo += "Shift+"; }
-			if (binding.KeyModifiers & ImGuiMod_Alt) { stringToAppendTo += "Alt+"; }
+			if (binding.KeyModifiers() & ImGuiMod_Ctrl) { stringToAppendTo += "Ctrl+"; }
+			if (binding.KeyModifiers() & ImGuiMod_Shift) { stringToAppendTo += "Shift+"; }
+			if (binding.KeyModifiers() & ImGuiMod_Alt) { stringToAppendTo += "Alt+"; }
 
 			const ImGuiKeyInfo keyInfo = GetImGuikeyInfo((ImGuiKey)binding.KeyOrButton);
 			stringToAppendTo += (keyInfo.EnumName != nullptr) ? keyInfo.EnumName : "None";
@@ -409,9 +409,9 @@ namespace ImGui
 		else if (binding.Type == InputBindingType::Keyboard)
 		{
 			if (behavior == InputModifierBehavior::Strict)
-				return ImGui::IsKeyDown((ImGuiKey)binding.KeyOrButton) && AreOnlyModifiersDown(binding.KeyModifiers) && Internal_IsKeyDownAfterAllModifiers((ImGuiKey)binding.KeyOrButton);
+				return ImGui::IsKeyDown((ImGuiKey)binding.KeyOrButton) && AreOnlyModifiersDown(binding.KeyModifiers()) && Internal_IsKeyDownAfterAllModifiers((ImGuiKey)binding.KeyOrButton);
 			else
-				return ImGui::IsKeyDown((ImGuiKey)binding.KeyOrButton) && AreAllModifiersDown(binding.KeyModifiers) && Internal_AreModifiersDownFirst((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers);
+				return ImGui::IsKeyDown((ImGuiKey)binding.KeyOrButton) && AreAllModifiersDown(binding.KeyModifiers()) && Internal_AreModifiersDownFirst((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers());
 		}
 		else if (binding.Type == InputBindingType::Mouse)
 		{
@@ -434,9 +434,9 @@ namespace ImGui
 		{
 			// NOTE: Still have to explictily check the modifier hold durations here in case of repeat
 			if (behavior == InputModifierBehavior::Strict)
-				return ImGui::IsKeyPressed((ImGuiKey)binding.KeyOrButton, repeat) && AreOnlyModifiersDown(binding.KeyModifiers) && Internal_IsKeyDownAfterAllModifiers((ImGuiKey)binding.KeyOrButton);
+				return ImGui::IsKeyPressed((ImGuiKey)binding.KeyOrButton, repeat) && AreOnlyModifiersDown(binding.KeyModifiers()) && Internal_IsKeyDownAfterAllModifiers((ImGuiKey)binding.KeyOrButton);
 			else
-				return ImGui::IsKeyPressed((ImGuiKey)binding.KeyOrButton, repeat) && AreAllModifiersDown(binding.KeyModifiers) && Internal_AreModifiersDownFirst((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers);
+				return ImGui::IsKeyPressed((ImGuiKey)binding.KeyOrButton, repeat) && AreAllModifiersDown(binding.KeyModifiers()) && Internal_AreModifiersDownFirst((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers());
 		}
 		else if (binding.Type == InputBindingType::Mouse)
 		{

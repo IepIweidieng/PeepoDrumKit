@@ -9,19 +9,21 @@ enum class InputBindingType : u8 { None, Keyboard, Mouse, Count };
 struct InputBinding
 {
 	InputBindingType Type = InputBindingType::None;
-	u8 KeyModifiers = 0; // NOTE: Keyboard -> ImGuiKeyChord | Mouse -> None
+	u8 _KeyModifiers = 0; // NOTE: Keyboard -> ImGuiKeyChord | Mouse -> None (shifted 12 bits right)
 	u16 KeyOrButton = 0; // NOTE: Keyboard -> ImGuiKey		| Mouse -> ImGuiMouseButton
 
 	constexpr InputBinding() = default;
-	explicit constexpr InputBinding(ImGuiKey key, ImGuiKeyChord modifiers) : Type(InputBindingType::Keyboard), KeyModifiers(modifiers), KeyOrButton(key) {}
+	explicit constexpr InputBinding(ImGuiKey key, ImGuiKeyChord modifiers) : Type(InputBindingType::Keyboard), _KeyModifiers(modifiers >> 12), KeyOrButton(key) {}
 	explicit constexpr InputBinding(ImGuiMouseButton mouseButton) : Type(InputBindingType::Mouse), KeyOrButton(mouseButton) {}
+
+	constexpr ImGuiKeyChord KeyModifiers() const { return _KeyModifiers << 12; }
 
 	constexpr b8 operator!=(const InputBinding& other) const { return !(*this == other); }
 	constexpr b8 operator==(const InputBinding& other) const
 	{
 		return (Type != other.Type) ? false :
 			(Type == InputBindingType::None) ? true :
-			(Type == InputBindingType::Keyboard) ? (KeyOrButton == other.KeyOrButton) && (KeyModifiers == other.KeyModifiers) :
+			(Type == InputBindingType::Keyboard) ? (KeyOrButton == other.KeyOrButton) && (_KeyModifiers == other._KeyModifiers) :
 			(Type == InputBindingType::Mouse) ? (KeyOrButton == other.KeyOrButton) : false;
 	}
 };
