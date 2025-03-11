@@ -334,17 +334,13 @@ namespace ImGui
 		if (window->SkipItems)
 			return InputScalarWithButtonsResult {};
 
-		// NOTE: Duplicated from imgui_widgets.cpp beacuse it's not exposed publicly
-		static constexpr size_t GDataTypeInfo_Sizes[] = { sizeof(i8), sizeof(u8), sizeof(i16), sizeof(u16), sizeof(i32), sizeof(u32), sizeof(f32), sizeof(i64), sizeof(u64), sizeof(f64) };
-		IM_STATIC_ASSERT(IM_ARRAYSIZE(GDataTypeInfo_Sizes) == ImGuiDataType_COUNT);
-
 		InputScalarWithButtonsResult result = {};
 
 		ImGuiContext& g = *GImGui;
 		BeginGroup();
 		PushID(label);
 		PushMultiItemsWidths(components, CalcItemWidth());
-		size_t type_size = GDataTypeInfo_Sizes[data_type];
+		size_t type_size = DataTypeGetInfo(data_type)->Size;
 		for (int i = 0; i < components; i++)
 		{
 			PushID(i);
