@@ -13,6 +13,49 @@
 //-----------------------------------------------------------------------------
 
 #pragma once
+#include "core_types.h"
+
+// HACK: Non pixel aligned text rendering https://github.com/ocornut/imgui/issues/2291
+inline b8 IMGUI_HACKS_GLOBAL_DISABLE_FONT_PIXEL_SNAPPING = false;
+
+namespace ImGui
+{
+	inline void DisableFontPixelSnap(b8 disabled) { IMGUI_HACKS_GLOBAL_DISABLE_FONT_PIXEL_SNAPPING = disabled; }
+}
+
+// HACK: Convert the rasterized stb_truetype font alpha values from linear to gamma space as a workaround for not being properly sRGB aware.
+//		 The correct gamma value supposedly should be around 1.8 (at least as per the FT_Render_Glyph docs) however that ends up looking "too strong".
+//		 For easy testing, a change of this variable will automatically be detected by the backend and force a full font rebuild. (based on https://github.com/ocornut/imgui/pull/4950)
+#define IMGUI_HACKS_DELINEARIZE_FONTS 1
+inline f32 IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA = 1.3f; // 1.4f; // 1.8f; // 2.2f;
+
+// HACK: Temporary workaround for a potential infinite loop in ImGui::ShrinkWidths() when using unrounded font sizes (https://github.com/ocornut/imgui/issues/5652)
+#define IMGUI_HACKS_SHRINK_WIDTHS_LOOP_SAFETY_LIMIT 10'000
+
+// HACK: Because the X buttons aren't defined by default :/
+typedef int ImGuiMouseButton;
+enum ImGuiMouseButtonEx_ : ImGuiMouseButton
+{
+	// ImGuiMouseButton_Left = 0,
+	// ImGuiMouseButton_Right = 1,
+	// ImGuiMouseButton_Middle = 2,
+	ImGuiMouseButton_X1 = 3,
+	ImGuiMouseButton_X2 = 4,
+	// ImGuiMouseButton_COUNT = 5
+};
+
+// HACK: Common combinations just to make definding key bindings a little easier
+enum ImGuiModEx_
+{
+	// ImGuiMod_None = 0,
+	// ImGuiMod_Ctrl = 1 << 0,
+	// ImGuiMod_Shift = 1 << 1,
+	// ImGuiMod_Alt = 1 << 2,
+	// ImGuiMod_Super = 1 << 3,
+	ImGuiMod_CtrlShift = (1 << 0) | (1 << 1),				 // ImGuiMod_Ctrl | ImGuiMod_Shift
+	ImGuiMod_CtrlShiftAlt = (1 << 0) | (1 << 1) | (1 << 2), // ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiMod_Alt
+	ImGuiMod_ShiftAlt = (1 << 1) | (1 << 2),				 //						 ImGuiMod_Shift | ImGuiMod_Alt
+};
 
 //---- Define assertion handler. Defaults to calling assert().
 // If your macro uses multiple statements, make sure is enclosed in a 'do { .. } while (0)' block so it can be used as a single statement.
@@ -28,7 +71,8 @@
 //#define IMGUI_API __attribute__((visibility("default")))  // GCC/Clang: override visibility when set is hidden
 
 //---- Don't define obsolete functions/enums/behaviors. Consider enabling from time to time after updating to clean your code of obsolete function/names.
-//#define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+// HACK: Commented out for now specifically to address "SetScreenPos() extending parent boundaries" https://github.com/ocornut/imgui/issues/5548
+// #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 
 //---- Disable all of Dear ImGui or don't implement standard windows/tools.
 // It is very strongly recommended to NOT disable the demo windows and debug tool during development. They are extremely useful in day to day work. Please read comments in imgui_demo.cpp.
@@ -101,14 +145,14 @@
 
 //---- Define constructor and implicit cast operators to convert back<>forth between your math types and ImVec2/ImVec4.
 // This will be inlined as part of ImVec2 and ImVec4 class declarations.
-/*
 #define IM_VEC2_CLASS_EXTRA                                                     \
-        constexpr ImVec2(const MyVec2& f) : x(f.x), y(f.y) {}                   \
-        operator MyVec2() const { return MyVec2(x,y); }
+        constexpr ImVec2(const vec2& f) : x(f.x), y(f.y) {}						\
+        operator vec2() const { return vec2(x, y); }
 
+/*
 #define IM_VEC4_CLASS_EXTRA                                                     \
-        constexpr ImVec4(const MyVec4& f) : x(f.x), y(f.y), z(f.z), w(f.w) {}   \
-        operator MyVec4() const { return MyVec4(x,y,z,w); }
+		constexpr ImVec4(const MyVec4& f) : x(f.x), y(f.y), z(f.z), w(f.w) {}   \
+		operator MyVec4() const { return MyVec4(x,y,z,w); }
 */
 //---- ...Or use Dear ImGui's own very basic math operators.
 //#define IMGUI_DEFINE_MATH_OPERATORS
@@ -137,6 +181,6 @@
 /*
 namespace ImGui
 {
-    void MyFunction(const char* name, MyMatrix44* mtx);
+	void MyFunction(const char* name, MyMatrix44* mtx);
 }
 */
