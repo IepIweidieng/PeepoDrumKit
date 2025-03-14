@@ -79,7 +79,7 @@
 //  2017-10-23: Inputs: Using Win32 ::SetCapture/::GetCapture() to retrieve mouse positions outside the client area when dragging.
 //  2016-11-12: Inputs: Only call Win32 ::SetCursor(nullptr) when io.MouseDrawCursor is set.
 
-#include "imgui.h"
+#include "imgui/3rdparty/imgui.h"
 #ifndef IMGUI_DISABLE
 #include "imgui_impl_win32.h"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -109,7 +109,7 @@ typedef DWORD(WINAPI* PFN_XInputGetState)(DWORD, XINPUT_STATE*);
 #endif
 
 // Forward Declarations
-static void ImGui_ImplWin32_InitMultiViewportSupport(bool platform_has_own_dc);
+static void ImGui_ImplWin32_InitMultiViewportSupport(HICON icon, bool platform_has_own_dc);
 static void ImGui_ImplWin32_ShutdownMultiViewportSupport();
 static void ImGui_ImplWin32_UpdateMonitors();
 
@@ -160,7 +160,7 @@ static void ImGui_ImplWin32_UpdateKeyboardCodePage(ImGuiIO& io)
         bd->KeyboardCodePage = CP_ACP; // Fallback to default ANSI code page when fails.
 }
 
-static bool ImGui_ImplWin32_InitEx(void* hwnd, bool platform_has_own_dc)
+static bool ImGui_ImplWin32_InitEx(void* hwnd, void* icon, bool platform_has_own_dc)
 {
     ImGuiIO& io = ImGui::GetIO();
     IMGUI_CHECKVERSION();
@@ -197,7 +197,7 @@ static bool ImGui_ImplWin32_InitEx(void* hwnd, bool platform_has_own_dc)
     // Be aware that GetPropA()/SetPropA() may be accessed from other processes.
     // So as we store a pointer in IMGUI_CONTEXT we need to make sure we only call GetPropA() on windows owned by our process.
     ::SetPropA(bd->hWnd, "IMGUI_CONTEXT", ImGui::GetCurrentContext());
-    ImGui_ImplWin32_InitMultiViewportSupport(platform_has_own_dc);
+    ImGui_ImplWin32_InitMultiViewportSupport((HICON)icon, platform_has_own_dc);
 
     // Dynamically load XInput library
 #ifndef IMGUI_IMPL_WIN32_DISABLE_GAMEPAD
@@ -223,15 +223,15 @@ static bool ImGui_ImplWin32_InitEx(void* hwnd, bool platform_has_own_dc)
     return true;
 }
 
-IMGUI_IMPL_API bool     ImGui_ImplWin32_Init(void* hwnd)
+IMGUI_IMPL_API bool     ImGui_ImplWin32_Init(void* hwnd, void* icon)
 {
-    return ImGui_ImplWin32_InitEx(hwnd, false);
+    return ImGui_ImplWin32_InitEx(hwnd, icon, false);
 }
 
-IMGUI_IMPL_API bool     ImGui_ImplWin32_InitForOpenGL(void* hwnd)
+IMGUI_IMPL_API bool     ImGui_ImplWin32_InitForOpenGL(void* hwnd, void* icon)
 {
     // OpenGL needs CS_OWNDC
-    return ImGui_ImplWin32_InitEx(hwnd, true);
+    return ImGui_ImplWin32_InitEx(hwnd, icon, true);
 }
 
 void    ImGui_ImplWin32_Shutdown()
@@ -1044,10 +1044,11 @@ struct ImGui_ImplWin32_ViewportData
     HWND    Hwnd;
     HWND    HwndParent;
     bool    HwndOwned;
+    bool    IsWindowFocused;
     DWORD   DwStyle;
     DWORD   DwExStyle;
 
-    ImGui_ImplWin32_ViewportData() { Hwnd = HwndParent = nullptr; HwndOwned = false;  DwStyle = DwExStyle = 0; }
+    ImGui_ImplWin32_ViewportData() { Hwnd = HwndParent = nullptr; HwndOwned = IsWindowFocused = false;  DwStyle = DwExStyle = 0; }
     ~ImGui_ImplWin32_ViewportData() { IM_ASSERT(Hwnd == nullptr); }
 };
 
@@ -1324,6 +1325,8 @@ static LRESULT CALLBACK ImGui_ImplWin32_WndProcHandler_PlatformWindow(HWND hWnd,
         result = true;
     else if (ImGuiViewport* viewport = ImGui_ImplWin32_FindViewportByPlatformHandle(platform_io, hWnd))
     {
+        auto userData = static_cast<ImGui_ImplWin32_ViewportData*>(viewport->PlatformUserData);
+
         switch (msg)
         {
         case WM_CLOSE:
@@ -1339,6 +1342,14 @@ static LRESULT CALLBACK ImGui_ImplWin32_WndProcHandler_PlatformWindow(HWND hWnd,
             if (viewport->Flags & ImGuiViewportFlags_NoFocusOnClick)
                 result = MA_NOACTIVATE;
             break;
+		case WM_SETFOCUS:
+			if (userData != nullptr)
+				userData->IsWindowFocused = true;
+			break;
+		case WM_KILLFOCUS:
+			if (userData != nullptr)
+				userData->IsWindowFocused = false;
+			break;
         case WM_NCHITTEST:
             // Let mouse pass-through the window. This will allow the backend to call io.AddMouseViewportEvent() correctly. (which is optional).
             // The ImGuiViewportFlags_NoInputs flag is set while dragging a viewport, as want to detect the window behind the one we are dragging.
@@ -1354,7 +1365,7 @@ static LRESULT CALLBACK ImGui_ImplWin32_WndProcHandler_PlatformWindow(HWND hWnd,
     return result;
 }
 
-static void ImGui_ImplWin32_InitMultiViewportSupport(bool platform_has_own_dc)
+static void ImGui_ImplWin32_InitMultiViewportSupport(HICON icon, bool platform_has_own_dc)
 {
     WNDCLASSEXW wcex;
     wcex.cbSize = sizeof(WNDCLASSEXW);
@@ -1363,7 +1374,7 @@ static void ImGui_ImplWin32_InitMultiViewportSupport(bool platform_has_own_dc)
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
     wcex.hInstance = ::GetModuleHandle(nullptr);
-    wcex.hIcon = nullptr;
+    wcex.hIcon = icon;
     wcex.hCursor = nullptr;
     wcex.hbrBackground = (HBRUSH)(COLOR_BACKGROUND + 1);
     wcex.lpszMenuName = nullptr;
@@ -1416,4 +1427,23 @@ static void ImGui_ImplWin32_ShutdownMultiViewportSupport()
 #pragma clang diagnostic pop
 #endif
 
+// [experimental]
+
+#include "imgui/3rdparty/imgui_internal.h"
+
+bool	ImGui_ImplWin32_IsAnyViewportFocused()
+{
+	ImGuiContext* context = ImGui::GetCurrentContext();
+
+	for (int i = 0; i != context->Viewports.Size; i++)
+	{
+		auto userData = static_cast<ImGui_ImplWin32_ViewportData*>(context->Viewports[i]->PlatformUserData);
+		if (userData != nullptr && userData->IsWindowFocused)
+			return true;
+	}
+
+	return false;
+}
+
+//---------------------------------------------------------------------------------------------------------
 #endif // #ifndef IMGUI_DISABLE

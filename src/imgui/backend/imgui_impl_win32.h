@@ -18,12 +18,12 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #pragma once
-#include "imgui.h"      // IMGUI_IMPL_API
+#include "imgui/3rdparty/imgui.h"      // IMGUI_IMPL_API
 #ifndef IMGUI_DISABLE
 
 // Follow "Getting Started" link and check examples/ folder to learn about using backends!
-IMGUI_IMPL_API bool     ImGui_ImplWin32_Init(void* hwnd);
-IMGUI_IMPL_API bool     ImGui_ImplWin32_InitForOpenGL(void* hwnd);
+IMGUI_IMPL_API bool     ImGui_ImplWin32_Init(void* hwnd, void* icon);
+IMGUI_IMPL_API bool     ImGui_ImplWin32_InitForOpenGL(void* hwnd, void* icon);
 IMGUI_IMPL_API void     ImGui_ImplWin32_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplWin32_NewFrame();
 
@@ -51,4 +51,5 @@ IMGUI_IMPL_API float    ImGui_ImplWin32_GetDpiScaleForMonitor(void* monitor); //
 // - Use together with e.g. clearing your framebuffer with zero-alpha.
 IMGUI_IMPL_API void     ImGui_ImplWin32_EnableAlphaCompositing(void* hwnd);   // HWND hwnd
 
+IMGUI_IMPL_API bool		ImGui_ImplWin32_IsAnyViewportFocused();
 #endif // #ifndef IMGUI_DISABLE
