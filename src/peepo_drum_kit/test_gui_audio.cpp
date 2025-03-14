@@ -8,7 +8,7 @@ namespace PeepoDrumKit
 		const ImVec2 originalFramePadding = Gui::GetStyle().FramePadding;
 		Gui::PushStyleVar(ImGuiStyleVar_FramePadding, GuiScale(vec2(10.0f, 5.0f)));
 		Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-		Gui::PushStyleColor(ImGuiCol_TabActive, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+		Gui::PushStyleColor(ImGuiCol_TabSelected, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
 		if (Gui::BeginTabBar("AudioTestWindowTabBar", ImGuiTabBarFlags_None))
 		{
 			auto beginEndTabItem = [&](cstr label, auto func)
@@ -218,7 +218,7 @@ namespace PeepoDrumKit
 				Gui::TableNextRow();
 				Gui::TableNextColumn();
 				{
-					const b8 selectableClicked = Gui::Selectable("##SourcePreview", sourceIsPreviewing, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap);
+					const b8 selectableClicked = Gui::Selectable("##SourcePreview", sourceIsPreviewing, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
 					const b8 selectableHovered = Gui::IsItemHovered();
 					const b8 selectableRightClicked = (selectableHovered && Gui::IsMouseClicked(ImGuiMouseButton_Right));
 					const Rect selectableRect = Gui::GetItemRect();

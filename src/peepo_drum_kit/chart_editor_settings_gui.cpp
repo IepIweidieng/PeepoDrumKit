@@ -117,10 +117,10 @@ namespace PeepoDrumKit
 
 			Gui::SetActiveID(Gui::GetID(&inOutBinding), Gui::GetCurrentWindow());
 
-			for (ImGuiKey keyCode = ImGuiKey_NamedKey_BEGIN; keyCode < ImGuiKey_NamedKey_END; keyCode++)
+			for (int keyCode = ImGuiKey_NamedKey_BEGIN; keyCode < ImGuiKey_NamedKey_END; keyCode++)
 			{
-				if (Gui::IsKeyReleased(keyCode) && !Gui::IsMouseKey(keyCode))
-					finishAsignment(true, KeyBinding(keyCode, Gui::GetIO().KeyMods));
+				if (Gui::IsKeyReleased((ImGuiKey)keyCode) && !Gui::IsMouseKey((ImGuiKey)keyCode))
+					finishAsignment(true, KeyBinding((ImGuiKey)keyCode, Gui::GetIO().KeyMods));
 			}
 		}
 
@@ -659,7 +659,7 @@ namespace PeepoDrumKit
 		const ImVec2 originalFramePadding = Gui::GetStyle().FramePadding;
 		Gui::PushStyleVar(ImGuiStyleVar_FramePadding, GuiScale(vec2(10.0f, 5.0f)));
 		Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-		Gui::PushStyleColor(ImGuiCol_TabActive, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+		Gui::PushStyleColor(ImGuiCol_TabSelected, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
 		if (Gui::BeginTabBar("SettingsTabs", ImGuiTabBarFlags_None))
 		{
 			if (Gui::BeginTabItem("General Settings"))

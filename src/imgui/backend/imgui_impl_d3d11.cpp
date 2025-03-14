@@ -409,9 +409,9 @@ bool ImGui_ImplDX11_CreateDeviceObjects()
 		// Create the input layout
 		D3D11_INPUT_ELEMENT_DESC local_layout[] =
 		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)IM_OFFSETOF(ImDrawVert, pos), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)IM_OFFSETOF(ImDrawVert, uv),  D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, (UINT)IM_OFFSETOF(ImDrawVert, col), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)offsetof(ImDrawVert, pos), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)offsetof(ImDrawVert, uv),  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, (UINT)offsetof(ImDrawVert, col), D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 		if (bd->D3DDevice->CreateInputLayout(local_layout, 3, shader_imgui_default_vs_bytecode, sizeof(shader_imgui_default_vs_bytecode), &bd->InputLayout) != S_OK)
 			return false;
@@ -490,7 +490,7 @@ void ImGui_ImplDX11_InvalidateDeviceObjects()
 		return;
 
 	if (bd->FontSampler) { bd->FontSampler->Release(); bd->FontSampler = nullptr; }
-	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(nullptr); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
+	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(0); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
 	if (bd->IndexBuffer) { bd->IndexBuffer->Release(); bd->IndexBuffer = nullptr; }
 	if (bd->VertexBuffer) { bd->VertexBuffer->Release(); bd->VertexBuffer = nullptr; }
 	if (bd->BlendState) { bd->BlendState->Release(); bd->BlendState = nullptr; }
@@ -512,7 +512,7 @@ bool ImGui_ImplDX11_RecreateFontTexture()
 		return false;
 
 	if (bd->FontSampler) { bd->FontSampler->Release(); bd->FontSampler = nullptr; }
-	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(nullptr); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
+	if (bd->FontTextureView) { bd->FontTextureView->Release(); bd->FontTextureView = nullptr; ImGui::GetIO().Fonts->SetTexID(0); } // We copied data->pFontTextureView to io.Fonts->TexID so let's clear that as well.
 	ImGui_ImplDX11_CreateFontsTexture();
 	return true;
 }
@@ -814,7 +814,7 @@ namespace CustomDraw
 	ivec2 GPUTexture::GetSize() const { auto* data = ResolveHandle(Handle); return data ? data->Desc.Size : ivec2(0, 0); }
 	vec2 GPUTexture::GetSizeF32() const { return vec2(GetSize()); }
 	GPUPixelFormat GPUTexture::GetFormat() const { auto* data = ResolveHandle(Handle); return data ? data->Desc.Format : GPUPixelFormat {}; }
-	ImTextureID GPUTexture::GetTexID() const { auto* data = ResolveHandle(Handle); return data ? data->ResourceView : nullptr; }
+	ImTextureID GPUTexture::GetTexID() const { auto* data = ResolveHandle(Handle); return data ? (ImTextureID)data->ResourceView : 0; }
 
 	// NOTE: The most obvious way to extend this would be to either add an enum command type + a union of parameters
 	//		 or (better?) a per command type commands vector with the render callback userdata storing a packed type+index

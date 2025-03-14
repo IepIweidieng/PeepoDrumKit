@@ -99,7 +99,7 @@ namespace ImGui
 		drawList->AddText(textPosition, textColor, StringViewStart(text), StringViewEnd(text));
 	}
 
-	void AddTextWithDropShadow(ImDrawList* drawList, const ImFont* font, f32 fontSize, vec2 textPosition, u32 textColor, std::string_view text, f32 wrap_width, const ImVec4* cpu_fine_clip_rect, u32 shadowColor, vec2 shadowOffset)
+	void AddTextWithDropShadow(ImDrawList* drawList, ImFont* font, f32 fontSize, vec2 textPosition, u32 textColor, std::string_view text, f32 wrap_width, const ImVec4* cpu_fine_clip_rect, u32 shadowColor, vec2 shadowOffset)
 	{
 		drawList->AddText(font, fontSize, textPosition + shadowOffset, shadowColor, StringViewStart(text), StringViewEnd(text), wrap_width, cpu_fine_clip_rect);
 		drawList->AddText(font, fontSize, textPosition, textColor, StringViewStart(text), StringViewEnd(text), wrap_width, cpu_fine_clip_rect);
@@ -183,7 +183,7 @@ namespace ImGui
 		const f32 frameHeight = GetFrameHeight();
 
 		PushID(inOutValue);
-		const b8 buttonClicked = ButtonEx(label, vec2((buttonSize.x <= 0.0f) ? frameHeight : buttonSize.x, (buttonSize.y <= 0.0f) ? frameHeight : buttonSize.y), ImGuiButtonFlags_Repeat | ImGuiButtonFlags_DontClosePopups);
+		const b8 buttonClicked = ButtonEx(label, vec2((buttonSize.x <= 0.0f) ? frameHeight : buttonSize.x, (buttonSize.y <= 0.0f) ? frameHeight : buttonSize.y), ImGuiItemFlags_ButtonRepeat);
 		PopID();
 
 		if (buttonClicked)
@@ -217,7 +217,10 @@ namespace ImGui
 		char buf[64];
 		DataTypeFormatString(buf, IM_ARRAYSIZE(buf), data_type, p_data, format);
 
-		flags |= ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_NoMarkEdited; // We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
+		// Disable the MarkItemEdited() call in InputText but keep ImGuiItemStatusFlags_Edited.
+		// We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
+		g.NextItemData.ItemFlags |= ImGuiItemFlags_NoMarkEdited;
+		flags |= ImGuiInputTextFlags_AutoSelectAll;
 
 		InputScalarWithButtonsResult result = {};
 		if (p_step != NULL)
@@ -244,7 +247,7 @@ namespace ImGui
 			const ImVec2 backup_frame_padding = style.FramePadding;
 
 			style.FramePadding.x = style.FramePadding.y;
-			ImGuiButtonFlags button_flags = ImGuiButtonFlags_Repeat | ImGuiButtonFlags_DontClosePopups;
+			ImGuiButtonFlags button_flags = ImGuiItemFlags_ButtonRepeat;
 			if (flags & ImGuiInputTextFlags_ReadOnly)
 				BeginDisabled();
 			SameLine(0, button_spacing_x);
@@ -313,6 +316,8 @@ namespace ImGui
 
 			style.Colors[ImGuiCol_Text] = backup_text_color;
 		}
+
+		g.LastItemData.ItemFlags &= ~ImGuiItemFlags_NoMarkEdited;
 		if (result.ValueChanged)
 			MarkItemEdited(g.LastItemData.ID);
 
@@ -329,17 +334,13 @@ namespace ImGui
 		if (window->SkipItems)
 			return InputScalarWithButtonsResult {};
 
-		// NOTE: Duplicated from imgui_widgets.cpp beacuse it's not exposed publicly
-		static constexpr size_t GDataTypeInfo_Sizes[] = { sizeof(i8), sizeof(u8), sizeof(i16), sizeof(u16), sizeof(i32), sizeof(u32), sizeof(f32), sizeof(i64), sizeof(u64), sizeof(f64) };
-		IM_STATIC_ASSERT(IM_ARRAYSIZE(GDataTypeInfo_Sizes) == ImGuiDataType_COUNT);
-
 		InputScalarWithButtonsResult result = {};
 
 		ImGuiContext& g = *GImGui;
 		BeginGroup();
 		PushID(label);
 		PushMultiItemsWidths(components, CalcItemWidth());
-		size_t type_size = GDataTypeInfo_Sizes[data_type];
+		size_t type_size = DataTypeGetInfo(data_type)->Size;
 		for (int i = 0; i < components; i++)
 		{
 			PushID(i);

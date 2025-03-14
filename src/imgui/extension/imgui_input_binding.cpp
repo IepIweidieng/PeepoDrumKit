@@ -83,6 +83,18 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_F10, 			"F10", "F10", },
 	{ ImGuiKey_F11, 			"F11", "F11", },
 	{ ImGuiKey_F12,				"F12", "F12", },
+	{ ImGuiKey_F13,				"F13", "F13", },
+	{ ImGuiKey_F14,				"F14", "F14", },
+	{ ImGuiKey_F15,				"F15", "F15", },
+	{ ImGuiKey_F16,				"F16", "F16", },
+	{ ImGuiKey_F17,				"F17", "F17", },
+	{ ImGuiKey_F18,				"F18", "F18", },
+	{ ImGuiKey_F19,				"F19", "F19", },
+	{ ImGuiKey_F20,				"F20", "F20", },
+	{ ImGuiKey_F21,				"F21", "F21", },
+	{ ImGuiKey_F22,				"F22", "F22", },
+	{ ImGuiKey_F23,				"F23", "F23", },
+	{ ImGuiKey_F24,				"F24", "F24", },
 	{ ImGuiKey_Apostrophe,		"Apostrophe", "'", "Apostrophe", },         // '
 	{ ImGuiKey_Comma,           "Comma", ",", "Comma", },                   // ,
 	{ ImGuiKey_Minus,           "Minus", "-", "Minus", },                   // -
@@ -116,6 +128,8 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_KeypadAdd,		"KeypadAdd", "Keypad Add", },
 	{ ImGuiKey_KeypadEnter,		"KeypadEnter", "Keypad Enter", },
 	{ ImGuiKey_KeypadEqual,		"KeypadEqual", "Keypad Equal", },
+	{ ImGuiKey_AppBack,		"AppBack", "App Back", },
+	{ ImGuiKey_AppForward,		"AppForward", "App Forward", },
 
 	{ ImGuiKey_GamepadStart,		"GamepadStart", "Gamepad Start", },              // Menu (Xbox)          + (Switch)   Start/Options (PS) // --
 	{ ImGuiKey_GamepadBack,			"GamepadBack", "Gamepad Back", },                // View (Xbox)          - (Switch)   Share (PS)         // --
@@ -142,11 +156,6 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_GamepadRStickUp,		"GamepadRStickUp", "Gamepad RStick Up", },       // [Analog]
 	{ ImGuiKey_GamepadRStickDown,	"GamepadRStickDown", "Gamepad RStick Down", },   // [Analog]
 
-	{ ImGuiKey_ModCtrl,  "ModCtrl", "Ctrl", "Control", },
-	{ ImGuiKey_ModShift, "ModShift", "Shift", },
-	{ ImGuiKey_ModAlt, 	 "ModAlt", "Alt", },
-	{ ImGuiKey_ModSuper, "ModSuper", "Super", },
-
 	{ ImGuiKey_MouseLeft,   "MouseLeft", "Mouse Left", },
 	{ ImGuiKey_MouseRight,  "MouseRight", "Mouse Right", },
 	{ ImGuiKey_MouseMiddle, "MouseMiddle", "Mouse Middle", },
@@ -154,6 +163,11 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_MouseX2,		"MouseX2", "Mouse X2", },
 	{ ImGuiKey_MouseWheelX, "MouseWheelX", "Mouse Wheel X", },
 	{ ImGuiKey_MouseWheelY, "MouseWheelY", "Mouse Wheel Y", },
+
+	{ ImGuiKey_ReservedForModCtrl,  "ModCtrl", "Ctrl", "Control", },
+	{ ImGuiKey_ReservedForModShift, "ModShift", "Shift", },
+	{ ImGuiKey_ReservedForModAlt, 	 "ModAlt", "Alt", },
+	{ ImGuiKey_ReservedForModSuper, "ModSuper", "Super", },
 };
 
 static constexpr b8 CompileTimeValidateNamedImGuiKeyInfoTable(const ImGuiKeyInfo* namedImGuiKeyInfoTable)
@@ -173,6 +187,10 @@ static_assert(CompileTimeValidateNamedImGuiKeyInfoTable(NamedImGuiKeyInfoTable))
 
 static constexpr ImGuiKeyInfo GetImGuikeyInfo(ImGuiKey key)
 {
+	// Special storage location for mods
+	if (key & ImGuiMod_Mask_)
+		key = ImGui::ConvertSingleModFlagToKey(key);
+
 	if (key == ImGuiKey_None)
 		return ImGuiKeyInfo { ImGuiKey_None, "None" };
 	else if (key < ImGuiKey_NamedKey_BEGIN || key >= ImGuiKey_NamedKey_END)
@@ -195,11 +213,11 @@ static constexpr cstr ImGuiMouseButtonToCString(ImGuiMouseButton button)
 }
 
 template <typename Func>
-static constexpr void ForEachImGuiKeyInKeyModFlags(ImGuiModFlags modifiers, Func func)
+static constexpr void ForEachImGuiKeyInKeyModFlags(ImGuiKeyChord modifiers, Func func)
 {
-	if (modifiers & ImGuiModFlags_Ctrl) func(ImGuiKey_ModCtrl);
-	if (modifiers & ImGuiModFlags_Shift) func(ImGuiKey_ModShift);
-	if (modifiers & ImGuiModFlags_Alt) func(ImGuiKey_ModAlt);
+	if (modifiers & ImGuiMod_Ctrl) func(ImGuiMod_Ctrl);
+	if (modifiers & ImGuiMod_Shift) func(ImGuiMod_Shift);
+	if (modifiers & ImGuiMod_Alt) func(ImGuiMod_Alt);
 }
 
 InputFormatBuffer ToShortcutString(ImGuiKey key)
@@ -210,7 +228,7 @@ InputFormatBuffer ToShortcutString(ImGuiKey key)
 	return out;
 }
 
-InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiModFlags modifiers)
+InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiKeyChord modifiers)
 {
 	InputFormatBuffer out {};
 	char* bufferWriteHead = out.Data;
@@ -227,7 +245,7 @@ InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiModFlags modifiers)
 		}
 	};
 
-	if (modifiers != ImGuiModFlags_None)
+	if (modifiers != ImGuiMod_None)
 		ForEachImGuiKeyInKeyModFlags(modifiers, [&](ImGuiKey modifierKey) { append(GetImGuikeyInfo(modifierKey).DisplayName); append(" + "); });
 	append(GetImGuikeyInfo(key).DisplayName);
 
@@ -238,7 +256,7 @@ InputFormatBuffer ToShortcutString(ImGuiKey key, ImGuiModFlags modifiers)
 InputFormatBuffer ToShortcutString(const InputBinding& binding)
 {
 	if (binding.Type == InputBindingType::Keyboard)
-		return ToShortcutString(binding.KeyOrButton, binding.KeyModifiers);
+		return ToShortcutString((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers());
 	else if (binding.Type == InputBindingType::Mouse)
 	{
 		InputFormatBuffer out {};
@@ -270,11 +288,11 @@ void InputBindingToStorageString(const MultiInputBinding& in, std::string& strin
 		}
 		else if (binding.Type == InputBindingType::Keyboard)
 		{
-			if (binding.KeyModifiers & ImGuiModFlags_Ctrl) { stringToAppendTo += "Ctrl+"; }
-			if (binding.KeyModifiers & ImGuiModFlags_Shift) { stringToAppendTo += "Shift+"; }
-			if (binding.KeyModifiers & ImGuiModFlags_Alt) { stringToAppendTo += "Alt+"; }
+			if (binding.KeyModifiers() & ImGuiMod_Ctrl) { stringToAppendTo += "Ctrl+"; }
+			if (binding.KeyModifiers() & ImGuiMod_Shift) { stringToAppendTo += "Shift+"; }
+			if (binding.KeyModifiers() & ImGuiMod_Alt) { stringToAppendTo += "Alt+"; }
 
-			const ImGuiKeyInfo keyInfo = GetImGuikeyInfo(binding.KeyOrButton);
+			const ImGuiKeyInfo keyInfo = GetImGuikeyInfo((ImGuiKey)binding.KeyOrButton);
 			stringToAppendTo += (keyInfo.EnumName != nullptr) ? keyInfo.EnumName : "None";
 		}
 		else if (binding.Type == InputBindingType::Mouse)
@@ -303,8 +321,8 @@ b8 InputBindingFromStorageString(std::string_view stringToParse, MultiInputBindi
 		if (ASCII::IsAllWhitespace(in) || out.Count + 1 >= MultiInputBinding::MaxCount)
 			return;
 
-		ImGuiModFlags outMod = ImGuiModFlags_None;
-		auto parseMod = [&](ImGuiModFlags mod, std::string_view name)
+		ImGuiKeyChord outMod = ImGuiMod_None;
+		auto parseMod = [&](ImGuiKeyChord mod, std::string_view name)
 		{
 			if (ASCII::StartsWithInsensitive(in, name))
 			{
@@ -312,9 +330,9 @@ b8 InputBindingFromStorageString(std::string_view stringToParse, MultiInputBindi
 				if (plusIndex != std::string_view::npos) { outMod |= mod; in = ASCII::TrimLeft(in.substr(plusIndex + sizeof('+'))); }
 			}
 		};
-		parseMod(ImGuiModFlags_Ctrl, "Ctrl");
-		parseMod(ImGuiModFlags_Shift, "Shift");
-		parseMod(ImGuiModFlags_Alt, "Alt");
+		parseMod(ImGuiMod_Ctrl, "Ctrl");
+		parseMod(ImGuiMod_Shift, "Shift");
+		parseMod(ImGuiMod_Alt, "Alt");
 
 		ImGuiKey outKey = ImGuiKey_None;
 		for (const ImGuiKeyInfo& info : NamedImGuiKeyInfoTable)
@@ -332,7 +350,7 @@ b8 InputBindingFromStorageString(std::string_view stringToParse, MultiInputBindi
 
 struct InternalInputExtraFrameData
 {
-	ImGuiModFlags ModifiersDown;
+	ImGuiKeyChord ModifiersDown;
 	f32 TimeSinceLastModifiersChange;
 };
 
@@ -363,7 +381,7 @@ namespace ImGui
 		return ThisFrameInputExData.TimeSinceLastModifiersChange >= keyDuration;
 	}
 
-	static b8 Internal_AreModifiersDownFirst(ImGuiKey key, ImGuiModFlags modifiers)
+	static b8 Internal_AreModifiersDownFirst(ImGuiKey key, ImGuiKeyChord modifiers)
 	{
 		const f32 keyDuration = ImGui::IsNamedKey(key) ? ImGui::GetKeyData(key)->DownDuration : 0.0f;
 		b8 allLonger = true;
@@ -371,12 +389,12 @@ namespace ImGui
 		return allLonger;
 	}
 
-	b8 AreAllModifiersDown(ImGuiModFlags modifiers)
+	b8 AreAllModifiersDown(ImGuiKeyChord modifiers)
 	{
 		return ((GImGui->IO.KeyMods & modifiers) == modifiers);
 	}
 
-	b8 AreOnlyModifiersDown(ImGuiModFlags modifiers)
+	b8 AreOnlyModifiersDown(ImGuiKeyChord modifiers)
 	{
 		return (GImGui->IO.KeyMods == modifiers);
 	}
@@ -391,9 +409,9 @@ namespace ImGui
 		else if (binding.Type == InputBindingType::Keyboard)
 		{
 			if (behavior == InputModifierBehavior::Strict)
-				return ImGui::IsKeyDown(binding.KeyOrButton) && AreOnlyModifiersDown(binding.KeyModifiers) && Internal_IsKeyDownAfterAllModifiers(binding.KeyOrButton);
+				return ImGui::IsKeyDown((ImGuiKey)binding.KeyOrButton) && AreOnlyModifiersDown(binding.KeyModifiers()) && Internal_IsKeyDownAfterAllModifiers((ImGuiKey)binding.KeyOrButton);
 			else
-				return ImGui::IsKeyDown(binding.KeyOrButton) && AreAllModifiersDown(binding.KeyModifiers) && Internal_AreModifiersDownFirst(binding.KeyOrButton, binding.KeyModifiers);
+				return ImGui::IsKeyDown((ImGuiKey)binding.KeyOrButton) && AreAllModifiersDown(binding.KeyModifiers()) && Internal_AreModifiersDownFirst((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers());
 		}
 		else if (binding.Type == InputBindingType::Mouse)
 		{
@@ -416,9 +434,9 @@ namespace ImGui
 		{
 			// NOTE: Still have to explictily check the modifier hold durations here in case of repeat
 			if (behavior == InputModifierBehavior::Strict)
-				return ImGui::IsKeyPressed(binding.KeyOrButton, repeat) && AreOnlyModifiersDown(binding.KeyModifiers) && Internal_IsKeyDownAfterAllModifiers(binding.KeyOrButton);
+				return ImGui::IsKeyPressed((ImGuiKey)binding.KeyOrButton, repeat) && AreOnlyModifiersDown(binding.KeyModifiers()) && Internal_IsKeyDownAfterAllModifiers((ImGuiKey)binding.KeyOrButton);
 			else
-				return ImGui::IsKeyPressed(binding.KeyOrButton, repeat) && AreAllModifiersDown(binding.KeyModifiers) && Internal_AreModifiersDownFirst(binding.KeyOrButton, binding.KeyModifiers);
+				return ImGui::IsKeyPressed((ImGuiKey)binding.KeyOrButton, repeat) && AreAllModifiersDown(binding.KeyModifiers()) && Internal_AreModifiersDownFirst((ImGuiKey)binding.KeyOrButton, binding.KeyModifiers());
 		}
 		else if (binding.Type == InputBindingType::Mouse)
 		{

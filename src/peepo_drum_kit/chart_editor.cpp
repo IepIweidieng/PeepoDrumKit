@@ -133,7 +133,7 @@ namespace PeepoDrumKit
 				if (Gui::MenuItem(UI_Str("ACT_EDIT_SAVE"), ToShortcutString(*Settings.Input.Editor_ChartSave).Data)) { TrySaveChartOrOpenSaveAsDialog(context); }
 				if (Gui::MenuItem(UI_Str("ACT_FILE_SAVE_AS"), ToShortcutString(*Settings.Input.Editor_ChartSaveAs).Data)) { OpenChartSaveAsDialog(context); }
 				Gui::Separator();
-				if (Gui::MenuItem(UI_Str("ACT_FILE_EXIT"), ToShortcutString(InputBinding(ImGuiKey_F4, ImGuiModFlags_Alt)).Data))
+				if (Gui::MenuItem(UI_Str("ACT_FILE_EXIT"), ToShortcutString(InputBinding(ImGuiKey_F4, ImGuiMod_Alt)).Data))
 					tryToCloseApplicationOnNextFrame = true;
 				Gui::EndMenu();
 			}
@@ -201,7 +201,7 @@ namespace PeepoDrumKit
 					};
 
 					const b8 disableAddNew = (customPatterns->V.size() >= 6);
-					if (Gui::Selectable(UI_Str("ACT_SELECTION_ADD_NEW_PATTERN"), false, ImGuiSelectableFlags_DontClosePopups | (disableAddNew ? ImGuiSelectableFlags_Disabled : 0)))
+					if (Gui::Selectable(UI_Str("ACT_SELECTION_ADD_NEW_PATTERN"), false, ImGuiSelectableFlags_NoAutoClosePopups | (disableAddNew ? ImGuiSelectableFlags_Disabled : 0)))
 					{
 						static constexpr std::string_view defaultPattern = "xoooooo";
 						const std::string_view newPattern = defaultPattern.substr(0, ClampTop<size_t>(customPatterns->V.size() + 2, defaultPattern.size()));
@@ -478,7 +478,7 @@ namespace PeepoDrumKit
 				{
 					// NOTE: To essentially make these tab items look similar to regular menu items (the inverted Active <-> Hovered colors are not a mistake)
 					Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-					Gui::PushStyleColor(ImGuiCol_TabActive, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+					Gui::PushStyleColor(ImGuiCol_TabSelected, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
 					if (Gui::BeginTabBar("MenuBarTabs", ImGuiTabBarFlags_FittingPolicyScroll))
 					{
 						// HACK: How to properly manage the imgui selected tab internal state..?
