@@ -1953,6 +1953,31 @@ namespace PeepoDrumKit
 		}
 	}
 
+	template <typename TValue, typename... TLables>
+	static b8 GuiEnumLikeButtons(cstr labelGroup, TValue* currentValue, TLables... labelNames)
+	{
+		b8 valueChanged = false;
+
+		cstr labels[] = { labelNames... };
+
+		Gui::PushID(labelGroup);
+		Gui::SameLineMultiWidget(std::size(labels), [&](const Gui::MultiWidgetIt& i)
+		{
+			const f32 alphaFactor = (i.Index == static_cast<i32>(*currentValue)) ? 1.0f : 0.5f;
+			Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, alphaFactor));
+			Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, alphaFactor));
+			Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, alphaFactor));
+			if (Gui::Button(labels[i.Index], { Gui::CalcItemWidth(), 0.0f })) {
+				*currentValue = static_cast<TValue>(i.Index);
+				valueChanged = true;
+			}
+			Gui::PopStyleColor(3);
+			return false;
+		});
+		Gui::PopID();
+		return valueChanged;
+	}
+
 	void ChartTempoWindow::DrawGui(ChartContext& context, ChartTimeline& timeline)
 	{
 		Gui::UpdateSmoothScrollWindow();
@@ -2192,24 +2217,8 @@ namespace PeepoDrumKit
 							context.Undo.Execute<Commands::UpdateBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newIsVisible });
 					};
 
-					static constexpr auto guiOnOffButton = [](cstr label, cstr onLabel, cstr offLabel, b8* inOutIsOn) -> b8
-					{
-						b8 valueChanged = false;
-						Gui::PushID(label); Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
-						{
-							const f32 alphaFactor = ((i.Index == 0) == *inOutIsOn) ? 1.0f : 0.5f;
-							Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, alphaFactor));
-							Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, alphaFactor));
-							Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, alphaFactor));
-							if (Gui::Button((i.Index == 0) ? onLabel : offLabel, { Gui::CalcItemWidth(), 0.0f })) { *inOutIsOn = (i.Index == 0); valueChanged = true; }
-							Gui::PopStyleColor(3);
-							return false;
-						});
-						Gui::PopID(); return valueChanged;
-					};
-
 					Gui::SetNextItemWidth(-1.0f);
-					if (b8 v = (barLineChangeAtCursor == nullptr) ? true : barLineChangeAtCursor->IsVisible; guiOnOffButton("##OnOffBarLineAtCursor", UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN"), &v))
+					if (b8 v = (barLineChangeAtCursor == nullptr) ? true : barLineChangeAtCursor->IsVisible; GuiEnumLikeButtons("##OnOffBarLineAtCursor", &v, UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN")))
 						insertOrUpdateCursorBarLineChange(v);
 
 					Gui::PushID(&course.BarLineChanges);
@@ -2237,28 +2246,8 @@ namespace PeepoDrumKit
 								context.Undo.Execute<Commands::UpdateScrollType>(&course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
 						};
 
-						static constexpr auto guiOnOffButton = [](cstr label, cstr nmLabel, cstr hbLabel, cstr bmLabel, ScrollMethod* currentMethod) -> b8
-						{
-							b8 valueChanged = false;
-
-							cstr labels[3] = {nmLabel, hbLabel, bmLabel};
-							
-
-							Gui::PushID(label); Gui::SameLineMultiWidget(3, [&](const Gui::MultiWidgetIt& i)
-								{
-									const f32 alphaFactor = (i.Index == static_cast<i32>(*currentMethod)) ? 1.0f : 0.5f;
-									Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, alphaFactor));
-									Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, alphaFactor));
-									Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, alphaFactor));
-									if (Gui::Button(labels[i.Index], { Gui::CalcItemWidth(), 0.0f })) { *currentMethod = static_cast<ScrollMethod>(i.Index); valueChanged = true; }
-									Gui::PopStyleColor(3);
-									return false;
-								});
-							Gui::PopID(); return valueChanged;
-						};
-
 						Gui::SetNextItemWidth(-1.0f);
-						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; guiOnOffButton("##ScrollTypeAtCursor", UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL"), &v))
+						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; GuiEnumLikeButtons("##ScrollTypeAtCursor", &v, UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL")))
 							insertOrUpdateCursorScrollType(v);
 
 						Gui::PushID(&course.ScrollTypes);
