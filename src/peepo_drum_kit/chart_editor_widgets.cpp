@@ -2148,7 +2148,7 @@ namespace PeepoDrumKit
 						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; guiOnOffButton("##ScrollTypeAtCursor", UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL"), &v))
 							insertOrUpdateCursorScrollType(v);
 
-						Gui::PushID(&course.BarLineChanges);
+						Gui::PushID(&course.ScrollTypes);
 						if (!disallowRemoveButton && ScrollTypeAtCursor != nullptr && ScrollTypeAtCursor->BeatTime == cursorBeat)
 						{
 							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))

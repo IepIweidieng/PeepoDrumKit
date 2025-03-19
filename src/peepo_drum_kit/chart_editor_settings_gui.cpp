@@ -441,7 +441,10 @@ namespace PeepoDrumKit
 						}
 					}
 
-					Gui::PushID(entry.Binding);
+					if (entry.Binding != nullptr)
+						Gui::PushID(entry.Binding);
+					else
+						Gui::PushID(("##InputSettingsEmptyLine_" + std::to_string(entryIndex)).c_str());
 					Gui::TableNextRow();
 
 					Gui::TableSetColumnIndex(0);
