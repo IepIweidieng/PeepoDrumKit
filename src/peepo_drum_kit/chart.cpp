@@ -446,56 +446,69 @@ namespace PeepoDrumKit
 			return static_cast<TExpected*>(nullptr);
 	}
 
-	struct BeatStartAndDurationPtrs { Beat* Start; Beat* Duration; };
-	inline BeatStartAndDurationPtrs GetGenericListStructRawBeatPtr(GenericListStruct& in, GenericList list)
+	template <GenericMember Member, typename TExpected = GenericMemberType<Member>, typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
+	constexpr auto* GetGenericListStructRawPtr(GenericListStructT&& in, GenericList list)
 	{
 		return ApplySingleGenericList(list,
-			[](auto&& typedIn) -> BeatStartAndDurationPtrs { return {GetRawPtr<GenericMember::Beat_Start>(typedIn), GetRawPtr<GenericMember::Beat_Duration>(typedIn)}; },
-			BeatStartAndDurationPtrs {nullptr, nullptr},
+			[](auto&& typedIn) { return GetRawPtr<Member>(typedIn); }, static_cast<TExpected*>(nullptr),
 			in);
 	}
 
-	inline f32* GetGenericListStructRawTimeDurationPtr(GenericListStruct& in, GenericList list)
+	template <GenericMember Member, typename TExpected = GenericMemberType<Member>, typename... TDefault,
+		typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
+	constexpr std::tuple<bool, TExpected> Get(GenericListStructT&& in, GenericList list, TDefault... vDefault)
 	{
-		return ApplySingleGenericList<f32*>(list,
-			[](auto&& typedIn) { return GetRawPtr<GenericMember::F32_JPOSScrollDuration>(typedIn); }, nullptr,
-			in);
+		const auto ptr = GetGenericListStructRawPtr<Member>(*const_cast<GenericListStruct*>(&in), list);
+		if constexpr (sizeof...(TDefault) > 0) {
+			if (ptr == nullptr)
+				return { false, TExpected { vDefault... } };
+		}
+		return { ptr != nullptr , *ptr };
 	}
+
 
 	Beat GenericListStruct::GetBeat(GenericList list) const
 	{
-		return *GetGenericListStructRawBeatPtr(*const_cast<GenericListStruct*>(this), list).Start;
+		return get<1>(Get<GenericMember::Beat_Start>(*this, list));
 	}
 
 	Beat GenericListStruct::GetBeatDuration(GenericList list) const
 	{
-		const auto ptrs = GetGenericListStructRawBeatPtr(*const_cast<GenericListStruct*>(this), list);
-		return (ptrs.Duration != nullptr) ? *ptrs.Duration : Beat::Zero();
+		return get<1>(Get<GenericMember::Beat_Duration>(*this, list, Beat::Zero()));
 	}
 
 	std::tuple<bool, Time> GenericListStruct::GetTimeDuration(GenericList list) const
 	{
-		const auto ptrs = GetGenericListStructRawTimeDurationPtr(*const_cast<GenericListStruct*>(this), list);
-		return (ptrs != nullptr) ? std::make_tuple(true, Time::FromSec(*ptrs)) : std::make_tuple(false, Time::Zero());
+		const auto& [success, sec] = Get<GenericMember::F32_JPOSScrollDuration>(*this, list, 0.0f);
+		return { success, Time::FromSec(sec) };
+	}
+
+	template <GenericMember Member, bool Required = false, typename TValue,
+		typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
+	constexpr bool Set(GenericListStructT&& in, GenericList list, TValue newValue)
+	{
+		const auto ptr = GetGenericListStructRawPtr<Member>(*const_cast<GenericListStruct*>(&in), list);
+		if constexpr (!Required) {
+			if (ptr == nullptr)
+				return false;
+		}
+		*ptr = newValue;
+		return true;
 	}
 
 	void GenericListStruct::SetBeat(GenericList list, Beat newValue)
 	{
-		*GetGenericListStructRawBeatPtr(*this, list).Start = newValue;
+		Set<GenericMember::Beat_Start, true>(*this, list, newValue);
 	}
 
 	void GenericListStruct::SetBeatDuration(GenericList list, Beat newValue)
 	{
-		auto ptrs = GetGenericListStructRawBeatPtr(*this, list);
-		if (ptrs.Duration != nullptr)
-			*ptrs.Duration = newValue;
+		Set<GenericMember::Beat_Duration>(*this, list, newValue);
 	}
 
 	void GenericListStruct::SetTimeDuration(GenericList list, Time newValue)
 	{
-		auto ptrs = GetGenericListStructRawTimeDurationPtr(*this, list);
-		if (ptrs != nullptr)
-			*ptrs = newValue.Seconds;
+		Set<GenericMember::F32_JPOSScrollDuration>(*this, list, newValue.Seconds);
 	}
 
 	// helpers
