@@ -444,44 +444,28 @@ namespace PeepoDrumKit
 
 namespace PeepoDrumKit
 {
+	template <GenericMember Member, typename T, typename TExpected = GenericMemberType<Member>>
+	constexpr auto* GetRawPtr(T&& obj) {
+		if constexpr (IsMemberAvailable<T, Member>)
+			return &get<Member>(std::forward<T>(obj));
+		else
+			return static_cast<TExpected*>(nullptr);
+	}
+
 	struct BeatStartAndDurationPtrs { Beat* Start; Beat* Duration; };
 	inline BeatStartAndDurationPtrs GetGenericListStructRawBeatPtr(GenericListStruct& in, GenericList list)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges: return { &in.POD.Tempo.Beat, nullptr };
-		case GenericList::SignatureChanges: return { &in.POD.Signature.Beat, nullptr };
-		case GenericList::Notes_Normal: return { &in.POD.Note.BeatTime, &in.POD.Note.BeatDuration };
-		case GenericList::Notes_Expert: return { &in.POD.Note.BeatTime, &in.POD.Note.BeatDuration };
-		case GenericList::Notes_Master: return { &in.POD.Note.BeatTime, &in.POD.Note.BeatDuration };
-		case GenericList::ScrollChanges: return { &in.POD.Scroll.BeatTime, nullptr };
-		case GenericList::BarLineChanges: return { &in.POD.BarLine.BeatTime, nullptr };
-		case GenericList::GoGoRanges: return { &in.POD.GoGo.BeatTime, &in.POD.GoGo.BeatDuration };
-		case GenericList::Lyrics: return { &in.NonTrivial.Lyric.BeatTime, nullptr };
-		case GenericList::ScrollType: return { &in.POD.ScrollType.BeatTime, nullptr };
-		case GenericList::JPOSScroll: return { &in.POD.JPOSScroll.BeatTime, nullptr };
-		default: assert(false); return { nullptr, nullptr };
-		}
+		return ApplySingleGenericList(list,
+			[](auto&& typedIn) -> BeatStartAndDurationPtrs { return {GetRawPtr<GenericMember::Beat_Start>(typedIn), GetRawPtr<GenericMember::Beat_Duration>(typedIn)}; },
+			BeatStartAndDurationPtrs {nullptr, nullptr},
+			in);
 	}
 
 	inline f32* GetGenericListStructRawTimeDurationPtr(GenericListStruct& in, GenericList list)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges:
-		case GenericList::SignatureChanges:
-		case GenericList::Notes_Normal:
-		case GenericList::Notes_Expert:
-		case GenericList::Notes_Master:
-		case GenericList::ScrollChanges:
-		case GenericList::BarLineChanges:
-		case GenericList::GoGoRanges:
-		case GenericList::Lyrics:
-		case GenericList::ScrollType:
-			return nullptr;
-		case GenericList::JPOSScroll: return &in.POD.JPOSScroll.Duration;
-		default: assert(false); return nullptr;
-		}
+		return ApplySingleGenericList<f32*>(list,
+			[](auto&& typedIn) { return GetRawPtr<GenericMember::F32_JPOSScrollDuration>(typedIn); }, nullptr,
+			in);
 	}
 
 	Beat GenericListStruct::GetBeat(GenericList list) const
@@ -580,114 +564,17 @@ namespace PeepoDrumKit
 
 	void* TryGetGeneric_RawVoidPtr(const ChartCourse& course, GenericList list, size_t index, GenericMember member)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges:
-			if (auto& vector = *const_cast<SortedTempoChangesList*>(&course.TempoMap.Tempo); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::Beat_Start: return &vector[index].Beat;
-				case GenericMember::Tempo_V: return &vector[index].Tempo;
+		return ApplySingleGenericList<void*>(list,
+			[&](auto&& typedList) -> void* {
+				using NonConstVectorT = std::remove_cv_t<std::remove_reference_t<decltype(typedList)>>;
+				if (auto& vector = *const_cast<NonConstVectorT*>(&typedList); index < vector.size()) {
+					return ApplySingleGenericMember<void*>(member,
+						[&](auto&& typedMember) { return &typedMember; }, nullptr, nullptr,
+						vector[index]);
 				}
-			} break;
-		case GenericList::SignatureChanges:
-			if (auto& vector = *const_cast<SortedSignatureChangesList*>(&course.TempoMap.Signature); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::Beat_Start: return &vector[index].Beat;
-				case GenericMember::TimeSignature_V: return &vector[index].Signature;
-				}
-			} break;
-		case GenericList::Notes_Normal:
-		case GenericList::Notes_Expert:
-		case GenericList::Notes_Master:
-		{
-			auto& vector = *const_cast<SortedNotesList*>(&(
-				list == GenericList::Notes_Normal ? course.Notes_Normal :
-				list == GenericList::Notes_Expert ? course.Notes_Expert : course.Notes_Master));
-
-			if (index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::I16_BalloonPopCount: return &vector[index].BalloonPopCount;
-				case GenericMember::Beat_Start: return &vector[index].BeatTime;
-				case GenericMember::Beat_Duration: return &vector[index].BeatDuration;
-				case GenericMember::Time_Offset: return &vector[index].TimeOffset;
-				case GenericMember::NoteType_V: return &vector[index].Type;
-				}
-			}
-		} break;
-		case GenericList::ScrollChanges:
-			if (auto& vector = *const_cast<SortedScrollChangesList*>(&course.ScrollChanges); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::F32_ScrollSpeed: return &vector[index].ScrollSpeed;
-				case GenericMember::Beat_Start: return &vector[index].BeatTime;
-				}
-			} break;
-		case GenericList::BarLineChanges:
-			if (auto& vector = *const_cast<SortedBarLineChangesList*>(&course.BarLineChanges); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::B8_BarLineVisible: return &vector[index].IsVisible;
-				case GenericMember::Beat_Start: return &vector[index].BeatTime;
-				}
-			} break;
-		case GenericList::GoGoRanges:
-			if (auto& vector = *const_cast<SortedGoGoRangesList*>(&course.GoGoRanges); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::Beat_Start: return &vector[index].BeatTime;
-				case GenericMember::Beat_Duration: return &vector[index].BeatDuration;
-				}
-			} break;
-		case GenericList::Lyrics:
-			if (auto& vector = *const_cast<SortedLyricsList*>(&course.Lyrics); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::Beat_Start: return &vector[index].BeatTime;
-				case GenericMember::CStr_Lyric: return vector[index].Lyric.data();
-				}
-			} break;
-		case GenericList::ScrollType:
-			if (auto& vector = *const_cast<SortedScrollTypesList*>(&course.ScrollTypes); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::I8_ScrollType: return &vector[index].Method;
-				case GenericMember::Beat_Start: return &vector[index].BeatTime;
-				}
-			} break;
-		case GenericList::JPOSScroll:
-			if (auto& vector = *const_cast<SortedJPOSScrollChangesList*>(&course.JPOSScrollChanges); index < vector.size())
-			{
-				switch (member)
-				{
-				case GenericMember::B8_IsSelected: return &vector[index].IsSelected;
-				case GenericMember::F32_JPOSScroll: return &vector[index].Move;
-				case GenericMember::F32_JPOSScrollDuration: return &vector[index].Duration;
-				case GenericMember::Beat_Start: return &vector[index].BeatTime;
-				}
-			} break;
-		default:
-			assert(false); break;
-		}
-		return nullptr;
+				return nullptr;
+			}, nullptr,
+			course);
 	}
 
 	b8 TryGetGeneric(const ChartCourse& course, GenericList list, size_t index, GenericMember member, GenericMemberUnion& outValue)

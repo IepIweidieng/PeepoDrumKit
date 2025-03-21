@@ -449,6 +449,10 @@ namespace PeepoDrumKit
 	constexpr cstr GenericListNames[] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", "ScrollType", "JPOSScroll", };
 	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScroll", "JPOSScrollDuration", };
 
+	// Member availability queries
+	template <typename T, GenericMember Member>
+	extern constexpr b8 IsMemberAvailable; // defined later
+
 	union GenericMemberUnion
 	{
 		b8 B8;
@@ -469,42 +473,192 @@ namespace PeepoDrumKit
 
 	static_assert(sizeof(GenericMemberUnion) == 8);
 
+	/// tuple-like GenericMember access definition
+
+	// types with all members available
+
+	template <GenericMember Member, typename GenericMemberUnionT, expect_type_t<GenericMemberUnionT, GenericMemberUnion> = true>
+	constexpr decltype(auto) get(GenericMemberUnionT&& values)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<GenericMemberUnionT>(values).B8);
+		else if constexpr (Member == GenericMember::B8_BarLineVisible) return (std::forward<GenericMemberUnionT>(values).B8);
+		else if constexpr (Member == GenericMember::I16_BalloonPopCount) return (std::forward<GenericMemberUnionT>(values).I16);
+		else if constexpr (Member == GenericMember::F32_ScrollSpeed) return (std::forward<GenericMemberUnionT>(values).CPX);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<GenericMemberUnionT>(values).Beat);
+		else if constexpr (Member == GenericMember::Beat_Duration) return (std::forward<GenericMemberUnionT>(values).Beat);
+		else if constexpr (Member == GenericMember::Time_Offset) return (std::forward<GenericMemberUnionT>(values).Time);
+		else if constexpr (Member == GenericMember::NoteType_V) return (std::forward<GenericMemberUnionT>(values).NoteType);
+		else if constexpr (Member == GenericMember::Tempo_V) return (std::forward<GenericMemberUnionT>(values).Tempo);
+		else if constexpr (Member == GenericMember::TimeSignature_V) return (std::forward<GenericMemberUnionT>(values).TimeSignature);
+		else if constexpr (Member == GenericMember::CStr_Lyric) return (std::forward<GenericMemberUnionT>(values).CStr);
+		else if constexpr (Member == GenericMember::I8_ScrollType) return (std::forward<GenericMemberUnionT>(values).I16);
+		else if constexpr (Member == GenericMember::F32_JPOSScroll) return (std::forward<GenericMemberUnionT>(values).CPX);
+		else if constexpr (Member == GenericMember::F32_JPOSScrollDuration) return (std::forward<GenericMemberUnionT>(values).F32);
+		else static_assert(false, "unhandled or invalid GenericMember value");
+	}
+
+	template <GenericMember Member>
+	using GenericMemberType = std::remove_cv_t<std::remove_reference_t<decltype(get<Member>(std::declval<GenericMemberUnion>()))>>;
+
+	template <GenericMember Member, typename AllGenericMembersUnionArrayT, expect_type_t<AllGenericMembersUnionArrayT, struct AllGenericMembersUnionArray> = true>
+	constexpr decltype(auto) get(AllGenericMembersUnionArrayT&& values)
+	{
+		return get<Member>(std::forward<AllGenericMembersUnionArrayT>(values)[Member]);
+	}
+
+	// defined here due to dependency
 	struct AllGenericMembersUnionArray
 	{
 		GenericMemberUnion V[EnumCount<GenericMember>];
 
-		inline GenericMemberUnion& operator[](GenericMember member) { return V[EnumToIndex(member)]; }
-		inline const GenericMemberUnion& operator[](GenericMember member) const { return V[EnumToIndex(member)]; }
+		constexpr GenericMemberUnion& operator[](GenericMember member) { return V[EnumToIndex(member)]; }
+		constexpr const GenericMemberUnion& operator[](GenericMember member) const { return V[EnumToIndex(member)]; }
 
-		inline auto& IsSelected() { return (*this)[GenericMember::B8_IsSelected].B8; }
-		inline auto& BarLineVisible() { return (*this)[GenericMember::B8_BarLineVisible].B8; }
-		inline auto& BalloonPopCount() { return (*this)[GenericMember::I16_BalloonPopCount].I16; }
-		inline auto& ScrollSpeed() { return (*this)[GenericMember::F32_ScrollSpeed].CPX; }
-		inline auto& BeatStart() { return (*this)[GenericMember::Beat_Start].Beat; }
-		inline auto& BeatDuration() { return (*this)[GenericMember::Beat_Duration].Beat; }
-		inline auto& TimeOffset() { return (*this)[GenericMember::Time_Offset].Time; }
-		inline auto& NoteType() { return (*this)[GenericMember::NoteType_V].NoteType; }
-		inline auto& Tempo() { return (*this)[GenericMember::Tempo_V].Tempo; }
-		inline auto& TimeSignature() { return (*this)[GenericMember::TimeSignature_V].TimeSignature; }
-		inline auto& Lyric() { return (*this)[GenericMember::CStr_Lyric].CStr; }
-		inline auto& ScrollType() { return (*this)[GenericMember::I8_ScrollType].I16; }
-		inline auto& JPOSScrollMove() { return (*this)[GenericMember::F32_JPOSScroll].CPX; }
-		inline auto& JPOSScrollDuration() { return (*this)[GenericMember::F32_JPOSScrollDuration].F32; }
-		inline const auto& IsSelected() const { return (*this)[GenericMember::B8_IsSelected].B8; }
-		inline const auto& BarLineVisible() const { return (*this)[GenericMember::B8_BarLineVisible].B8; }
-		inline const auto& BalloonPopCount() const { return (*this)[GenericMember::I16_BalloonPopCount].I16; }
-		inline const auto& ScrollSpeed() const { return (*this)[GenericMember::F32_ScrollSpeed].CPX; }
-		inline const auto& BeatStart() const { return (*this)[GenericMember::Beat_Start].Beat; }
-		inline const auto& BeatDuration() const { return (*this)[GenericMember::Beat_Duration].Beat; }
-		inline const auto& TimeOffset() const { return (*this)[GenericMember::Time_Offset].Time; }
-		inline const auto& NoteType() const { return (*this)[GenericMember::NoteType_V].NoteType; }
-		inline const auto& Tempo() const { return (*this)[GenericMember::Tempo_V].Tempo; }
-		inline const auto& TimeSignature() const { return (*this)[GenericMember::TimeSignature_V].TimeSignature; }
-		inline const auto& Lyric() const { return (*this)[GenericMember::CStr_Lyric].CStr; }
-		inline const auto& ScrollType() const { return (*this)[GenericMember::I8_ScrollType].I16; }
-		inline const auto& JPOSScrollMove() const { return (*this)[GenericMember::F32_JPOSScroll].CPX; }
-		inline const auto& JPOSScrollDuration() const { return (*this)[GenericMember::F32_JPOSScrollDuration].F32; }
+		constexpr auto& IsSelected() { return get<GenericMember::B8_IsSelected>(*this); }
+		constexpr auto& BarLineVisible() { return get<GenericMember::B8_BarLineVisible>(*this); }
+		constexpr auto& BalloonPopCount() { return get<GenericMember::I16_BalloonPopCount>(*this); }
+		constexpr auto& ScrollSpeed() { return get<GenericMember::F32_ScrollSpeed>(*this); }
+		constexpr auto& BeatStart() { return get<GenericMember::Beat_Start>(*this); }
+		constexpr auto& BeatDuration() { return get<GenericMember::Beat_Duration>(*this); }
+		constexpr auto& TimeOffset() { return get<GenericMember::Time_Offset>(*this); }
+		constexpr auto& NoteType() { return get<GenericMember::NoteType_V>(*this); }
+		constexpr auto& Tempo() { return get<GenericMember::Tempo_V>(*this); }
+		constexpr auto& TimeSignature() { return get<GenericMember::TimeSignature_V>(*this); }
+		constexpr auto& Lyric() { return get<GenericMember::CStr_Lyric>(*this); }
+		constexpr auto& ScrollType() { return get<GenericMember::I8_ScrollType>(*this); }
+		constexpr auto& JPOSScrollMove() { return get<GenericMember::F32_JPOSScroll>(*this); }
+		constexpr auto& JPOSScrollDuration() { return get<GenericMember::F32_JPOSScrollDuration>(*this); }
+		constexpr const auto& IsSelected() const { return get<GenericMember::B8_IsSelected>(*this); }
+		constexpr const auto& BarLineVisible() const { return get<GenericMember::B8_BarLineVisible>(*this); }
+		constexpr const auto& BalloonPopCount() const { return get<GenericMember::I16_BalloonPopCount>(*this); }
+		constexpr const auto& ScrollSpeed() const { return get<GenericMember::F32_ScrollSpeed>(*this); }
+		constexpr const auto& BeatStart() const { return get<GenericMember::Beat_Start>(*this); }
+		constexpr const auto& BeatDuration() const { return get<GenericMember::Beat_Duration>(*this); }
+		constexpr const auto& TimeOffset() const { return get<GenericMember::Time_Offset>(*this); }
+		constexpr const auto& NoteType() const { return get<GenericMember::NoteType_V>(*this); }
+		constexpr const auto& Tempo() const { return get<GenericMember::Tempo_V>(*this); }
+		constexpr const auto& TimeSignature() const { return get<GenericMember::TimeSignature_V>(*this); }
+		constexpr const auto& Lyric() const { return get<GenericMember::CStr_Lyric>(*this); }
+		constexpr const auto& ScrollType() const { return get<GenericMember::I8_ScrollType>(*this); }
+		constexpr const auto& JPOSScrollMove() const { return get<GenericMember::F32_JPOSScroll>(*this); }
+		constexpr const auto& JPOSScrollDuration() const { return get<GenericMember::F32_JPOSScrollDuration>(*this); }
 	};
+
+	// types with subset members, return `void` for unavailable members
+
+	// member accessing in decltype(), enclose by () for returning a reference
+	template <GenericMember Member, typename TempoChangeT, expect_type_t<TempoChangeT, TempoChange> = true>
+	constexpr decltype(auto) get(TempoChangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<TempoChangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<TempoChangeT>(event).Beat);
+		else if constexpr (Member == GenericMember::Tempo_V) return (std::forward<TempoChangeT>(event).Tempo);
+	}
+
+	template <GenericMember Member, typename TimeSignatureChangeT, expect_type_t<TimeSignatureChangeT, TimeSignatureChange> = true>
+	constexpr decltype(auto) get(TimeSignatureChangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<TimeSignatureChangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<TimeSignatureChangeT>(event).Beat);
+		else if constexpr (Member == GenericMember::TimeSignature_V) return (std::forward<TimeSignatureChangeT>(event).Signature);
+	}
+
+	template <GenericMember Member, typename NoteT, expect_type_t<NoteT, Note> = true>
+	constexpr decltype(auto) get(NoteT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<NoteT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::I16_BalloonPopCount) return (std::forward<NoteT>(event).BalloonPopCount);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<NoteT>(event).BeatTime);
+		else if constexpr (Member == GenericMember::Beat_Duration) return (std::forward<NoteT>(event).BeatDuration);
+		else if constexpr (Member == GenericMember::Time_Offset) return (std::forward<NoteT>(event).TimeOffset);
+		else if constexpr (Member == GenericMember::NoteType_V) return (std::forward<NoteT>(event).Type);
+	}
+
+	template <GenericMember Member, typename ScrollChangeT, expect_type_t<ScrollChangeT, ScrollChange> = true>
+	constexpr decltype(auto) get(ScrollChangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<ScrollChangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::F32_ScrollSpeed) return (std::forward<ScrollChangeT>(event).ScrollSpeed);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<ScrollChangeT>(event).BeatTime);
+	}
+
+	template <GenericMember Member, typename BarLineChangeT, expect_type_t<BarLineChangeT, BarLineChange> = true>
+	constexpr decltype(auto) get(BarLineChangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<BarLineChangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::B8_BarLineVisible) return (std::forward<BarLineChangeT>(event).IsVisible);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<BarLineChangeT>(event).BeatTime);
+	}
+
+	template <GenericMember Member, typename GoGoRangeT, expect_type_t<GoGoRangeT, GoGoRange> = true>
+	constexpr decltype(auto) get(GoGoRangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<GoGoRangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<GoGoRangeT>(event).BeatTime);
+		else if constexpr (Member == GenericMember::Beat_Duration) return (std::forward<GoGoRangeT>(event).BeatDuration);
+	}
+
+	template <GenericMember Member, typename LyricChangeT, expect_type_t<LyricChangeT, LyricChange> = true>
+	constexpr decltype(auto) get(LyricChangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<LyricChangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<LyricChangeT>(event).BeatTime);
+		else if constexpr (Member == GenericMember::CStr_Lyric) return (std::forward<LyricChangeT>(event).Lyric.data());
+	}
+
+	template <GenericMember Member, typename ScrollTypeT, expect_type_t<ScrollTypeT, ScrollType> = true>
+	constexpr decltype(auto) get(ScrollTypeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<ScrollTypeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::I8_ScrollType) return (std::forward<ScrollTypeT>(event).Method);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<ScrollTypeT>(event).BeatTime);
+	}
+
+	template <GenericMember Member, typename JPOSScrollChangeT, expect_type_t<JPOSScrollChangeT, JPOSScrollChange> = true>
+	constexpr decltype(auto) get(JPOSScrollChangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<JPOSScrollChangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::F32_JPOSScroll) return (std::forward<JPOSScrollChangeT>(event).Move);
+		else if constexpr (Member == GenericMember::F32_JPOSScrollDuration) return (std::forward<JPOSScrollChangeT>(event).Duration);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<JPOSScrollChangeT>(event).BeatTime);
+	}
+
+	// Member availability queries
+	template <typename T, GenericMember Member>
+	constexpr b8 IsMemberAvailable = !std::is_void_v<decltype(get<Member>(std::declval<T>()))>;
+
+	// Apply `action` on `args` resolved by `member` if available, otherwise return `vDefault` on nothing if valid, otherwise return `vError`
+	// If `TRet` is not specified, all of `action`'s possible return values, `vDefault`, and `vError` must have the same type
+	template <typename TRet = keep_deduced_t, typename FAction, typename TDefault, typename TError, typename... TCastedArgs >
+	constexpr decltype(auto) ApplySingleGenericMember(GenericMember member, FAction&& action, TDefault&& vDefault, TError&& vError, TCastedArgs&&... args)
+	{
+		// unfortunately, as for C++20, there are no ways to make a switch-like lookup reliably without typing out all the cases
+		switch (member) {
+#define X(_Member) { \
+		case (_Member): \
+			if constexpr ((... && IsMemberAvailable<TCastedArgs, (_Member)>)) \
+				return keep_or_static_cast<TRet>(action(get<(_Member)>(std::forward<TCastedArgs>(args))...)); \
+			else \
+				return keep_or_static_cast<TRet>(vDefault); \
+		}
+		X(GenericMember::B8_IsSelected)
+		X(GenericMember::B8_BarLineVisible)
+		X(GenericMember::I16_BalloonPopCount)
+		X(GenericMember::F32_ScrollSpeed)
+		X(GenericMember::Beat_Start)
+		X(GenericMember::Beat_Duration)
+		X(GenericMember::Time_Offset)
+		X(GenericMember::NoteType_V)
+		X(GenericMember::Tempo_V)
+		X(GenericMember::TimeSignature_V)
+		X(GenericMember::CStr_Lyric)
+		X(GenericMember::I8_ScrollType)
+		X(GenericMember::F32_JPOSScroll)
+		X(GenericMember::F32_JPOSScrollDuration)
+#undef X
+		default: assert(false); return keep_or_static_cast<TRet>(vError);
+		}
+	}
 
 	struct GenericListStruct
 	{
@@ -585,6 +739,9 @@ namespace PeepoDrumKit
 		else static_assert(false, "unhandled or invalid GenericList value");
 	}
 
+	template <GenericList List>
+	using GenericListType = std::remove_cv_t<std::remove_reference_t<decltype(get<List>(std::declval<ChartCourse>()))>>;
+
 	template <GenericList List, typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
 	constexpr decltype(auto) get(GenericListStructT&& inValue)
 	{
@@ -601,6 +758,9 @@ namespace PeepoDrumKit
 		else if constexpr (List == GenericList::JPOSScroll) return (std::forward<GenericListStructT>(inValue).POD.JPOSScroll);
 		else static_assert(false, "unhandled or invalid GenericList value");
 	}
+
+	template <GenericList List>
+	using GenericListStructType = std::remove_cv_t<std::remove_reference_t<decltype(get<List>(std::declval<GenericListStruct>()))>>;
 
 	// Apply `action` on `args` resolved by `list` if valid, otherwise return `vError`
 	// If `TRet` is not specified, all of `action`'s possible return values and `vError` must have the same type
