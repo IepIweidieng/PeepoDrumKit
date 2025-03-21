@@ -453,6 +453,14 @@ namespace PeepoDrumKit
 	template <typename T, GenericMember Member>
 	extern constexpr b8 IsMemberAvailable; // defined later
 
+	template <typename T, GenericMember... Members>
+	constexpr GenericMemberFlags GetAvailableMemberFlags(enum_sequence<GenericMember, Members...>) {
+		return (GenericMemberFlags_None | ... | (IsMemberAvailable<T, Members> ? EnumToFlag(Members) : 0));
+	}
+
+	template <typename T>
+	constexpr GenericMemberFlags AvailableMemberFlags = ForceConsteval<GetAvailableMemberFlags<T>(make_enum_sequence<GenericMember>())>;
+
 	union GenericMemberUnion
 	{
 		b8 B8;

@@ -504,26 +504,17 @@ namespace PeepoDrumKit
 			*ptrs = newValue.Seconds;
 	}
 
+	// helpers
+	struct GetRawByteSize_T { };
+
+	template <GenericMember Member>
+	constexpr __forceinline size_t get(GetRawByteSize_T) { return sizeof(GenericMemberType<Member>); }
+
 	size_t GetGenericMember_RawByteSize(GenericMember member)
 	{
-		switch (member)
-		{
-		case GenericMember::B8_IsSelected: return sizeof(b8);
-		case GenericMember::B8_BarLineVisible: return sizeof(b8);
-		case GenericMember::I16_BalloonPopCount: return sizeof(i16);
-		case GenericMember::F32_ScrollSpeed: return sizeof(Complex);
-		case GenericMember::Beat_Start: return sizeof(Beat);
-		case GenericMember::Beat_Duration: return sizeof(Beat);
-		case GenericMember::Time_Offset: return sizeof(Time);
-		case GenericMember::NoteType_V: return sizeof(NoteType);
-		case GenericMember::Tempo_V: return sizeof(Tempo);
-		case GenericMember::TimeSignature_V: return sizeof(TimeSignature);
-		case GenericMember::CStr_Lyric: return sizeof(cstr);
-		case GenericMember::I8_ScrollType: return sizeof(i8);
-		case GenericMember::F32_JPOSScroll: return sizeof(Complex);
-		case GenericMember::F32_JPOSScrollDuration: return sizeof(f32);
-		default: assert(false); return 0;
-		}
+		return ApplySingleGenericMember<size_t>(member,
+			[](size_t size) constexpr { return size; }, 0, 0,
+			GetRawByteSize_T());
 	}
 
 	size_t GetGenericListCount(const ChartCourse& course, GenericList list)
@@ -533,33 +524,19 @@ namespace PeepoDrumKit
 			course);
 	}
 
+	// helpers
+	struct GetListStructAvailableMemberFlags_T { };
+
+	template <GenericList List>
+	constexpr __forceinline GenericMemberFlags get(GetListStructAvailableMemberFlags_T) {
+		return AvailableMemberFlags<GenericListStructType<List>>;
+	}
+
 	GenericMemberFlags GetAvailableMemberFlags(GenericList list)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges:
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_Start | GenericMemberFlags_Tempo;
-		case GenericList::SignatureChanges:
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_Start | GenericMemberFlags_TimeSignature;
-		case GenericList::Notes_Normal:
-		case GenericList::Notes_Expert:
-		case GenericList::Notes_Master:
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_BalloonPopCount | GenericMemberFlags_Start | GenericMemberFlags_Duration | GenericMemberFlags_Offset | GenericMemberFlags_NoteType;
-		case GenericList::ScrollChanges:
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_ScrollSpeed | GenericMemberFlags_Start;
-		case GenericList::BarLineChanges:
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_BarLineVisible | GenericMemberFlags_Start;
-		case GenericList::GoGoRanges:
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_Start | GenericMemberFlags_Duration;
-		case GenericList::Lyrics:
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_Start | GenericMemberFlags_Lyric;
-		case GenericList::ScrollType: 
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_ScrollType | GenericMemberFlags_Start;
-		case GenericList::JPOSScroll: 
-			return GenericMemberFlags_IsSelected | GenericMemberFlags_JPOSScroll | GenericMemberFlags_JPOSScrollDuration | GenericMemberFlags_Start;
-		default:
-			assert(false); return GenericMemberFlags_None;
-		}
+		return ApplySingleGenericList<GenericMemberFlags>(list,
+			[](GenericMemberFlags flags) constexpr { return flags; }, GenericMemberFlags_None,
+			GetListStructAvailableMemberFlags_T());
 	}
 
 	void* TryGetGeneric_RawVoidPtr(const ChartCourse& course, GenericList list, size_t index, GenericMember member)
