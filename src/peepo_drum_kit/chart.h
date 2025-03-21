@@ -565,6 +565,85 @@ namespace PeepoDrumKit
 			: List(list), Value(value) {}
 	};
 
+	/// tuple-like GenericList access definition
+
+	// member accessing in decltype(), enclose by () for returning a reference
+	template <GenericList List, typename ChartCourseT, expect_type_t<ChartCourseT, ChartCourse> = true>
+	constexpr decltype(auto) get(ChartCourseT&& course)
+	{
+		if constexpr (List == GenericList::TempoChanges) return (std::forward<ChartCourseT>(course).TempoMap.Tempo);
+		else if constexpr (List == GenericList::SignatureChanges) return (std::forward<ChartCourseT>(course).TempoMap.Signature);
+		else if constexpr (List == GenericList::Notes_Normal) return (std::forward<ChartCourseT>(course).Notes_Normal);
+		else if constexpr (List == GenericList::Notes_Expert) return (std::forward<ChartCourseT>(course).Notes_Expert);
+		else if constexpr (List == GenericList::Notes_Master) return (std::forward<ChartCourseT>(course).Notes_Master);
+		else if constexpr (List == GenericList::ScrollChanges) return (std::forward<ChartCourseT>(course).ScrollChanges);
+		else if constexpr (List == GenericList::BarLineChanges) return (std::forward<ChartCourseT>(course).BarLineChanges);
+		else if constexpr (List == GenericList::GoGoRanges) return (std::forward<ChartCourseT>(course).GoGoRanges);
+		else if constexpr (List == GenericList::Lyrics) return (std::forward<ChartCourseT>(course).Lyrics);
+		else if constexpr (List == GenericList::ScrollType) return (std::forward<ChartCourseT>(course).ScrollTypes);
+		else if constexpr (List == GenericList::JPOSScroll) return (std::forward<ChartCourseT>(course).JPOSScrollChanges);
+		else static_assert(false, "unhandled or invalid GenericList value");
+	}
+
+	template <GenericList List, typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
+	constexpr decltype(auto) get(GenericListStructT&& inValue)
+	{
+		if constexpr (List == GenericList::TempoChanges) return (std::forward<GenericListStructT>(inValue).POD.Tempo);
+		else if constexpr (List == GenericList::SignatureChanges) return (std::forward<GenericListStructT>(inValue).POD.Signature);
+		else if constexpr (List == GenericList::Notes_Normal) return (std::forward<GenericListStructT>(inValue).POD.Note);
+		else if constexpr (List == GenericList::Notes_Expert) return (std::forward<GenericListStructT>(inValue).POD.Note);
+		else if constexpr (List == GenericList::Notes_Master) return (std::forward<GenericListStructT>(inValue).POD.Note);
+		else if constexpr (List == GenericList::ScrollChanges) return (std::forward<GenericListStructT>(inValue).POD.Scroll);
+		else if constexpr (List == GenericList::BarLineChanges) return (std::forward<GenericListStructT>(inValue).POD.BarLine);
+		else if constexpr (List == GenericList::GoGoRanges) return (std::forward<GenericListStructT>(inValue).POD.GoGo);
+		else if constexpr (List == GenericList::Lyrics) return (std::forward<GenericListStructT>(inValue).NonTrivial.Lyric);
+		else if constexpr (List == GenericList::ScrollType) return (std::forward<GenericListStructT>(inValue).POD.ScrollType);
+		else if constexpr (List == GenericList::JPOSScroll) return (std::forward<GenericListStructT>(inValue).POD.JPOSScroll);
+		else static_assert(false, "unhandled or invalid GenericList value");
+	}
+
+	// Apply `action` on `args` resolved by `list` if valid, otherwise return `vError`
+	// If `TRet` is not specified, all of `action`'s possible return values and `vError` must have the same type
+	template <typename TRet = keep_deduced_t, typename TDefault, typename FAction, typename... TCastedArgs>
+	constexpr decltype(auto) ApplySingleGenericList(GenericList list, FAction&& action, TDefault&& vError, TCastedArgs&&... args)
+	{
+		// unfortunately, as for C++20, there are no ways to make a switch-like lookup reliably without typing out all the cases
+		switch (list) {
+#define X(_List) \
+		{ case (_List): return keep_or_static_cast<TRet>(action(get<(_List)>(std::forward<TCastedArgs>(args))...)); }
+		X(GenericList::TempoChanges)
+		X(GenericList::SignatureChanges)
+		X(GenericList::Notes_Normal)
+		X(GenericList::Notes_Expert)
+		X(GenericList::Notes_Master)
+		X(GenericList::ScrollChanges)
+		X(GenericList::BarLineChanges)
+		X(GenericList::GoGoRanges)
+		X(GenericList::Lyrics)
+		X(GenericList::ScrollType)
+		X(GenericList::JPOSScroll)
+#undef X
+		default: assert(false); return keep_or_static_cast<TRet>(vError);
+		}
+	}
+
+	// Apply `action` on `args` resolved by every valid `list` (unrolled in compile-time)
+	// The returned value from `action` is ignored for simplicity.
+	template <GenericList... Lists, typename FAction, typename... TCastedArgs>
+	constexpr void ApplyForEachGenericList(enum_sequence<GenericList, Lists...>, FAction&& action, TCastedArgs&&... args)
+	{
+		([&] {
+			auto getSingle = [](auto&& arg) { return get<Lists>(std::forward<decltype(arg)>(arg)); };
+			action(Lists, getSingle(std::forward<TCastedArgs>(args))...);
+		}(), ...);
+	}
+
+	template <typename FAction, typename... TCastedArgs>
+	constexpr void ApplyForEachGenericList(FAction&& action, TCastedArgs&&... args)
+	{
+		ApplyForEachGenericList(make_enum_sequence<GenericList>(), std::forward<FAction>(action), std::forward<TCastedArgs>(args)...);
+	}
+
 	constexpr b8 IsNotesList(GenericList list) { return (list == GenericList::Notes_Normal) || (list == GenericList::Notes_Expert) || (list == GenericList::Notes_Master); }
 	constexpr b8 ListHasDurations(GenericList list) { return IsNotesList(list) || (list == GenericList::GoGoRanges); }
 	constexpr b8 ListUsesInclusiveBeatCheck(GenericList list) { return IsNotesList(list) || (list != GenericList::GoGoRanges && list != GenericList::Lyrics); }
@@ -602,36 +681,19 @@ namespace PeepoDrumKit
 	template <typename Func>
 	void ForEachChartItem(const ChartCourse& course, Func perItemFunc)
 	{
-		for (GenericList list = {}; list < GenericList::Count; IncrementEnum(list))
-		{
-			for (size_t i = 0; i < GetGenericListCount(course, list); i++)
-				perItemFunc(ForEachChartItemData { list, i });
-		}
+		ApplyForEachGenericList([&](GenericList list, auto&& typedList) {
+			for (size_t i = 0; i < typedList.size(); i++)
+				perItemFunc(ForEachChartItemData{ list, i });
+		}, course);
 	}
 
 	template <typename Func>
 	void ForEachSelectedChartItem(const ChartCourse& course, Func perSelectedItemFunc)
 	{
-#if 0
-		for (GenericList list = {}; list < GenericList::Count; IncrementEnum(list))
-		{
-			for (size_t i = 0; i < GetGenericListCount(course, list); i++)
-				if (GenericMemberUnion value; TryGetGeneric(course, list, i, GenericMember::B8_IsSelected, value) && value.B8)
-					perSelectedItemFunc(ForEachChartItemData { list, i });
-		}
-#else // NOTE: Manually unrolled to avoid redundant inner branches
-		for (size_t i = 0; i < course.TempoMap.Tempo.size(); i++) if (course.TempoMap.Tempo[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::TempoChanges, i });
-		for (size_t i = 0; i < course.TempoMap.Signature.size(); i++) if (course.TempoMap.Signature[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::SignatureChanges, i });
-		for (size_t i = 0; i < course.Notes_Normal.size(); i++) if (course.Notes_Normal[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::Notes_Normal, i });
-		for (size_t i = 0; i < course.Notes_Expert.size(); i++) if (course.Notes_Expert[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::Notes_Expert, i });
-		for (size_t i = 0; i < course.Notes_Master.size(); i++) if (course.Notes_Master[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::Notes_Master, i });
-		for (size_t i = 0; i < course.ScrollChanges.size(); i++) if (course.ScrollChanges[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::ScrollChanges, i });
-		for (size_t i = 0; i < course.BarLineChanges.size(); i++) if (course.BarLineChanges[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::BarLineChanges, i });
-		for (size_t i = 0; i < course.GoGoRanges.size(); i++) if (course.GoGoRanges[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::GoGoRanges, i });
-		for (size_t i = 0; i < course.Lyrics.size(); i++) if (course.Lyrics[i].IsSelected) perSelectedItemFunc(ForEachChartItemData { GenericList::Lyrics, i });
-		for (size_t i = 0; i < course.ScrollTypes.size(); i++) if (course.ScrollTypes[i].IsSelected) perSelectedItemFunc(ForEachChartItemData{ GenericList::ScrollType, i });
-		for (size_t i = 0; i < course.JPOSScrollChanges.size(); i++) if (course.JPOSScrollChanges[i].IsSelected) perSelectedItemFunc(ForEachChartItemData{ GenericList::JPOSScroll, i });
-		static_assert(EnumCount<GenericList> == 11);
-#endif
+		ApplyForEachGenericList([&](GenericList list, auto&& typedList) {
+			for (size_t i = 0; i < typedList.size(); i++)
+				if (typedList[i].IsSelected)
+					perSelectedItemFunc(ForEachChartItemData{ list, i });
+		}, course);
 	}
 }

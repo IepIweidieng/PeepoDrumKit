@@ -544,21 +544,9 @@ namespace PeepoDrumKit
 
 	size_t GetGenericListCount(const ChartCourse& course, GenericList list)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges: return course.TempoMap.Tempo.size();
-		case GenericList::SignatureChanges: return course.TempoMap.Signature.size();
-		case GenericList::Notes_Normal: return course.Notes_Normal.size();
-		case GenericList::Notes_Expert: return course.Notes_Expert.size();
-		case GenericList::Notes_Master: return course.Notes_Master.size();
-		case GenericList::ScrollChanges: return course.ScrollChanges.size();
-		case GenericList::BarLineChanges: return course.BarLineChanges.size();
-		case GenericList::GoGoRanges: return course.GoGoRanges.size();
-		case GenericList::Lyrics: return course.Lyrics.size();
-		case GenericList::ScrollType: return course.ScrollTypes.size();
-		case GenericList::JPOSScroll: return course.JPOSScrollChanges.size();
-		default: assert(false); return 0;
-		}
+		return ApplySingleGenericList<size_t>(list,
+			[](auto&& typedList) { return typedList.size(); }, 0,
+			course);
 	}
 
 	GenericMemberFlags GetAvailableMemberFlags(GenericList list)
@@ -730,62 +718,23 @@ namespace PeepoDrumKit
 
 	b8 TryGetGenericStruct(const ChartCourse& course, GenericList list, size_t index, GenericListStruct& outValue)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges: if (InBounds(index, course.TempoMap.Tempo)) { outValue.POD.Tempo = course.TempoMap.Tempo[index]; return true; } break;
-		case GenericList::SignatureChanges: if (InBounds(index, course.TempoMap.Signature)) { outValue.POD.Signature = course.TempoMap.Signature[index]; return true; } break;
-		case GenericList::Notes_Normal: if (InBounds(index, course.Notes_Normal)) { outValue.POD.Note = course.Notes_Normal[index]; return true; } break;
-		case GenericList::Notes_Expert: if (InBounds(index, course.Notes_Expert)) { outValue.POD.Note = course.Notes_Expert[index]; return true; } break;
-		case GenericList::Notes_Master: if (InBounds(index, course.Notes_Master)) { outValue.POD.Note = course.Notes_Master[index]; return true; } break;
-		case GenericList::ScrollChanges: if (InBounds(index, course.ScrollChanges)) { outValue.POD.Scroll = course.ScrollChanges[index]; return true; } break;
-		case GenericList::BarLineChanges: if (InBounds(index, course.BarLineChanges)) { outValue.POD.BarLine = course.BarLineChanges[index]; return true; } break;
-		case GenericList::GoGoRanges: if (InBounds(index, course.GoGoRanges)) { outValue.POD.GoGo = course.GoGoRanges[index]; return true; } break;
-		case GenericList::Lyrics: if (InBounds(index, course.Lyrics)) { outValue.NonTrivial.Lyric = course.Lyrics[index]; return true; } break;
-		case GenericList::ScrollType: if (InBounds(index, course.ScrollTypes)) { outValue.POD.ScrollType = course.ScrollTypes[index]; return true; } break;
-		case GenericList::JPOSScroll: if (InBounds(index, course.JPOSScrollChanges)) { outValue.POD.JPOSScroll = course.JPOSScrollChanges[index]; return true; } break;
-		default: assert(false); break;
-		}
-		return false;
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList, auto&& typedOutValue) { if (InBounds(index, typedList)) { typedOutValue = typedList[index]; return true; } return false; }, false,
+			course, outValue);
 	}
 
 	b8 TrySetGenericStruct(ChartCourse& course, GenericList list, size_t index, const GenericListStruct& inValue)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges: if (InBounds(index, course.TempoMap.Tempo)) { course.TempoMap.Tempo[index] = inValue.POD.Tempo; return true; } break;
-		case GenericList::SignatureChanges: if (InBounds(index, course.TempoMap.Signature)) { course.TempoMap.Signature[index] = inValue.POD.Signature; return true; } break;
-		case GenericList::Notes_Normal: if (InBounds(index, course.Notes_Normal)) { course.Notes_Normal[index] = inValue.POD.Note; return true; } break;
-		case GenericList::Notes_Expert: if (InBounds(index, course.Notes_Expert)) { course.Notes_Expert[index] = inValue.POD.Note; return true; } break;
-		case GenericList::Notes_Master: if (InBounds(index, course.Notes_Master)) { course.Notes_Master[index] = inValue.POD.Note; return true; } break;
-		case GenericList::ScrollChanges: if (InBounds(index, course.ScrollChanges)) { course.ScrollChanges[index] = inValue.POD.Scroll; return true; } break;
-		case GenericList::BarLineChanges: if (InBounds(index, course.BarLineChanges)) { course.BarLineChanges[index] = inValue.POD.BarLine; return true; } break;
-		case GenericList::GoGoRanges: if (InBounds(index, course.GoGoRanges)) { course.GoGoRanges[index] = inValue.POD.GoGo; return true; } break;
-		case GenericList::Lyrics: if (InBounds(index, course.Lyrics)) { course.Lyrics[index] = inValue.NonTrivial.Lyric; return true; } break;
-		case GenericList::ScrollType: if (InBounds(index, course.ScrollTypes)) { course.ScrollTypes[index] = inValue.POD.ScrollType; return true; } break;
-		case GenericList::JPOSScroll: if (InBounds(index, course.JPOSScrollChanges)) { course.JPOSScrollChanges[index] = inValue.POD.JPOSScroll; return true; } break;
-		default: assert(false); break;
-		}
-		return false;
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList, auto&& typedInValue) { if (InBounds(index, typedList)) { typedList[index] = typedInValue; return true; } return false; }, false,
+			course, inValue);
 	}
 
 	b8 TryAddGenericStruct(ChartCourse& course, GenericList list, GenericListStruct inValue)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges: { course.TempoMap.Tempo.InsertOrUpdate(inValue.POD.Tempo); return true; } break;
-		case GenericList::SignatureChanges: { course.TempoMap.Signature.InsertOrUpdate(inValue.POD.Signature); return true; } break;
-		case GenericList::Notes_Normal: { course.Notes_Normal.InsertOrUpdate(inValue.POD.Note); return true; } break;
-		case GenericList::Notes_Expert: { course.Notes_Expert.InsertOrUpdate(inValue.POD.Note); return true; } break;
-		case GenericList::Notes_Master: { course.Notes_Master.InsertOrUpdate(inValue.POD.Note); return true; } break;
-		case GenericList::ScrollChanges: { course.ScrollChanges.InsertOrUpdate(inValue.POD.Scroll); return true; } break;
-		case GenericList::BarLineChanges: { course.BarLineChanges.InsertOrUpdate(inValue.POD.BarLine); return true; } break;
-		case GenericList::GoGoRanges: { course.GoGoRanges.InsertOrUpdate(inValue.POD.GoGo); return true; } break;
-		case GenericList::Lyrics: { course.Lyrics.InsertOrUpdate(std::move(inValue.NonTrivial.Lyric)); return true; } break;
-		case GenericList::ScrollType: { course.ScrollTypes.InsertOrUpdate(inValue.POD.ScrollType); return true; } break;
-		case GenericList::JPOSScroll: { course.JPOSScrollChanges.InsertOrUpdate(inValue.POD.JPOSScroll); return true; } break;
-		default: assert(false); break;
-		}
-		return false;
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList, auto&& typedInValue) { typedList.InsertOrUpdate(typedInValue); return true; }, false,
+			course, std::move(inValue)); // `std::move` makes no differences on POD
 	}
 
 	b8 TryRemoveGenericStruct(ChartCourse& course, GenericList list, const GenericListStruct& inValueToRemove)
@@ -795,21 +744,8 @@ namespace PeepoDrumKit
 
 	b8 TryRemoveGenericStruct(ChartCourse& course, GenericList list, Beat beatToRemove)
 	{
-		switch (list)
-		{
-		case GenericList::TempoChanges: { course.TempoMap.Tempo.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::SignatureChanges: { course.TempoMap.Signature.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::Notes_Normal: { course.Notes_Normal.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::Notes_Expert: { course.Notes_Expert.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::Notes_Master: { course.Notes_Master.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::ScrollChanges: { course.ScrollChanges.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::BarLineChanges: { course.BarLineChanges.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::GoGoRanges: { course.GoGoRanges.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::Lyrics: { course.Lyrics.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::ScrollType: { course.ScrollTypes.RemoveAtBeat(beatToRemove); return true; } break;
-		case GenericList::JPOSScroll: { course.JPOSScrollChanges.RemoveAtBeat(beatToRemove); return true; } break;
-		default: assert(false); break;
-		}
-		return false;
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList) { typedList.RemoveAtBeat(beatToRemove); return true; }, false,
+			course);
 	}
 }
