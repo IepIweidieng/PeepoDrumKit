@@ -632,8 +632,26 @@ namespace PeepoDrumKit
 	}
 
 	// Member availability queries
+	template <typename T, auto Tag, typename = void>
+	struct has_get_t : std::false_type {};
+
+	template <typename T, auto Tag>
+	struct has_get_t<T, Tag, std::void_t<decltype(get<Tag>(std::forward<T>(std::declval<T&&>())))>> : std::true_type {};
+
+	template <typename T, auto Tag>
+	constexpr b8 has_get_v = has_get_t<T, Tag>::value;
+
+	template <auto Tag, typename T>
+	constexpr decltype(auto) get_or_forward(T&& value)
+	{
+		if constexpr (has_get_v<T, Tag>)
+			return get<Tag>(std::forward<T>(value));
+		else
+			return std::forward<T>(value);
+	}
+
 	template <typename T, GenericMember Member>
-	constexpr b8 IsMemberAvailable = !std::is_void_v<decltype(get<Member>(std::declval<T>()))>;
+	constexpr b8 IsMemberAvailable = has_get_v<T, Member> && !std::is_void_v<decltype(get_or_forward<Member>(std::declval<T>()))>;
 
 	// Apply `action` on `args` resolved by `member` if available, otherwise return `vDefault` on nothing if valid, otherwise return `vError`
 	// If `TRet` is not specified, all of `action`'s possible return values, `vDefault`, and `vError` must have the same type
@@ -645,7 +663,7 @@ namespace PeepoDrumKit
 #define X(_Member) { \
 		case (_Member): \
 			if constexpr ((... && IsMemberAvailable<TCastedArgs, (_Member)>)) \
-				return keep_or_static_cast<TRet>(action(get<(_Member)>(std::forward<TCastedArgs>(args))...)); \
+				return keep_or_static_cast<TRet>(action(get_or_forward<(_Member)>(std::forward<TCastedArgs>(args))...)); \
 			else \
 				return keep_or_static_cast<TRet>(vDefault); \
 		}
@@ -704,6 +722,49 @@ namespace PeepoDrumKit
 			}, false,
 			in);
 	}
+
+	template <typename GenericListStructT, expect_type_t<GenericListStructT, struct GenericListStruct> = true, typename FAction, typename... Args>
+	constexpr b8 TryDo(FAction&& action, GenericListStructT&& in, GenericList list, GenericMember member, Args&&...args)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedIn)
+			{
+				return ApplySingleGenericMember(member,
+					[&](auto&& typedMember, auto&&... typedArgs)
+					{
+						action(std::forward<decltype(typedMember)>(typedMember), std::forward<decltype(typedArgs)>(typedArgs)...);
+						return true;
+					}, false, false,
+					std::forward<decltype(typedIn)>(typedIn), std::forward<Args>(args)...);
+			}, false,
+			in);
+	}
+
+	// need to be lambdas to be used as arguments with to-be-deduced parameter types (not needed since C++20)
+	constexpr auto GetGeneric = [&](auto&& typedMember, auto& typedOutValue)
+	{
+		if constexpr (expect_type_v<decltype(typedMember), std::string> && !expect_type_v<decltype(typedOutValue), std::string>) // for GenericMember::CStr_Lyric
+			typedOutValue = typedMember.data();
+		else
+			typedOutValue = static_cast<std::remove_reference_t<decltype(typedOutValue)>>(typedMember);
+	};
+
+	constexpr auto SetGeneric = [&](auto& typedMember, auto&& typedInValue)
+	{
+		typedMember = static_cast<std::remove_reference_t<decltype(typedMember)>>(typedInValue);
+	};
+
+	// generic adapters
+	// TryGet/Set(..., member, obj), where obj is a GenericMemberUnion object
+	// TryGet/Set<Member>(..., obj), where obj is either a GenericMemberUnion object or a concrete type object
+	template <auto... Tags, typename... Args>
+	constexpr __forceinline decltype(auto) TryGet(Args&&... args) { return TryDo<Tags...>(GetGeneric, std::forward<Args>(args)...); }
+	template <auto... Tags, typename... Args>
+	constexpr __forceinline decltype(auto) TrySet(Args&&... args) { return TryDo<Tags...>(SetGeneric, std::forward<Args>(args)...); }
+	template <auto... Tags, typename... Args>
+	constexpr __forceinline decltype(auto) TryGetGeneric(Args&&... args) { return TryGet<Tags...>(std::forward<Args>(args)...); }
+	template <auto... Tags, typename... Args>
+	constexpr __forceinline decltype(auto) TrySetGeneric(Args&&... args) { return TrySet<Tags...>(std::forward<Args>(args)...); }
 
 	struct GenericListStruct
 	{
@@ -815,7 +876,7 @@ namespace PeepoDrumKit
 		// unfortunately, as for C++20, there are no ways to make a switch-like lookup reliably without typing out all the cases
 		switch (list) {
 #define X(_List) \
-		{ case (_List): return keep_or_static_cast<TRet>(action(get<(_List)>(std::forward<TCastedArgs>(args))...)); }
+		{ case (_List): return keep_or_static_cast<TRet>(action(get_or_forward<(_List)>(std::forward<TCastedArgs>(args))...)); }
 		X(GenericList::TempoChanges)
 		X(GenericList::SignatureChanges)
 		X(GenericList::Notes_Normal)
@@ -889,43 +950,41 @@ namespace PeepoDrumKit
 	}
 
 	// course list element access functions
-	template <typename ChartCourseT, expect_type_t<ChartCourseT, ChartCourse> = true, typename FAction, typename... Args>
-	constexpr b8 TryDoGeneric(ChartCourseT&& course, GenericList list, size_t index, GenericMember member, FAction&& action, Args&&...args)
+	template <GenericMember Member, typename ChartCourseT, expect_type_t<ChartCourseT, ChartCourse> = true, typename FAction, typename... Args>
+	constexpr b8 TryDo(FAction&& action, ChartCourseT&& course, GenericList list, size_t index, Args&&...args)
 	{
 		return ApplySingleGenericList(list,
 			[&](auto&& typedList)
 			{
-				if (!(index < typedList.size()))
+				if constexpr (IsMemberAvailable<decltype(typedList[index]), Member>) {
+					if (!(index < typedList.size()))
+						return false;
+					action(get<Member>(std::forward<decltype(typedList)>(typedList)[index]), get_or_forward<Member>(std::forward<Args>(args))...);
+					return true;
+				} else {
 					return false;
+				}
+			}, false,
+			course);
+	}
+
+	template <typename ChartCourseT, expect_type_t<ChartCourseT, ChartCourse> = true, typename FAction, typename... Args>
+	constexpr b8 TryDo(FAction&& action, ChartCourseT&& course, GenericList list, size_t index, GenericMember member, Args&&...args)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList)
+			{
 				return ApplySingleGenericMember(member,
 					[&](auto&& typedMember, auto&&... typedArgs)
 					{
+						if (!(index < typedList.size()))
+							return false;
 						action(std::forward<decltype(typedMember)>(typedMember), std::forward<decltype(typedArgs)>(typedArgs)...);
 						return true;
 					}, false, false,
 					std::forward<decltype(typedList)>(typedList)[index], std::forward<Args>(args)...);
 			}, false,
 			course);
-	}
-
-	constexpr b8 TryGetGeneric(const ChartCourse& course, GenericList list, size_t index, GenericMember member, GenericMemberUnion& outValue)
-	{
-		return TryDoGeneric(course, list, index, member,
-			[&](auto&& typedMember, auto&& typedOutValue)
-			{
-				if constexpr (expect_type_v<decltype(typedMember), std::string> && !expect_type_v<decltype(typedOutValue), std::string>) // for GenericMember::CStr_Lyric
-					typedOutValue = typedMember.data();
-				else
-					typedOutValue = static_cast<std::remove_reference_t<decltype(typedOutValue)>>(typedMember);
-			},
-			outValue);
-	}
-
-	constexpr b8 TrySetGeneric(ChartCourse& course, GenericList list, size_t index, GenericMember member, const GenericMemberUnion& inValue)
-	{
-		return TryDoGeneric(course, list, index, member,
-			[&](auto&& typedMember, auto&& typedInValue) { typedMember = static_cast<std::remove_reference_t<decltype(typedMember)>>(typedInValue); },
-			inValue);
 	}
 
 	constexpr b8 TryGetGenericStruct(const ChartCourse& course, GenericList list, size_t index, GenericListStruct& outValue)
