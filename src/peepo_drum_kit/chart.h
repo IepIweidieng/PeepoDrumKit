@@ -1005,14 +1005,14 @@ namespace PeepoDrumKit
 		size_t Index;
 
 		// NOTE: Again just little accessor helpers for the members that should always be available for each list type
-		inline b8 GetIsSelected(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::B8_IsSelected, v); return v.B8; }
-		inline void SetIsSelected(ChartCourse& c, b8 isSelected) const { GenericMemberUnion v {}; v.B8 = isSelected; TrySetGeneric(c, List, Index, GenericMember::B8_IsSelected, v); }
-		inline Beat GetBeat(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Start, v); return v.Beat; }
-		inline Beat GetBeatDuration(const ChartCourse& c) const { GenericMemberUnion v {}; TryGetGeneric(c, List, Index, GenericMember::Beat_Duration, v); return v.Beat; }
-		inline std::tuple<bool, Time> GetTimeDuration(const ChartCourse& c) const { GenericMemberUnion v{}; return { TryGetGeneric(c, List, Index, GenericMember::F32_JPOSScrollDuration, v), Time::FromSec(v.F32) }; }
-		inline void SetBeat(ChartCourse& c, Beat beat) const { GenericMemberUnion v {}; v.Beat = beat; TrySetGeneric(c, List, Index, GenericMember::Beat_Start, v); }
-		inline void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { GenericMemberUnion v{}; v.Beat = beatDuration; TrySetGeneric(c, List, Index, GenericMember::Beat_Duration, v); }
-		inline void SetTimeDuration(ChartCourse& c, Time timeDuration) const { GenericMemberUnion v{}; v.F32 = timeDuration.Seconds; TrySetGeneric(c, List, Index, GenericMember::F32_JPOSScrollDuration, v); }
+		constexpr b8 GetIsSelected(const ChartCourse& c) const { b8 v {}; TryGetGeneric<GenericMember::B8_IsSelected>(c, List, Index, v); return v; }
+		constexpr void SetIsSelected(ChartCourse& c, b8 isSelected) const { TrySetGeneric<GenericMember::B8_IsSelected>(c, List, Index, isSelected); }
+		constexpr Beat GetBeat(const ChartCourse& c) const { Beat v {}; TryGetGeneric<GenericMember::Beat_Start>(c, List, Index, v); return v; }
+		constexpr Beat GetBeatDuration(const ChartCourse& c) const { Beat v {}; TryGetGeneric<GenericMember::Beat_Duration>(c, List, Index, v); return v; }
+		constexpr std::tuple<bool, Time> GetTimeDuration(const ChartCourse& c) const { f32 v {}; return { TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(c, List, Index, v), Time::FromSec(v) }; }
+		constexpr void SetBeat(ChartCourse& c, Beat beat) const { TrySetGeneric<GenericMember::Beat_Start>(c, List, Index, beat); }
+		constexpr void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { TrySetGeneric<GenericMember::Beat_Duration>(c, List, Index, beatDuration); }
+		constexpr void SetTimeDuration(ChartCourse& c, Time timeDuration) const { TrySetGeneric<GenericMember::F32_JPOSScrollDuration>(c, List, Index, timeDuration.Seconds); }
 	};
 
 	template <typename Func>

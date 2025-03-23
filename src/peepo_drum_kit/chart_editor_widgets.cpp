@@ -1122,11 +1122,10 @@ namespace PeepoDrumKit
 								Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_FrameBgActive));
 								if (Gui::Button(buttonName, vec2(-1.0f, 0.0f)))
 								{
-									const GenericMemberUnion unselectedValue = {};
 									for (const auto& selectedItem : SelectedItems)
 									{
 										if (selectedItem.List != list)
-											TrySetGeneric(course, selectedItem.List, selectedItem.Index, GenericMember::B8_IsSelected, unselectedValue);
+											TrySetGeneric<GenericMember::B8_IsSelected>(course, selectedItem.List, selectedItem.Index, false);
 									}
 								}
 								Gui::PopStyleColor(3);

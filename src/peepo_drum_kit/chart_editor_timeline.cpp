@@ -1526,8 +1526,8 @@ namespace PeepoDrumKit
 			{
 				ChartCourse& Course; GenericList List; i32 Index;
 				inline b8 Exists() const { return (Index >= 0); }
-				inline b8 IsSelected() const { GenericMemberUnion v {}; TryGetGeneric(Course, List, Index, GenericMember::B8_IsSelected, v); return v.B8; }
-				inline void IsSelected(b8 isSelected) { GenericMemberUnion v {}; v.B8 = isSelected; TrySetGeneric(Course, List, Index, GenericMember::B8_IsSelected, v); }
+				constexpr b8 IsSelected() const { b8 v {}; TryGetGeneric<GenericMember::B8_IsSelected>(Course, List, Index, v); return v; }
+				constexpr void IsSelected(b8 isSelected) { TrySetGeneric<GenericMember::B8_IsSelected>(Course, List, Index, isSelected); }
 				inline static ItemProxy At(ChartCourse& course, GenericList list, i32 listCount, i32 i) { return ItemProxy { course, list, (i >= 0) && (i < listCount) ? i : -1 }; }
 			};
 
@@ -1833,31 +1833,34 @@ namespace PeepoDrumKit
 
 						for (size_t i = 0; i < GetGenericListCount(selectedCourse, list); i++)
 						{
-							GenericMemberUnion beatStart, beatDuration, isSelected, noteType, timeDuration;
-							if (TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, isSelected) && isSelected.B8)
+							b8 isSelected {};
+							if (TryGetGeneric<GenericMember::B8_IsSelected>(selectedCourse, list, i, isSelected) && isSelected)
 							{
-								const b8 hasBeatStart = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, beatStart);
-								const b8 hasBeatDuration = TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, beatDuration);
-								const b8 hasTimeDuration = TryGetGeneric(selectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, timeDuration);
+								Beat beatStart {}, beatDuration {};
+								f32 timeDuration {};
+								const b8 hasBeatStart = TryGetGeneric<GenericMember::Beat_Start>(selectedCourse, list, i, beatStart);
+								const b8 hasBeatDuration = TryGetGeneric<GenericMember::Beat_Duration>(selectedCourse, list, i, beatDuration);
+								const b8 hasTimeDuration = TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, timeDuration);
 
-								const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat)), 0.0f)).x, screenRectCenter.y);
+								const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart)), 0.0f)).x, screenRectCenter.y);
 								vec2 centerTail = center;
 
 								f32 hitboxSize = TimelineSelectedNoteHitBoxSizeSmall;
 								if (isNotesRow) {
-									TryGetGeneric(selectedCourse, list, i, GenericMember::NoteType_V, noteType);
-									hitboxSize = (IsBigNote(noteType.NoteType) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall);
+									NoteType noteType {};
+									TryGetGeneric<GenericMember::NoteType_V>(selectedCourse, list, i, noteType);
+									hitboxSize = (IsBigNote(noteType) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall);
 								}
 
 								Rect screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(hitboxSize)));
 								Rect screenHitboxTail = screenHitbox;
-								if (hasBeatDuration && beatDuration.Beat > Beat::Zero()) {
+								if (hasBeatDuration && beatDuration > Beat::Zero()) {
 									// TODO: Proper hitboxses (at least for gogo range and lyrics?)
-									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat + beatDuration.Beat)), 0.0f)).x, screenRectCenter.y);
+									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart + beatDuration)), 0.0f)).x, screenRectCenter.y);
 									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
 								}
 								else if (hasTimeDuration) {
-									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart.Beat) + Time::FromSec(timeDuration.F32)), 0.0f)).x, screenRectCenter.y);
+									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart) + Time::FromSec(timeDuration)), 0.0f)).x, screenRectCenter.y);
 									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
 								}
 
@@ -1896,10 +1899,10 @@ namespace PeepoDrumKit
 
 				if (SelectedItemDrag.ActiveTarget != EDragTarget::None)
 				{
-					auto itemSelected = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::B8_IsSelected, out); return out.B8; };
-					auto itemStart = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Start, out); return out.Beat; };
-					auto itemDuration = [&](GenericList list, size_t i) { GenericMemberUnion out; TryGetGeneric(selectedCourse, list, i, GenericMember::Beat_Duration, out); return out.Beat; };
-					auto itemTimeDuration = [&](GenericList list, size_t i) -> std::tuple<bool, Time> { GenericMemberUnion out; return { TryGetGeneric(selectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, out), Time::FromSec(out.F32) }; };
+					auto itemSelected = [&](GenericList list, size_t i) constexpr { b8 out {}; TryGetGeneric<GenericMember::B8_IsSelected>(selectedCourse, list, i, out); return out; };
+					auto itemStart = [&](GenericList list, size_t i) constexpr { Beat out {}; TryGetGeneric<GenericMember::Beat_Start>(selectedCourse, list, i, out); return out; };
+					auto itemDuration = [&](GenericList list, size_t i) constexpr { Beat out {}; TryGetGeneric<GenericMember::Beat_Duration>(selectedCourse, list, i, out); return out; };
+					auto itemTimeDuration = [&](GenericList list, size_t i) constexpr -> std::tuple<bool, Time> { f32 out {}; return { TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, out), Time::FromSec(out) }; };
 					auto checkCanSelectedItemsBeDragged = [&](GenericList list, Beat beatIncrement, b8 tailOnly) -> b8
 					{
 						const i32 listCount = static_cast<i32>(GetGenericListCount(selectedCourse, list));
@@ -2531,19 +2534,21 @@ namespace PeepoDrumKit
 
 							for (size_t i = 0; i < GetGenericListCount(*context.ChartSelectedCourse, list); i++)
 							{
-								GenericMemberUnion beatStart, beatDuration, timeDuration, isSelected;
-								const b8 hasBeatStart = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::Beat_Start, beatStart);
-								const b8 hasBeatDuration = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::Beat_Duration, beatDuration);
-								const b8 hasTimeDuration = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::F32_JPOSScrollDuration, timeDuration);
-								const b8 hasIsSelected = TryGetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::B8_IsSelected, isSelected);
+								Beat beatStart {}, beatDuration {};
+								f32 timeDuration {};
+								bool isSelected {};
+								const b8 hasBeatStart = TryGetGeneric<GenericMember::Beat_Start>(*context.ChartSelectedCourse, list, i, beatStart);
+								const b8 hasBeatDuration = TryGetGeneric<GenericMember::Beat_Duration>(*context.ChartSelectedCourse, list, i, beatDuration);
+								const b8 hasTimeDuration = TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(*context.ChartSelectedCourse, list, i, timeDuration);
+								const b8 hasIsSelected = TryGetGeneric<GenericMember::B8_IsSelected>(*context.ChartSelectedCourse, list, i, isSelected);
 								assert(hasBeatStart && hasIsSelected);
 
 								// Note: Ignore negative-length body
-								const Beat beatMin = beatStart.Beat;
-								const Beat beatMax = hasBeatDuration ? (beatStart.Beat + ClampBot(beatDuration.Beat, Beat::Zero())) : beatStart.Beat;
+								const Beat beatMin = beatStart;
+								const Beat beatMax = hasBeatDuration ? (beatStart + ClampBot(beatDuration, Beat::Zero())) : beatStart;
 								b8 isXInsideSelectionBox;
-								if (hasTimeDuration && timeDuration.F32 > 0) {
-									const Time timeMax = context.BeatToTime(beatMin) + Time::FromSec(timeDuration.F32);
+								if (hasTimeDuration && timeDuration > 0) {
+									const Time timeMax = context.BeatToTime(beatMin) + Time::FromSec(timeDuration);
 									isXInsideSelectionBox = (((beatMin <= selectionBeatMax) && (timeMax >= selectionTimeMin))
 										&& (!(xIntersectionTest == XIntersectionTest::Tips) || (beatMin >= selectionBeatMin) || (timeMax <= selectionTimeMax)));
 								}
@@ -2555,13 +2560,13 @@ namespace PeepoDrumKit
 
 								switch (BoxSelection.Action)
 								{
-								case BoxSelectionAction::Clear: { isSelected.B8 = isInsideSelectionBox; } break;
-								case BoxSelectionAction::Add: { if (isInsideSelectionBox) isSelected.B8 = true; } break;
-								case BoxSelectionAction::Sub: { if (isInsideSelectionBox) isSelected.B8 = false; } break;
-								case BoxSelectionAction::XOR: { isSelected.B8 ^= isInsideSelectionBox; } break;
+								case BoxSelectionAction::Clear: { isSelected = isInsideSelectionBox; } break;
+								case BoxSelectionAction::Add: { if (isInsideSelectionBox) isSelected = true; } break;
+								case BoxSelectionAction::Sub: { if (isInsideSelectionBox) isSelected = false; } break;
+								case BoxSelectionAction::XOR: { isSelected ^= isInsideSelectionBox; } break;
 								}
 
-								TrySetGeneric(*context.ChartSelectedCourse, list, i, GenericMember::B8_IsSelected, isSelected);
+								TrySetGeneric<GenericMember::B8_IsSelected>(*context.ChartSelectedCourse, list, i, isSelected);
 							}
 						});
 					}
