@@ -686,35 +686,14 @@ namespace PeepoDrumKit
 		}
 	}
 
-	template <GenericMember Member, typename TExpected = GenericMemberType<Member>, typename TValue,
-		typename GenericListStructT, expect_type_t<GenericListStructT, struct GenericListStruct> = true>
-	constexpr bool TryGet(GenericListStructT&& in, GenericList list, TValue&& outValue)
+	template <GenericMember Member, typename GenericListStructT, expect_type_t<GenericListStructT, struct GenericListStruct> = true, typename FAction, typename... Args>
+	constexpr b8 TryDo(FAction&& action, GenericListStructT&& in, GenericList list, Args&&...args)
 	{
 		return ApplySingleGenericList(list,
 			[&](auto&& typedIn) -> bool
 			{
 				if constexpr (IsMemberAvailable<decltype(typedIn), Member>) {
-					auto&& typedMember = get<Member>(std::forward<decltype(typedIn)>(typedIn));
-					if constexpr (expect_type_v<decltype(typedMember), std::string> && !expect_type_v<decltype(outValue), std::string>) // for GenericMember::CStr_Lyric
-						outValue = typedMember.data();
-					else
-						outValue = static_cast<std::remove_reference_t<decltype(outValue)>>(typedMember);
-					return true;
-				} else {
-					return false;
-				}
-			}, false,
-			in);
-	}
-
-	template <GenericMember Member, typename TValue>
-	constexpr bool TrySet(GenericListStruct& in, GenericList list, TValue&& newValue)
-	{
-		return ApplySingleGenericList(list,
-			[&](auto&& typedIn)
-			{
-				if constexpr (IsMemberAvailable<decltype(typedIn), Member>) {
-					get<Member>(std::forward<decltype(typedIn)>(typedIn)) = newValue;
+					action(get<Member>(std::forward<decltype(typedIn)>(typedIn)), get_or_forward<Member>(std::forward<Args>(args))...);
 					return true;
 				} else {
 					return false;
