@@ -668,6 +668,43 @@ namespace PeepoDrumKit
 		}
 	}
 
+	template <GenericMember Member, typename TExpected = GenericMemberType<Member>, typename TValue,
+		typename GenericListStructT, expect_type_t<GenericListStructT, struct GenericListStruct> = true>
+	constexpr bool TryGet(GenericListStructT&& in, GenericList list, TValue&& outValue)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedIn) -> bool
+			{
+				if constexpr (IsMemberAvailable<decltype(typedIn), Member>) {
+					auto&& typedMember = get<Member>(std::forward<decltype(typedIn)>(typedIn));
+					if constexpr (expect_type_v<decltype(typedMember), std::string> && !expect_type_v<decltype(outValue), std::string>) // for GenericMember::CStr_Lyric
+						outValue = typedMember.data();
+					else
+						outValue = static_cast<std::remove_reference_t<decltype(outValue)>>(typedMember);
+					return true;
+				} else {
+					return false;
+				}
+			}, false,
+			in);
+	}
+
+	template <GenericMember Member, typename TValue>
+	constexpr bool TrySet(GenericListStruct& in, GenericList list, TValue&& newValue)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedIn)
+			{
+				if constexpr (IsMemberAvailable<decltype(typedIn), Member>) {
+					get<Member>(std::forward<decltype(typedIn)>(typedIn)) = newValue;
+					return true;
+				} else {
+					return false;
+				}
+			}, false,
+			in);
+	}
+
 	struct GenericListStruct
 	{
 		union PODData
@@ -691,12 +728,12 @@ namespace PeepoDrumKit
 		} NonTrivial {};
 
 		// NOTE: Little helpers here just for convenience
-		Beat GetBeat(GenericList list) const;
-		Beat GetBeatDuration(GenericList list) const;
-		std::tuple<bool, Time> GetTimeDuration(GenericList list) const;
-		void SetBeat(GenericList list, Beat newValue);
-		void SetBeatDuration(GenericList list, Beat newValue);
-		void SetTimeDuration(GenericList list, Time newValue);
+		constexpr Beat GetBeat(GenericList list) const { Beat v {}; TryGet<GenericMember::Beat_Start>(*this, list, v); return v; }
+		constexpr Beat GetBeatDuration(GenericList list) const { Beat v = Beat::Zero(); TryGet<GenericMember::Beat_Duration>(*this, list, v); return v; }
+		constexpr std::tuple<bool, Time> GetTimeDuration(GenericList list) const { f32 sec = 0; return { TryGet<GenericMember::F32_JPOSScrollDuration>(*this, list, sec), Time::FromSec(sec) }; }
+		constexpr void SetBeat(GenericList list, Beat newValue) { TrySet<GenericMember::Beat_Start>(*this, list, newValue); }
+		constexpr void SetBeatDuration(GenericList list, Beat newValue) { TrySet<GenericMember::Beat_Duration>(*this, list, newValue); }
+		constexpr void SetTimeDuration(GenericList list, Time newValue) { TrySet<GenericMember::F32_JPOSScrollDuration>(*this, list, newValue.Seconds); }
 
 		GenericListStruct(const GenericListStruct& other) {
 			// Perform a deep copy of data within the union and other members
@@ -712,12 +749,12 @@ namespace PeepoDrumKit
 		GenericList List;
 		GenericListStruct Value;
 
-		inline Beat GetBeat() const { return Value.GetBeat(List); }
-		inline Beat GetBeatDuration() const { return Value.GetBeatDuration(List); }
-		inline std::tuple<bool, Time> GetTimeDuration() const { return Value.GetTimeDuration(List); }
-		inline void SetBeat(Beat newValue) { Value.SetBeat(List, newValue); }
-		inline void SetBeatDuration(Beat newValue) { Value.SetBeatDuration(List, newValue); }
-		inline void SetTimeDuration(Time newValue) { Value.SetTimeDuration(List, newValue); }
+		constexpr Beat GetBeat() const { return Value.GetBeat(List); }
+		constexpr Beat GetBeatDuration() const { return Value.GetBeatDuration(List); }
+		constexpr std::tuple<bool, Time> GetTimeDuration() const { return Value.GetTimeDuration(List); }
+		constexpr void SetBeat(Beat newValue) { Value.SetBeat(List, newValue); }
+		constexpr void SetBeatDuration(Beat newValue) { Value.SetBeatDuration(List, newValue); }
+		constexpr void SetTimeDuration(Time newValue) { Value.SetTimeDuration(List, newValue); }
 
 		// Default constructor
 		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}
@@ -812,22 +849,117 @@ namespace PeepoDrumKit
 		ApplyForEachGenericList(make_enum_sequence<GenericList>(), std::forward<FAction>(action), std::forward<TCastedArgs>(args)...);
 	}
 
+	// course list attribute query helpers
+	struct GetRawByteSize_T {};
+
+	template <GenericMember Member>
+	constexpr __forceinline size_t get(GetRawByteSize_T) { return sizeof(GenericMemberType<Member>); }
+
+	struct GetListStructAvailableMemberFlags_T {};
+
+	template <GenericList List>
+	constexpr __forceinline GenericMemberFlags get(GetListStructAvailableMemberFlags_T) {
+		return AvailableMemberFlags<GenericListStructType<List>>;
+	}
+
+	// course list attribute query functions
 	constexpr b8 IsNotesList(GenericList list) { return (list == GenericList::Notes_Normal) || (list == GenericList::Notes_Expert) || (list == GenericList::Notes_Master); }
 	constexpr b8 ListHasDurations(GenericList list) { return IsNotesList(list) || (list == GenericList::GoGoRanges); }
 	constexpr b8 ListUsesInclusiveBeatCheck(GenericList list) { return IsNotesList(list) || (list != GenericList::GoGoRanges && list != GenericList::Lyrics); }
 
-	size_t GetGenericMember_RawByteSize(GenericMember member);
-	size_t GetGenericListCount(const ChartCourse& course, GenericList list);
-	GenericMemberFlags GetAvailableMemberFlags(GenericList list);
-	
-	b8 TryGetGeneric(const ChartCourse& course, GenericList list, size_t index, GenericMember member, GenericMemberUnion& outValue);
-	b8 TrySetGeneric(ChartCourse& course, GenericList list, size_t index, GenericMember member, const GenericMemberUnion& inValue);
+	constexpr size_t GetGenericMember_RawByteSize(GenericMember member)
+	{
+		return ApplySingleGenericMember<size_t>(member,
+			[](size_t size) constexpr { return size; }, 0, 0,
+			GetRawByteSize_T());
+	}
 
-	b8 TryGetGenericStruct(const ChartCourse& course, GenericList list, size_t index, GenericListStruct& outValue);
-	b8 TrySetGenericStruct(ChartCourse& course, GenericList list, size_t index, const GenericListStruct& inValue);
-	b8 TryAddGenericStruct(ChartCourse& course, GenericList list, GenericListStruct inValue);
-	b8 TryRemoveGenericStruct(ChartCourse& course, GenericList list, const GenericListStruct& inValueToRemove);
-	b8 TryRemoveGenericStruct(ChartCourse& course, GenericList list, Beat beatToRemove);
+	constexpr GenericMemberFlags GetAvailableMemberFlags(GenericList list)
+	{
+		return ApplySingleGenericList<GenericMemberFlags>(list,
+			[](GenericMemberFlags flags) constexpr { return flags; }, GenericMemberFlags_None,
+			GetListStructAvailableMemberFlags_T());
+	}
+
+	constexpr size_t GetGenericListCount(const ChartCourse& course, GenericList list)
+	{
+		return ApplySingleGenericList<size_t>(list,
+			[](auto&& typedList) { return typedList.size(); }, 0,
+			course);
+	}
+
+	// course list element access functions
+	template <typename ChartCourseT, expect_type_t<ChartCourseT, ChartCourse> = true, typename FAction, typename... Args>
+	constexpr b8 TryDoGeneric(ChartCourseT&& course, GenericList list, size_t index, GenericMember member, FAction&& action, Args&&...args)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList)
+			{
+				if (!(index < typedList.size()))
+					return false;
+				return ApplySingleGenericMember(member,
+					[&](auto&& typedMember, auto&&... typedArgs)
+					{
+						action(std::forward<decltype(typedMember)>(typedMember), std::forward<decltype(typedArgs)>(typedArgs)...);
+						return true;
+					}, false, false,
+					std::forward<decltype(typedList)>(typedList)[index], std::forward<Args>(args)...);
+			}, false,
+			course);
+	}
+
+	constexpr b8 TryGetGeneric(const ChartCourse& course, GenericList list, size_t index, GenericMember member, GenericMemberUnion& outValue)
+	{
+		return TryDoGeneric(course, list, index, member,
+			[&](auto&& typedMember, auto&& typedOutValue)
+			{
+				if constexpr (expect_type_v<decltype(typedMember), std::string> && !expect_type_v<decltype(typedOutValue), std::string>) // for GenericMember::CStr_Lyric
+					typedOutValue = typedMember.data();
+				else
+					typedOutValue = static_cast<std::remove_reference_t<decltype(typedOutValue)>>(typedMember);
+			},
+			outValue);
+	}
+
+	constexpr b8 TrySetGeneric(ChartCourse& course, GenericList list, size_t index, GenericMember member, const GenericMemberUnion& inValue)
+	{
+		return TryDoGeneric(course, list, index, member,
+			[&](auto&& typedMember, auto&& typedInValue) { typedMember = static_cast<std::remove_reference_t<decltype(typedMember)>>(typedInValue); },
+			inValue);
+	}
+
+	constexpr b8 TryGetGenericStruct(const ChartCourse& course, GenericList list, size_t index, GenericListStruct& outValue)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList, auto&& typedOutValue) { if (InBounds(index, typedList)) { typedOutValue = typedList[index]; return true; } return false; }, false,
+			course, outValue);
+	}
+
+	constexpr b8 TrySetGenericStruct(ChartCourse& course, GenericList list, size_t index, const GenericListStruct& inValue)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList, auto&& typedInValue) { if (InBounds(index, typedList)) { typedList[index] = typedInValue; return true; } return false; }, false,
+			course, inValue);
+	}
+
+	inline b8 TryAddGenericStruct(ChartCourse& course, GenericList list, GenericListStruct inValue)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList, auto&& typedInValue) { typedList.InsertOrUpdate(typedInValue); return true; }, false,
+			course, std::move(inValue)); // `std::move` makes no differences on POD
+	}
+
+	constexpr b8 TryRemoveGenericStruct(ChartCourse& course, GenericList list, Beat beatToRemove)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList) { typedList.RemoveAtBeat(beatToRemove); return true; }, false,
+			course);
+	}
+
+	constexpr b8 TryRemoveGenericStruct(ChartCourse& course, GenericList list, const GenericListStruct& inValueToRemove)
+	{
+		return TryRemoveGenericStruct(course, list, inValueToRemove.GetBeat(list));
+	}
 
 	struct ForEachChartItemData
 	{
@@ -846,7 +978,7 @@ namespace PeepoDrumKit
 	};
 
 	template <typename Func>
-	void ForEachChartItem(const ChartCourse& course, Func perItemFunc)
+	constexpr void ForEachChartItem(const ChartCourse& course, Func perItemFunc)
 	{
 		ApplyForEachGenericList([&](GenericList list, auto&& typedList) {
 			for (size_t i = 0; i < typedList.size(); i++)
@@ -855,7 +987,7 @@ namespace PeepoDrumKit
 	}
 
 	template <typename Func>
-	void ForEachSelectedChartItem(const ChartCourse& course, Func perSelectedItemFunc)
+	constexpr void ForEachSelectedChartItem(const ChartCourse& course, Func perSelectedItemFunc)
 	{
 		ApplyForEachGenericList([&](GenericList list, auto&& typedList) {
 			for (size_t i = 0; i < typedList.size(); i++)
