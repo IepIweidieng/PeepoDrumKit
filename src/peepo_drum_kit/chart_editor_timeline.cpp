@@ -1526,7 +1526,7 @@ namespace PeepoDrumKit
 			{
 				ChartCourse& Course; GenericList List; i32 Index;
 				inline b8 Exists() const { return (Index >= 0); }
-				constexpr b8 IsSelected() const { b8 v {}; TryGetGeneric<GenericMember::B8_IsSelected>(Course, List, Index, v); return v; }
+				constexpr b8 IsSelected() const { return GetOrEmpty<GenericMember::B8_IsSelected>(Course, List, Index); }
 				constexpr void IsSelected(b8 isSelected) { TrySetGeneric<GenericMember::B8_IsSelected>(Course, List, Index, isSelected); }
 				inline static ItemProxy At(ChartCourse& course, GenericList list, i32 listCount, i32 i) { return ItemProxy { course, list, (i >= 0) && (i < listCount) ? i : -1 }; }
 			};
@@ -1847,8 +1847,7 @@ namespace PeepoDrumKit
 
 								f32 hitboxSize = TimelineSelectedNoteHitBoxSizeSmall;
 								if (isNotesRow) {
-									NoteType noteType {};
-									TryGetGeneric<GenericMember::NoteType_V>(selectedCourse, list, i, noteType);
+									NoteType noteType = GetOrEmpty<GenericMember::NoteType_V>(selectedCourse, list, i);
 									hitboxSize = (IsBigNote(noteType) ? TimelineSelectedNoteHitBoxSizeBig : TimelineSelectedNoteHitBoxSizeSmall);
 								}
 
@@ -1899,9 +1898,9 @@ namespace PeepoDrumKit
 
 				if (SelectedItemDrag.ActiveTarget != EDragTarget::None)
 				{
-					auto itemSelected = [&](GenericList list, size_t i) constexpr { b8 out {}; TryGetGeneric<GenericMember::B8_IsSelected>(selectedCourse, list, i, out); return out; };
-					auto itemStart = [&](GenericList list, size_t i) constexpr { Beat out {}; TryGetGeneric<GenericMember::Beat_Start>(selectedCourse, list, i, out); return out; };
-					auto itemDuration = [&](GenericList list, size_t i) constexpr { Beat out {}; TryGetGeneric<GenericMember::Beat_Duration>(selectedCourse, list, i, out); return out; };
+					auto itemSelected = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::B8_IsSelected>(selectedCourse, list, i); };
+					auto itemStart = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::Beat_Start>(selectedCourse, list, i); };
+					auto itemDuration = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::Beat_Duration>(selectedCourse, list, i); };
 					auto itemTimeDuration = [&](GenericList list, size_t i) constexpr -> std::tuple<bool, Time> { f32 out {}; return { TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, out), Time::FromSec(out) }; };
 					auto checkCanSelectedItemsBeDragged = [&](GenericList list, Beat beatIncrement, b8 tailOnly) -> b8
 					{
