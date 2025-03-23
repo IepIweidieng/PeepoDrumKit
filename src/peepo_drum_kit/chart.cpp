@@ -444,64 +444,76 @@ namespace PeepoDrumKit
 
 namespace PeepoDrumKit
 {
-	template <GenericMember Member, typename T, typename TExpected = GenericMemberType<Member>>
-	constexpr auto* GetRawPtr(T&& obj) {
-		if constexpr (IsMemberAvailable<T, Member>)
-			return &get<Member>(std::forward<T>(obj));
-		else
-			return static_cast<TExpected*>(nullptr);
-	}
-
-	struct BeatStartAndDurationPtrs { Beat* Start; Beat* Duration; };
-	inline BeatStartAndDurationPtrs GetGenericListStructRawBeatPtr(GenericListStruct& in, GenericList list)
+	template <GenericMember Member, typename TExpected = GenericMemberType<Member>, typename TValue,
+		typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
+	constexpr bool TryGet(GenericListStructT&& in, GenericList list, TValue&& outValue)
 	{
 		return ApplySingleGenericList(list,
-			[](auto&& typedIn) -> BeatStartAndDurationPtrs { return {GetRawPtr<GenericMember::Beat_Start>(typedIn), GetRawPtr<GenericMember::Beat_Duration>(typedIn)}; },
-			BeatStartAndDurationPtrs {nullptr, nullptr},
+			[&](auto&& typedIn) -> bool
+			{
+				if constexpr (IsMemberAvailable<decltype(typedIn), Member>) {
+					auto&& typedMember = get<Member>(std::forward<decltype(typedIn)>(typedIn));
+					if constexpr (expect_type_v<decltype(typedMember), std::string> && !expect_type_v<decltype(outValue), std::string>) // for GenericMember::CStr_Lyric
+						outValue = typedMember.data();
+					else
+						outValue = static_cast<std::remove_reference_t<decltype(outValue)>>(typedMember);
+					return true;
+				} else {
+					return false;
+				}
+			}, false,
 			in);
 	}
 
-	inline f32* GetGenericListStructRawTimeDurationPtr(GenericListStruct& in, GenericList list)
+	template <GenericMember Member, typename TValue>
+	constexpr bool TrySet(GenericListStruct& in, GenericList list, TValue&& newValue)
 	{
-		return ApplySingleGenericList<f32*>(list,
-			[](auto&& typedIn) { return GetRawPtr<GenericMember::F32_JPOSScrollDuration>(typedIn); }, nullptr,
+		return ApplySingleGenericList(list,
+			[&](auto&& typedIn)
+			{
+				if constexpr (IsMemberAvailable<decltype(typedIn), Member>) {
+					get<Member>(std::forward<decltype(typedIn)>(typedIn)) = newValue;
+					return true;
+				} else {
+					return false;
+				}
+			}, false,
 			in);
 	}
 
 	Beat GenericListStruct::GetBeat(GenericList list) const
 	{
-		return *GetGenericListStructRawBeatPtr(*const_cast<GenericListStruct*>(this), list).Start;
+		Beat v {};
+		TryGet<GenericMember::Beat_Start>(*this, list, v);
+		return v;
 	}
 
 	Beat GenericListStruct::GetBeatDuration(GenericList list) const
 	{
-		const auto ptrs = GetGenericListStructRawBeatPtr(*const_cast<GenericListStruct*>(this), list);
-		return (ptrs.Duration != nullptr) ? *ptrs.Duration : Beat::Zero();
+		Beat v = Beat::Zero();
+		TryGet<GenericMember::Beat_Duration>(*this, list, v);
+		return v;
 	}
 
 	std::tuple<bool, Time> GenericListStruct::GetTimeDuration(GenericList list) const
 	{
-		const auto ptrs = GetGenericListStructRawTimeDurationPtr(*const_cast<GenericListStruct*>(this), list);
-		return (ptrs != nullptr) ? std::make_tuple(true, Time::FromSec(*ptrs)) : std::make_tuple(false, Time::Zero());
+		f32 sec = 0;
+		return { TryGet<GenericMember::F32_JPOSScrollDuration>(*this, list, sec), Time::FromSec(sec) };
 	}
 
 	void GenericListStruct::SetBeat(GenericList list, Beat newValue)
 	{
-		*GetGenericListStructRawBeatPtr(*this, list).Start = newValue;
+		TrySet<GenericMember::Beat_Start>(*this, list, newValue);
 	}
 
 	void GenericListStruct::SetBeatDuration(GenericList list, Beat newValue)
 	{
-		auto ptrs = GetGenericListStructRawBeatPtr(*this, list);
-		if (ptrs.Duration != nullptr)
-			*ptrs.Duration = newValue;
+		TrySet<GenericMember::Beat_Duration>(*this, list, newValue);
 	}
 
 	void GenericListStruct::SetTimeDuration(GenericList list, Time newValue)
 	{
-		auto ptrs = GetGenericListStructRawTimeDurationPtr(*this, list);
-		if (ptrs != nullptr)
-			*ptrs = newValue.Seconds;
+		TrySet<GenericMember::F32_JPOSScrollDuration>(*this, list, newValue.Seconds);
 	}
 
 	// helpers
@@ -539,45 +551,43 @@ namespace PeepoDrumKit
 			GetListStructAvailableMemberFlags_T());
 	}
 
-	void* TryGetGeneric_RawVoidPtr(const ChartCourse& course, GenericList list, size_t index, GenericMember member)
+	template <typename ChartCourseT, expect_type_t<ChartCourseT, ChartCourse> = true, typename FAction, typename... Args>
+	b8 TryDoGeneric(ChartCourseT&& course, GenericList list, size_t index, GenericMember member, FAction&& action, Args&&...args)
 	{
-		return ApplySingleGenericList<void*>(list,
-			[&](auto&& typedList) -> void* {
-				using NonConstVectorT = std::remove_cv_t<std::remove_reference_t<decltype(typedList)>>;
-				if (auto& vector = *const_cast<NonConstVectorT*>(&typedList); index < vector.size()) {
-					return ApplySingleGenericMember<void*>(member,
-						[&](auto&& typedMember) { return &typedMember; }, nullptr, nullptr,
-						vector[index]);
-				}
-				return nullptr;
-			}, nullptr,
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList)
+			{
+				if (!(index < typedList.size()))
+					return false;
+				return ApplySingleGenericMember(member,
+					[&](auto&& typedMember, auto&&... typedArgs)
+					{
+						action(std::forward<decltype(typedMember)>(typedMember), std::forward<decltype(typedArgs)>(typedArgs)...);
+						return true;
+					}, false, false,
+					std::forward<decltype(typedList)>(typedList)[index], std::forward<Args>(args)...);
+			}, false,
 			course);
 	}
 
 	b8 TryGetGeneric(const ChartCourse& course, GenericList list, size_t index, GenericMember member, GenericMemberUnion& outValue)
 	{
-		const void* voidMember = TryGetGeneric_RawVoidPtr(course, list, index, member);
-		if (voidMember == nullptr)
-			return false;
-
-		if (member == GenericMember::CStr_Lyric)
-			outValue.CStr = static_cast<cstr>(voidMember);
-		else
-			memcpy(&outValue, voidMember, GetGenericMember_RawByteSize(member));
-		return true;
+		return TryDoGeneric(course, list, index, member,
+			[&](auto&& typedMember, auto&& typedOutValue)
+			{
+				if constexpr (expect_type_v<decltype(typedMember), std::string> && !expect_type_v<decltype(typedOutValue), std::string>) // for GenericMember::CStr_Lyric
+					typedOutValue = typedMember.data();
+				else
+					typedOutValue = static_cast<std::remove_reference_t<decltype(typedOutValue)>>(typedMember);
+			},
+			outValue);
 	}
 
 	b8 TrySetGeneric(ChartCourse& course, GenericList list, size_t index, GenericMember member, const GenericMemberUnion& inValue)
 	{
-		void* voidMember = TryGetGeneric_RawVoidPtr(course, list, index, member);
-		if (voidMember == nullptr)
-			return false;
-
-		if (member == GenericMember::CStr_Lyric)
-			course.Lyrics[index].Lyric.assign(inValue.CStr);
-		else
-			memcpy(voidMember, &inValue, GetGenericMember_RawByteSize(member));
-		return true;
+		return TryDoGeneric(course, list, index, member,
+			[&](auto&& typedMember, auto&& typedInValue) { typedMember = static_cast<std::remove_reference_t<decltype(typedMember)>>(typedInValue); },
+			inValue);
 	}
 
 	b8 TryGetGenericStruct(const ChartCourse& course, GenericList list, size_t index, GenericListStruct& outValue)

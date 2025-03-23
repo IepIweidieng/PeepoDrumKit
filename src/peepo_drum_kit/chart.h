@@ -611,7 +611,7 @@ namespace PeepoDrumKit
 	{
 		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<LyricChangeT>(event).IsSelected);
 		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<LyricChangeT>(event).BeatTime);
-		else if constexpr (Member == GenericMember::CStr_Lyric) return (std::forward<LyricChangeT>(event).Lyric.data());
+		else if constexpr (Member == GenericMember::CStr_Lyric) return (std::forward<LyricChangeT>(event).Lyric);
 	}
 
 	template <GenericMember Member, typename ScrollTypeT, expect_type_t<ScrollTypeT, ScrollType> = true>
@@ -819,8 +819,7 @@ namespace PeepoDrumKit
 	size_t GetGenericMember_RawByteSize(GenericMember member);
 	size_t GetGenericListCount(const ChartCourse& course, GenericList list);
 	GenericMemberFlags GetAvailableMemberFlags(GenericList list);
-
-	void* TryGetGeneric_RawVoidPtr(const ChartCourse& course, GenericList list, size_t index, GenericMember member);
+	
 	b8 TryGetGeneric(const ChartCourse& course, GenericList list, size_t index, GenericMember member, GenericMemberUnion& outValue);
 	b8 TrySetGeneric(ChartCourse& course, GenericList list, size_t index, GenericMember member, const GenericMemberUnion& inValue);
 
