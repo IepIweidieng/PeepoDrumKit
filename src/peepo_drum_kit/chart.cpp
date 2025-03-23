@@ -66,7 +66,15 @@ namespace PeepoDrumKit
 	}
 
 	struct TempTimedDelayCommand { Beat Beat; Time Delay; };
-	static constexpr Beat GetBeat(const TempTimedDelayCommand& v) { return v.Beat; }
+
+	template <>
+	struct IsNonListChartEventTrait<TempTimedDelayCommand> : std::true_type { };
+
+	template <GenericMember Member, typename TempTimedDelayCommandT, expect_type_t<TempTimedDelayCommandT, TempTimedDelayCommand> = true>
+	constexpr decltype(auto) get(TempTimedDelayCommandT&& event)
+	{
+		if constexpr (Member == GenericMember::Beat_Start) return (std::forward<TempTimedDelayCommandT>(event).Beat);
+	}
 
 	static constexpr NoteType ConvertTJANoteType(TJA::NoteType tjaNoteType)
 	{

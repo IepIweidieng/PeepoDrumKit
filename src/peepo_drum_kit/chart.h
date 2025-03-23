@@ -267,21 +267,6 @@ namespace PeepoDrumKit
 	using SortedJPOSScrollChangesList = BeatSortedList<JPOSScrollChange>;
 	using SortedScrollTypesList = BeatSortedList<ScrollType>;
 
-	constexpr Beat GetBeat(const Note& v) { return v.BeatTime; }
-	constexpr Beat GetBeat(const ScrollChange& v) { return v.BeatTime; }
-	constexpr Beat GetBeat(const BarLineChange& v) { return v.BeatTime; }
-	constexpr Beat GetBeat(const GoGoRange& v) { return v.BeatTime; }
-	constexpr Beat GetBeat(const LyricChange& v) { return v.BeatTime; }
-	constexpr Beat GetBeat(const ScrollType& v) { return v.BeatTime; }
-	constexpr Beat GetBeat(const JPOSScrollChange& v) { return v.BeatTime; }
-	constexpr Beat GetBeatDuration(const Note& v) { return v.BeatDuration; }
-	constexpr Beat GetBeatDuration(const ScrollChange& v) { return Beat::Zero(); }
-	constexpr Beat GetBeatDuration(const BarLineChange& v) { return Beat::Zero(); }
-	constexpr Beat GetBeatDuration(const GoGoRange& v) { return v.BeatDuration; }
-	constexpr Beat GetBeatDuration(const LyricChange& v) { return Beat::Zero(); }
-	constexpr Beat GetBeatDuration(const ScrollType& v) { return Beat::Zero(); }
-	constexpr Beat GetBeatDuration(const JPOSScrollChange& v) { return Beat::Zero(); }
-
 	constexpr Tempo ScrollSpeedToTempo(f32 scrollSpeed, Tempo baseTempo) { return Tempo(scrollSpeed * baseTempo.BPM); }
 	constexpr f32 ScrollTempoToSpeed(Tempo scrollTempo, Tempo baseTempo) { return (baseTempo.BPM == 0.0f) ? 0.0f : (scrollTempo.BPM / baseTempo.BPM); }
 
@@ -686,18 +671,37 @@ namespace PeepoDrumKit
 		}
 	}
 
+	template <GenericMember Member, typename FAction, typename T, typename... Args>
+	constexpr b8 TryDoImpl(FAction&& action, T&& event, Args&&... args)
+	{
+		if constexpr (IsMemberAvailable<T, Member>) {
+			action(get<Member>(std::forward<T>(event)), get_or_forward<Member>(std::forward<Args>(args))...);
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
+	template <typename FAction, typename T, typename... Args>
+	constexpr b8 TryDoImpl(FAction&& action, T&& event, GenericMember member, Args&&... args)
+	{
+		return ApplySingleGenericMember(member,
+			[&](auto&& typedMember, auto&&... typedArgs)
+			{
+				action(std::forward<decltype(typedMember)>(typedMember), std::forward<decltype(typedArgs)>(typedArgs)...);
+				return true;
+			}, false, false,
+			std::forward<decltype(event)>(event), std::forward<Args>(args)...);
+	}
+
 	template <GenericMember Member, typename GenericListStructT, expect_type_t<GenericListStructT, struct GenericListStruct> = true, typename FAction, typename... Args>
 	constexpr b8 TryDo(FAction&& action, GenericListStructT&& in, GenericList list, Args&&...args)
 	{
 		return ApplySingleGenericList(list,
 			[&](auto&& typedIn) -> bool
 			{
-				if constexpr (IsMemberAvailable<decltype(typedIn), Member>) {
-					action(get<Member>(std::forward<decltype(typedIn)>(typedIn)), get_or_forward<Member>(std::forward<Args>(args))...);
-					return true;
-				} else {
-					return false;
-				}
+				return TryDoImpl<Member>(std::forward<FAction>(action), std::forward<decltype(typedIn)>(typedIn), get_or_forward<Member>(std::forward<Args>(args)...));
 			}, false,
 			in);
 	}
@@ -708,13 +712,7 @@ namespace PeepoDrumKit
 		return ApplySingleGenericList(list,
 			[&](auto&& typedIn)
 			{
-				return ApplySingleGenericMember(member,
-					[&](auto&& typedMember, auto&&... typedArgs)
-					{
-						action(std::forward<decltype(typedMember)>(typedMember), std::forward<decltype(typedArgs)>(typedArgs)...);
-						return true;
-					}, false, false,
-					std::forward<decltype(typedIn)>(typedIn), std::forward<Args>(args)...);
+				return TryDoImpl(std::forward<FAction>(action), std::forward<decltype(typedIn)>(typedIn), member, std::forward<Args>(args)...);
 			}, false,
 			in);
 	}
@@ -760,6 +758,26 @@ namespace PeepoDrumKit
 		return GetOrDefault<Member>(TDefault{}, std::forward<Args>(args)...);
 	}
 
+	// NOTE: Little helpers here just for convenience
+	template <typename... Args>
+	constexpr b8 GetIsSelected(Args&&... args) { return GetOrEmpty<GenericMember::B8_IsSelected>(std::forward<Args>(args)...); }
+	template <typename... Args>
+	constexpr Beat GetBeat(Args&&... args) { return GetOrEmpty<GenericMember::Beat_Start>(std::forward<Args>(args)...); }
+	template <typename... Args>
+	constexpr Beat GetBeatDuration(Args&&... args) { return GetOrEmpty<GenericMember::Beat_Duration>(std::forward<Args>(args)...); }
+	template <typename... Args>
+	constexpr std::tuple<bool, Time> GetTimeDuration(Args&&... args) { f32 v{}; return { TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(std::forward<Args>(args)..., v), Time::FromSec(v) }; }
+
+	// unfortunately the parameter order has to be changed to make function overloading works
+	template <typename... Args>
+	constexpr void SetIsSelected(b8 isSelected, Args&&... args) { TrySetGeneric<GenericMember::B8_IsSelected>(std::forward<Args>(args)..., isSelected); }
+	template <typename... Args>
+	constexpr void SetBeat(Beat beat, Args&&... args) { TrySetGeneric<GenericMember::Beat_Start>(std::forward<Args>(args)..., beat); }
+	template <typename... Args>
+	constexpr void SetBeatDuration(Beat beatDuration, Args&&... args) { TrySetGeneric<GenericMember::Beat_Duration>(std::forward<Args>(args)..., beatDuration); }
+	template <typename... Args>
+	constexpr void SetTimeDuration(Time timeDuration, Args&&... args) { TrySetGeneric<GenericMember::F32_JPOSScrollDuration>(std::forward<Args>(args)..., timeDuration.Seconds); }
+
 	struct GenericListStruct
 	{
 		union PODData
@@ -782,13 +800,13 @@ namespace PeepoDrumKit
 			LyricChange Lyric;
 		} NonTrivial {};
 
-		// NOTE: Little helpers here just for convenience=
-		constexpr Beat GetBeat(GenericList list) const { return GetOrEmpty<GenericMember::Beat_Start>(*this, list); }
-		constexpr Beat GetBeatDuration(GenericList list) const { return GetOrDefault<GenericMember::Beat_Duration>(Beat::Zero(), *this, list); }
-		constexpr std::tuple<bool, Time> GetTimeDuration(GenericList list) const { f32 sec = 0; return { TryGet<GenericMember::F32_JPOSScrollDuration>(*this, list, sec), Time::FromSec(sec) }; }
-		constexpr void SetBeat(GenericList list, Beat newValue) { TrySet<GenericMember::Beat_Start>(*this, list, newValue); }
-		constexpr void SetBeatDuration(GenericList list, Beat newValue) { TrySet<GenericMember::Beat_Duration>(*this, list, newValue); }
-		constexpr void SetTimeDuration(GenericList list, Time newValue) { TrySet<GenericMember::F32_JPOSScrollDuration>(*this, list, newValue.Seconds); }
+		// NOTE: Little helpers here just for convenience
+		constexpr Beat GetBeat(GenericList list) const { return PeepoDrumKit::GetBeat(*this, list); }
+		constexpr Beat GetBeatDuration(GenericList list) const { return PeepoDrumKit::GetBeatDuration(*this, list); }
+		constexpr std::tuple<bool, Time> GetTimeDuration(GenericList list) const { return PeepoDrumKit::GetTimeDuration(*this, list); }
+		constexpr void SetBeat(GenericList list, Beat newValue) { PeepoDrumKit::SetBeat(newValue , *this, list); }
+		constexpr void SetBeatDuration(GenericList list, Beat newValue) { PeepoDrumKit::SetBeatDuration(newValue, *this, list); }
+		constexpr void SetTimeDuration(GenericList list, Time newValue) { PeepoDrumKit::SetTimeDuration(newValue, *this, list); }
 
 		GenericListStruct(const GenericListStruct& other) {
 			// Perform a deep copy of data within the union and other members
@@ -799,17 +817,24 @@ namespace PeepoDrumKit
 		GenericListStruct() {};
 	};
 
+	template <auto... Tags, typename FAction, typename GenericListStructWithTypeT, typename... Args,
+		expect_type_t<GenericListStructWithTypeT, struct GenericListStructWithType> = true>
+	constexpr b8 TryDo(FAction&& action, GenericListStructWithTypeT&& data, Args&&... args)
+	{
+		return TryDo<Tags...>(std::forward<FAction>(action), std::forward<GenericListStructWithTypeT>(data).Value, std::forward<GenericListStructWithTypeT>(data).List, std::forward<Args>(args)...);
+	}
+
 	struct GenericListStructWithType
 	{
 		GenericList List;
 		GenericListStruct Value;
 
-		constexpr Beat GetBeat() const { return Value.GetBeat(List); }
-		constexpr Beat GetBeatDuration() const { return Value.GetBeatDuration(List); }
-		constexpr std::tuple<bool, Time> GetTimeDuration() const { return Value.GetTimeDuration(List); }
-		constexpr void SetBeat(Beat newValue) { Value.SetBeat(List, newValue); }
-		constexpr void SetBeatDuration(Beat newValue) { Value.SetBeatDuration(List, newValue); }
-		constexpr void SetTimeDuration(Time newValue) { Value.SetTimeDuration(List, newValue); }
+		constexpr Beat GetBeat() const { return PeepoDrumKit::GetBeat(*this); }
+		constexpr Beat GetBeatDuration() const { return PeepoDrumKit::GetBeatDuration(*this); }
+		constexpr std::tuple<bool, Time> GetTimeDuration() const { return PeepoDrumKit::GetTimeDuration(*this); }
+		constexpr void SetBeat(Beat newValue) { PeepoDrumKit::SetBeat(newValue, *this); }
+		constexpr void SetBeatDuration(Beat newValue) { PeepoDrumKit::SetBeatDuration(newValue, *this); }
+		constexpr void SetTimeDuration(Time newValue) { PeepoDrumKit::SetTimeDuration(newValue, *this); }
 
 		// Default constructor
 		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}
@@ -859,8 +884,33 @@ namespace PeepoDrumKit
 		else static_assert(false, "unhandled or invalid GenericList value");
 	}
 
+	// Access functions for concrete GenericListStruct types
 	template <GenericList List>
 	using GenericListStructType = std::remove_cv_t<std::remove_reference_t<decltype(get<List>(std::declval<GenericListStruct>()))>>;
+
+	template <typename T>
+	struct IsNonListChartEventTrait : std::false_type { };
+
+	template <typename T, typename = void>
+	struct IsChartEventTypeHelper : std::false_type { };
+
+	template <typename T, GenericList... Lists>
+	struct IsChartEventTypeHelper<T, enum_sequence<GenericList, Lists...>> : std::bool_constant<(... || expect_type_v<T, GenericListStructType<Lists>>)> { };
+
+	template <typename T>
+	constexpr b8 IsChartEventType = IsNonListChartEventTrait<std::remove_cv_t<std::remove_reference_t<T>>>::value || IsChartEventTypeHelper<T, make_enum_sequence<GenericList>>::value;
+
+	template <GenericMember Member, typename FAction, typename T, std::enable_if_t<IsChartEventType<T>, bool> = true, typename... Args>
+	constexpr __forceinline b8 TryDo(FAction&& action, T&& event, Args&&... args)
+	{
+		return TryDoImpl<Member>(std::forward<FAction>(action), std::forward<decltype(event)>(event), get_or_forward<Member>(std::forward<Args>(args)...));
+	}
+
+	template <typename FAction, typename T, std::enable_if_t<IsChartEventType<T>, bool> = true, typename... Args>
+	constexpr __forceinline b8 TryDo(FAction&& action, T&& event, GenericMember member, Args&&... args)
+	{
+		return TryDoImpl(std::forward<FAction>(action), std::forward<decltype(event)>(event), member, std::forward<Args>(args)...);
+	}
 
 	// Apply `action` on `args` resolved by `list` if valid, otherwise return `vError`
 	// If `TRet` is not specified, all of `action`'s possible return values and `vError` must have the same type
@@ -1014,20 +1064,28 @@ namespace PeepoDrumKit
 		return TryRemoveGenericStruct(course, list, inValueToRemove.GetBeat(list));
 	}
 
+	template <auto... Tags, typename FAction, typename ForEachChartItemDataT, typename ChartCourseT, typename... Args,
+		expect_type_t<ForEachChartItemDataT, struct ForEachChartItemData> = true,
+		expect_type_t<ChartCourseT, struct ChartCourse> = true>
+	constexpr decltype(auto) TryDo(FAction&& action, ForEachChartItemDataT&& data, ChartCourseT&& c, Args&&... args)
+	{
+		return TryDo<Tags...>(std::forward<FAction>(action), std::forward<ChartCourseT>(c), std::forward<ForEachChartItemDataT>(data).List, std::forward<ForEachChartItemDataT>(data).Index, std::forward<Args>(args)...);
+	}
+
 	struct ForEachChartItemData
 	{
 		GenericList List;
 		size_t Index;
 
 		// NOTE: Again just little accessor helpers for the members that should always be available for each list type
-		constexpr b8 GetIsSelected(const ChartCourse& c) const { return GetOrEmpty<GenericMember::B8_IsSelected>(c, List, Index); }
-		constexpr void SetIsSelected(ChartCourse& c, b8 isSelected) const { TrySetGeneric<GenericMember::B8_IsSelected>(c, List, Index, isSelected); }
-		constexpr Beat GetBeat(const ChartCourse& c) const { return GetOrEmpty<GenericMember::Beat_Start>(c, List, Index); }
-		constexpr Beat GetBeatDuration(const ChartCourse& c) const { return GetOrEmpty<GenericMember::Beat_Duration>(c, List, Index); }
-		constexpr std::tuple<bool, Time> GetTimeDuration(const ChartCourse& c) const { f32 v {}; return { TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(c, List, Index, v), Time::FromSec(v) }; }
-		constexpr void SetBeat(ChartCourse& c, Beat beat) const { TrySetGeneric<GenericMember::Beat_Start>(c, List, Index, beat); }
-		constexpr void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { TrySetGeneric<GenericMember::Beat_Duration>(c, List, Index, beatDuration); }
-		constexpr void SetTimeDuration(ChartCourse& c, Time timeDuration) const { TrySetGeneric<GenericMember::F32_JPOSScrollDuration>(c, List, Index, timeDuration.Seconds); }
+		constexpr b8 GetIsSelected(const ChartCourse& c) const { return PeepoDrumKit::GetIsSelected(*this, c); }
+		constexpr void SetIsSelected(ChartCourse& c, b8 isSelected) const { return PeepoDrumKit::SetIsSelected(isSelected, *this, c); }
+		constexpr Beat GetBeat(const ChartCourse& c) const { return PeepoDrumKit::GetBeat(*this, c); }
+		constexpr Beat GetBeatDuration(const ChartCourse& c) const { return PeepoDrumKit::GetBeatDuration(*this, c); }
+		constexpr std::tuple<bool, Time> GetTimeDuration(const ChartCourse& c) const { return PeepoDrumKit::GetTimeDuration(*this, c); }
+		constexpr void SetBeat(ChartCourse& c, Beat beat) const { return PeepoDrumKit::SetBeat(beat, *this, c); }
+		constexpr void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { return PeepoDrumKit::SetBeatDuration(beatDuration, *this, c); }
+		constexpr void SetTimeDuration(ChartCourse& c, Time timeDuration) const { return PeepoDrumKit::SetTimeDuration(timeDuration, *this, c); }
 	};
 
 	template <typename Func>
