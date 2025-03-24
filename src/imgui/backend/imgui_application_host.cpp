@@ -456,6 +456,7 @@ namespace ApplicationHost
 		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+		io.ConfigScrollbarScrollByPage = false; // ImGui pre-1.90.8 default
 		io.IniFilename = "settings_imgui.ini";
 
 		// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
