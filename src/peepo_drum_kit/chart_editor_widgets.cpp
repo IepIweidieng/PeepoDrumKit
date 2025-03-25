@@ -109,9 +109,6 @@ namespace PeepoDrumKit
 	{
 		b8 valueWasChanged = false;
 
-		// NOTE: Make text transparent instead of using an empty slider format string 
-		//		 so that the slider can still convert the input to a string on the same frame it is turned into an InputText (due to the frame delayed starsFitOnScreen)
-		if (inOutFitOnScreenLastFrame) Gui::PushStyleColor(ImGuiCol_Text, 0x00000000);
 		Gui::PushStyleColor(ImGuiCol_SliderGrab, Gui::GetStyleColorVec4(inOutHoveredLastFrame ? ImGuiCol_ButtonHovered : ImGuiCol_Button));
 		Gui::PushStyleColor(ImGuiCol_SliderGrabActive, Gui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 		Gui::PushStyleColor(ImGuiCol_FrameBgHovered, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
@@ -126,40 +123,19 @@ namespace PeepoDrumKit
 				? u8"None"
 				: (v >= static_cast <i32>(DifficultyLevelDecimal::PlusThreshold))
 				? u8"%d (+)"
-				: u8"%d (-)",
+				: u8"%d",
 			ImGuiSliderFlags_AlwaysClamp))
 		{
 			*inOutLevel = static_cast<DifficultyLevelDecimal>(v);
 			valueWasChanged = true;
 		}
-		Gui::PopStyleColor(4 + (inOutFitOnScreenLastFrame ? 1 : 0));
+		Gui::PopStyleColor(4);
 
 		const Rect sliderRect = Gui::GetItemRect();
 		const f32 availableWidth = sliderRect.GetWidth();
 		const vec2 starSize = vec2(availableWidth / static_cast<f32>(DifficultyLevelDecimal::Max), Gui::GetFrameHeight());
 
-		const b8 starsFitOnScreen = (starSize.x >= Gui::GetFrameHeight()) && !Gui::IsItemBeingEditedAsText();
-
-		// NOTE: Use the last frame result here too to match the slider text as it has already been drawn
-		if (inOutFitOnScreenLastFrame)
-		{
-			// NOTE: Manually tuned for a 16px font size
-			struct StarParam { f32 OuterRadius, InnerRadius, Thickness; };
-			static constexpr StarParam fontSizedStarParamOutline = { 8.0f, 4.0f, 1.0f };
-			static constexpr StarParam fontSizedStarParamFilled = { 10.0f, 4.0f, 0.0f };
-			const f32 starScale = Gui::GetFontSize() / 16.0f;
-
-			// TODO: Consider drawing star background manually instead of using the slider grab hand (?)
-			for (i32 i = 0; i < static_cast<i32>(DifficultyLevelDecimal::Max); i++)
-			{
-				const Rect starRect = Rect::FromTLSize(sliderRect.TL + vec2(i * starSize.x, 0.0f), starSize);
-				const auto star = (i >= static_cast<i32>(*inOutLevel)) ? fontSizedStarParamOutline : fontSizedStarParamFilled;
-				Gui::DrawStar(Gui::GetWindowDrawList(), starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, Gui::GetColorU32(ImGuiCol_Text), star.Thickness);
-			}
-		}
-
 		inOutHoveredLastFrame = Gui::IsItemHovered();
-		inOutFitOnScreenLastFrame = starsFitOnScreen;
 		return valueWasChanged;
 	}
 
@@ -167,9 +143,17 @@ namespace PeepoDrumKit
 	{
 		b8 valueWasChanged = false;
 
+		auto getStarColor = [](int level, unsigned int def) -> unsigned int {
+			if (level >= 11) return IM_COL32(255, 122, 122, 255);
+			return def;
+		};
+
+		auto _defaultColor = Gui::GetColorU32(ImGuiCol_Text);
+
 		// NOTE: Make text transparent instead of using an empty slider format string 
 		//		 so that the slider can still convert the input to a string on the same frame it is turned into an InputText (due to the frame delayed starsFitOnScreen)
 		if (inOutFitOnScreenLastFrame) Gui::PushStyleColor(ImGuiCol_Text, 0x00000000);
+		else Gui::PushStyleColor(ImGuiCol_Text, getStarColor((i32)(*inOutLevel), _defaultColor));
 		Gui::PushStyleColor(ImGuiCol_SliderGrab, Gui::GetStyleColorVec4(inOutHoveredLastFrame ? ImGuiCol_ButtonHovered : ImGuiCol_Button));
 		Gui::PushStyleColor(ImGuiCol_SliderGrabActive, Gui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 		Gui::PushStyleColor(ImGuiCol_FrameBgHovered, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
@@ -180,7 +164,7 @@ namespace PeepoDrumKit
 			*inOutLevel = static_cast<DifficultyLevel>(v);
 			valueWasChanged = true;
 		}
-		Gui::PopStyleColor(4 + (inOutFitOnScreenLastFrame ? 1 : 0));
+		Gui::PopStyleColor(5);
 
 		const Rect sliderRect = Gui::GetItemRect();
 		const f32 availableWidth = sliderRect.GetWidth();
@@ -202,7 +186,7 @@ namespace PeepoDrumKit
 			{
 				const Rect starRect = Rect::FromTLSize(sliderRect.TL + vec2(i * starSize.x, 0.0f), starSize);
 				const auto star = (i >= static_cast<i32>(*inOutLevel)) ? fontSizedStarParamOutline : fontSizedStarParamFilled;
-				Gui::DrawStar(Gui::GetWindowDrawList(), starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, Gui::GetColorU32(ImGuiCol_Text), star.Thickness);
+				Gui::DrawStar(Gui::GetWindowDrawList(), starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(i + 1, _defaultColor), star.Thickness);
 			}
 		}
 
@@ -543,6 +527,112 @@ namespace PeepoDrumKit
 					Gui::PopFont();
 					Gui::PopStyleColor();
 				}
+			}
+
+
+		}
+		Gui::PopFont();
+	}
+
+	void ChartChartStatsWindow::DrawGui(ChartContext& context)
+	{
+		auto trimPrefix = [](std::string str) -> std::string {
+			if (str.rfind("--", 0) == 0 || str.rfind("++", 0) == 0) return str.substr(2);
+			return str;
+		};
+
+		static struct
+		{
+			u32 GreenDark = 0xFFACF7DC;
+			u32 GreenBright = 0xFF95CCB8;
+			u32 RedDark = 0xFF9BBAEF;
+			u32 RedBright = 0xFF93B2E7;
+			u32 WhiteDark = 0xFF95DCDC;
+			u32 WhiteBright = 0xFFBBD3D3;
+			b8 Show = false;
+		} colors;
+
+		assert(context.ChartSelectedCourse != nullptr);
+		auto& chart = context.Chart;
+		auto& course = *context.ChartSelectedCourse;
+
+		Gui::PushStyleColor(ImGuiCol_Border, Gui::GetColorU32(ImGuiCol_Separator));
+		Gui::BeginChild("BackgroundChild", Gui::GetContentRegionAvail(), true);
+		Gui::PopStyleColor(1);
+		defer{ Gui::EndChild(); };
+
+		Gui::UpdateSmoothScrollWindow();
+
+		Gui::PushFont(FontLarge_EN);
+		{
+			// Header with chart main information
+			{
+				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenDark);
+				Gui::PushFont(FontLarge_EN);
+				Gui::TextUnformatted("Chart Stats");
+				Gui::PopFont();
+				Gui::PopStyleColor();
+
+				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenBright);
+				Gui::PushFont(FontMedium_EN);
+				Gui::Text("%s", chart.ChartTitle.Base().c_str());
+				Gui::PopFont();
+				Gui::PushFont(FontMain_CJKV);
+				Gui::Text("%s", trimPrefix(chart.ChartSubtitle.Base()).c_str());
+				Gui::Text("Charter: %s", course.CourseCreator.c_str());
+				Gui::Text("%s Lv.%d", UI_StrRuntime(DifficultyTypeNames[(int)course.Type]), course.Level);
+				Gui::Separator();
+				Gui::PopFont();
+				Gui::PopStyleColor();
+			}
+
+			// Details
+			{
+				SortedNotesList& notes = context.ChartSelectedCourse->GetNotes(context.ChartSelectedBranch);
+
+				int _donCount = notes.CountIf([](Note N) {return IsDonNote(N.Type);});
+				int _kaCount = notes.CountIf([](Note N) {return IsKaNote(N.Type);});
+				int _kaDonCount = notes.CountIf([](Note N) {return IsKaDonNote(N.Type);});
+				int _adLibCount = notes.CountIf([](Note N) {return IsAdlibNote(N.Type);});
+				int _bombCount = notes.CountIf([](Note N) {return IsBombNote(N.Type);});
+				int _maxCombo = _donCount + _kaCount + _kaDonCount;
+
+				f64 _density = _maxCombo / chart.ChartDuration.Seconds;
+
+				Gui::PushStyleColor(ImGuiCol_Text, colors.RedDark);
+				Gui::PushFont(FontLarge_EN);
+				Gui::Text("Max Combo: %d", _maxCombo);
+				Gui::PopFont();
+				Gui::PopStyleColor();
+
+				Gui::PushFont(FontMedium_EN);
+
+				Gui::PushStyleColor(ImGuiCol_Text, colors.RedDark);
+				Gui::Text("Density: %.3f hit/s", _density);
+				Gui::PopStyleColor();
+
+				Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 122, 122, 255));
+				Gui::Text("Don: %d", _donCount);
+				Gui::PopStyleColor();
+
+				Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(122, 122, 255, 255));
+				Gui::Text("Ka: %d", _kaCount);
+				Gui::PopStyleColor();
+
+				Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 122, 255, 255));
+				Gui::Text("KaDon: %d", _kaDonCount);
+				Gui::PopStyleColor();
+
+				Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 255));
+				Gui::Text("Adlib: %d", _adLibCount);
+				Gui::PopStyleColor();
+
+				Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(122, 122, 122, 255));
+				Gui::Text("Bomb: %d", _bombCount);
+				Gui::PopStyleColor();
+				
+				Gui::PopFont();
+
 			}
 
 

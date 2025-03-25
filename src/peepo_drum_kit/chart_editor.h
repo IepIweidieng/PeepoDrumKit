@@ -90,10 +90,12 @@ namespace PeepoDrumKit
 
 		b8 focusHelpWindowNextFrame = false;
 		b8 focusUpdateNotesWindowNextFrame = false;
+		b8 focusChartStatsWindowNextFrame = false;
 		b8 focusSettingsWindowNextFrame = false;
 
 		ChartHelpWindow helpWindow = {};
 		ChartUpdateNotesWindow updateNotesWindow = {};
+		ChartChartStatsWindow chartStatsWindow = {};
 		ChartUndoHistoryWindow undoHistoryWindow = {};
 		TempoCalculatorWindow tempoCalculatorWindow = {};
 		ChartInspectorWindow chartInspectorWindow = {};

@@ -52,6 +52,11 @@ namespace PeepoDrumKit
 		void DrawGui(ChartContext& context);
 	};
 
+	struct ChartChartStatsWindow
+	{
+		void DrawGui(ChartContext& context);
+	};
+
 	struct ChartUndoHistoryWindow
 	{
 		void DrawGui(ChartContext& context);

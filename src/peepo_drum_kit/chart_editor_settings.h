@@ -96,6 +96,7 @@ namespace PeepoDrumKit
 			b8 ShowWindow_TestMenu = false;
 			b8 ShowWindow_Help = true;
 			b8 ShowWindow_UpdateNotes = true;
+			b8 ShowWindow_ChartStats = true;
 			b8 ShowWindow_Settings = true;
 			b8 ShowWindow_AudioTest = false;
 			b8 ShowWindow_TJAImportTest = false;
@@ -174,6 +175,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Editor_Redo = { KeyBinding(ImGuiKey_Y, ImGuiMod_Ctrl) };
 			WithDefault<MultiInputBinding> Editor_OpenHelp = { KeyBinding(ImGuiKey_F1) };
 			WithDefault<MultiInputBinding> Editor_OpenUpdateNotes = { KeyBinding(ImGuiKey_F2) };
+			WithDefault<MultiInputBinding> Editor_OpenChartStats = { KeyBinding(ImGuiKey_F3) };
 			WithDefault<MultiInputBinding> Editor_OpenSettings = { KeyBinding(ImGuiKey_Comma, ImGuiMod_Ctrl) };
 			WithDefault<MultiInputBinding> Editor_ChartNew = { KeyBinding(ImGuiKey_N, ImGuiMod_Ctrl) };
 			WithDefault<MultiInputBinding> Editor_ChartOpen = { KeyBinding(ImGuiKey_O, ImGuiMod_Ctrl) };

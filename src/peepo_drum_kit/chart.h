@@ -40,6 +40,9 @@ namespace PeepoDrumKit
 
 	constexpr b8 IsDonNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::DonBig); }
 	constexpr b8 IsKaNote(NoteType v) { return (v == NoteType::Ka) || (v == NoteType::KaBig); }
+	constexpr b8 IsKaDonNote(NoteType v) { return (v == NoteType::KaDon); }
+	constexpr b8 IsAdlibNote(NoteType v) { return (v == NoteType::Adlib); }
+	constexpr b8 IsBombNote(NoteType v) { return (v == NoteType::Bomb); }
 	constexpr b8 IsSmallNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::Ka) || (v == NoteType::Drumroll) || (v == NoteType::Balloon) || (v == NoteType::Fuse); }
 	constexpr b8 IsBigNote(NoteType v) { return !IsSmallNote(v); }
 	constexpr b8 IsDrumrollNote(NoteType v) { return (v == NoteType::Drumroll) || (v == NoteType::DrumrollBig); }
@@ -110,6 +113,8 @@ namespace PeepoDrumKit
 		Hard,
 		Oni,
 		OniUra,
+		Tower,
+		Dan,
 		Count
 	};
 
@@ -120,6 +125,8 @@ namespace PeepoDrumKit
 		"DIFFICULTY_TYPE_HARD",
 		"DIFFICULTY_TYPE_ONI",
 		"DIFFICULTY_TYPE_ONI_URA",
+		"DIFFICULTY_TYPE_TOWER",
+		"DIFFICULTY_TYPE_DAN",
 	};
 
 	enum class DifficultyLevel : u8

@@ -406,6 +406,7 @@ namespace PeepoDrumKit
 				Gui::Separator();
 				if (Gui::MenuItem(UI_Str("TAB_USAGE_GUIDE"), ToShortcutString(*Settings.Input.Editor_OpenHelp).Data)) { PersistentApp.LastSession.ShowWindow_Help = focusHelpWindowNextFrame = true; }
 				if (Gui::MenuItem(UI_Str("TAB_UPDATE_NOTES"), ToShortcutString(*Settings.Input.Editor_OpenUpdateNotes).Data)) { PersistentApp.LastSession.ShowWindow_UpdateNotes = focusUpdateNotesWindowNextFrame = true; }
+				if (Gui::MenuItem(UI_Str("TAB_CHART_STATS"), ToShortcutString(*Settings.Input.Editor_OpenChartStats).Data)) { PersistentApp.LastSession.ShowWindow_ChartStats = focusChartStatsWindowNextFrame = true; }
 				Gui::EndMenu();
 			}
 
@@ -450,6 +451,8 @@ namespace PeepoDrumKit
 							{ DifficultyType::Hard, UI_Str("DIFFICULTY_TYPE_HARD"), },
 							{ DifficultyType::Oni, UI_Str("DIFFICULTY_TYPE_ONI"), },
 							{ DifficultyType::OniUra, UI_Str("DIFFICULTY_TYPE_ONI_URA"), },
+							{ DifficultyType::Tower, UI_Str("DIFFICULTY_TYPE_TOWER"), },
+							{ DifficultyType::Dan, UI_Str("DIFFICULTY_TYPE_DAN"), },
 						};
 						static_assert(ArrayCount(difficulties) == EnumCount<DifficultyType>);
 
@@ -490,12 +493,16 @@ namespace PeepoDrumKit
 							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s (%s)###Course_%p", UI_StrRuntime(
 								DifficultyTypeNames[EnumToIndex(course->Type)]), 
 								static_cast<i32>(course->Level), 
-								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : "-"),
+								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
 								UI_Str("PLAYER_SIDE_STYLE_SINGLE"), 
 								course.get());
 							const b8 setSelectedThisFrame = (course.get() == context.ChartSelectedCourse && course.get() != lastFrameSelectedCoursePtrID);
 
 							Gui::PushID(course.get());
+
+							if ((i32)course->Level >= 11)
+								Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 122, 122, 255));
+
 							if (Gui::BeginTabItem(buffer, nullptr, setSelectedThisFrame ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None))
 							{
 								// TODO: Selecting a course should also be an undo command so that there isn't ever any confusion (?)
@@ -503,6 +510,10 @@ namespace PeepoDrumKit
 								isAnyCourseTabSelected = true;
 								Gui::EndTabItem();
 							}
+
+							if ((i32)course->Level >= 11)
+								Gui::PopStyleColor();
+
 							Gui::PopID();
 						}
 
@@ -681,6 +692,7 @@ namespace PeepoDrumKit
 
 				if (Gui::IsAnyPressed(*Settings.Input.Editor_OpenHelp, true)) PersistentApp.LastSession.ShowWindow_Help = focusHelpWindowNextFrame = true;
 				if (Gui::IsAnyPressed(*Settings.Input.Editor_OpenUpdateNotes, true)) PersistentApp.LastSession.ShowWindow_UpdateNotes = focusUpdateNotesWindowNextFrame = true;
+				if (Gui::IsAnyPressed(*Settings.Input.Editor_OpenChartStats, true)) PersistentApp.LastSession.ShowWindow_ChartStats = focusChartStatsWindowNextFrame = true;
 				if (Gui::IsAnyPressed(*Settings.Input.Editor_OpenSettings, true)) PersistentApp.LastSession.ShowWindow_Settings = focusSettingsWindowNextFrame = true;
 			}
 
@@ -725,6 +737,16 @@ namespace PeepoDrumKit
 				updateNotesWindow.DrawGui(context);
 			}
 			if (focusUpdateNotesWindowNextFrame) { focusUpdateNotesWindowNextFrame = false; Gui::SetWindowFocus(); }
+			Gui::End();
+		}
+
+		if (PersistentApp.LastSession.ShowWindow_ChartStats)
+		{
+			if (Gui::Begin(UI_WindowName("TAB_CHART_STATS"), &PersistentApp.LastSession.ShowWindow_ChartStats, ImGuiWindowFlags_None))
+			{
+				chartStatsWindow.DrawGui(context);
+			}
+			if (focusChartStatsWindowNextFrame) { focusChartStatsWindowNextFrame = false; Gui::SetWindowFocus(); }
 			Gui::End();
 		}
 

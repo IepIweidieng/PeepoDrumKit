@@ -1,6 +1,8 @@
 #pragma once
 #include "core_types.h"
 #include <vector>
+#include <algorithm>
+#include <functional>
 
 struct Beat
 {
@@ -142,6 +144,13 @@ public:
 	void InsertOrUpdate(T valueToInsertOrUpdate);
 	void RemoveAtBeat(Beat beatToFindAndRemove);
 	void RemoveAtIndex(size_t indexToRemove);
+
+	int CountIf(std::function<bool(const T&)> predicate) const { return std::count_if(Sorted.begin(), Sorted.end(), predicate); }
+	std::vector<T> Filter(std::function<bool(const T&)> predicate) const {
+		std::vector<T> result;
+		std::copy_if(Sorted.begin(), Sorted.end(), std::back_inserter(result), predicate);
+		return result;
+	}
 
 	inline b8 empty() const { return Sorted.empty(); }
 	inline auto begin() { return Sorted.begin(); }

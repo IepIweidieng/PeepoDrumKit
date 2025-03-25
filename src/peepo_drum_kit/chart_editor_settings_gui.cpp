@@ -752,6 +752,7 @@ namespace PeepoDrumKit
 						{ &settings.Input.Editor_Redo, "Editor: Redo", },
 						{ &settings.Input.Editor_OpenHelp, "Editor: Open Help", },
 						{ &settings.Input.Editor_OpenUpdateNotes, "Editor: Open Update Notes", },
+						{ &settings.Input.Editor_OpenChartStats, "Editor: Open Chart Stats", },
 						{ &settings.Input.Editor_OpenSettings, "Editor: Open Settings", },
 						{ &settings.Input.Editor_ChartNew, "Editor: Chart New", },
 						{ &settings.Input.Editor_ChartOpen, "Editor: Chart Open", },

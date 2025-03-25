@@ -246,6 +246,7 @@ namespace PeepoDrumKit
 				else if (it.Key == "show_window_test_menu") { if (!BoolFromString(in, out.LastSession.ShowWindow_TestMenu)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_help") { if (!BoolFromString(in, out.LastSession.ShowWindow_Help)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_update_notes") { if (!BoolFromString(in, out.LastSession.ShowWindow_UpdateNotes)) return parser.Error_InvalidBool(); }
+				else if (it.Key == "show_window_chart_stats") { if (!BoolFromString(in, out.LastSession.ShowWindow_ChartStats)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_settings") { if (!BoolFromString(in, out.LastSession.ShowWindow_Settings)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_audio_test") { if (!BoolFromString(in, out.LastSession.ShowWindow_AudioTest)) return parser.Error_InvalidBool(); }
 				else if (it.Key == "show_window_tja_import_test") { if (!BoolFromString(in, out.LastSession.ShowWindow_TJAImportTest)) return parser.Error_InvalidBool(); }
@@ -286,6 +287,7 @@ namespace PeepoDrumKit
 		writer.LineKeyValue_Str("show_window_test_menu", BoolToString(in.LastSession.ShowWindow_TestMenu));
 		writer.LineKeyValue_Str("show_window_help", BoolToString(in.LastSession.ShowWindow_Help));
 		writer.LineKeyValue_Str("show_window_update_notes", BoolToString(in.LastSession.ShowWindow_UpdateNotes));
+		writer.LineKeyValue_Str("show_window_chart_stats", BoolToString(in.LastSession.ShowWindow_ChartStats));
 		writer.LineKeyValue_Str("show_window_settings", BoolToString(in.LastSession.ShowWindow_Settings));
 		writer.LineKeyValue_Str("show_window_audio_test", BoolToString(in.LastSession.ShowWindow_AudioTest));
 		writer.LineKeyValue_Str("show_window_tja_import_test", BoolToString(in.LastSession.ShowWindow_TJAImportTest));
@@ -440,6 +442,7 @@ namespace PeepoDrumKit
 			X(Input.Editor_Redo, "editor_redo");
 			X(Input.Editor_OpenHelp, "editor_open_help");
 			X(Input.Editor_OpenUpdateNotes, "editor_open_update_notes");
+			X(Input.Editor_OpenChartStats, "editor_open_chart_stats");
 			X(Input.Editor_OpenSettings, "editor_open_settings");
 			X(Input.Editor_ChartNew, "editor_chart_new");
 			X(Input.Editor_ChartOpen, "editor_chart_open");

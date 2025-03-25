@@ -42,6 +42,7 @@ X("TAB_INSPECTOR",									"Chart Inspector") \
 X("TAB_SETTINGS",									"Settings") \
 X("TAB_USAGE_GUIDE",								"Usage Guide") \
 X("TAB_UPDATE_NOTES",								"Update Notes") \
+X("TAB_CHART_STATS",								"Chart Stats") \
 X("TAB_TJA_EXPORT_DEBUG_VIEW",						"TJA Export Debug View") \
 X("TAB_TJA_IMPORT_TEST",							"TJA Import Test") \
 X("TAB_AUDIO_TEST",									"Audio Test") \
@@ -226,8 +227,10 @@ X("NOTE_TYPE_SIZE_BIG",								"Big") \
 X("DIFFICULTY_TYPE_EASY",							"Easy") \
 X("DIFFICULTY_TYPE_NORMAL",							"Normal") \
 X("DIFFICULTY_TYPE_HARD",							"Hard") \
-X("DIFFICULTY_TYPE_ONI",							"Oni") \
-X("DIFFICULTY_TYPE_ONI_URA",						"Oni-Ura") \
+X("DIFFICULTY_TYPE_ONI",							"Extreme") \
+X("DIFFICULTY_TYPE_ONI_URA",						"Extra") \
+X("DIFFICULTY_TYPE_TOWER",							"Tower") \
+X("DIFFICULTY_TYPE_DAN",							"Dan") \
 X("PLAYER_SIDE_STYLE_SINGLE",						"Single") \
 X("PLAYER_SIDE_STYLE_DOUBLE",						"Double") \
 /* undo history tab */ \
