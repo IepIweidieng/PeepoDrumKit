@@ -35,8 +35,6 @@ namespace TJA
 		"LYRICS",
 		"SONGVOL",
 		"SEVOL",
-		"SIDE",
-		"LIFE",
 		"GAME",
 		"HEADSCROLL",
 		"BGIMAGE",
@@ -70,6 +68,8 @@ namespace TJA
 		"GAUGEINCR",
 		"TOTAL",
 		"HIDDENBRANCH",
+		"LIFE",
+		"SIDE",
 
 		// NOTE: Chart_
 		"START",
@@ -318,14 +318,14 @@ namespace TJA
 		static constexpr auto tryParseSongSelectSide = [](std::string_view in, SongSelectSide* out) -> b8
 		{
 			if (ASCII::MatchesInsensitive(in, "Normal") || in == "1") { *out = SongSelectSide::Normal; return true; }
-			if (ASCII::MatchesInsensitive(in, "Ex") || in == "2") { *out = SongSelectSide::Normal; return true; }
-			if (ASCII::MatchesInsensitive(in, "Both") || in == "3") { *out = SongSelectSide::Normal; return true; }
+			if (ASCII::MatchesInsensitive(in, "Ex") || in == "2") { *out = SongSelectSide::Ex; return true; }
 			return false;
 		};
 		static constexpr auto tryParseGameType = [](std::string_view in, GameType* out) -> b8
 		{
 			if (ASCII::MatchesInsensitive(in, "Taiko")) { *out = GameType::Taiko; return true; }
-			if (ASCII::MatchesInsensitive(in, "Jube")) { *out = GameType::Jubeat; return true; }
+			if (ASCII::MatchesInsensitive(in, "Konga")) { *out = GameType::Konga; return true; }
+			if (ASCII::MatchesInsensitive(in, "Bongo")) { *out = GameType::Konga; return true; } // Alias for Konga
 			return false;
 		};
 		static constexpr auto tryParseScrollDirection = [](std::string_view in, ScrollDirection* out) -> b8
@@ -460,8 +460,6 @@ namespace TJA
 					case Key::Main_LYRICS: { out.LYRICS = in; } break;
 					case Key::Main_SONGVOL: { if (!tryParsePercent(in, &out.SONGVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_SEVOL: { if (!tryParsePercent(in, &out.SEVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Unknown side '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_LIFE: { if (!tryParseI32(in, &out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_GAME: { if (!tryParseGameType(in, &out.GAME)) { outErrors.Push(lineIndex, "Unknown game type '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_HEADSCROLL: { if (!tryParseF32(in, &out.HEADSCROLL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_BGIMAGE: { out.BGIMAGE = in; } break;
@@ -501,7 +499,6 @@ namespace TJA
 						}
 						break;
 					} 
-										  
 					case Key::Course_BALLOON: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_SCOREINIT: { if (!tryParseI32(in, &out.SCOREINIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_SCOREDIFF: { if (!tryParseI32(in, &out.SCOREDIFF)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
@@ -525,6 +522,8 @@ namespace TJA
 					case Key::Course_GAUGEINCR: { if (!tryParseGaugeIncrementMethod(in, &out.GAUGEINCR)) { outErrors.Push(lineIndex, "Unknown gauge increment method '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_TOTAL: { out.TOTAL; } break;
 					case Key::Course_HIDDENBRANCH: { if (!tryParseI32(in, &out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_LIFE: { if (!tryParseI32(in, &out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					default: { assert(!"Unhandled Key::Course_ switch case despite (Key::Course_First to Key::Course_Last) range check"); } break;
 					}
 				}
@@ -895,6 +894,16 @@ namespace TJA
 			default: return "";
 			}
 		};
+		static constexpr auto sideToString = [](SongSelectSide in) -> cstr
+		{
+			switch (in)
+			{
+			case SongSelectSide::Normal: return "Normal";
+			case SongSelectSide::Ex: return "Ex";
+			default: return "";
+			}
+		};
+
 
 		if (inContent.HasPeepoDrumKitComment)
 		{
@@ -932,7 +941,7 @@ namespace TJA
 		if (!ApproxmiatelySame(inContent.Metadata.SONGVOL, 1.0f)) appendProperyLine(out, Key::Main_SONGVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SONGVOL))));
 		if (!ApproxmiatelySame(inContent.Metadata.SEVOL, 1.0f)) appendProperyLine(out, Key::Main_SEVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SEVOL))));
 		// TODO: Key::Main_SIDE;
-		if (inContent.Metadata.LIFE != 0) appendProperyLine(out, Key::Main_LIFE, std::string_view(buffer, sprintf_s(buffer, "%d", inContent.Metadata.LIFE)));
+		//if (inContent.Metadata.LIFE != 0) appendProperyLine(out, Key::Main_LIFE, std::string_view(buffer, sprintf_s(buffer, "%d", inContent.Metadata.LIFE)));
 		// TODO: Key::Main_GAME;
 		if (inContent.Metadata.HEADSCROLL != 1.0f) appendProperyLine(out, Key::Main_HEADSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.HEADSCROLL)));
 		appendProperyLineIfNotEmpty(out, Key::Main_BGIMAGE, inContent.Metadata.BGIMAGE);
@@ -952,6 +961,12 @@ namespace TJA
 				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LEVEL)));
 			else
 				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%.1f", course.Metadata.LEVEL + static_cast<float>(course.Metadata.LEVEL_DECIMALTAG) / 10. )));
+
+			if (course.Metadata.COURSE == DifficultyType::Tower) {
+				appendProperyLine(out, Key::Course_LIFE, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LIFE)));
+				appendProperyLine(out, Key::Course_SIDE, sideToString(course.Metadata.SIDE));
+			}
+
 			if (!course.Metadata.BALLOON.empty() || !course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
 				appendBalloonProperyLine(out, Key::Course_BALLOON, course.Metadata.BALLOON);
 			if (!course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())

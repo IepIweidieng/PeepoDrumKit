@@ -71,8 +71,6 @@ namespace TJA
 		Main_LYRICS,
 		Main_SONGVOL,
 		Main_SEVOL,
-		Main_SIDE,
-		Main_LIFE,
 		Main_GAME,
 		Main_HEADSCROLL,
 		Main_BGIMAGE,
@@ -106,6 +104,8 @@ namespace TJA
 		Course_GAUGEINCR,
 		Course_TOTAL,
 		Course_HIDDENBRANCH,
+		Course_LIFE,
+		Course_SIDE,
 
 		// NOTE: Chart song notation
 		Chart_START,
@@ -141,7 +141,7 @@ namespace TJA
 		Main_First = Main_TITLE,
 		Main_Last = Main_TAIKOWEBSKIN,
 		Course_First = Course_COURSE,
-		Course_Last = Course_HIDDENBRANCH,
+		Course_Last = Course_SIDE,
 		Chart_First = Chart_START,
 		Chart_Last = Chart_JPOSSCROLL,
 
@@ -288,14 +288,13 @@ namespace TJA
 	{
 		Normal,
 		Ex,
-		Both,
 		Count
 	};
 
 	enum class GameType : u8
 	{
 		Taiko,
-		Jubeat,
+		Konga,
 		Count
 	};
 
@@ -327,8 +326,6 @@ namespace TJA
 		f32 SONGVOL = 1.0f;
 		f32 SEVOL = 1.0f;
 		ScoreMode SCOREMODE = ScoreMode::AC1_To_AC7;
-		SongSelectSide SIDE = SongSelectSide::Both;
-		i32 LIFE = 0;
 		std::string GENRE;
 		GameType GAME = GameType::Taiko;
 		std::string TAIKOWEBSKIN;
@@ -347,6 +344,8 @@ namespace TJA
 		i32 SCOREDIFF = 0;
 		StyleMode STYLE = StyleMode::Single;
 		i32 EXPLICIT = 0;
+		i32 LIFE = 5;
+		SongSelectSide SIDE = SongSelectSide::Normal;
 		std::string NOTESDESIGNER;
 		std::string EXAM1;
 		std::string EXAM2;

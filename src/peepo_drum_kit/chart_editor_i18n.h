@@ -187,6 +187,8 @@ X("DETAILS_CHART_PROPERTIES_COURSE",				"Selected Course") \
 X("COURSE_PROP_DIFFICULTY_TYPE",					"Difficulty Type") \
 X("COURSE_PROP_DIFFICULTY_LEVEL",					"Difficulty Level") \
 X("COURSE_PROP_DIFFICULTY_LEVEL_DECIMAL",			"Difficulty Level Decimal") \
+X("COURSE_PROP_TOWER_LIFE",							"Lives") \
+X("COURSE_PROP_TOWER_SIDE",							"Side") \
 X("COURSE_PROP_CREATOR",							"Course Creator") \
 /* inspector tab / timeline tab (contd.) */ \
 X("DETAILS_INSPECTOR_SELECTED_ITEMS",				"Selected Items") \
@@ -233,6 +235,8 @@ X("DIFFICULTY_TYPE_TOWER",							"Tower") \
 X("DIFFICULTY_TYPE_DAN",							"Dan") \
 X("PLAYER_SIDE_STYLE_SINGLE",						"Single") \
 X("PLAYER_SIDE_STYLE_DOUBLE",						"Double") \
+X("SIDE_NORMAL",									"Sweet (Normal)") \
+X("SIDE_EX",										"Spicy (Ex)") \
 /* undo history tab */ \
 X("UNDO_HISTORY_DESCRIPTION",						"Description") \
 X("UNDO_HISTORY_TIME",								"Time") \

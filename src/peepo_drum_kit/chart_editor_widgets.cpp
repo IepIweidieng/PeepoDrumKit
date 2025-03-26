@@ -1914,6 +1914,29 @@ namespace PeepoDrumKit
 						if (GuiDifficultyDecimalLevelStarSliderWidget("##DifficultyLevelDecimal", &course.Decimal, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
 							context.Undo.NotifyChangesWereMade();
 				});
+
+				// Tower
+				if (course.Type == DifficultyType::Tower) {
+					
+					Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_TOWER_LIFE"), [&]
+						{
+							Gui::SetNextItemWidth(-1.0f);
+							if (Gui::SpinInt("##TowerLife", (i32*)(&course.Life), 1, 5))
+								context.Undo.NotifyChangesWereMade();
+					});
+					
+					Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_TOWER_SIDE"), [&]
+						{
+							cstr sideNames[ArrayCount(SideNames)];
+							for (size_t i = 0; i < ArrayCount(SideNames); i++)
+								sideNames[i] = UI_StrRuntime(SideNames[i]);
+
+							Gui::SetNextItemWidth(-1.0f);
+							if (Gui::ComboEnum("##TowerSide", &course.Side, sideNames))
+								context.Undo.NotifyChangesWereMade();
+					});
+				}
+
 #if 0 // TODO:
 				Gui::Property::PropertyTextValueFunc("Score Init (TODO)", [&] { Gui::Text("%d", course.ScoreInit); });
 				Gui::Property::PropertyTextValueFunc("Score Diff (TODO)", [&] { Gui::Text("%d", course.ScoreDiff); });

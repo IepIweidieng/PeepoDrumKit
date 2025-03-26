@@ -11,7 +11,7 @@ namespace PeepoDrumKit
 	static constexpr cstr TJAScoreModeNames[] = { "AC1 - AC7", "AC8 - AC14", "AC0", };
 	static_assert(ArrayCount(TJAScoreModeNames) == EnumCount<TJA::ScoreMode>);
 
-	static constexpr cstr TJASongSelectSideNames[] = { "Normal", "Ex", "Both", };
+	static constexpr cstr TJASongSelectSideNames[] = { "Normal", "Ex", };
 	static_assert(ArrayCount(TJASongSelectSideNames) == EnumCount<TJA::SongSelectSide>);
 
 	static constexpr cstr TJAGameTypeNames[] = { "Taiko", "Jubeat", };
@@ -289,8 +289,8 @@ namespace PeepoDrumKit
 					row("Song Volume", std::string_view(b, sprintf_s(b, "%g %%", ToPercent(metadata.SONGVOL))));
 					row("Sound Effect Volume", std::string_view(b, sprintf_s(b, "%g %%", ToPercent(metadata.SEVOL))));
 					row("Score Mode", TJAScoreModeNames[EnumToIndex(metadata.SCOREMODE)]);
-					row("Side", TJASongSelectSideNames[EnumToIndex(metadata.SIDE)]);
-					row("Life", (metadata.LIFE == 0) ? "" : std::string_view(b, sprintf_s(b, "%d", metadata.LIFE)));
+					//row("Side", TJASongSelectSideNames[EnumToIndex(metadata.SIDE)]);
+					//row("Life", (metadata.LIFE == 0) ? "" : std::string_view(b, sprintf_s(b, "%d", metadata.LIFE)));
 					row("Genre", metadata.GENRE);
 					row("Game", TJAGameTypeNames[EnumToIndex(metadata.GAME)]);
 					if (!metadata.TAIKOWEBSKIN.empty()) row("Taiko Web Skin", metadata.TAIKOWEBSKIN);
@@ -310,7 +310,7 @@ namespace PeepoDrumKit
 				sprintf_s(tabNameBuffer, "%s x%d%s (%s)###Course[%zu]",
 					TJADifficultyTypeNames[EnumToIndex(course.Metadata.COURSE)],
 					course.Metadata.LEVEL,
-					(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : "-"),
+					(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : ""),
 					TJAStyleModeNames[EnumToIndex(course.Metadata.STYLE)],
 					courseIndex);
 

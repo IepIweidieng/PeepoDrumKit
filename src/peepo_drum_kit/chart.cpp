@@ -165,6 +165,9 @@ namespace PeepoDrumKit
 			outCourse.Decimal = Clamp(static_cast<DifficultyLevelDecimal>(inCourse.CourseMetadata.LEVEL_DECIMALTAG), DifficultyLevelDecimal::None, DifficultyLevelDecimal::Max);
 			outCourse.CourseCreator = inCourse.CourseMetadata.NOTESDESIGNER;
 
+			outCourse.Life = Clamp(static_cast<TowerLives>(inCourse.CourseMetadata.LIFE), TowerLives::Min, TowerLives::Max);
+			outCourse.Side = Clamp(static_cast<Side>(inCourse.CourseMetadata.SIDE), Side{}, Side::Count);
+
 			outCourse.TempoMap.Tempo.Sorted = { TempoChange(Beat::Zero(), inTJA.Metadata.BPM) };
 			outCourse.TempoMap.Signature.Sorted = { TimeSignatureChange(Beat::Zero(), TimeSignature(4, 4)) };
 			TimeSignature lastSignature = TimeSignature(4, 4);
@@ -312,6 +315,9 @@ namespace PeepoDrumKit
 			for (const Note& inNote : inCourse.Notes_Normal) if (IsBalloonNote(inNote.Type)) { outCourse.Metadata.BALLOON.push_back(inNote.BalloonPopCount); }
 			outCourse.Metadata.SCOREINIT = inCourse.ScoreInit;
 			outCourse.Metadata.SCOREDIFF = inCourse.ScoreDiff;
+
+			outCourse.Metadata.LIFE = static_cast<i32>(inCourse.Life);
+			outCourse.Metadata.SIDE = static_cast<TJA::SongSelectSide>(inCourse.Side);
 
 			// TODO: Is this implemented correctly..? Need to have enough measures to cover every note/command and pad with empty measures up to the chart duration
 			// BUG: NOPE! "07 ゲームミュージック/003D. MagiCatz/MagiCatz.tja" for example still gets rounded up and then increased by a measure each time it gets saved

@@ -118,6 +118,13 @@ namespace PeepoDrumKit
 		Count
 	};
 
+	enum class Side : u8
+	{
+		Normal,
+		Ex,
+		Count
+	};
+
 	constexpr cstr DifficultyTypeNames[EnumCount<DifficultyType>] =
 	{
 		"DIFFICULTY_TYPE_EASY",
@@ -127,6 +134,12 @@ namespace PeepoDrumKit
 		"DIFFICULTY_TYPE_ONI_URA",
 		"DIFFICULTY_TYPE_TOWER",
 		"DIFFICULTY_TYPE_DAN",
+	};
+
+	constexpr cstr SideNames[EnumCount<Side>] =
+	{
+		"SIDE_NORMAL",
+		"SIDE_EX"
 	};
 
 	enum class DifficultyLevel : u8
@@ -141,6 +154,12 @@ namespace PeepoDrumKit
 		Min = 0,
 		PlusThreshold = 5,
 		Max = 9
+	};
+
+	enum class TowerLives : i32
+	{
+		Min = 0,
+		Max = 99999
 	};
 
 	enum class BranchType : u8
@@ -311,6 +330,11 @@ namespace PeepoDrumKit
 
 		i32 ScoreInit = 0;
 		i32 ScoreDiff = 0;
+
+		// Tower specific
+		TowerLives Life = TowerLives{ 5 };
+		Side Side = Side::Normal;
+
 
 		inline auto& GetNotes(BranchType branch) { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
 		inline auto& GetNotes(BranchType branch) const { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
