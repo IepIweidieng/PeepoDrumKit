@@ -297,14 +297,12 @@ namespace PeepoDrumKit
 		const Note* OriginalNote;
 		Beat Beat;
 		Time Time;
-		struct Time TimeOffset;
 		Tempo Tempo;
 		Complex ScrollSpeed;
 		ScrollMethod ScrollType;
 		struct {
 			struct Beat Beat;
 			struct Time Time;
-			struct Time TimeOffset;
 			struct Tempo Tempo;
 			Complex ScrollSpeed;
 			ScrollMethod ScrollType;
@@ -325,12 +323,12 @@ namespace PeepoDrumKit
 			const Time head = (course.TempoMap.BeatToTime(beat) + note.TimeOffset);
 			const Beat beatTail = (note.BeatDuration > Beat::Zero()) ? (beat + note.BeatDuration) : beat;
 			const Time tail = (note.BeatDuration > Beat::Zero()) ? (course.TempoMap.BeatToTime(beatTail) + note.TimeOffset) : head;
-			perNoteFunc(ForEachNoteLaneData { &note, beat, head, note.TimeOffset,
+			perNoteFunc(ForEachNoteLaneData { &note, beat, head,
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beat)),
 				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat)),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beat)),
 				{
-					beatTail, tail, note.TimeOffset,
+					beatTail, tail,
 					TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beatTail)),
 					ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail)),
 					ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beatTail)),
@@ -479,7 +477,7 @@ namespace PeepoDrumKit
 
 			ForEachBarOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
 			{
-				const vec2 lane = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, Time::Zero(), it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				const vec2 lane = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				const f32 laneX = lane.x, laneY = lane.y;
 
 				if (Camera.IsPointVisibleOnLane(laneX))
@@ -518,8 +516,8 @@ namespace PeepoDrumKit
 			{
 				const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
 				const vec2 laneOriginTail = Camera.GetHitCircleCoordinates(jposScrollChanges, it.Tail.Time, tempoChanges);
-				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.TimeOffset, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.TimeOffset, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
 
 				b8 isVisible = true;
 

@@ -207,7 +207,6 @@ namespace PeepoDrumKit
 			f64 cursorHBScrollBeatTick,
 			Time noteTime,
 			Beat noteBeat,
-			Time noteTimeOffset,
 			Tempo tempo,
 			Complex scrollSpeed,
 			ScrollMethod scrollType,
@@ -219,8 +218,8 @@ namespace PeepoDrumKit
 			Complex readaptedScrollSpeed = (scrollType == ScrollMethod::BMSCROLL) ? Complex(1.f, 0.f) : scrollSpeed;
 
 			return vec2(
-				origin.x + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, noteTimeOffset, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, accelerationStructure),
-				origin.y + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, noteTimeOffset, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, accelerationStructure)
+				origin.x + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, accelerationStructure),
+				origin.y + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, accelerationStructure)
 			);
 		}
 		
@@ -236,7 +235,6 @@ namespace PeepoDrumKit
 			f64 cursorHBScrollBeatTick, 
 			Time noteTime, 
 			Beat noteBeat, 
-			Time noteTimeOffset, 
 			Tempo tempo, 
 			f32 scrollSpeed, 
 			ScrollMethod scrollType, 
@@ -247,9 +245,7 @@ namespace PeepoDrumKit
 				case (ScrollMethod::HBSCROLL):
 				case (ScrollMethod::BMSCROLL):
 				{
-					f64 noteHBScrollBeatTick = accelerationStructure.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(
-						noteBeat,
-						noteTime + noteTimeOffset);
+					f64 noteHBScrollBeatTick = accelerationStructure.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(noteBeat, noteTime);
 					return scrollSpeed * ((noteHBScrollBeatTick - cursorHBScrollBeatTick) / Beat::TicksPerBeat) * GameWorldSpaceDistancePerLaneBeat;
 				}
 				case (ScrollMethod::NMSCROLL):
