@@ -198,12 +198,23 @@ namespace PeepoDrumKit
 
 	static_assert(sizeof(Note) == 32, "Accidentally introduced padding to Note struct (?)");
 
+	template <typename TEvent>
+	TEvent FallbackEvent = std::declval<TEvent>(); // Forbid usage unless specialized
+
+	template <>
+	constexpr TempoChange FallbackEvent<TempoChange> = {Beat::Zero(), FallbackTempo};
+	template <>
+	constexpr TimeSignatureChange FallbackEvent<TimeSignatureChange> = {Beat::Zero(), FallbackTimeSignature};
+
 	struct ScrollChange
 	{
 		Beat BeatTime;
 		Complex ScrollSpeed;
 		b8 IsSelected;
 	};
+
+	template <>
+	constexpr ScrollChange FallbackEvent<ScrollChange> = {Beat::Zero(), Complex(1.0f, 0.0f)};
 
 	struct ScrollType
 	{
@@ -225,6 +236,9 @@ namespace PeepoDrumKit
 		}
 	};
 
+	template <>
+	constexpr ScrollType FallbackEvent<ScrollType> = {Beat::Zero(), ScrollMethod::NMSCROLL};
+
 	struct JPOSScrollChange
 	{
 		Beat BeatTime;
@@ -233,12 +247,18 @@ namespace PeepoDrumKit
 		b8 IsSelected;
 	};
 
+	template <>
+	constexpr JPOSScrollChange FallbackEvent<JPOSScrollChange> = {Beat::Zero(), Complex(100.0f, 0.0f), 0.f};
+
 	struct BarLineChange
 	{
 		Beat BeatTime;
 		b8 IsVisible;
 		b8 IsSelected;
 	};
+
+	template <>
+	constexpr BarLineChange FallbackEvent<BarLineChange> = {Beat::Zero(), true};
 
 	struct GoGoRange
 	{
@@ -252,12 +272,18 @@ namespace PeepoDrumKit
 		constexpr Beat GetEnd() const { return BeatTime + BeatDuration; }
 	};
 
+	template <>
+	constexpr GoGoRange FallbackEvent<GoGoRange> = {};
+
 	struct LyricChange
 	{
 		Beat BeatTime;
 		std::string Lyric;
 		b8 IsSelected;
 	};
+
+	template <>
+	inline LyricChange FallbackEvent<LyricChange> = {};
 
 	using SortedNotesList = BeatSortedList<Note>;
 	using SortedScrollChangesList = BeatSortedList<ScrollChange>;

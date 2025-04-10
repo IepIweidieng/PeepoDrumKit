@@ -1729,6 +1729,45 @@ namespace PeepoDrumKit
 		}
 	}
 
+	void ChartTimeline::ExecuteConvertSelectionToScrollChanges(ChartContext& context)
+	{
+		ChartCourse& course = *context.ChartSelectedCourse;
+
+		size_t nonScrollChangeSelectedItemCount = 0;
+		ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it) { nonScrollChangeSelectedItemCount += (it.List != GenericList::ScrollChanges); });
+		if (nonScrollChangeSelectedItemCount <= 0)
+			return;
+
+		std::vector<ScrollChange*> scrollChangesThatAlreadyExist; scrollChangesThatAlreadyExist.reserve(nonScrollChangeSelectedItemCount);
+		std::vector<ScrollChange> scrollChangesToAdd; scrollChangesToAdd.reserve(nonScrollChangeSelectedItemCount);
+		ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
+		{
+			if (it.List != GenericList::ScrollChanges)
+			{
+				const Beat itBeat = GetBeat(it, course);
+				if (ScrollChange* lastScrollChange = course.ScrollChanges.TryFindLastAtBeat(itBeat); lastScrollChange != nullptr && lastScrollChange->BeatTime == itBeat)
+					scrollChangesThatAlreadyExist.push_back(lastScrollChange);
+				else
+					scrollChangesToAdd.push_back(ScrollChange { itBeat, (lastScrollChange != nullptr) ? lastScrollChange->ScrollSpeed : Complex(1.0f, 0.0f) });
+			}
+		});
+
+		if (!scrollChangesThatAlreadyExist.empty() || !scrollChangesToAdd.empty())
+		{
+			if (*Settings.General.ConvertSelectionToScrollChanges_UnselectOld)
+				ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(false, it, course); });
+
+			if (*Settings.General.ConvertSelectionToScrollChanges_SelectNew)
+			{
+				for (auto* it : scrollChangesThatAlreadyExist) { it->IsSelected = true; }
+				for (auto& it : scrollChangesToAdd) { it.IsSelected = true; }
+			}
+
+			if (!scrollChangesToAdd.empty())
+				context.Undo.Execute<Commands::AddMultipleScrollChanges>(&course.ScrollChanges, std::move(scrollChangesToAdd));
+		}
+	}
+
 	void ChartTimeline::UpdateInputAtStartOfFrame(ChartContext& context)
 	{
 		MousePosLastFrame = MousePosThisFrame;

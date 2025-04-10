@@ -2083,7 +2083,7 @@ namespace PeepoDrumKit
 				Gui::BeginDisabled(disableWidgetsBeacuseOfSelection || cursorBeat.Ticks < 0);
 
 				const TempoChange* tempoChangeAtCursor = course.TempoMap.Tempo.TryFindLastAtBeat(cursorBeat);
-				const Tempo tempoAtCursor = (tempoChangeAtCursor != nullptr) ? tempoChangeAtCursor->Tempo : FallbackTempo;
+				const Tempo tempoAtCursor = (tempoChangeAtCursor != nullptr) ? tempoChangeAtCursor->Tempo : FallbackEvent<TempoChange>.Tempo;
 				auto insertOrUpdateCursorTempoChange = [&](Tempo newTempo)
 				{
 					if (tempoChangeAtCursor == nullptr || tempoChangeAtCursor->Beat != cursorBeat)
@@ -2121,7 +2121,7 @@ namespace PeepoDrumKit
 				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_TIME_SIGNATURE"), [&]
 				{
 					const TimeSignatureChange* signatureChangeAtCursor = course.TempoMap.Signature.TryFindLastAtBeat(cursorBeat);
-					const TimeSignature signatureAtCursor = (signatureChangeAtCursor != nullptr) ? signatureChangeAtCursor->Signature : FallbackTimeSignature;
+					const TimeSignature signatureAtCursor = (signatureChangeAtCursor != nullptr) ? signatureChangeAtCursor->Signature : FallbackEvent<TimeSignatureChange>.Signature;
 					auto insertOrUpdateCursorSignatureChange = [&](TimeSignature newSignature)
 					{
 						// TODO: Also floor cursor beat to next whole bar (?)
@@ -2151,6 +2151,7 @@ namespace PeepoDrumKit
 				});
 
 				const ScrollChange* scrollChangeChangeAtCursor = course.ScrollChanges.TryFindLastAtBeat(cursorBeat);
+				const Complex scrollSpeedAtCursor = (scrollChangeChangeAtCursor != nullptr) ? scrollChangeChangeAtCursor->ScrollSpeed : FallbackEvent<ScrollChange>.ScrollSpeed;
 				auto insertOrUpdateCursorScrollSpeedChange = [&](Complex newScrollSpeed)
 				{
 					if (scrollChangeChangeAtCursor == nullptr || scrollChangeChangeAtCursor->BeatTime != cursorBeat)
@@ -2162,8 +2163,7 @@ namespace PeepoDrumKit
 				Gui::Property::Property([&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (Complex v = (scrollChangeChangeAtCursor == nullptr) ? Complex(1.0f, 0.0f) : scrollChangeChangeAtCursor->ScrollSpeed;
-						GuiDragLabelFloat(UI_Str("EVENT_SCROLL_SPEED"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
+					if (Complex v = scrollSpeedAtCursor; GuiDragLabelFloat(UI_Str("EVENT_SCROLL_SPEED"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
 						insertOrUpdateCursorScrollSpeedChange(v);
 				});
 				Gui::Property::Value([&]
@@ -2172,19 +2172,19 @@ namespace PeepoDrumKit
 					{
 						if (i.Index == 0)
 						{
-							if (Complex v = (scrollChangeChangeAtCursor == nullptr)? Complex(1.0f, 0.0f): scrollChangeChangeAtCursor->ScrollSpeed;
+							if (Complex v = scrollSpeedAtCursor;
 								Gui::SpinFloat("##ScrollSpeedAtCursor", &reinterpret_cast<f32*>(&(v.cpx))[0], 0.1f, 0.5f, "%gx"))
 								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
 						}
 						else if (i.Index == 1)
 						{
-							if (Complex v = (scrollChangeChangeAtCursor == nullptr) ? Complex(1.0f, 0.0f) : scrollChangeChangeAtCursor->ScrollSpeed;
+							if (Complex v = scrollSpeedAtCursor;
 								Gui::SpinFloat("##ScrollSpeedAtCursorImag", &reinterpret_cast<f32*>(&(v.cpx))[1], 0.1f, 0.5f, "%gix"))
 								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
 						}
 						else
 						{
-							if (f32 v = ScrollSpeedToTempo((scrollChangeChangeAtCursor == nullptr) ? 1.0f : scrollChangeChangeAtCursor->ScrollSpeed.GetRealPart(), tempoAtCursor).BPM;
+							if (f32 v = ScrollSpeedToTempo(scrollSpeedAtCursor.GetRealPart(), tempoAtCursor).BPM;
 								Gui::SpinFloat("##ScrollTempoAtCursor", &v, 1.0f, 10.0f, "%g BPM"))
 								insertOrUpdateCursorScrollSpeedChange(Complex(ScrollTempoToSpeed(Tempo(Clamp(v, MinBPM, MaxBPM)), tempoAtCursor), 0.0f));
 						}
@@ -2200,7 +2200,7 @@ namespace PeepoDrumKit
 					else
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
-							insertOrUpdateCursorScrollSpeedChange((scrollChangeChangeAtCursor != nullptr) ? scrollChangeChangeAtCursor->ScrollSpeed : Complex(1.0f, 0.0f));
+							insertOrUpdateCursorScrollSpeedChange(scrollSpeedAtCursor);
 					}
 					Gui::PopID();
 				});
@@ -2217,7 +2217,7 @@ namespace PeepoDrumKit
 					};
 
 					Gui::SetNextItemWidth(-1.0f);
-					if (b8 v = (barLineChangeAtCursor == nullptr) ? true : barLineChangeAtCursor->IsVisible; GuiEnumLikeButtons("##OnOffBarLineAtCursor", &v, UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN")))
+					if (b8 v = (barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : FallbackEvent<BarLineChange>.IsVisible; GuiEnumLikeButtons("##OnOffBarLineAtCursor", &v, UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN")))
 						insertOrUpdateCursorBarLineChange(v);
 
 					Gui::PushID(&course.BarLineChanges);
@@ -2229,7 +2229,7 @@ namespace PeepoDrumKit
 					else
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
-							insertOrUpdateCursorBarLineChange((barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : true);
+							insertOrUpdateCursorBarLineChange((barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : FallbackEvent<BarLineChange>.IsVisible);
 					}
 					Gui::PopID();
 				});
@@ -2246,7 +2246,7 @@ namespace PeepoDrumKit
 						};
 
 						Gui::SetNextItemWidth(-1.0f);
-						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; GuiEnumLikeButtons("##ScrollTypeAtCursor", &v, UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL")))
+						if (ScrollMethod v = (ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : FallbackEvent<ScrollType>.Method; GuiEnumLikeButtons("##ScrollTypeAtCursor", &v, UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL")))
 							insertOrUpdateCursorScrollType(v);
 
 						Gui::PushID(&course.ScrollTypes);
@@ -2258,12 +2258,14 @@ namespace PeepoDrumKit
 						else
 						{
 							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
-								insertOrUpdateCursorScrollType((ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : ScrollMethod::NMSCROLL);
+								insertOrUpdateCursorScrollType((ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : FallbackEvent<ScrollType>.Method);
 						}
 						Gui::PopID();
 				});
 
 				const JPOSScrollChange* JPOSScrollChangeAtCursor = course.JPOSScrollChanges.TryFindLastAtBeat(cursorBeat);
+				const Complex JPOSScrollMoveAtCursor = (JPOSScrollChangeAtCursor != nullptr) ? JPOSScrollChangeAtCursor->Move : FallbackEvent<JPOSScrollChange>.Move;
+				const f32 JPOSScrollDurationAtCursor = (JPOSScrollChangeAtCursor != nullptr) ? JPOSScrollChangeAtCursor->Duration : FallbackEvent<JPOSScrollChange>.Duration;
 				auto insertOrUpdateCursorJPOSScrollChange = [&](Complex newMove, f32 newDuration)
 				{
 					if (JPOSScrollChangeAtCursor == nullptr || JPOSScrollChangeAtCursor->BeatTime != cursorBeat)
@@ -2275,9 +2277,9 @@ namespace PeepoDrumKit
 				Gui::Property::Property([&]
 					{
 						Gui::SetNextItemWidth(-1.0f);
-						if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+						if (Complex v = JPOSScrollMoveAtCursor;
 							GuiDragLabelFloat(UI_Str("EVENT_JPOS_SCROLL"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.5f, MinJPOSScrollMove, MaxJPOSScrollMove, ImGuiSliderFlags_AlwaysClamp))
-							insertOrUpdateCursorJPOSScrollChange(v, (JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration);
+							insertOrUpdateCursorJPOSScrollChange(v, JPOSScrollDurationAtCursor);
 					});
 				Gui::Property::Value([&]
 					{
@@ -2285,31 +2287,28 @@ namespace PeepoDrumKit
 							{
 								if (i.Index == 0)
 								{
-									if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+									if (Complex v = JPOSScrollMoveAtCursor;
 										Gui::SpinFloat("##JPOSScrollMoveAtCursor", &reinterpret_cast<f32*>(&(v.cpx))[0], 1.f, 5.f, "%gpx"))
 										insertOrUpdateCursorJPOSScrollChange(
 											Complex(Clamp(v.GetRealPart(), MinJPOSScrollMove, MaxJPOSScrollMove), Clamp(v.GetImaginaryPart(), MinJPOSScrollMove, MaxJPOSScrollMove)),
-											(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
-										);
+											JPOSScrollDurationAtCursor);
 								}
 								else
 								{
-									if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+									if (Complex v = JPOSScrollMoveAtCursor;
 										Gui::SpinFloat("##JPOSScrollMoveCursorImag", &reinterpret_cast<f32*>(&(v.cpx))[1], 1.f, 5.f, "%gipx"))
 										insertOrUpdateCursorJPOSScrollChange(
 											Complex(Clamp(v.GetRealPart(), MinJPOSScrollMove, MaxJPOSScrollMove), Clamp(v.GetImaginaryPart(), MinJPOSScrollMove, MaxJPOSScrollMove)),
-											(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
-										);
+											JPOSScrollDurationAtCursor);
 								}
 								return false;
 							});
 
 						Gui::SetNextItemWidth(-1.0f);
-						if (f32 v = (JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration;
+						if (f32 v = JPOSScrollDurationAtCursor;
 							Gui::SpinFloat("##JPOSScrollDurationAtCursor", &v, .1f, .5f, "%gs"))
 							insertOrUpdateCursorJPOSScrollChange(
-								(JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move,
-								Clamp(v, MinJPOSScrollDuration, MaxJPOSScrollDuration)
+								JPOSScrollMoveAtCursor, Clamp(v, MinJPOSScrollDuration, MaxJPOSScrollDuration)
 							);
 
 						Gui::PushID(&course.JPOSScrollChanges);
@@ -2322,9 +2321,8 @@ namespace PeepoDrumKit
 						{
 							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
 								insertOrUpdateCursorJPOSScrollChange(
-									(JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move,
-									(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
-								);
+									JPOSScrollMoveAtCursor,
+									JPOSScrollDurationAtCursor);
 						}
 						Gui::PopID();
 					});
