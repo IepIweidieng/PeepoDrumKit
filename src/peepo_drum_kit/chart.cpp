@@ -33,8 +33,8 @@ namespace PeepoDrumKit
 					for (GenericMember member = {}; member < GenericMember::Count; IncrementEnum(member))
 					{
 						GenericMemberUnion valueA {}, valueB {};
-						const b8 hasValueA = TryGetGeneric(courseA, list, itemIndex, member, valueA);
-						const b8 hasValueB = TryGetGeneric(courseB, list, itemIndex, member, valueB);
+						const b8 hasValueA = TryGet(courseA, list, itemIndex, member, valueA);
+						const b8 hasValueB = TryGet(courseB, list, itemIndex, member, valueB);
 						assert(hasValueA == hasValueB);
 						if (!hasValueA || member == GenericMember::B8_IsSelected)
 							continue;

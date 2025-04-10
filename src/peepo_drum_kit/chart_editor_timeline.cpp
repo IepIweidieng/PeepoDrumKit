@@ -1527,7 +1527,7 @@ namespace PeepoDrumKit
 				ChartCourse& Course; GenericList List; i32 Index;
 				inline b8 Exists() const { return (Index >= 0); }
 				constexpr b8 IsSelected() const { return GetOrEmpty<GenericMember::B8_IsSelected>(Course, List, Index); }
-				constexpr void IsSelected(b8 isSelected) { TrySetGeneric<GenericMember::B8_IsSelected>(Course, List, Index, isSelected); }
+				constexpr void IsSelected(b8 isSelected) { TrySet<GenericMember::B8_IsSelected>(Course, List, Index, isSelected); }
 				inline static ItemProxy At(ChartCourse& course, GenericList list, i32 listCount, i32 i) { return ItemProxy { course, list, (i >= 0) && (i < listCount) ? i : -1 }; }
 			};
 
@@ -1834,13 +1834,13 @@ namespace PeepoDrumKit
 						for (size_t i = 0; i < GetGenericListCount(selectedCourse, list); i++)
 						{
 							b8 isSelected {};
-							if (TryGetGeneric<GenericMember::B8_IsSelected>(selectedCourse, list, i, isSelected) && isSelected)
+							if (TryGet<GenericMember::B8_IsSelected>(selectedCourse, list, i, isSelected) && isSelected)
 							{
 								Beat beatStart {}, beatDuration {};
 								f32 timeDuration {};
-								const b8 hasBeatStart = TryGetGeneric<GenericMember::Beat_Start>(selectedCourse, list, i, beatStart);
-								const b8 hasBeatDuration = TryGetGeneric<GenericMember::Beat_Duration>(selectedCourse, list, i, beatDuration);
-								const b8 hasTimeDuration = TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, timeDuration);
+								const b8 hasBeatStart = TryGet<GenericMember::Beat_Start>(selectedCourse, list, i, beatStart);
+								const b8 hasBeatDuration = TryGet<GenericMember::Beat_Duration>(selectedCourse, list, i, beatDuration);
+								const b8 hasTimeDuration = TryGet<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, timeDuration);
 
 								const vec2 center = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart)), 0.0f)).x, screenRectCenter.y);
 								vec2 centerTail = center;
@@ -1901,7 +1901,7 @@ namespace PeepoDrumKit
 					auto itemSelected = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::B8_IsSelected>(selectedCourse, list, i); };
 					auto itemStart = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::Beat_Start>(selectedCourse, list, i); };
 					auto itemDuration = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::Beat_Duration>(selectedCourse, list, i); };
-					auto itemTimeDuration = [&](GenericList list, size_t i) constexpr -> std::tuple<bool, Time> { f32 out {}; return { TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, out), Time::FromSec(out) }; };
+					auto itemTimeDuration = [&](GenericList list, size_t i) constexpr -> std::tuple<bool, Time> { f32 out {}; return { TryGet<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, out), Time::FromSec(out) }; };
 					auto checkCanSelectedItemsBeDragged = [&](GenericList list, Beat beatIncrement, b8 tailOnly) -> b8
 					{
 						const i32 listCount = static_cast<i32>(GetGenericListCount(selectedCourse, list));
@@ -2536,10 +2536,10 @@ namespace PeepoDrumKit
 								Beat beatStart {}, beatDuration {};
 								f32 timeDuration {};
 								bool isSelected {};
-								const b8 hasBeatStart = TryGetGeneric<GenericMember::Beat_Start>(*context.ChartSelectedCourse, list, i, beatStart);
-								const b8 hasBeatDuration = TryGetGeneric<GenericMember::Beat_Duration>(*context.ChartSelectedCourse, list, i, beatDuration);
-								const b8 hasTimeDuration = TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(*context.ChartSelectedCourse, list, i, timeDuration);
-								const b8 hasIsSelected = TryGetGeneric<GenericMember::B8_IsSelected>(*context.ChartSelectedCourse, list, i, isSelected);
+								const b8 hasBeatStart = TryGet<GenericMember::Beat_Start>(*context.ChartSelectedCourse, list, i, beatStart);
+								const b8 hasBeatDuration = TryGet<GenericMember::Beat_Duration>(*context.ChartSelectedCourse, list, i, beatDuration);
+								const b8 hasTimeDuration = TryGet<GenericMember::F32_JPOSScrollDuration>(*context.ChartSelectedCourse, list, i, timeDuration);
+								const b8 hasIsSelected = TryGet<GenericMember::B8_IsSelected>(*context.ChartSelectedCourse, list, i, isSelected);
 								assert(hasBeatStart && hasIsSelected);
 
 								// Note: Ignore negative-length body
@@ -2565,7 +2565,7 @@ namespace PeepoDrumKit
 								case BoxSelectionAction::XOR: { isSelected ^= isInsideSelectionBox; } break;
 								}
 
-								TrySetGeneric<GenericMember::B8_IsSelected>(*context.ChartSelectedCourse, list, i, isSelected);
+								TrySet<GenericMember::B8_IsSelected>(*context.ChartSelectedCourse, list, i, isSelected);
 							}
 						});
 					}

@@ -976,7 +976,7 @@ namespace PeepoDrumKit
 				{
 					if (out.AvailableMembers & EnumToFlag(member))
 					{
-						const b8 success = TryGetGeneric(course, it.List, it.Index, member, out.MemberValues[member]);
+						const b8 success = TryGet(course, it.List, it.Index, member, out.MemberValues[member]);
 						assert(success);
 					}
 				}
@@ -1125,7 +1125,7 @@ namespace PeepoDrumKit
 									for (const auto& selectedItem : SelectedItems)
 									{
 										if (selectedItem.List != list)
-											TrySetGeneric<GenericMember::B8_IsSelected>(course, selectedItem.List, selectedItem.Index, false);
+											TrySet<GenericMember::B8_IsSelected>(course, selectedItem.List, selectedItem.Index, false);
 									}
 								}
 								Gui::PopStyleColor(3);

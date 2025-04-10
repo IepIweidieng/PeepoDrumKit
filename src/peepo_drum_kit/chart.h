@@ -738,10 +738,6 @@ namespace PeepoDrumKit
 	constexpr __forceinline decltype(auto) TryGet(Args&&... args) { return TryDo<Tags...>(GetGeneric, std::forward<Args>(args)...); }
 	template <auto... Tags, typename... Args>
 	constexpr __forceinline decltype(auto) TrySet(Args&&... args) { return TryDo<Tags...>(SetGeneric, std::forward<Args>(args)...); }
-	template <auto... Tags, typename... Args>
-	constexpr __forceinline decltype(auto) TryGetGeneric(Args&&... args) { return TryGet<Tags...>(std::forward<Args>(args)...); }
-	template <auto... Tags, typename... Args>
-	constexpr __forceinline decltype(auto) TrySetGeneric(Args&&... args) { return TrySet<Tags...>(std::forward<Args>(args)...); }
 
 	// unfortunately the parameter order has to be changed to make function overloading works
 	template <GenericMember Member, typename TDefault, typename... Args>
@@ -766,17 +762,17 @@ namespace PeepoDrumKit
 	template <typename... Args>
 	constexpr Beat GetBeatDuration(Args&&... args) { return GetOrEmpty<GenericMember::Beat_Duration>(std::forward<Args>(args)...); }
 	template <typename... Args>
-	constexpr std::tuple<bool, Time> GetTimeDuration(Args&&... args) { f32 v{}; return { TryGetGeneric<GenericMember::F32_JPOSScrollDuration>(std::forward<Args>(args)..., v), Time::FromSec(v) }; }
+	constexpr std::tuple<bool, Time> GetTimeDuration(Args&&... args) { f32 v{}; return { TryGet<GenericMember::F32_JPOSScrollDuration>(std::forward<Args>(args)..., v), Time::FromSec(v) }; }
 
 	// unfortunately the parameter order has to be changed to make function overloading works
 	template <typename... Args>
-	constexpr void SetIsSelected(b8 isSelected, Args&&... args) { TrySetGeneric<GenericMember::B8_IsSelected>(std::forward<Args>(args)..., isSelected); }
+	constexpr void SetIsSelected(b8 isSelected, Args&&... args) { TrySet<GenericMember::B8_IsSelected>(std::forward<Args>(args)..., isSelected); }
 	template <typename... Args>
-	constexpr void SetBeat(Beat beat, Args&&... args) { TrySetGeneric<GenericMember::Beat_Start>(std::forward<Args>(args)..., beat); }
+	constexpr void SetBeat(Beat beat, Args&&... args) { TrySet<GenericMember::Beat_Start>(std::forward<Args>(args)..., beat); }
 	template <typename... Args>
-	constexpr void SetBeatDuration(Beat beatDuration, Args&&... args) { TrySetGeneric<GenericMember::Beat_Duration>(std::forward<Args>(args)..., beatDuration); }
+	constexpr void SetBeatDuration(Beat beatDuration, Args&&... args) { TrySet<GenericMember::Beat_Duration>(std::forward<Args>(args)..., beatDuration); }
 	template <typename... Args>
-	constexpr void SetTimeDuration(Time timeDuration, Args&&... args) { TrySetGeneric<GenericMember::F32_JPOSScrollDuration>(std::forward<Args>(args)..., timeDuration.Seconds); }
+	constexpr void SetTimeDuration(Time timeDuration, Args&&... args) { TrySet<GenericMember::F32_JPOSScrollDuration>(std::forward<Args>(args)..., timeDuration.Seconds); }
 
 	struct GenericListStruct
 	{

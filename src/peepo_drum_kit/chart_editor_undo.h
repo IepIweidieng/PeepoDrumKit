@@ -844,7 +844,7 @@ namespace PeepoDrumKit
 			{
 				for (auto& data : NewData)
 				{
-					const b8 success = TryGetGeneric(*Course, data.List, data.Index, data.Member, data.OldValue);
+					const b8 success = TryGet(*Course, data.List, data.Index, data.Member, data.OldValue);
 					assert(success);
 					if (data.List == GenericList::TempoChanges)
 						UpdateTempoMap = true;
@@ -854,7 +854,7 @@ namespace PeepoDrumKit
 			void Undo() override
 			{
 				for (const auto& newData : NewData)
-					TrySetGeneric(*Course, newData.List, newData.Index, newData.Member, newData.OldValue);
+					TrySet(*Course, newData.List, newData.Index, newData.Member, newData.OldValue);
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 			}
@@ -862,7 +862,7 @@ namespace PeepoDrumKit
 			void Redo() override
 			{
 				for (const auto& newData : NewData)
-					TrySetGeneric(*Course, newData.List, newData.Index, newData.Member, newData.NewValue);
+					TrySet(*Course, newData.List, newData.Index, newData.Member, newData.NewValue);
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 			}
