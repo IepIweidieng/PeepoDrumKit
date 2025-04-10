@@ -800,14 +800,6 @@ namespace PeepoDrumKit
 			LyricChange Lyric;
 		} NonTrivial {};
 
-		// NOTE: Little helpers here just for convenience
-		constexpr Beat GetBeat(GenericList list) const { return PeepoDrumKit::GetBeat(*this, list); }
-		constexpr Beat GetBeatDuration(GenericList list) const { return PeepoDrumKit::GetBeatDuration(*this, list); }
-		constexpr std::tuple<bool, Time> GetTimeDuration(GenericList list) const { return PeepoDrumKit::GetTimeDuration(*this, list); }
-		constexpr void SetBeat(GenericList list, Beat newValue) { PeepoDrumKit::SetBeat(newValue , *this, list); }
-		constexpr void SetBeatDuration(GenericList list, Beat newValue) { PeepoDrumKit::SetBeatDuration(newValue, *this, list); }
-		constexpr void SetTimeDuration(GenericList list, Time newValue) { PeepoDrumKit::SetTimeDuration(newValue, *this, list); }
-
 		GenericListStruct(const GenericListStruct& other) {
 			// Perform a deep copy of data within the union and other members
 			::memcpy(&POD, &other.POD, sizeof(POD));
@@ -828,13 +820,6 @@ namespace PeepoDrumKit
 	{
 		GenericList List;
 		GenericListStruct Value;
-
-		constexpr Beat GetBeat() const { return PeepoDrumKit::GetBeat(*this); }
-		constexpr Beat GetBeatDuration() const { return PeepoDrumKit::GetBeatDuration(*this); }
-		constexpr std::tuple<bool, Time> GetTimeDuration() const { return PeepoDrumKit::GetTimeDuration(*this); }
-		constexpr void SetBeat(Beat newValue) { PeepoDrumKit::SetBeat(newValue, *this); }
-		constexpr void SetBeatDuration(Beat newValue) { PeepoDrumKit::SetBeatDuration(newValue, *this); }
-		constexpr void SetTimeDuration(Time newValue) { PeepoDrumKit::SetTimeDuration(newValue, *this); }
 
 		// Default constructor
 		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}
@@ -1061,7 +1046,7 @@ namespace PeepoDrumKit
 
 	constexpr b8 TryRemoveGenericStruct(ChartCourse& course, GenericList list, const GenericListStruct& inValueToRemove)
 	{
-		return TryRemoveGenericStruct(course, list, inValueToRemove.GetBeat(list));
+		return TryRemoveGenericStruct(course, list, GetBeat(inValueToRemove, list));
 	}
 
 	template <auto... Tags, typename FAction, typename ForEachChartItemDataT, typename ChartCourseT, typename... Args,
@@ -1076,16 +1061,6 @@ namespace PeepoDrumKit
 	{
 		GenericList List;
 		size_t Index;
-
-		// NOTE: Again just little accessor helpers for the members that should always be available for each list type
-		constexpr b8 GetIsSelected(const ChartCourse& c) const { return PeepoDrumKit::GetIsSelected(*this, c); }
-		constexpr void SetIsSelected(ChartCourse& c, b8 isSelected) const { return PeepoDrumKit::SetIsSelected(isSelected, *this, c); }
-		constexpr Beat GetBeat(const ChartCourse& c) const { return PeepoDrumKit::GetBeat(*this, c); }
-		constexpr Beat GetBeatDuration(const ChartCourse& c) const { return PeepoDrumKit::GetBeatDuration(*this, c); }
-		constexpr std::tuple<bool, Time> GetTimeDuration(const ChartCourse& c) const { return PeepoDrumKit::GetTimeDuration(*this, c); }
-		constexpr void SetBeat(ChartCourse& c, Beat beat) const { return PeepoDrumKit::SetBeat(beat, *this, c); }
-		constexpr void SetBeatDuration(ChartCourse& c, Beat beatDuration) const { return PeepoDrumKit::SetBeatDuration(beatDuration, *this, c); }
-		constexpr void SetTimeDuration(ChartCourse& c, Time timeDuration) const { return PeepoDrumKit::SetTimeDuration(timeDuration, *this, c); }
 	};
 
 	template <typename Func>

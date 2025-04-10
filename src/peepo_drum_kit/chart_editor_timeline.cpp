@@ -1403,7 +1403,7 @@ namespace PeepoDrumKit
 		{
 			Beat minBase = Beat::FromTicks(I32Max);
 			for (const auto& item : items)
-				minBase = Min(item.GetBeat(), minBase);
+				minBase = Min(GetBeat(item), minBase);
 			return (minBase.Ticks != I32Max) ? minBase : Beat::Zero();
 		};
 
@@ -1443,7 +1443,7 @@ namespace PeepoDrumKit
 			if (!clipboardItems.empty())
 			{
 				const Beat baseBeat = FloorBeatToCurrentGrid(context.GetCursorBeat()) - findBaseBeat(clipboardItems);
-				for (auto& item : clipboardItems) { item.SetBeat(item.GetBeat() + baseBeat); }
+				for (auto& item : clipboardItems) { SetBeat(GetBeat(item) + baseBeat, item); }
 
 				auto itemAlreadyExistsOrIsBad = [&](const GenericListStructWithType& item)
 				{
@@ -1502,9 +1502,9 @@ namespace PeepoDrumKit
 		switch (action)
 		{
 		default: { assert(false); } break;
-		case SelectionAction::SelectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { it.SetIsSelected(course, true); }); } break;
-		case SelectionAction::UnselectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { it.SetIsSelected(course, false); }); } break;
-		case SelectionAction::InvertAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { it.SetIsSelected(course, !it.GetIsSelected(course)); }); } break;
+		case SelectionAction::SelectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(true, it, course); }); } break;
+		case SelectionAction::UnselectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(false, it, course); }); } break;
+		case SelectionAction::InvertAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(!GetIsSelected(it, course), it, course); }); } break;
 		case SelectionAction::SelectAllWithinRangeSelection:
 		{
 			if (RangeSelection.IsActiveAndHasEnd())
@@ -1513,10 +1513,10 @@ namespace PeepoDrumKit
 				const Beat rangeSelectionMax = RoundBeatToCurrentGrid(RangeSelection.GetMax());
 				ForEachChartItem(course, [&](const ForEachChartItemData& it)
 				{
-					const Beat itStart = it.GetBeat(course);
-					const Beat itEnd = itStart + it.GetBeatDuration(course);
+					const Beat itStart = GetBeat(it, course);
+					const Beat itEnd = itStart + GetBeatDuration(it, course);
 					if ((itStart <= rangeSelectionMax) && (itEnd >= rangeSelectionMin))
-						it.SetIsSelected(course, true);
+						SetIsSelected(true, it, course);
 				});
 			}
 		} break;
@@ -1568,10 +1568,10 @@ namespace PeepoDrumKit
 			{
 				for (size_t i = 0, patternIndex = 0; i < GetGenericListCount(course, list); i++)
 				{
-					if (const ForEachChartItemData it = { list, i }; it.GetIsSelected(course))
+					if (const ForEachChartItemData it = { list, i }; GetIsSelected(it, course))
 					{
 						if (pattern[patternIndex] != 'x')
-							it.SetIsSelected(course, false);
+							SetIsSelected(false, it, course);
 						if (++patternIndex >= pattern.size())
 							patternIndex = 0;
 					}
@@ -1657,18 +1657,18 @@ namespace PeepoDrumKit
 			std::vector<GenericListStructWithType> itemsToAdd; itemsToAdd.reserve(selectedItemCount);
 			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
 			{
-				if (isFirst) { firstBeat = it.GetBeat(course); isFirst = false; }
+				if (isFirst) { firstBeat = GetBeat(it, course); isFirst = false; }
 
 				auto& itemToRemove = itemsToRemove.emplace_back();
 				itemToRemove.List = it.List;
 				TryGetGenericStruct(course, it.List, it.Index, itemToRemove.Value);
 
 				auto& itemToAdd = itemsToAdd.emplace_back(itemToRemove);
-				itemToAdd.SetBeat((((itemToAdd.GetBeat() - firstBeat) / param.TimeRatio[1]) * param.TimeRatio[0]) + firstBeat);
-				if (itemToAdd.GetBeatDuration() > Beat::Zero())
-					itemToAdd.SetBeatDuration(Max(Beat::FromTicks(1), (itemToAdd.GetBeatDuration() / param.TimeRatio[1]) * param.TimeRatio[0]));
-				if (auto [hasTimeDuration, timeDuration] = itemToAdd.GetTimeDuration(); hasTimeDuration)
-					itemToAdd.SetTimeDuration((timeDuration / param.TimeRatio[1]) * param.TimeRatio[0]);
+				SetBeat((((GetBeat(itemToAdd) - firstBeat) / param.TimeRatio[1]) * param.TimeRatio[0]) + firstBeat, itemToAdd);
+				if (GetBeatDuration(itemToAdd) > Beat::Zero())
+					SetBeatDuration(Max(Beat::FromTicks(1), (GetBeatDuration(itemToAdd) / param.TimeRatio[1]) * param.TimeRatio[0]), itemToAdd);
+				if (auto [hasTimeDuration, timeDuration] = GetTimeDuration(itemToAdd); hasTimeDuration)
+					SetTimeDuration((timeDuration / param.TimeRatio[1]) * param.TimeRatio[0], itemToAdd);
 
 				if (IsNotesList(itemToAdd.List))
 					itemToAdd.Value.POD.Note.ClickAnimationTimeRemaining = itemToAdd.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
@@ -1705,7 +1705,7 @@ namespace PeepoDrumKit
 		{
 			if (it.List != GenericList::ScrollChanges)
 			{
-				const Beat itBeat = it.GetBeat(course);
+				const Beat itBeat = GetBeat(it, course);
 				if (ScrollChange* lastScrollChange = course.ScrollChanges.TryFindLastAtBeat(itBeat); lastScrollChange != nullptr && lastScrollChange->BeatTime == itBeat)
 					scrollChangesThatAlreadyExist.push_back(lastScrollChange);
 				else
@@ -1716,7 +1716,7 @@ namespace PeepoDrumKit
 		if (!scrollChangesThatAlreadyExist.empty() || !scrollChangesToAdd.empty())
 		{
 			if (*Settings.General.ConvertSelectionToScrollChanges_UnselectOld)
-				ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it) { it.SetIsSelected(course, false); });
+				ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(false, it, course); });
 
 			if (*Settings.General.ConvertSelectionToScrollChanges_SelectNew)
 			{
@@ -2035,16 +2035,16 @@ namespace PeepoDrumKit
 									data.List = it.List;
 									if (!isTail) {
 										data.Member = GenericMember::Beat_Start;
-										data.NewValue.Beat = it.GetBeat(selectedCourse) + dragBeatIncrement;
+										data.NewValue.Beat = GetBeat(it, selectedCourse) + dragBeatIncrement;
 									}
-									else if (auto beatDuration = it.GetBeatDuration(selectedCourse); beatDuration > Beat::Zero()) {
+									else if (auto beatDuration = GetBeatDuration(it, selectedCourse); beatDuration > Beat::Zero()) {
 										data.Member = GenericMember::Beat_Duration;
 										data.NewValue.Beat = beatDuration + dragBeatIncrement;
 									}
-									else if (auto [hasTimeDuration, timeDuration] = it.GetTimeDuration(selectedCourse); hasTimeDuration) {
+									else if (auto [hasTimeDuration, timeDuration] = GetTimeDuration(it, selectedCourse); hasTimeDuration) {
 										data.Member = GenericMember::F32_JPOSScrollDuration;
-										const Beat startBeat = it.GetBeat(selectedCourse);
-										const Time startTime = context.BeatToTime(it.GetBeat(selectedCourse));
+										const Beat startBeat = GetBeat(it, selectedCourse);
+										const Time startTime = context.BeatToTime(GetBeat(it, selectedCourse));
 										const Time endTime = startTime + timeDuration;
 										const Beat endBeatTrunc = context.TimeToBeat(endTime, true);
 										const Time residualTime = endTime - context.BeatToTime(endBeatTrunc);
