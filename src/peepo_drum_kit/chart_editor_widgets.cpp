@@ -2367,7 +2367,7 @@ namespace PeepoDrumKit
 
 			Gui::BeginDisabled(!isAnyItemOtherThanScrollChangesSelected);
 			if (Gui::Button(UI_Str("ACT_EVENT_SELECTION_TO_SCROLL_CHANGES"), vec2(-1.0f, 0.0f)))
-				timeline.ExecuteConvertSelectionToScrollChanges(context);
+				timeline.ExecuteConvertSelectionToEvents<GenericList::ScrollChanges>(context);
 			Gui::EndDisabled();
 		}
 	}

@@ -233,6 +233,13 @@ namespace PeepoDrumKit
 		};
 		template <typename TEvent>
 		struct ReplaceAllChartEvents : ReplaceAllChartEventsBase<TEvent> { using ReplaceAllChartEventsBase<TEvent>::ReplaceAllChartEventsBase; };
+
+		// Implemented as replace all
+		template <typename TEvent>
+		struct AddMultipleLongChartEvents : ReplaceAllChartEvents<TEvent> {
+			using ReplaceAllChartEvents<TEvent>::ReplaceAllChartEvents;
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfChartEvents<TEvent>> }; }
+		};
 	}
 
 	// NOTE: Tempo map commands

@@ -4,6 +4,7 @@
 #include "chart_editor_settings.h"
 #include "chart_editor_context.h"
 #include "chart_editor_sound.h"
+#include "chart_editor_undo.h"
 #include "imgui/imgui_include.h"
 
 namespace PeepoDrumKit
@@ -314,7 +315,7 @@ namespace PeepoDrumKit
 		void ExecuteClipboardAction(ChartContext& context, ClipboardAction action);
 		void ExecuteSelectionAction(ChartContext& context, SelectionAction action, const SelectionActionParam& param);
 		void ExecuteTransformAction(ChartContext& context, TransformAction action, const TransformActionParam& param);
-		void ExecuteConvertSelectionToScrollChanges(ChartContext& context);
+		template <GenericList List> void ExecuteConvertSelectionToEvents(ChartContext& context);
 
 	private:
 		// NOTE: Must update input *before* drawing so that the scroll positions won't change
@@ -327,4 +328,97 @@ namespace PeepoDrumKit
 
 		void DrawAllAtEndOfFrame(ChartContext& context);
 	};
+
+	template <GenericList List>
+	void ChartTimeline::ExecuteConvertSelectionToEvents(ChartContext& context)
+	{
+		using TEvent = GenericListStructType<List>;
+		static constexpr bool isLongEvent = IsMemberAvailable<TEvent, GenericMember::Beat_Duration>;
+		ChartCourse& course = *context.ChartSelectedCourse;
+
+		size_t nonTargetedEventSelectedItemCount = 0;
+		ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it) { nonTargetedEventSelectedItemCount += (it.List != List); });
+		if (nonTargetedEventSelectedItemCount <= 0)
+			return;
+
+		// For long events, use index to migrate vector reallocation
+		std::vector<std::conditional_t<isLongEvent, size_t, TEvent*>> eventsThatAlreadyExist; eventsThatAlreadyExist.reserve(nonTargetedEventSelectedItemCount);
+
+		// Long events: copy the entire event list, edit the copied list directly, record index of added items separately
+		// Otherwise: read the original event list, write added items on another list
+		std::vector<std::conditional_t<isLongEvent, size_t, TEvent>> eventsToAdd = {};
+		eventsToAdd.reserve(nonTargetedEventSelectedItemCount);
+
+		std::conditional_t<isLongEvent, BeatSortedList<TEvent>, std::false_type> eventsToEdit = {};
+		BeatSortedList<TEvent>* eventList;
+		if constexpr (isLongEvent) {
+			eventsToEdit = get<List>(course);
+			eventList = &eventsToEdit;
+		} else {
+			eventList = &get<List>(course);
+		}
+
+		ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
+			{
+				if (it.List != List)
+				{
+					const Beat itBeat = GetBeat(it, course);
+					if (TEvent* lastEvent = eventList->TryFindLastAtBeat(itBeat); lastEvent != nullptr && GetBeat(*lastEvent) == itBeat) {
+						if constexpr (isLongEvent)
+							eventsThatAlreadyExist.push_back(lastEvent - &(*eventList)[0]); // vectors guarantee linear addresses
+						else
+							eventsThatAlreadyExist.push_back(lastEvent);
+					} else {
+						if constexpr (isLongEvent) {
+							// check overlapping to to-be-inserted event's head
+							if (lastEvent != nullptr && GetBeat(*lastEvent) + GetBeatDuration(*lastEvent) > itBeat) {
+								SetBeatDuration(itBeat - GetBeat(*lastEvent), *lastEvent); // shorten to fit
+							}
+						}
+						TEvent event = (lastEvent != nullptr) ? *lastEvent : FallbackEvent<TEvent>;
+						SetBeat(itBeat, event);
+						if constexpr (!isLongEvent) {
+							eventsToAdd.push_back(std::move(event));
+						} else {
+							// check overlapping to inserted event's body
+							Beat duration = GetGridBeatSnap(CurrentGridBarDivision);
+							while (TEvent* checkedEvent = eventList->TryFindOverlappingBeat(itBeat, itBeat + duration, false)) {
+								duration = GetBeat(*checkedEvent) - itBeat;
+							}
+							assert(duration > Beat::Zero());
+							SetBeatDuration(duration, event);
+							// insert and record as added
+							size_t iEvent = eventList->InsertOrUpdate(std::move(event));
+							eventsToAdd.push_back(iEvent);
+						}
+					}
+				}
+			});
+
+		if (!eventsThatAlreadyExist.empty() || !eventsToAdd.empty())
+		{
+			if (*Settings.General.ConvertSelectionToScrollChanges_UnselectOld)
+				ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(false, it, course); });
+
+			if (*Settings.General.ConvertSelectionToScrollChanges_SelectNew)
+			{
+				if constexpr (isLongEvent) {
+					for (auto it : eventsThatAlreadyExist) { SetIsSelected(true, eventsToEdit[it]); }
+					for (auto it : eventsToAdd) { SetIsSelected(true, eventsToEdit[it]); }
+				} else {
+					for (auto* it : eventsThatAlreadyExist) { SetIsSelected(true, *it); }
+					for (auto& it : eventsToAdd) { SetIsSelected(true, it); }
+				}
+			}
+
+			if (!eventsToAdd.empty()) {
+				if constexpr (Commands::TempoMapMemberPointer<TEvent> != nullptr)
+					context.Undo.Execute<Commands::AddMultipleChartEvents<TEvent>>(&course.TempoMap, std::move(eventsToAdd));
+				else if constexpr (!isLongEvent)
+					context.Undo.Execute<Commands::AddMultipleChartEvents<TEvent>>(&get<List>(course), std::move(eventsToAdd));
+				else
+					context.Undo.Execute<Commands::AddMultipleLongChartEvents<TEvent>>(&get<List>(course), std::move(eventsToEdit));
+			}
+		}
+	}
 }

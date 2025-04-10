@@ -143,7 +143,7 @@ public:
 	T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
 	const T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
 
-	void InsertOrUpdate(T valueToInsertOrUpdate);
+	size_t InsertOrUpdate(T valueToInsertOrUpdate);
 	void RemoveAtBeat(Beat beatToFindAndRemove);
 	void RemoveAtIndex(size_t indexToRemove);
 
@@ -363,8 +363,9 @@ inline b8 ValidateIsSortedByBeat(const BeatSortedList<T>& sortedList)
 	return std::is_sorted(sortedList.begin(), sortedList.end(), [](const T& a, const T& b) { return GetBeat(a) < GetBeat(b); });
 }
 
+// return the insertion or update index
 template <typename T>
-void BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
+size_t BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
 {
 	const size_t insertionIndex = LinearlySearchForInsertionIndex(*this, GetBeat(valueToInsertOrUpdate));
 	if (InBounds(insertionIndex, Sorted))
@@ -383,6 +384,8 @@ void BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
 	assert(GetBeat(valueToInsertOrUpdate).Ticks >= 0);
 	assert(ValidateIsSortedByBeat(*this));
 #endif
+
+	return insertionIndex;
 }
 
 template <typename T>
