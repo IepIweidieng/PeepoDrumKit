@@ -8,12 +8,18 @@ namespace PeepoDrumKit
 	// NOTE: General chart commands
 	namespace Commands
 	{
-		struct ChangeSongOffset : Undo::Command
-		{
-			ChangeSongOffset(ChartProject* chart, Time value) : Chart(chart), NewValue(value), OldValue(chart->SongOffset) {}
+		// Generic definitions
 
-			void Undo() override { Chart->SongOffset = OldValue; }
-			void Redo() override { Chart->SongOffset = NewValue; }
+		constexpr std::string_view ActionPrefixChange = "Change ";
+
+		template <auto ChartProject::* Attr>
+		struct ChangeSingleChartAttributeBase : Undo::Command
+		{
+			using TAttr = remove_member_pointer_t<decltype(Attr)>;
+			ChangeSingleChartAttributeBase(ChartProject* chart, TAttr value) : Chart(chart), NewValue(value), OldValue(chart->*Attr) { }
+
+			void Undo() override { Chart->*Attr = OldValue; }
+			void Redo() override { Chart->*Attr = NewValue; }
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override
 			{
@@ -25,589 +31,321 @@ namespace PeepoDrumKit
 				return Undo::MergeResult::ValueUpdated;
 			}
 
-			Undo::CommandInfo GetInfo() const override { return { "Change Song Offset" }; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixChange, DisplayNameOfChartProjectAttr<Attr>> }; }
 
 			ChartProject* Chart;
 			Time NewValue, OldValue;
 		};
+		template <auto ChartProject::* Attr>
+		struct ChangeSingleChartAttribute : ChangeSingleChartAttributeBase<Attr> { using ChangeSingleChartAttributeBase<Attr>::ChangeSingleChartAttributeBase; };
 
-		struct ChangeSongDemoStartTime : Undo::Command
+		// Specializations and aliases
+
+		using ChangeSongOffset = ChangeSingleChartAttribute<&ChartProject::SongOffset>;
+		using ChangeSongDemoStartTime = ChangeSingleChartAttribute<&ChartProject::SongDemoStartTime>;
+		using ChangeChartDuration = ChangeSingleChartAttribute<&ChartProject::ChartDuration>;
+	}
+
+	// NOTE: Generic chart event commands
+	namespace Commands
+	{
+		// ChartCourse member accessing helpers
+
+		template <typename TEvent> struct ChartCourseListTypeHelper { using type = BeatSortedList<TEvent>; };
+		template <> struct ChartCourseListTypeHelper<TempoChange> { using type = SortedTempoMap; };
+		template <> struct ChartCourseListTypeHelper<TimeSignatureChange> { using type = SortedTempoMap; };
+
+		template <typename TEvent> using ChartCourseListType = typename ChartCourseListTypeHelper<TEvent>::type;
+
+		template <typename TEvent> struct TempoMapMemberPointerHelper { constexpr static auto value = nullptr; };
+		template <> struct TempoMapMemberPointerHelper<TempoChange> { constexpr static auto value = &SortedTempoMap::Tempo; };
+		template <> struct TempoMapMemberPointerHelper<TimeSignatureChange> { constexpr static auto value = &SortedTempoMap::Signature; };
+
+		template <typename TEvent>
+		constexpr BeatSortedList<TEvent> SortedTempoMap::* TempoMapMemberPointer = TempoMapMemberPointerHelper<TEvent>::value;
+
+		template <auto SortedTempoMap::* EventList, typename TMap>
+		constexpr __forceinline decltype(auto) GetEventList(TMap&& MapOrList)
 		{
-			ChangeSongDemoStartTime(ChartProject* chart, Time value) : Chart(chart), NewValue(value), OldValue(chart->SongDemoStartTime) {}
+			if constexpr (EventList != nullptr)
+				return (std::forward<TMap>(MapOrList).*EventList); // member access; ()-enclosed for returning reference
+			else
+				return std::forward<TMap>(MapOrList);
+		}
 
-			void Undo() override { Chart->SongDemoStartTime = OldValue; }
-			void Redo() override { Chart->SongDemoStartTime = NewValue; }
+		// Generic commands
 
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override
+		constexpr std::string_view ActionPrefixAdd = "Add ";
+		constexpr std::string_view ActionPrefixRemove = "Remove ";
+		constexpr std::string_view ActionPrefixUpdate = "Update ";
+		constexpr std::string_view ActionPrefixUpdateAll = "Update All ";
+
+		template <typename TEvent>
+		struct AddSingleChartEventBase : Undo::Command
+		{;
+			using ChartCourseListType = ChartCourseListType<TEvent>;
+			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
+			AddSingleChartEventBase(ChartCourseListType* map, TEvent newValue) : Map(map), NewValue(newValue) { }
+
+			void Undo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(NewValue)); }
+			void Redo() override { GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfChartEvent<TEvent>> }; }
+
+			ChartCourseListType* Map;
+			TEvent NewValue;
+		};
+		template <typename TEvent>
+		struct AddSingleChartEvent : AddSingleChartEventBase<TEvent> { using AddSingleChartEventBase<TEvent>::AddSingleChartEventBase; };
+
+		template <typename TEvent>
+		struct AddMultipleChartEventsBase : Undo::Command
+		{
+			using ChartCourseListType = ChartCourseListType<TEvent>;
+			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
+			AddMultipleChartEventsBase(ChartCourseListType* map, std::vector<TEvent> newValues) : Map(map), NewEvents(std::move(newValues)) { }
+
+			void Undo() override { for (const auto& event : NewEvents) GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(event)); }
+			void Redo() override { for (const auto& event : NewEvents) GetEventList<EventList>(*Map).InsertOrUpdate(event); }
+
+			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfChartEvents<TEvent>> }; }
+
+			ChartCourseListType* Map;
+			std::vector<TEvent> NewEvents;
+		};
+		template <typename TEvent>
+		struct AddMultipleChartEvents : AddMultipleChartEventsBase<TEvent> { using AddMultipleChartEventsBase<TEvent>::AddMultipleChartEventsBase; };
+
+		template <typename TEvent>
+		struct RemoveSingleChartEventBase : Undo::Command
+		{
+			using ChartCourseListType = ChartCourseListType<TEvent>;
+			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
+			RemoveSingleChartEventBase(ChartCourseListType* map, TEvent oldValue) : Map(map), OldValue(oldValue) { }
+			RemoveSingleChartEventBase(ChartCourseListType* map, Beat beat) : Map(map), OldValue(*GetEventList<EventList>(*Map).TryFindExactAtBeat(beat)) { assert(GetBeat(OldValue) == beat); }
+
+			void Undo() override { GetEventList<EventList>(*Map).InsertOrUpdate(OldValue); }
+			void Redo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(OldValue)); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixRemove, DisplayNameOfChartEvent<TEvent>> }; }
+
+			ChartCourseListType* Map;
+			TEvent OldValue;
+		};
+		template <typename TEvent>
+		struct RemoveSingleChartEvent : RemoveSingleChartEventBase<TEvent> { using RemoveSingleChartEventBase<TEvent>::RemoveSingleChartEventBase; };
+
+		template <typename TEvent>
+		struct RemoveMultipleChartEventsBase : Undo::Command
+		{
+			using ChartCourseListType = ChartCourseListType<TEvent>;
+			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
+			RemoveMultipleChartEventsBase(ChartCourseListType* map, std::vector<TEvent> oldValues) : Map(map), OldValues(std::move(oldValues)) { }
+
+			void Undo() override { for (TEvent& event : OldValues) GetEventList<EventList>(*Map).InsertOrUpdate(event); }
+			void Redo() override { for (const TEvent& event : OldValues) GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(event)); }
+
+			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixRemove, DisplayNameOfChartEvents<TEvent>> }; }
+
+			ChartCourseListType* Map;
+			std::vector<TEvent> OldValues;
+		};
+		template <typename TEvent>
+		struct RemoveMultipleChartEvents : RemoveMultipleChartEventsBase<TEvent> { using RemoveMultipleChartEventsBase<TEvent>::RemoveMultipleChartEventsBase; };
+
+		template <typename TEvent>
+		struct AddSingleLongEventBase : Undo::Command
+		{
+			using ChartCourseListType = ChartCourseListType<TEvent>;
+			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
+			AddSingleLongEventBase(ChartCourseListType* map, TEvent newValue, std::vector<TEvent> eventsToRemove) : Map(map), NewValue(newValue), EventsToRemove(map, std::move(eventsToRemove)) { }
+
+			void Undo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(NewValue)); EventsToRemove.Undo(); }
+			void Redo() override { EventsToRemove.Redo(); GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); }
+
+			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfLongChartEvent<TEvent>> }; }
+
+			ChartCourseListType* Map;
+			TEvent NewValue;
+			RemoveMultipleChartEvents<TEvent> EventsToRemove;
+		};
+		template <typename TEvent>
+		struct AddSingleLongEvent : AddSingleLongEventBase<TEvent> { using AddSingleLongEventBase<TEvent>::AddSingleLongEventBase; };
+
+		template <typename TEvent>
+		struct UpdateSingleChartEventBase : Undo::Command
+		{
+			using ChartCourseListType = ChartCourseListType<TEvent>;
+			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
+			UpdateSingleChartEventBase(ChartCourseListType* map, TEvent newValue) : Map(map), NewValue(newValue), OldValue(*GetEventList<EventList>(*Map).TryFindExactAtBeat(GetBeat(newValue))) { assert(GetBeat(newValue) == GetBeat(OldValue)); }
+
+			void Undo() override { GetEventList<EventList>(*Map).InsertOrUpdate(OldValue); }
+			void Redo() override { GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); }
+
+			Undo::MergeResult TryMerge(Command& commandToMerge) override
 			{
 				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->Chart != Chart)
+				if (other->Map != Map || GetBeat(other->NewValue) != GetBeat(NewValue))
 					return Undo::MergeResult::Failed;
 
 				NewValue = other->NewValue;
 				return Undo::MergeResult::ValueUpdated;
 			}
 
-			Undo::CommandInfo GetInfo() const override { return { "Change Song Demo Start" }; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixUpdate, DisplayNameOfChartEvent<TEvent>> }; }
 
-			ChartProject* Chart;
-			Time NewValue, OldValue;
+			ChartCourseListType* Map;
+			TEvent NewValue, OldValue;
 		};
+		template <typename TEvent>
+		struct UpdateSingleChartEvent : UpdateSingleChartEventBase<TEvent> { using UpdateSingleChartEventBase<TEvent>::UpdateSingleChartEventBase; };
 
-		struct ChangeChartDuration : Undo::Command
+		template <typename TEvent>
+		struct ReplaceAllChartEventsBase : Undo::Command
 		{
-			ChangeChartDuration(ChartProject* chart, Time value) : Chart(chart), NewValue(value), OldValue(chart->ChartDuration) {}
+			using ChartCourseListType = ChartCourseListType<TEvent>;
+			using SortedEventsList = BeatSortedList<TEvent>;
+			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
+			ReplaceAllChartEventsBase(ChartCourseListType* map, SortedEventsList newValues) : Map(map), NewValues(std::move(newValues)), OldValues(GetEventList<EventList>(*map)) { }
 
-			void Undo() override { Chart->ChartDuration = OldValue; }
-			void Redo() override { Chart->ChartDuration = NewValue; }
+			void Undo() override { GetEventList<EventList>(*Map) = OldValues; }
+			void Redo() override { GetEventList<EventList>(*Map) = NewValues; }
 
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override
+			Undo::MergeResult TryMerge(Command& commandToMerge) override
 			{
 				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->Chart != Chart)
+				if (other->Map != Map)
 					return Undo::MergeResult::Failed;
 
-				NewValue = other->NewValue;
+				NewValues = other->NewValues;
 				return Undo::MergeResult::ValueUpdated;
 			}
 
-			Undo::CommandInfo GetInfo() const override { return { "Change Chart Duration" }; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixUpdateAll, DisplayNameOfChartEvents<TEvent>> }; }
 
-			ChartProject* Chart;
-			Time NewValue, OldValue;
+			ChartCourseListType* Map;
+			SortedEventsList NewValues, OldValues;
 		};
+		template <typename TEvent>
+		struct ReplaceAllChartEvents : ReplaceAllChartEventsBase<TEvent> { using ReplaceAllChartEventsBase<TEvent>::ReplaceAllChartEventsBase; };
 	}
 
 	// NOTE: Tempo map commands
 	namespace Commands
 	{
-		struct AddTempoChange : Undo::Command
+		// Generic command wrappers
+		template <typename TCommand>
+		struct InvalidateTempoMapAccelerationStructure : TCommand
 		{
-			AddTempoChange(SortedTempoMap* tempoMap, TempoChange newValue) : TempoMap(tempoMap), NewValue(newValue) {}
-
-			void Undo() override { TempoMap->Tempo.RemoveAtBeat(NewValue.Beat); TempoMap->RebuildAccelerationStructure(); }
-			void Redo() override { TempoMap->Tempo.InsertOrUpdate(NewValue); TempoMap->RebuildAccelerationStructure(); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Tempo Change" }; }
-
-			SortedTempoMap* TempoMap;
-			TempoChange NewValue;
+			using TCommand::TCommand;
+			void Undo() override { TCommand::Undo(); TCommand::Map->RebuildAccelerationStructure(); }
+			void Redo() override { TCommand::Redo(); TCommand::Map->RebuildAccelerationStructure(); }
 		};
 
-		struct RemoveTempoChange : Undo::Command
-		{
-			RemoveTempoChange(SortedTempoMap* tempoMap, Beat beat) : TempoMap(tempoMap), OldValue(*TempoMap->Tempo.TryFindLastAtBeat(beat)) { assert(OldValue.Beat == beat); }
+		// Specializations and aliases
 
-			void Undo() override { TempoMap->Tempo.InsertOrUpdate(OldValue); TempoMap->RebuildAccelerationStructure(); }
-			void Redo() override { TempoMap->Tempo.RemoveAtBeat(OldValue.Beat); TempoMap->RebuildAccelerationStructure(); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Tempo Change" }; }
-
-			SortedTempoMap* TempoMap;
-			TempoChange OldValue;
-		};
-
-		struct UpdateTempoChange : Undo::Command
-		{
-			UpdateTempoChange(SortedTempoMap* tempoMap, TempoChange newValue) : TempoMap(tempoMap), NewValue(newValue), OldValue(*TempoMap->Tempo.TryFindLastAtBeat(newValue.Beat)) { assert(newValue.Beat == OldValue.Beat); }
-
-			void Undo() override { TempoMap->Tempo.InsertOrUpdate(OldValue); TempoMap->RebuildAccelerationStructure(); }
-			void Redo() override { TempoMap->Tempo.InsertOrUpdate(NewValue); TempoMap->RebuildAccelerationStructure(); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->TempoMap != TempoMap || other->NewValue.Beat != NewValue.Beat)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
-			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update Tempo Change" }; }
-
-			SortedTempoMap* TempoMap;
-			TempoChange NewValue, OldValue;
-		};
-
-		struct AddTimeSignatureChange : Undo::Command
-		{
-			AddTimeSignatureChange(SortedTempoMap* tempoMap, TimeSignatureChange newValue) : TempoMap(tempoMap), NewValue(newValue) {}
-
-			void Undo() override { TempoMap->Signature.RemoveAtBeat(NewValue.Beat); }
-			void Redo() override { TempoMap->Signature.InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Time Signature Change" }; }
-
-			SortedTempoMap* TempoMap;
-			TimeSignatureChange NewValue;
-		};
-
-		struct RemoveTimeSignatureChange : Undo::Command
-		{
-			RemoveTimeSignatureChange(SortedTempoMap* tempoMap, Beat beat) : TempoMap(tempoMap), OldValue(*TempoMap->Signature.TryFindLastAtBeat(beat)) { assert(OldValue.Beat == beat); }
-
-			void Undo() override { TempoMap->Signature.InsertOrUpdate(OldValue); }
-			void Redo() override { TempoMap->Signature.RemoveAtBeat(OldValue.Beat); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Time Signature Change" }; }
-
-			SortedTempoMap* TempoMap;
-			TimeSignatureChange OldValue;
-		};
-
-		struct UpdateTimeSignatureChange : Undo::Command
-		{
-			UpdateTimeSignatureChange(SortedTempoMap* tempoMap, TimeSignatureChange newValue) : TempoMap(tempoMap), NewValue(newValue), OldValue(*TempoMap->Signature.TryFindLastAtBeat(newValue.Beat)) { assert(newValue.Beat == OldValue.Beat); }
-
-			void Undo() override { TempoMap->Signature.InsertOrUpdate(OldValue); }
-			void Redo() override { TempoMap->Signature.InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->TempoMap != TempoMap || other->NewValue.Beat != NewValue.Beat)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
-			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update Time Signature Change" }; }
-
-			SortedTempoMap* TempoMap;
-			TimeSignatureChange NewValue, OldValue;
-		};
+		using AddTempoChange = AddSingleChartEvent<TempoChange>;
+		using RemoveTempoChange = RemoveSingleChartEvent<TempoChange>;
+		using UpdateTempoChange = UpdateSingleChartEvent<TempoChange>;
+		using AddTimeSignatureChange = AddSingleChartEvent<TimeSignatureChange>;
+		using RemoveTimeSignatureChange = RemoveSingleChartEvent<TimeSignatureChange>;
+		using UpdateTimeSignatureChange = UpdateSingleChartEvent<TimeSignatureChange>;
 	}
 
 	// NOTE: Chart change commands
 	namespace Commands
 	{
-		struct AddJPOSScroll : Undo::Command
+		// Specializations and aliases
+		using AddJPOSScroll = AddSingleChartEvent<JPOSScrollChange>;
+		using RemoveJPOSScroll = RemoveSingleChartEvent<JPOSScrollChange>;
+		using UpdateJPOSScroll = UpdateSingleChartEvent<JPOSScrollChange>;
+		using AddScrollType = AddSingleChartEvent<ScrollType>;
+		using RemoveScrollType = RemoveSingleChartEvent<ScrollType>;
+		using UpdateScrollType = UpdateSingleChartEvent<ScrollType>;
+		using AddScrollChange = AddSingleChartEvent<ScrollChange>;
+		using AddMultipleScrollChanges = AddMultipleChartEvents<ScrollChange>;
+		using RemoveScrollChange = RemoveSingleChartEvent<ScrollChange>;
+		using UpdateScrollChange = UpdateSingleChartEvent<ScrollChange>;
+		using AddBarLineChange = AddSingleChartEvent<BarLineChange>;
+		using RemoveBarLineChange = RemoveSingleChartEvent<BarLineChange>;
+
+		template <>
+		struct UpdateSingleChartEvent<BarLineChange> : UpdateSingleChartEventBase<BarLineChange>
 		{
-			AddJPOSScroll(SortedJPOSScrollChangesList* JPOSScrollChanges, JPOSScrollChange newValue) : JPOSScrollChanges(JPOSScrollChanges), NewValue(newValue) {}
-
-			void Undo() override { JPOSScrollChanges->RemoveAtBeat(NewValue.BeatTime); }
-			void Redo() override { JPOSScrollChanges->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add JPOSScroll" }; }
-
-			SortedJPOSScrollChangesList* JPOSScrollChanges;
-			JPOSScrollChange NewValue;
-		};
-
-		struct RemoveJPOSScroll : Undo::Command
-		{
-			RemoveJPOSScroll(SortedJPOSScrollChangesList* JPOSScrollChanges, Beat beat) : JPOSScrollChanges(JPOSScrollChanges), OldValue(*JPOSScrollChanges->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
-
-			void Undo() override { JPOSScrollChanges->InsertOrUpdate(OldValue); }
-			void Redo() override { JPOSScrollChanges->RemoveAtBeat(OldValue.BeatTime); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove JPOSScroll" }; }
-
-			SortedJPOSScrollChangesList* JPOSScrollChanges;
-			JPOSScrollChange OldValue;
-		};
-
-		struct UpdateJPOSScroll : Undo::Command
-		{
-			UpdateJPOSScroll(SortedJPOSScrollChangesList* JPOSScrollChanges, JPOSScrollChange newValue) : JPOSScrollChanges(JPOSScrollChanges), NewValue(newValue), OldValue(*JPOSScrollChanges->TryFindExactAtBeat(newValue.BeatTime)) { assert(newValue.BeatTime == OldValue.BeatTime); }
-
-			void Undo() override { JPOSScrollChanges->InsertOrUpdate(OldValue); }
-			void Redo() override { JPOSScrollChanges->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->JPOSScrollChanges != JPOSScrollChanges || other->NewValue.BeatTime != NewValue.BeatTime)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
-			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update JPOSScroll" }; }
-
-			SortedJPOSScrollChangesList* JPOSScrollChanges;
-			JPOSScrollChange NewValue, OldValue;
-		};
-
-		struct AddScrollType : Undo::Command
-		{
-			AddScrollType(SortedScrollTypesList* scrollTypes, ScrollType newValue) : ScrollTypes(scrollTypes), NewValue(newValue) {}
-
-			void Undo() override { ScrollTypes->RemoveAtBeat(NewValue.BeatTime); }
-			void Redo() override { ScrollTypes->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Scroll Type" }; }
-
-			SortedScrollTypesList* ScrollTypes;
-			ScrollType NewValue;
-		};
-
-		struct RemoveScrollType : Undo::Command
-		{
-			RemoveScrollType(SortedScrollTypesList* scrollTypes, Beat beat) : ScrollTypes(scrollTypes), OldValue(*ScrollTypes->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
-
-			void Undo() override { ScrollTypes->InsertOrUpdate(OldValue); }
-			void Redo() override { ScrollTypes->RemoveAtBeat(OldValue.BeatTime); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Scroll Type" }; }
-
-			SortedScrollTypesList* ScrollTypes;
-			ScrollType OldValue;
-		};
-
-		struct UpdateScrollType : Undo::Command
-		{
-			UpdateScrollType(SortedScrollTypesList* scrollTypes, ScrollType newValue) : ScrollTypes(scrollTypes), NewValue(newValue), OldValue(*ScrollTypes->TryFindExactAtBeat(newValue.BeatTime)) { assert(newValue.BeatTime == OldValue.BeatTime); }
-
-			void Undo() override { ScrollTypes->InsertOrUpdate(OldValue); }
-			void Redo() override { ScrollTypes->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->ScrollTypes != ScrollTypes || other->NewValue.BeatTime != NewValue.BeatTime)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
-			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update Scroll Type" }; }
-
-			SortedScrollTypesList* ScrollTypes;
-			ScrollType NewValue, OldValue;
-		};
-
-		struct AddScrollChange : Undo::Command
-		{
-			AddScrollChange(SortedScrollChangesList* scrollChanges, ScrollChange newValue) : ScrollChanges(scrollChanges), NewValue(newValue) {}
-
-			void Undo() override { ScrollChanges->RemoveAtBeat(NewValue.BeatTime); }
-			void Redo() override { ScrollChanges->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Scroll Change" }; }
-
-			SortedScrollChangesList* ScrollChanges;
-			ScrollChange NewValue;
-		};
-
-		struct AddMultipleScrollChanges : Undo::Command
-		{
-			AddMultipleScrollChanges(SortedScrollChangesList* scrollChanges, std::vector<ScrollChange> newValues) : ScrollChanges(scrollChanges), NewScrollChanges(std::move(newValues)) {}
-
-			void Undo() override { for (const auto& scroll : NewScrollChanges) ScrollChanges->RemoveAtBeat(scroll.BeatTime); }
-			void Redo() override { for (const auto& scroll : NewScrollChanges) ScrollChanges->InsertOrUpdate(scroll); }
-
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Scroll Changes" }; }
-
-			SortedScrollChangesList* ScrollChanges;
-			std::vector<ScrollChange> NewScrollChanges;
-		};
-
-		struct RemoveScrollChange : Undo::Command
-		{
-			RemoveScrollChange(SortedScrollChangesList* scrollChanges, Beat beat) : ScrollChanges(scrollChanges), OldValue(*ScrollChanges->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
-
-			void Undo() override { ScrollChanges->InsertOrUpdate(OldValue); }
-			void Redo() override { ScrollChanges->RemoveAtBeat(OldValue.BeatTime); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Scroll Change" }; }
-
-			SortedScrollChangesList* ScrollChanges;
-			ScrollChange OldValue;
-		};
-
-		struct UpdateScrollChange : Undo::Command
-		{
-			UpdateScrollChange(SortedScrollChangesList* scrollChanges, ScrollChange newValue) : ScrollChanges(scrollChanges), NewValue(newValue), OldValue(*ScrollChanges->TryFindExactAtBeat(newValue.BeatTime)) { assert(newValue.BeatTime == OldValue.BeatTime); }
-
-			void Undo() override { ScrollChanges->InsertOrUpdate(OldValue); }
-			void Redo() override { ScrollChanges->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->ScrollChanges != ScrollChanges || other->NewValue.BeatTime != NewValue.BeatTime)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
-			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update Scroll Change" }; }
-
-			SortedScrollChangesList* ScrollChanges;
-			ScrollChange NewValue, OldValue;
-		};
-
-		struct AddBarLineChange : Undo::Command
-		{
-			AddBarLineChange(SortedBarLineChangesList* barLineChanges, BarLineChange newValue) : BarLineChanges(barLineChanges), NewValue(newValue) {}
-
-			void Undo() override { BarLineChanges->RemoveAtBeat(NewValue.BeatTime); }
-			void Redo() override { BarLineChanges->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Bar Line Change" }; }
-
-			SortedBarLineChangesList* BarLineChanges;
-			BarLineChange NewValue;
-		};
-
-		struct RemoveBarLineChange : Undo::Command
-		{
-			RemoveBarLineChange(SortedBarLineChangesList* barLineChanges, Beat beat) : BarLineChanges(barLineChanges), OldValue(*BarLineChanges->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
-
-			void Undo() override { BarLineChanges->InsertOrUpdate(OldValue); }
-			void Redo() override { BarLineChanges->RemoveAtBeat(OldValue.BeatTime); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Bar Line Change" }; }
-
-			SortedBarLineChangesList* BarLineChanges;
-			BarLineChange OldValue;
-		};
-
-		struct UpdateBarLineChange : Undo::Command
-		{
-			UpdateBarLineChange(SortedBarLineChangesList* barLineChanges, BarLineChange newValue) : BarLineChanges(barLineChanges), NewValue(newValue), OldValue(*BarLineChanges->TryFindExactAtBeat(newValue.BeatTime)) { assert(newValue.BeatTime == OldValue.BeatTime); }
-
-			void Undo() override { BarLineChanges->InsertOrUpdate(OldValue); }
-			void Redo() override { BarLineChanges->InsertOrUpdate(NewValue); }
+			using UpdateSingleChartEventBase::UpdateSingleChartEventBase;
 
 			Undo::MergeResult TryMerge(Command& commandToMerge) override
 			{
 #if 1 // NOTE: Merging here doesn't really make much sense..?
 				return Undo::MergeResult::Failed;
 #else
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->BarLineChanges != BarLineChanges || other->NewValue.BeatTime != NewValue.BeatTime)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
+				return UpdateSingleChartEvent::TryMerge(commandToMerge);
 #endif
 			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update Bar Line Change" }; }
-
-			SortedBarLineChangesList* BarLineChanges;
-			BarLineChange NewValue, OldValue;
 		};
+		using UpdateBarLineChange = UpdateSingleChartEvent<BarLineChange>;
 
-		struct AddGoGoRange : Undo::Command
+		// NOTE: Creating a full copy of the new/old state for now because it's easy and there typically are only a very few number of GoGoRanges
+		template <>
+		struct ReplaceAllChartEvents<GoGoRange> : ReplaceAllChartEventsBase<GoGoRange>
 		{
-			// NOTE: Creating a full copy of the new/old state for now because it's easy and there typically are only a very few number of GoGoRanges
-			AddGoGoRange(SortedGoGoRangesList* gogoRanges, SortedGoGoRangesList newValues) : GoGoRanges(gogoRanges), NewValues(std::move(newValues)), OldValues(*gogoRanges) {}
-
-			void Undo() override { *GoGoRanges = OldValues; }
-			void Redo() override { *GoGoRanges = NewValues; }
-
+			using ReplaceAllChartEventsBase::ReplaceAllChartEventsBase;
 			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Go-Go Range" }; }
-
-			SortedGoGoRangesList* GoGoRanges;
-			SortedGoGoRangesList NewValues, OldValues;
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfChartEvent<GoGoRange>> }; }
 		};
+		using AddGoGoRange = ReplaceAllChartEvents<GoGoRange>;
 
-		struct RemoveGoGoRange : Undo::Command
-		{
-			RemoveGoGoRange(SortedGoGoRangesList* gogoRanges, Beat beat) : GoGoRanges(gogoRanges), OldValue(*gogoRanges->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
+		using RemoveGoGoRange = RemoveSingleChartEvent<GoGoRange>;
 
-			void Undo() override { GoGoRanges->InsertOrUpdate(OldValue); }
-			void Redo() override { GoGoRanges->RemoveAtBeat(OldValue.BeatTime); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Go-Go Range" }; }
-
-			SortedGoGoRangesList* GoGoRanges;
-			GoGoRange OldValue;
-		};
-
-		struct AddLyricChange : Undo::Command
-		{
-			AddLyricChange(SortedLyricsList* lyrics, LyricChange newValue) : Lyrics(lyrics), NewValue(newValue) {}
-
-			void Undo() override { Lyrics->RemoveAtBeat(NewValue.BeatTime); }
-			void Redo() override { Lyrics->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Lyric Change" }; }
-
-			SortedLyricsList* Lyrics;
-			LyricChange NewValue;
-		};
-
-		struct RemoveLyricChange : Undo::Command
-		{
-			RemoveLyricChange(SortedLyricsList* lyrics, Beat beat) : Lyrics(lyrics), OldValue(*Lyrics->TryFindExactAtBeat(beat)) { assert(OldValue.BeatTime == beat); }
-
-			void Undo() override { Lyrics->InsertOrUpdate(OldValue); }
-			void Redo() override { Lyrics->RemoveAtBeat(OldValue.BeatTime); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Lyric Change" }; }
-
-			SortedLyricsList* Lyrics;
-			LyricChange OldValue;
-		};
-
-		struct UpdateLyricChange : Undo::Command
-		{
-			UpdateLyricChange(SortedLyricsList* lyrics, LyricChange newValue) : Lyrics(lyrics), NewValue(newValue), OldValue(*Lyrics->TryFindExactAtBeat(newValue.BeatTime)) { assert(newValue.BeatTime == OldValue.BeatTime); }
-
-			void Undo() override { Lyrics->InsertOrUpdate(OldValue); }
-			void Redo() override { Lyrics->InsertOrUpdate(NewValue); }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->Lyrics != Lyrics || other->NewValue.BeatTime != NewValue.BeatTime)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
-			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update Lyric Change" }; }
-
-			SortedLyricsList* Lyrics;
-			LyricChange NewValue, OldValue;
-		};
-
-		struct ReplaceAllLyricChanges : Undo::Command
-		{
-			ReplaceAllLyricChanges(SortedLyricsList* lyrics, SortedLyricsList newValue) : Lyrics(lyrics), NewValue(std::move(newValue)), OldValue(*lyrics) {}
-
-			void Undo() override { *Lyrics = OldValue; }
-			void Redo() override { *Lyrics = NewValue; }
-
-			Undo::MergeResult TryMerge(Command& commandToMerge) override
-			{
-				auto* other = static_cast<decltype(this)>(&commandToMerge);
-				if (other->Lyrics != Lyrics)
-					return Undo::MergeResult::Failed;
-
-				NewValue = other->NewValue;
-				return Undo::MergeResult::ValueUpdated;
-			}
-
-			Undo::CommandInfo GetInfo() const override { return { "Update All Lyrics" }; }
-
-			SortedLyricsList* Lyrics;
-			SortedLyricsList NewValue, OldValue;
-		};
+		using AddLyricChange = AddSingleChartEvent<LyricChange>;
+		using RemoveLyricChange = RemoveSingleChartEvent<LyricChange>;
+		using UpdateLyricChange = UpdateSingleChartEvent<LyricChange>;
+		using ReplaceAllLyricChanges = ReplaceAllChartEvents<LyricChange>;
 	}
 
 	// NOTE: Note commands
 	namespace Commands
 	{
-		struct AddSingleNote : Undo::Command
-		{
-			AddSingleNote(SortedNotesList* notes, Note newNote) : Notes(notes), NewNote(newNote) {}
+		// Specializations and aliases for Note events
 
-			void Undo() override { Notes->RemoveAtBeat(NewNote.BeatTime); }
-			void Redo() override { Notes->InsertOrUpdate(NewNote); }
+		constexpr std::string_view ActionPrefixPaste = "Paste ";
+		constexpr std::string_view ActionPrefixCut = "Cut ";
 
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Note" }; }
-
-			SortedNotesList* Notes;
-			Note NewNote;
-		};
-
-		struct AddMultipleNotes : Undo::Command
-		{
-			AddMultipleNotes(SortedNotesList* notes, std::vector<Note> newNotes) : Notes(notes), NewNotes(std::move(newNotes)) {}
-
-			void Undo() override { for (const Note& note : NewNotes) Notes->RemoveAtBeat(note.BeatTime); }
-			void Redo() override { for (const Note& note : NewNotes) Notes->InsertOrUpdate(note); }
-
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Notes" }; }
-
-			SortedNotesList* Notes;
-			std::vector<Note> NewNotes;
-		};
-
-		struct RemoveSingleNote : Undo::Command
-		{
-			RemoveSingleNote(SortedNotesList* notes, Note oldNote) : Notes(notes), OldNote(oldNote) {}
-
-			void Undo() override { Notes->InsertOrUpdate(OldNote); }
-			void Redo() override { Notes->RemoveAtBeat(OldNote.BeatTime); }
-
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Note" }; }
-
-			SortedNotesList* Notes;
-			Note OldNote;
-		};
-
-		struct RemoveMultipleNotes : Undo::Command
-		{
-			RemoveMultipleNotes(SortedNotesList* notes, std::vector<Note> oldNotes) : Notes(notes), OldNotes(std::move(oldNotes)) {}
-
-			void Undo() override { for (Note& note : OldNotes) Notes->InsertOrUpdate(note); }
-			void Redo() override { for (const Note& note : OldNotes) Notes->RemoveAtBeat(note.BeatTime); }
-
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Remove Notes" }; }
-
-			SortedNotesList* Notes;
-			std::vector<Note> OldNotes;
-		};
-
-		struct AddSingleLongNote : Undo::Command
-		{
-			AddSingleLongNote(SortedNotesList* notes, Note newNote, std::vector<Note> notesToRemove) : Notes(notes), NewNote(newNote), NotesToRemove(notes, std::move(notesToRemove)) {}
-
-			void Undo() override { Notes->RemoveAtBeat(NewNote.BeatTime); NotesToRemove.Undo(); }
-			void Redo() override { NotesToRemove.Redo(); Notes->InsertOrUpdate(NewNote); }
-
-			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
-			Undo::CommandInfo GetInfo() const override { return { "Add Long Note" }; }
-
-			SortedNotesList* Notes;
-			Note NewNote;
-			RemoveMultipleNotes NotesToRemove;
-		};
+		using AddSingleNote = AddSingleChartEvent<Note>;
+		using AddMultipleNotes = AddMultipleChartEvents<Note>;
+		using RemoveSingleNote = RemoveSingleChartEvent<Note>;
+		using RemoveMultipleNotes = RemoveMultipleChartEvents<Note>;
+		using AddSingleLongNote = AddSingleLongEvent<Note>;
 
 		struct AddMultipleNotes_Paste : AddMultipleNotes
 		{
 			using AddMultipleNotes::AddMultipleNotes;
-			Undo::CommandInfo GetInfo() const override { return { "Paste Notes" }; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixPaste, DisplayNameOfChartEvents<Note>> }; }
 		};
 
 		struct RemoveMultipleNotes_Cut : RemoveMultipleNotes
 		{
 			using RemoveMultipleNotes::RemoveMultipleNotes;
-			Undo::CommandInfo GetInfo() const override { return { "Cut Notes" }; }
+			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixCut, DisplayNameOfChartEvents<Note>> }; }
 		};
+
+		// Generic definitions for Note attributes
 
 		template <typename TAttr>
 		struct NoteAttributeData { size_t Index; TAttr NewValue, OldValue; };
 
-		template <typename TAttr, TAttr Note::*Attr>
-		struct ChangeSingleNoteAttribute : Undo::Command
+		template <auto Note::* Attr>
+		struct ChangeSingleNoteAttributeBase : Undo::Command
 		{
+			using TAttr = remove_member_pointer_t<decltype(Attr)>;
 			using Data = NoteAttributeData<TAttr>;
 
-			ChangeSingleNoteAttribute(SortedNotesList* notes, Data newData) : Notes(notes), NewData(std::move(newData)) { NewData.OldValue = (*Notes)[NewData.Index].*Attr; }
+			ChangeSingleNoteAttributeBase(SortedNotesList* notes, Data newData) : Notes(notes), NewData(std::move(newData)) { NewData.OldValue = (*Notes)[NewData.Index].*Attr; }
 
 			void Undo() override { (*Notes)[NewData.Index].*Attr = NewData.OldValue; }
 			void Redo() override { (*Notes)[NewData.Index].*Attr = NewData.NewValue; }
@@ -631,13 +369,16 @@ namespace PeepoDrumKit
 			SortedNotesList* Notes;
 			Data NewData;
 		};
+		template <auto Note::* Attr>
+		struct ChangeSingleNoteAttribute : ChangeSingleNoteAttributeBase<Attr> {};
 
-		template <typename TAttr, TAttr Note::* Attr>
-		struct ChangeMultipleNoteAttributes : Undo::Command
+		template <auto Note::* Attr>
+		struct ChangeMultipleNoteAttributesBase : Undo::Command
 		{
+			using TAttr = remove_member_pointer_t<decltype(Attr)>;
 			using Data = NoteAttributeData<TAttr>;
 
-			ChangeMultipleNoteAttributes(SortedNotesList* notes, std::vector<Data> newData)
+			ChangeMultipleNoteAttributesBase(SortedNotesList* notes, std::vector<Data> newData)
 				: Notes(notes), NewData(std::move(newData))
 			{
 				for (auto& newData : NewData)
@@ -682,18 +423,26 @@ namespace PeepoDrumKit
 			SortedNotesList* Notes;
 			std::vector<Data> NewData;
 		};
+		template <auto Note::* Attr>
+		struct ChangeMultipleNoteAttributes : ChangeMultipleNoteAttributesBase<Attr> {};
 
-		struct ChangeSingleNoteType : ChangeSingleNoteAttribute<decltype(Note::Type), &Note::Type>
+		// Specializations and aliases for Note attributes
+
+		template <>
+		struct ChangeSingleNoteAttribute<&Note::Type> : ChangeSingleNoteAttributeBase<&Note::Type>
 		{
-			using ChangeSingleNoteAttribute::ChangeSingleNoteAttribute;
+			using ChangeSingleNoteAttributeBase::ChangeSingleNoteAttributeBase;
 			Undo::CommandInfo GetInfo() const override { return { "Change Note Type" }; }
 		};
+		using ChangeSingleNoteType = ChangeSingleNoteAttribute<&Note::Type>;
 
-		struct ChangeMultipleNoteTypes : ChangeMultipleNoteAttributes<decltype(Note::Type), &Note::Type>
+		template <>
+		struct ChangeMultipleNoteAttributes<&Note::Type> : ChangeMultipleNoteAttributesBase<&Note::Type>
 		{
-			using ChangeMultipleNoteAttributes::ChangeMultipleNoteAttributes;
+			using ChangeMultipleNoteAttributesBase::ChangeMultipleNoteAttributesBase;
 			Undo::CommandInfo GetInfo() const override { return { "Change Note Types" }; }
 		};
+		using ChangeMultipleNoteTypes = ChangeMultipleNoteAttributes<&Note::Type>;
 
 		struct ChangeMultipleNoteTypes_FlipTypes : ChangeMultipleNoteTypes
 		{
@@ -707,11 +456,13 @@ namespace PeepoDrumKit
 			Undo::CommandInfo GetInfo() const override { return { "Toggle Note Sizes" }; }
 		};
 
-		struct ChangeMultipleNoteBeats : ChangeMultipleNoteAttributes<decltype(Note::BeatTime), &Note::BeatTime>
+		template <>
+		struct ChangeMultipleNoteAttributes<&Note::BeatTime> : ChangeMultipleNoteAttributesBase<&Note::BeatTime>
 		{
-			using ChangeMultipleNoteAttributes::ChangeMultipleNoteAttributes;
+			using ChangeMultipleNoteAttributesBase::ChangeMultipleNoteAttributesBase;
 			Undo::CommandInfo GetInfo() const override { return { "Change Note Beats" }; }
 		};
+		using ChangeMultipleNoteBeats = ChangeMultipleNoteAttributes<&Note::BeatTime>;
 
 		struct ChangeMultipleNoteBeats_MoveNotes : ChangeMultipleNoteBeats
 		{
@@ -719,11 +470,13 @@ namespace PeepoDrumKit
 			Undo::CommandInfo GetInfo() const override { return { "Move Notes" }; }
 		};
 
-		struct ChangeMultipleNoteBeatDurations : ChangeMultipleNoteAttributes<decltype(Note::BeatDuration), &Note::BeatDuration>
+		template <>
+		struct ChangeMultipleNoteAttributes<&Note::BeatDuration> : ChangeMultipleNoteAttributesBase<&Note::BeatDuration>
 		{
-			using ChangeMultipleNoteAttributes::ChangeMultipleNoteAttributes;
+			using ChangeMultipleNoteAttributesBase::ChangeMultipleNoteAttributesBase;
 			Undo::CommandInfo GetInfo() const override { return { "Change Note Beat Durations" }; }
 		};
+		using ChangeMultipleNoteBeatDurations = ChangeMultipleNoteAttributes<&Note::BeatDuration>;
 
 		struct ChangeMultipleNoteBeatDurations_AdjustRollNoteDurations : ChangeMultipleNoteBeatDurations
 		{

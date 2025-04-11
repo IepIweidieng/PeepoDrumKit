@@ -83,6 +83,26 @@ template <class F> __forceinline deferrer<F> operator*(defer_dummy, F f) { retur
 template <auto ConstexprExpression>
 constexpr auto ForceConsteval = ConstexprExpression;
 
+// Note: Example: ConstevalStrJoined<Str1, Str2>, where each of Str1 and Str2 is a constexpr variable holding a string
+// cannot pass string literals as template argument without much more efforts until C++20
+template <const auto&... Strs>
+constexpr auto StrJoinImpl()
+{
+	constexpr size_t len = (0 + ... + std::string_view(Strs).length());
+	std::array<char, len> arr = {};
+	auto append = [&, i = 0](const auto& s) mutable
+	{
+		for (auto c : s)
+			arr[i++] = c;
+	};
+	(append(std::string_view(Strs)), ...);
+	return arr;
+}
+template <const auto&... Strs>
+constexpr auto ConstevalStrJoinedArr = StrJoinImpl<Strs...>();
+template <const auto&... Strs>
+constexpr std::string_view ConstevalStrJoined = {ConstevalStrJoinedArr<Strs...>.data(), ForceConsteval<ConstevalStrJoinedArr<Strs...>.size()>};
+
 // NOTE: Example: if constexpr (expect_type_v<TTested, TExpected>); to be used where TTested is a template type declaring forwarding-reference parameters
 template <typename TTested, typename TExpected>
 constexpr b8 expect_type_v = std::is_same_v<TExpected, std::remove_cv_t<std::remove_reference_t<TTested>>>;
@@ -90,6 +110,14 @@ constexpr b8 expect_type_v = std::is_same_v<TExpected, std::remove_cv_t<std::rem
 // NOTE: Example: template <..., expect_type_t<TTested, TExpected>>; for SFINAE (template substitution programming)
 template <typename TTested, typename TExpected>
 using expect_type_t = std::enable_if_t<expect_type_v<TTested, TExpected>, bool>;
+
+// NOTE: Example: remove_member_pointer_t<decltype(member_pointer)>; to be used when the member_pointer is declared as auto type
+template <typename T>
+struct remove_member_pointer { using type = T; };
+template <typename T, typename U>
+struct remove_member_pointer<T U::*> { using type = T; };
+template <typename T>
+using remove_member_pointer_t = typename remove_member_pointer<T>::type;
 
 // NOTE: Specifically to be used with ForEachX(perXFunc) style iterator functions
 enum class ControlFlow : u8 { Break, Continue };

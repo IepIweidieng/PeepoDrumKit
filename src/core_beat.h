@@ -126,6 +126,8 @@ struct BeatSortedForwardIterator
 template <typename T>
 struct BeatSortedList
 {
+	using value_type = T;
+
 	std::vector<T> Sorted;
 
 public:

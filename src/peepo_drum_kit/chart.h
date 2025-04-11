@@ -178,6 +178,20 @@ namespace PeepoDrumKit
 		Count
 	};
 
+	constexpr std::string_view PluralSuffixDefault = "s"; // unfortunately cannot just pass the string literal for now
+
+	template <typename TEvent>
+	constexpr std::string_view DisplayNameOfChartEvent = std::declval<std::string_view>(); // Forbid usage unless specialized
+	template <typename TEvent>
+	constexpr std::string_view DisplayNameOfLongChartEvent = DisplayNameOfChartEvent<TEvent>;
+	template <typename TEvent>
+	constexpr std::string_view DisplayNameOfChartEvents = ConstevalStrJoined<DisplayNameOfChartEvent<TEvent>, PluralSuffixDefault>;
+	template <typename TEvent>
+	constexpr std::string_view DisplayNameOfLongChartEvents = DisplayNameOfChartEvents<TEvent>;
+
+	template <> constexpr std::string_view DisplayNameOfChartEvent<TempoChange> = "Tempo Change";
+	template <> constexpr std::string_view DisplayNameOfChartEvent<TimeSignatureChange> = "Time Signature Change";
+
 	// TODO: Animations for create / delete AND for moving left / right (?)
 	struct Note
 	{
@@ -195,6 +209,8 @@ namespace PeepoDrumKit
 		constexpr Beat GetStart() const { return BeatTime; }
 		constexpr Beat GetEnd() const { return BeatTime + BeatDuration; }
 	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<Note> = "Note";
+	template <> constexpr std::string_view DisplayNameOfLongChartEvent<Note> = "Long Note";
 
 	static_assert(sizeof(Note) == 32, "Accidentally introduced padding to Note struct (?)");
 
@@ -212,6 +228,7 @@ namespace PeepoDrumKit
 		Complex ScrollSpeed;
 		b8 IsSelected;
 	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<ScrollChange> = "Scroll Changes";
 
 	template <>
 	constexpr ScrollChange FallbackEvent<ScrollChange> = {Beat::Zero(), Complex(1.0f, 0.0f)};
@@ -235,6 +252,7 @@ namespace PeepoDrumKit
 			}
 		}
 	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<ScrollType> = "Scroll Type";
 
 	template <>
 	constexpr ScrollType FallbackEvent<ScrollType> = {Beat::Zero(), ScrollMethod::NMSCROLL};
@@ -246,6 +264,7 @@ namespace PeepoDrumKit
 		f32 Duration;
 		b8 IsSelected;
 	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<JPOSScrollChange> = "JPOSScroll";
 
 	template <>
 	constexpr JPOSScrollChange FallbackEvent<JPOSScrollChange> = {Beat::Zero(), Complex(100.0f, 0.0f), 0.f};
@@ -256,6 +275,7 @@ namespace PeepoDrumKit
 		b8 IsVisible;
 		b8 IsSelected;
 	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<BarLineChange> = "Bar Line Change";
 
 	template <>
 	constexpr BarLineChange FallbackEvent<BarLineChange> = {Beat::Zero(), true};
@@ -271,6 +291,7 @@ namespace PeepoDrumKit
 		constexpr Beat GetStart() const { return BeatTime; }
 		constexpr Beat GetEnd() const { return BeatTime + BeatDuration; }
 	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<GoGoRange> = "Go-Go Range";
 
 	template <>
 	constexpr GoGoRange FallbackEvent<GoGoRange> = {};
@@ -281,6 +302,7 @@ namespace PeepoDrumKit
 		std::string Lyric;
 		b8 IsSelected;
 	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<LyricChange> = "Lyric Change";
 
 	template <>
 	inline LyricChange FallbackEvent<LyricChange> = {};
@@ -378,6 +400,25 @@ namespace PeepoDrumKit
 		// TODO: Maybe change to GetDurationOr(Time defaultDuration) and always pass in context.SongDuration (?)
 		inline Time GetDurationOrDefault() const { return (ChartDuration.Seconds <= 0.0) ? Time::FromMin(1.0) : ChartDuration; }
 	};
+
+	template <auto ChartProject::* Attr>
+	extern constexpr std::string_view DisplayNameOfChartProjectAttr; // defined later
+
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartDuration> = "Chart Duration";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartTitle> = "Chart Title";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartSubtitle> = "Chart Subtitle";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartCreator> = "Chart Creator";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartGenre> = "Chart Genre";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartLyricsFileName> = "Chart Lyrics File";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongOffset> = "Song Offset";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongDemoStartTime> = "Song Demo Start";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongFileName> = "Song File";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongJacket> = "Song Jacket";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongVolume> = "Song Volume";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SoundEffectVolume> = "Sound Effect Volume";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::BackgroundImageFileName> = "Background Image";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::BackgroundMovieFileName> = "Background Movie";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::MovieOffset> = "Movie Offset";
 
 	// NOTE: Chart Space -> Starting at 00:00.000 (as most internal calculations are done in)
 	//		  Song Space -> Starting relative to Song Offset (sometimes useful for displaying to the user)
