@@ -2508,6 +2508,12 @@ namespace PeepoDrumKit
 
 		if (Gui::CollapsingHeader(UI_Str("DETAILS_LYRICS_EDIT_LINE"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			b8 isAnyItemOtherThanLyricsSelected = false;
+			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
+			{
+				if (it.List != GenericList::Lyrics) isAnyItemOtherThanLyricsSelected = true;
+			});
+
 			const Beat cursorBeat = FloorBeatToGrid(context.GetCursorBeat(), GetGridBeatSnap(timeline.CurrentGridBarDivision));
 			const LyricChange* lyricChangeAtCursor = context.ChartSelectedCourse->Lyrics.TryFindLastAtBeat(cursorBeat);
 			Gui::BeginDisabled(cursorBeat.Ticks < 0);
@@ -2565,9 +2571,14 @@ namespace PeepoDrumKit
 						context.Undo.Execute<Commands::RemoveLyricChange>(&course.Lyrics, cursorBeat);
 				}
 			}
-			Gui::PopID();
-
 			Gui::EndDisabled();
+
+			Gui::BeginDisabled(!isAnyItemOtherThanLyricsSelected);
+			if (Gui::Button(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), vec2(-1.0f, 0.0f)))
+				timeline.ExecuteConvertSelectionToEvents<GenericList::Lyrics>(context);
+			Gui::EndDisabled();
+
+			Gui::PopID();
 		}
 	}
 }
