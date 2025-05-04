@@ -88,31 +88,31 @@ struct TimeSignature
 
 constexpr b8 IsTimeSignatureSupported(TimeSignature v) { return (v.Numerator != 0 && v.Denominator > 0) && (Beat::FromBars(1).Ticks % v.Denominator) == 0; }
 
-struct TempoChange
-{
-	constexpr TempoChange() = default;
-	constexpr TempoChange(Beat beat, Tempo tempo) : Beat(beat), Tempo(tempo) {}
+// NOTE: Defined within PeepoDrumKit for making the Get/SetBeat() and other access functions accessible
+namespace PeepoDrumKit {
+	struct TempoChange
+	{
+		constexpr TempoChange() = default;
+		constexpr TempoChange(Beat beat, Tempo tempo) : Beat(beat), Tempo(tempo) {}
 
-	Beat Beat = {};
-	Tempo Tempo = {};
-	b8 IsSelected = false;
-};
+		Beat Beat = {};
+		Tempo Tempo = {};
+		b8 IsSelected = false;
+	};
 
-struct TimeSignatureChange
-{
-	constexpr TimeSignatureChange() = default;
-	constexpr TimeSignatureChange(Beat beat, TimeSignature signature) : Beat(beat), Signature(signature) {}
+	struct TimeSignatureChange
+	{
+		constexpr TimeSignatureChange() = default;
+		constexpr TimeSignatureChange(Beat beat, TimeSignature signature) : Beat(beat), Signature(signature) {}
 
-	Beat Beat = {};
-	TimeSignature Signature = {};
-	b8 IsSelected = false;
-};
+		Beat Beat = {};
+		TimeSignature Signature = {};
+		b8 IsSelected = false;
+	};
+}
 
-// NOTE: Beat accessor function specifically to be used inside templates without coupling to a specific struct member name
-constexpr Beat GetBeat(const TimeSignatureChange& v) { return v.Beat; }
-constexpr Beat GetBeat(const TempoChange& v) { return v.Beat; }
-constexpr Beat GetBeatDuration(const TimeSignatureChange& v) { return Beat::Zero(); }
-constexpr Beat GetBeatDuration(const TempoChange& v) { return Beat::Zero(); }
+using PeepoDrumKit::TempoChange;
+using PeepoDrumKit::TimeSignatureChange;
 
 template <typename T>
 struct BeatSortedForwardIterator
@@ -126,6 +126,8 @@ struct BeatSortedForwardIterator
 template <typename T>
 struct BeatSortedList
 {
+	using value_type = T;
+
 	std::vector<T> Sorted;
 
 public:
@@ -141,7 +143,7 @@ public:
 	T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
 	const T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
 
-	void InsertOrUpdate(T valueToInsertOrUpdate);
+	size_t InsertOrUpdate(T valueToInsertOrUpdate);
 	void RemoveAtBeat(Beat beatToFindAndRemove);
 	void RemoveAtIndex(size_t indexToRemove);
 
@@ -361,8 +363,9 @@ inline b8 ValidateIsSortedByBeat(const BeatSortedList<T>& sortedList)
 	return std::is_sorted(sortedList.begin(), sortedList.end(), [](const T& a, const T& b) { return GetBeat(a) < GetBeat(b); });
 }
 
+// return the insertion or update index
 template <typename T>
-void BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
+size_t BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
 {
 	const size_t insertionIndex = LinearlySearchForInsertionIndex(*this, GetBeat(valueToInsertOrUpdate));
 	if (InBounds(insertionIndex, Sorted))
@@ -381,6 +384,8 @@ void BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
 	assert(GetBeat(valueToInsertOrUpdate).Ticks >= 0);
 	assert(ValidateIsSortedByBeat(*this));
 #endif
+
+	return insertionIndex;
 }
 
 template <typename T>

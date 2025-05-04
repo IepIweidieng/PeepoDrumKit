@@ -4,6 +4,8 @@
 #include "chart_editor_i18n.h"
 #include "core_build_info.h"
 
+#include <map>
+
 // TODO: Populate char[U8Max] lookup table using provided flags and index into instead of using a switch (?)
 enum class EscapeSequenceFlags : u32 { NewLines };
 
@@ -976,7 +978,7 @@ namespace PeepoDrumKit
 				{
 					if (out.AvailableMembers & EnumToFlag(member))
 					{
-						const b8 success = TryGetGeneric(course, it.List, it.Index, member, out.MemberValues[member]);
+						const b8 success = TryGet(course, it.List, it.Index, member, out.MemberValues[member]);
 						assert(success);
 					}
 				}
@@ -1122,11 +1124,10 @@ namespace PeepoDrumKit
 								Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_FrameBgActive));
 								if (Gui::Button(buttonName, vec2(-1.0f, 0.0f)))
 								{
-									const GenericMemberUnion unselectedValue = {};
 									for (const auto& selectedItem : SelectedItems)
 									{
 										if (selectedItem.List != list)
-											TrySetGeneric(course, selectedItem.List, selectedItem.Index, GenericMember::B8_IsSelected, unselectedValue);
+											TrySet<GenericMember::B8_IsSelected>(course, selectedItem.List, selectedItem.Index, false);
 									}
 								}
 								Gui::PopStyleColor(3);
@@ -1953,6 +1954,74 @@ namespace PeepoDrumKit
 		}
 	}
 
+	template <typename TValue, typename... TLables>
+	static b8 GuiEnumLikeButtons(cstr labelGroup, TValue* currentValue, TLables... labelNames)
+	{
+		b8 valueChanged = false;
+
+		cstr labels[] = { labelNames... };
+
+		Gui::PushID(labelGroup);
+		Gui::SameLineMultiWidget(std::size(labels), [&](const Gui::MultiWidgetIt& i)
+		{
+			const f32 alphaFactor = (i.Index == static_cast<i32>(*currentValue)) ? 1.0f : 0.5f;
+			Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, alphaFactor));
+			Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, alphaFactor));
+			Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, alphaFactor));
+			if (Gui::Button(labels[i.Index], { Gui::CalcItemWidth(), 0.0f })) {
+				*currentValue = static_cast<TValue>(i.Index);
+				valueChanged = true;
+			}
+			Gui::PopStyleColor(3);
+			return false;
+		});
+		Gui::PopID();
+		return valueChanged;
+	}
+
+	static std::map<std::tuple<SprID, u32, float, float, float, float>, ImImageQuad> sprImageQuadCache = {};
+	// [{sprite_id, tint_col, uv0.x, uv0.y, uv1.x, uv1.y}] = quad;
+	// Cannot use std::unordered_map because std::hash<std::tuple<...>> is not defined.
+	static i32 sprImageGuiScaleCache = GuiScaleFactorCurrent;
+
+	static bool SpriteButton(const char* tooltip_key, ChartContext& context, SprID sprite_id, const ImVec2& button_size,
+		const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1),
+		const ImVec4& bg_col = ImVec4(0, 0, 0, 0), const ImVec4& tint_col = ImVec4(1, 1, 1, 1))
+	{
+		if (GuiScaleFactorCurrent != sprImageGuiScaleCache) {
+			sprImageQuadCache.clear(); // remove invalidated textures
+		}
+
+		u32 u32_tint_col = Gui::ColorConvertFloat4ToU32(tint_col);
+		ImImageQuad& quad = sprImageQuadCache[{sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y}];
+		ImTextureID tex_id = quad.TexID;
+		if (tex_id == 0) {
+			if (context.Gfx.GetImageQuad(quad, sprite_id, { {0, 0}, {0, 0}, {1, 1,}, 0 }, u32_tint_col, &SprUV::FromRect(uv0, uv1))) {
+				tex_id = quad.TexID;
+			} else {
+				sprImageQuadCache.erase({ sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y });
+				tex_id = 0;
+			}
+		}
+
+		bool res;
+		if (tex_id == 0) {
+			res = Gui::Button(tooltip_key, button_size);
+		} else {
+			ImVec2 image_size = { button_size.x - 2 * Gui::GetStyle().FramePadding.x, button_size.y - 2 * Gui::GetStyle().FramePadding.y };
+			res = Gui::ImageButton(tooltip_key, tex_id, image_size, uv0, uv1, bg_col, tint_col);
+		}
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
+			ImGui::SetTooltip(tooltip_key);
+		}
+		return res;
+	}
+
+	static float getInsertButtonWidth()
+	{
+		return std::max(1.0f, ImGui::GetContentRegionAvail().x - 1 - Gui::GetStyle().ItemInnerSpacing.x - Gui::GetFrameHeight());
+	}
+
 	void ChartTempoWindow::DrawGui(ChartContext& context, ChartTimeline& timeline)
 	{
 		Gui::UpdateSmoothScrollWindow();
@@ -2035,11 +2104,13 @@ namespace PeepoDrumKit
 		if (Gui::CollapsingHeader(UI_Str("DETAILS_CHART_EVENT_EVENTS"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			b8 isAnyItemOtherThanNotesSelected = false;
-			b8 isAnyItemOtherThanScrollChangesSelected = false;
+			b8 isAnyItemNotInListSelected[EnumCount<GenericList>] = {}; // all false
 			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
 			{
 				if (!IsNotesList(it.List)) isAnyItemOtherThanNotesSelected = true;
-				if (it.List != GenericList::ScrollChanges) isAnyItemOtherThanScrollChangesSelected = true;
+				for (GenericList list = {}; list != GenericList::Count; IncrementEnum(list)) {
+					if (it.List != list) isAnyItemNotInListSelected[EnumToIndex(list)] = true;
+				}
 			});
 
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
@@ -2056,10 +2127,10 @@ namespace PeepoDrumKit
 				const Beat cursorBeat = FloorBeatToGrid(context.GetCursorBeat(), GetGridBeatSnap(timeline.CurrentGridBarDivision));
 				// NOTE: Specifically to prevent ugly "flashing" between add/remove labels during playback
 				const b8 disallowRemoveButton = (cursorBeat.Ticks < 0) || context.GetIsPlayback();
-				Gui::BeginDisabled(disableWidgetsBeacuseOfSelection || cursorBeat.Ticks < 0);
+				const b8 disableEditingAtPlayCursor = disableWidgetsBeacuseOfSelection || (cursorBeat.Ticks < 0);
 
 				const TempoChange* tempoChangeAtCursor = course.TempoMap.Tempo.TryFindLastAtBeat(cursorBeat);
-				const Tempo tempoAtCursor = (tempoChangeAtCursor != nullptr) ? tempoChangeAtCursor->Tempo : FallbackTempo;
+				const Tempo tempoAtCursor = (tempoChangeAtCursor != nullptr) ? tempoChangeAtCursor->Tempo : FallbackEvent<TempoChange>.Tempo;
 				auto insertOrUpdateCursorTempoChange = [&](Tempo newTempo)
 				{
 					if (tempoChangeAtCursor == nullptr || tempoChangeAtCursor->Beat != cursorBeat)
@@ -2070,12 +2141,15 @@ namespace PeepoDrumKit
 
 				Gui::Property::Property([&]
 				{
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
 					if (f32 v = tempoAtCursor.BPM; GuiDragLabelFloat(UI_Str("EVENT_TEMPO"), &v, 1.0f, MinBPM, MaxBPM, ImGuiSliderFlags_AlwaysClamp))
 						insertOrUpdateCursorTempoChange(Tempo(v));
+					Gui::EndDisabled();
 				});
 				Gui::Property::Value([&]
 				{
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
 					if (f32 v = tempoAtCursor.BPM; Gui::SpinFloat("##TempoAtCursor", &v, 1.0f, 10.0f, "%g BPM", ImGuiInputTextFlags_None))
 						insertOrUpdateCursorTempoChange(Tempo(Clamp(v, MinBPM, MaxBPM)));
@@ -2083,21 +2157,29 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.TempoMap.Tempo);
 					if (!disallowRemoveButton && tempoChangeAtCursor != nullptr && tempoChangeAtCursor->Beat == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveTempoChange>(&course.TempoMap, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 							insertOrUpdateCursorTempoChange(tempoAtCursor);
 					}
+					Gui::EndDisabled();
+
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::TempoChanges)]);
+					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						timeline.ExecuteConvertSelectionToEvents<GenericList::TempoChanges>(context);
+					Gui::EndDisabled();
+
 					Gui::PopID();
 				});
 
 				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_TIME_SIGNATURE"), [&]
 				{
 					const TimeSignatureChange* signatureChangeAtCursor = course.TempoMap.Signature.TryFindLastAtBeat(cursorBeat);
-					const TimeSignature signatureAtCursor = (signatureChangeAtCursor != nullptr) ? signatureChangeAtCursor->Signature : FallbackTimeSignature;
+					const TimeSignature signatureAtCursor = (signatureChangeAtCursor != nullptr) ? signatureChangeAtCursor->Signature : FallbackEvent<TimeSignatureChange>.Signature;
 					auto insertOrUpdateCursorSignatureChange = [&](TimeSignature newSignature)
 					{
 						// TODO: Also floor cursor beat to next whole bar (?)
@@ -2107,6 +2189,7 @@ namespace PeepoDrumKit
 							context.Undo.Execute<Commands::UpdateTimeSignatureChange>(&course.TempoMap, TimeSignatureChange(cursorBeat, newSignature));
 					};
 
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
 					if (ivec2 v = { signatureAtCursor.Numerator, signatureAtCursor.Denominator };
 						GuiInputFraction("##SignatureAtCursor", &v, ivec2(MinTimeSignatureValue, MaxTimeSignatureValue), 1, 4, !IsTimeSignatureSupported(signatureAtCursor) ? &InputTextWarningTextColor : nullptr))
@@ -2115,18 +2198,27 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.TempoMap.Signature);
 					if (!disallowRemoveButton && signatureChangeAtCursor != nullptr && signatureChangeAtCursor->Beat == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveTimeSignatureChange>(&course.TempoMap, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 							insertOrUpdateCursorSignatureChange(signatureAtCursor);
 					}
+					Gui::EndDisabled();
+
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::SignatureChanges)]);
+					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						timeline.ExecuteConvertSelectionToEvents<GenericList::SignatureChanges>(context);
+					Gui::EndDisabled();
+
 					Gui::PopID();
 				});
 
 				const ScrollChange* scrollChangeChangeAtCursor = course.ScrollChanges.TryFindLastAtBeat(cursorBeat);
+				const Complex scrollSpeedAtCursor = (scrollChangeChangeAtCursor != nullptr) ? scrollChangeChangeAtCursor->ScrollSpeed : FallbackEvent<ScrollChange>.ScrollSpeed;
 				auto insertOrUpdateCursorScrollSpeedChange = [&](Complex newScrollSpeed)
 				{
 					if (scrollChangeChangeAtCursor == nullptr || scrollChangeChangeAtCursor->BeatTime != cursorBeat)
@@ -2137,30 +2229,32 @@ namespace PeepoDrumKit
 
 				Gui::Property::Property([&]
 				{
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
-					if (Complex v = (scrollChangeChangeAtCursor == nullptr) ? Complex(1.0f, 0.0f) : scrollChangeChangeAtCursor->ScrollSpeed;
-						GuiDragLabelFloat(UI_Str("EVENT_SCROLL_SPEED"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
+					if (Complex v = scrollSpeedAtCursor; GuiDragLabelFloat(UI_Str("EVENT_SCROLL_SPEED"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
 						insertOrUpdateCursorScrollSpeedChange(v);
+					Gui::EndDisabled();
 				});
 				Gui::Property::Value([&]
 				{
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f); Gui::SameLineMultiWidget(3, [&](const Gui::MultiWidgetIt& i)
 					{
 						if (i.Index == 0)
 						{
-							if (Complex v = (scrollChangeChangeAtCursor == nullptr)? Complex(1.0f, 0.0f): scrollChangeChangeAtCursor->ScrollSpeed;
+							if (Complex v = scrollSpeedAtCursor;
 								Gui::SpinFloat("##ScrollSpeedAtCursor", &reinterpret_cast<f32*>(&(v.cpx))[0], 0.1f, 0.5f, "%gx"))
 								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
 						}
 						else if (i.Index == 1)
 						{
-							if (Complex v = (scrollChangeChangeAtCursor == nullptr) ? Complex(1.0f, 0.0f) : scrollChangeChangeAtCursor->ScrollSpeed;
+							if (Complex v = scrollSpeedAtCursor;
 								Gui::SpinFloat("##ScrollSpeedAtCursorImag", &reinterpret_cast<f32*>(&(v.cpx))[1], 0.1f, 0.5f, "%gix"))
 								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
 						}
 						else
 						{
-							if (f32 v = ScrollSpeedToTempo((scrollChangeChangeAtCursor == nullptr) ? 1.0f : scrollChangeChangeAtCursor->ScrollSpeed.GetRealPart(), tempoAtCursor).BPM;
+							if (f32 v = ScrollSpeedToTempo(scrollSpeedAtCursor.GetRealPart(), tempoAtCursor).BPM;
 								Gui::SpinFloat("##ScrollTempoAtCursor", &v, 1.0f, 10.0f, "%g BPM"))
 								insertOrUpdateCursorScrollSpeedChange(Complex(ScrollTempoToSpeed(Tempo(Clamp(v, MinBPM, MaxBPM)), tempoAtCursor), 0.0f));
 						}
@@ -2170,14 +2264,22 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.ScrollChanges);
 					if (!disallowRemoveButton && scrollChangeChangeAtCursor != nullptr && scrollChangeChangeAtCursor->BeatTime == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveScrollChange>(&course.ScrollChanges, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
-							insertOrUpdateCursorScrollSpeedChange((scrollChangeChangeAtCursor != nullptr) ? scrollChangeChangeAtCursor->ScrollSpeed : Complex(1.0f, 0.0f));
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+							insertOrUpdateCursorScrollSpeedChange(scrollSpeedAtCursor);
 					}
+					Gui::EndDisabled();
+
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::ScrollChanges)]);
+					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						timeline.ExecuteConvertSelectionToEvents<GenericList::ScrollChanges>(context);
+					Gui::EndDisabled();
+
 					Gui::PopID();
 				});
 
@@ -2192,37 +2294,30 @@ namespace PeepoDrumKit
 							context.Undo.Execute<Commands::UpdateBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newIsVisible });
 					};
 
-					static constexpr auto guiOnOffButton = [](cstr label, cstr onLabel, cstr offLabel, b8* inOutIsOn) -> b8
-					{
-						b8 valueChanged = false;
-						Gui::PushID(label); Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
-						{
-							const f32 alphaFactor = ((i.Index == 0) == *inOutIsOn) ? 1.0f : 0.5f;
-							Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, alphaFactor));
-							Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, alphaFactor));
-							Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, alphaFactor));
-							if (Gui::Button((i.Index == 0) ? onLabel : offLabel, { Gui::CalcItemWidth(), 0.0f })) { *inOutIsOn = (i.Index == 0); valueChanged = true; }
-							Gui::PopStyleColor(3);
-							return false;
-						});
-						Gui::PopID(); return valueChanged;
-					};
-
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
-					if (b8 v = (barLineChangeAtCursor == nullptr) ? true : barLineChangeAtCursor->IsVisible; guiOnOffButton("##OnOffBarLineAtCursor", UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN"), &v))
+					if (b8 v = (barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : FallbackEvent<BarLineChange>.IsVisible; GuiEnumLikeButtons("##OnOffBarLineAtCursor", &v, UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN")))
 						insertOrUpdateCursorBarLineChange(v);
 
 					Gui::PushID(&course.BarLineChanges);
 					if (!disallowRemoveButton && barLineChangeAtCursor != nullptr && barLineChangeAtCursor->BeatTime == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveBarLineChange>(&course.BarLineChanges, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
-							insertOrUpdateCursorBarLineChange((barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : true);
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+							insertOrUpdateCursorBarLineChange((barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : FallbackEvent<BarLineChange>.IsVisible);
 					}
+					Gui::EndDisabled();
+
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::BarLineChanges)]);
+					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						timeline.ExecuteConvertSelectionToEvents<GenericList::BarLineChanges>(context);
+					Gui::EndDisabled();
+
 					Gui::PopID();
 				});
 
@@ -2237,45 +2332,36 @@ namespace PeepoDrumKit
 								context.Undo.Execute<Commands::UpdateScrollType>(&course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
 						};
 
-						static constexpr auto guiOnOffButton = [](cstr label, cstr nmLabel, cstr hbLabel, cstr bmLabel, ScrollMethod* currentMethod) -> b8
-						{
-							b8 valueChanged = false;
-
-							cstr labels[3] = {nmLabel, hbLabel, bmLabel};
-							
-
-							Gui::PushID(label); Gui::SameLineMultiWidget(3, [&](const Gui::MultiWidgetIt& i)
-								{
-									const f32 alphaFactor = (i.Index == static_cast<i32>(*currentMethod)) ? 1.0f : 0.5f;
-									Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, alphaFactor));
-									Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, alphaFactor));
-									Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, alphaFactor));
-									if (Gui::Button(labels[i.Index], { Gui::CalcItemWidth(), 0.0f })) { *currentMethod = static_cast<ScrollMethod>(i.Index); valueChanged = true; }
-									Gui::PopStyleColor(3);
-									return false;
-								});
-							Gui::PopID(); return valueChanged;
-						};
-
+						Gui::BeginDisabled(disableEditingAtPlayCursor);
 						Gui::SetNextItemWidth(-1.0f);
-						if (ScrollMethod v = (ScrollTypeAtCursor == nullptr) ? ScrollMethod::NMSCROLL : ScrollTypeAtCursor->Method; guiOnOffButton("##ScrollTypeAtCursor", UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL"), &v))
+						if (ScrollMethod v = (ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : FallbackEvent<ScrollType>.Method; GuiEnumLikeButtons("##ScrollTypeAtCursor", &v, UI_Str("SCROLL_TYPE_NMSCROLL"), UI_Str("SCROLL_TYPE_HBSCROLL"), UI_Str("SCROLL_TYPE_BMSCROLL")))
 							insertOrUpdateCursorScrollType(v);
 
 						Gui::PushID(&course.ScrollTypes);
 						if (!disallowRemoveButton && ScrollTypeAtCursor != nullptr && ScrollTypeAtCursor->BeatTime == cursorBeat)
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
+							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 								context.Undo.Execute<Commands::RemoveScrollType>(&course.ScrollTypes, cursorBeat);
 						}
 						else
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
-								insertOrUpdateCursorScrollType((ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : ScrollMethod::NMSCROLL);
+							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+								insertOrUpdateCursorScrollType((ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : FallbackEvent<ScrollType>.Method);
 						}
+						Gui::EndDisabled();
+
+						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+						Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::ScrollType)]);
+						if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+							timeline.ExecuteConvertSelectionToEvents<GenericList::ScrollType>(context);
+						Gui::EndDisabled();
+
 						Gui::PopID();
 				});
 
 				const JPOSScrollChange* JPOSScrollChangeAtCursor = course.JPOSScrollChanges.TryFindLastAtBeat(cursorBeat);
+				const Complex JPOSScrollMoveAtCursor = (JPOSScrollChangeAtCursor != nullptr) ? JPOSScrollChangeAtCursor->Move : FallbackEvent<JPOSScrollChange>.Move;
+				const f32 JPOSScrollDurationAtCursor = (JPOSScrollChangeAtCursor != nullptr) ? JPOSScrollChangeAtCursor->Duration : FallbackEvent<JPOSScrollChange>.Duration;
 				auto insertOrUpdateCursorJPOSScrollChange = [&](Complex newMove, f32 newDuration)
 				{
 					if (JPOSScrollChangeAtCursor == nullptr || JPOSScrollChangeAtCursor->BeatTime != cursorBeat)
@@ -2286,58 +2372,65 @@ namespace PeepoDrumKit
 
 				Gui::Property::Property([&]
 					{
+						Gui::BeginDisabled(disableEditingAtPlayCursor);
 						Gui::SetNextItemWidth(-1.0f);
-						if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+						if (Complex v = JPOSScrollMoveAtCursor;
 							GuiDragLabelFloat(UI_Str("EVENT_JPOS_SCROLL"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.5f, MinJPOSScrollMove, MaxJPOSScrollMove, ImGuiSliderFlags_AlwaysClamp))
-							insertOrUpdateCursorJPOSScrollChange(v, (JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration);
+							insertOrUpdateCursorJPOSScrollChange(v, JPOSScrollDurationAtCursor);
+						Gui::EndDisabled();
 					});
 				Gui::Property::Value([&]
 					{
+						Gui::BeginDisabled(disableEditingAtPlayCursor);
 						Gui::SetNextItemWidth(-1.0f); Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
 							{
 								if (i.Index == 0)
 								{
-									if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+									if (Complex v = JPOSScrollMoveAtCursor;
 										Gui::SpinFloat("##JPOSScrollMoveAtCursor", &reinterpret_cast<f32*>(&(v.cpx))[0], 1.f, 5.f, "%gpx"))
 										insertOrUpdateCursorJPOSScrollChange(
 											Complex(Clamp(v.GetRealPart(), MinJPOSScrollMove, MaxJPOSScrollMove), Clamp(v.GetImaginaryPart(), MinJPOSScrollMove, MaxJPOSScrollMove)),
-											(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
-										);
+											JPOSScrollDurationAtCursor);
 								}
 								else
 								{
-									if (Complex v = (JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move;
+									if (Complex v = JPOSScrollMoveAtCursor;
 										Gui::SpinFloat("##JPOSScrollMoveCursorImag", &reinterpret_cast<f32*>(&(v.cpx))[1], 1.f, 5.f, "%gipx"))
 										insertOrUpdateCursorJPOSScrollChange(
 											Complex(Clamp(v.GetRealPart(), MinJPOSScrollMove, MaxJPOSScrollMove), Clamp(v.GetImaginaryPart(), MinJPOSScrollMove, MaxJPOSScrollMove)),
-											(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
-										);
+											JPOSScrollDurationAtCursor);
 								}
 								return false;
 							});
 
 						Gui::SetNextItemWidth(-1.0f);
-						if (f32 v = (JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration;
+						if (f32 v = JPOSScrollDurationAtCursor;
 							Gui::SpinFloat("##JPOSScrollDurationAtCursor", &v, .1f, .5f, "%gs"))
 							insertOrUpdateCursorJPOSScrollChange(
-								(JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move,
-								Clamp(v, MinJPOSScrollDuration, MaxJPOSScrollDuration)
+								JPOSScrollMoveAtCursor, Clamp(v, MinJPOSScrollDuration, MaxJPOSScrollDuration)
 							);
 
 						Gui::PushID(&course.JPOSScrollChanges);
 						if (!disallowRemoveButton && JPOSScrollChangeAtCursor != nullptr && JPOSScrollChangeAtCursor->BeatTime == cursorBeat)
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
+							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 								context.Undo.Execute<Commands::RemoveJPOSScroll>(&course.JPOSScrollChanges, cursorBeat);
 						}
 						else
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), vec2(-1.0f, 0.0f)))
+							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 								insertOrUpdateCursorJPOSScrollChange(
-									(JPOSScrollChangeAtCursor == nullptr) ? Complex(100.0f, 0.0f) : JPOSScrollChangeAtCursor->Move,
-									(JPOSScrollChangeAtCursor == nullptr) ? 0.f : JPOSScrollChangeAtCursor->Duration
-								);
+									JPOSScrollMoveAtCursor,
+									JPOSScrollDurationAtCursor);
 						}
+						Gui::EndDisabled();
+
+						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+						Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::JPOSScroll)]);
+						if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+							timeline.ExecuteConvertSelectionToEvents<GenericList::JPOSScroll>(context);
+						Gui::EndDisabled();
+
 						Gui::PopID();
 					});
 
@@ -2349,7 +2442,7 @@ namespace PeepoDrumKit
 
 					Gui::PushID(&course.GoGoRanges);
 					Gui::BeginDisabled(!hasRangeSelection);
-					if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), vec2(-1.0f, 0.0f)))
+					if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), { getInsertButtonWidth(), 0.0f }))
 					{
 						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
 						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
@@ -2364,6 +2457,12 @@ namespace PeepoDrumKit
 					}
 					Gui::EndDisabled();
 
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::GoGoRanges)]);
+					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						timeline.ExecuteConvertSelectionToEvents<GenericList::GoGoRanges>(context);
+					Gui::EndDisabled();
+
 					Gui::BeginDisabled(gogoRangeAtCursor == nullptr);
 					if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 					{
@@ -2371,18 +2470,12 @@ namespace PeepoDrumKit
 							context.Undo.Execute<Commands::RemoveGoGoRange>(&course.GoGoRanges, gogoRangeAtCursor->BeatTime);
 					}
 					Gui::EndDisabled();
+
 					Gui::PopID();
 				});
 
-				Gui::EndDisabled();
-
 				Gui::Property::EndTable();
 			}
-
-			Gui::BeginDisabled(!isAnyItemOtherThanScrollChangesSelected);
-			if (Gui::Button(UI_Str("ACT_EVENT_SELECTION_TO_SCROLL_CHANGES"), vec2(-1.0f, 0.0f)))
-				timeline.ExecuteConvertSelectionToScrollChanges(context);
-			Gui::EndDisabled();
 		}
 	}
 
@@ -2467,6 +2560,12 @@ namespace PeepoDrumKit
 
 		if (Gui::CollapsingHeader(UI_Str("DETAILS_LYRICS_EDIT_LINE"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			b8 isAnyItemOtherThanLyricsSelected = false;
+			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
+			{
+				if (it.List != GenericList::Lyrics) isAnyItemOtherThanLyricsSelected = true;
+			});
+
 			const Beat cursorBeat = FloorBeatToGrid(context.GetCursorBeat(), GetGridBeatSnap(timeline.CurrentGridBarDivision));
 			const LyricChange* lyricChangeAtCursor = context.ChartSelectedCourse->Lyrics.TryFindLastAtBeat(cursorBeat);
 			Gui::BeginDisabled(cursorBeat.Ticks < 0);
@@ -2508,7 +2607,7 @@ namespace PeepoDrumKit
 			if (!IsLyricInputActiveThisFrame && IsLyricInputActiveLastFrame) context.Undo.DisallowMergeForLastCommand();
 
 			Gui::PushID(&course.Lyrics);
-			Gui::SetNextItemWidth(-1.0f);
+			Gui::SetNextItemWidth(getInsertButtonWidth());
 			if (i32 clicked = guiDoubleButton(UI_Str("ACT_EVENT_CLEAR"), UI_Str("ACT_EVENT_REMOVE")); clicked > -1)
 			{
 				if (clicked == 0)
@@ -2524,9 +2623,16 @@ namespace PeepoDrumKit
 						context.Undo.Execute<Commands::RemoveLyricChange>(&course.Lyrics, cursorBeat);
 				}
 			}
-			Gui::PopID();
-
 			Gui::EndDisabled();
+
+			Gui::SetNextItemWidth(-1.0f);
+			Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+			Gui::BeginDisabled(!isAnyItemOtherThanLyricsSelected);
+			if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+				timeline.ExecuteConvertSelectionToEvents<GenericList::Lyrics>(context);
+			Gui::EndDisabled();
+
+			Gui::PopID();
 		}
 	}
 }

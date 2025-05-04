@@ -62,6 +62,13 @@ using cstr = const char*;
 #include <assert.h>
 #include <type_traits>
 
+// NOTE: Example: keep_or_static_cast<T>(value); to be used when T is a template parameter
+struct keep_deduced_t {};
+template <typename T, typename TValue>
+constexpr std::conditional_t<std::is_same_v<T, keep_deduced_t>, TValue, T> keep_or_static_cast(TValue value) {
+	return value;
+}
+
 // NOTE: Example: defer { DoEndOfScopeCleanup(); };
 #ifndef defer
 struct defer_dummy {};
@@ -75,6 +82,42 @@ template <class F> __forceinline deferrer<F> operator*(defer_dummy, F f) { retur
 // NOTE: Example: ForceConsteval<ExampleConstexprHash("example")>
 template <auto ConstexprExpression>
 constexpr auto ForceConsteval = ConstexprExpression;
+
+// Note: Example: ConstevalStrJoined<Str1, Str2>, where each of Str1 and Str2 is a constexpr variable holding a string
+// cannot pass string literals as template argument without much more efforts until C++20
+template <const auto&... Strs>
+constexpr auto StrJoinImpl()
+{
+	constexpr size_t len = (0 + ... + std::string_view(Strs).length());
+	std::array<char, len> arr = {};
+	auto append = [&, i = 0](const auto& s) mutable
+	{
+		for (auto c : s)
+			arr[i++] = c;
+	};
+	(append(std::string_view(Strs)), ...);
+	return arr;
+}
+template <const auto&... Strs>
+constexpr auto ConstevalStrJoinedArr = StrJoinImpl<Strs...>();
+template <const auto&... Strs>
+constexpr std::string_view ConstevalStrJoined = {ConstevalStrJoinedArr<Strs...>.data(), ForceConsteval<ConstevalStrJoinedArr<Strs...>.size()>};
+
+// NOTE: Example: if constexpr (expect_type_v<TTested, TExpected>); to be used where TTested is a template type declaring forwarding-reference parameters
+template <typename TTested, typename TExpected>
+constexpr b8 expect_type_v = std::is_same_v<TExpected, std::remove_cv_t<std::remove_reference_t<TTested>>>;
+
+// NOTE: Example: template <..., expect_type_t<TTested, TExpected>>; for SFINAE (template substitution programming)
+template <typename TTested, typename TExpected>
+using expect_type_t = std::enable_if_t<expect_type_v<TTested, TExpected>, bool>;
+
+// NOTE: Example: remove_member_pointer_t<decltype(member_pointer)>; to be used when the member_pointer is declared as auto type
+template <typename T>
+struct remove_member_pointer { using type = T; };
+template <typename T, typename U>
+struct remove_member_pointer<T U::*> { using type = T; };
+template <typename T>
+using remove_member_pointer_t = typename remove_member_pointer<T>::type;
 
 // NOTE: Specifically to be used with ForEachX(perXFunc) style iterator functions
 enum class ControlFlow : u8 { Break, Continue };
@@ -101,6 +144,24 @@ constexpr __forceinline void IncrementEnum(EnumType& inOutEnum)
 	static_assert(std::is_enum_v<EnumType>);
 	inOutEnum = static_cast<EnumType>(static_cast<std::underlying_type_t<EnumType>>(inOutEnum) + 1);
 }
+
+// NOTE: Template programming helpers
+template <typename EnumType, EnumType... Enums>
+struct enum_sequence {
+	// follow std::integer_sequence<> interface
+	static constexpr std::size_t size() noexcept { return sizeof...(Enums); }
+};
+
+template <typename EnumType, typename IntegerSequenceT>
+struct make_enum_sequence_helper { };
+
+template <typename EnumType, typename UnderlyingType, UnderlyingType... Values>
+struct make_enum_sequence_helper<EnumType, std::integer_sequence<UnderlyingType, Values...>> {
+	using type = enum_sequence<EnumType, static_cast<EnumType>(Values)...>;
+};
+
+template <typename EnumType>
+using make_enum_sequence = typename make_enum_sequence_helper<EnumType, std::make_integer_sequence<std::underlying_type_t<EnumType>, static_cast<std::underlying_type_t<EnumType>>(EnumType::Count)>>::type;
 
 // NOTE: Example: ArrayCount("example_string_literal")
 template <typename ArrayType>

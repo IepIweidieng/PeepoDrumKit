@@ -31,6 +31,8 @@ namespace PeepoDrumKit
 		Timeline_Note_Fuse,
 		Timeline_Note_FuseLong,
 
+		Timeline_Icon_InsertAtSelectedItems,
+
 		Game_Note_Don,
 		Game_Note_DonBig,
 		Game_Note_Ka,
@@ -83,6 +85,8 @@ namespace PeepoDrumKit
 		{ SprID::Timeline_Note_Adlib,				SprGroup::Timeline, u8"assets/graphics/timeline_note_adlib.svg" },
 		{ SprID::Timeline_Note_Fuse,				SprGroup::Timeline, u8"assets/graphics/timeline_note_fuse.svg" },
 		{ SprID::Timeline_Note_FuseLong,			SprGroup::Timeline, u8"assets/graphics/timeline_note_fuse_long.svg" },
+
+		{ SprID::Timeline_Icon_InsertAtSelectedItems,	SprGroup::Timeline, u8"assets/graphics/timeline_icon_insert_at_selected_items.svg" },
 
 		{ SprID::Game_Note_Don,						SprGroup::Game, u8"assets/graphics/game_note_don.svg" },
 		{ SprID::Game_Note_DonBig,					SprGroup::Game, u8"assets/graphics/game_note_don_big.svg" },

@@ -168,7 +168,7 @@ X("DETAILS_EVENTS_SYNC",							"Sync") \
 X("SYNC_CHART_DURATION",							"Chart Duration") \
 X("SYNC_SONG_DEMO_START",							"Song Demo Start") \
 X("SYNC_SONG_OFFSET",								"Song Offset") \
-X("ACT_EVENT_SELECTION_TO_SCROLL_CHANGES",			"Selection to Scroll Changes") \
+X("ACT_EVENT_INSERT_AT_SELECTED_ITEMS",				"Insert at Selected Items") \
 X("ACT_SYNC_SET_CURSOR",							"Set Cursor") \
 X("ACT_EVENT_ADD",									"Add") \
 X("ACT_EVENT_REMOVE",								"Remove") \
