@@ -1996,7 +1996,8 @@ namespace PeepoDrumKit
 		ImImageQuad& quad = sprImageQuadCache[{sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y}];
 		ImTextureID tex_id = quad.TexID;
 		if (tex_id == 0) {
-			if (context.Gfx.GetImageQuad(quad, sprite_id, { {0, 0}, {0, 0}, {1, 1,}, 0 }, u32_tint_col, &SprUV::FromRect(uv0, uv1))) {
+			SprUV quadUV = SprUV::FromRect(uv0, uv1);
+			if (context.Gfx.GetImageQuad(quad, sprite_id, { {0, 0}, {0, 0}, {1, 1,}, 0 }, u32_tint_col, &quadUV)) {
 				tex_id = quad.TexID;
 			} else {
 				sprImageQuadCache.erase({ sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y });
