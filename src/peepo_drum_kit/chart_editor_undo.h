@@ -87,8 +87,8 @@ namespace PeepoDrumKit
 			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
 			AddSingleChartEventBase(ChartCourseListType* map, TEvent newValue) : Map(map), NewValue(newValue) { }
 
-			void Undo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(NewValue)); }
-			void Redo() override { GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); }
+			void Undo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(NewValue)); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
+			void Redo() override { GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
 
 			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
 			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfChartEvent<TEvent>> }; }
@@ -106,8 +106,8 @@ namespace PeepoDrumKit
 			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
 			AddMultipleChartEventsBase(ChartCourseListType* map, std::vector<TEvent> newValues) : Map(map), NewEvents(std::move(newValues)) { }
 
-			void Undo() override { for (const auto& event : NewEvents) GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(event)); }
-			void Redo() override { for (const auto& event : NewEvents) GetEventList<EventList>(*Map).InsertOrUpdate(event); }
+			void Undo() override { for (const auto& event : NewEvents) GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(event)); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
+			void Redo() override { for (const auto& event : NewEvents) GetEventList<EventList>(*Map).InsertOrUpdate(event); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
 			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfChartEvents<TEvent>> }; }
@@ -126,8 +126,8 @@ namespace PeepoDrumKit
 			RemoveSingleChartEventBase(ChartCourseListType* map, TEvent oldValue) : Map(map), OldValue(oldValue) { }
 			RemoveSingleChartEventBase(ChartCourseListType* map, Beat beat) : Map(map), OldValue(*GetEventList<EventList>(*Map).TryFindExactAtBeat(beat)) { assert(GetBeat(OldValue) == beat); }
 
-			void Undo() override { GetEventList<EventList>(*Map).InsertOrUpdate(OldValue); }
-			void Redo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(OldValue)); }
+			void Undo() override { GetEventList<EventList>(*Map).InsertOrUpdate(OldValue); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
+			void Redo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(OldValue)); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
 
 			Undo::MergeResult TryMerge(Command& commandToMerge) override { return Undo::MergeResult::Failed; }
 			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixRemove, DisplayNameOfChartEvent<TEvent>> }; }
@@ -145,8 +145,8 @@ namespace PeepoDrumKit
 			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
 			RemoveMultipleChartEventsBase(ChartCourseListType* map, std::vector<TEvent> oldValues) : Map(map), OldValues(std::move(oldValues)) { }
 
-			void Undo() override { for (TEvent& event : OldValues) GetEventList<EventList>(*Map).InsertOrUpdate(event); }
-			void Redo() override { for (const TEvent& event : OldValues) GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(event)); }
+			void Undo() override { for (TEvent& event : OldValues) GetEventList<EventList>(*Map).InsertOrUpdate(event); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
+			void Redo() override { for (const TEvent& event : OldValues) GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(event)); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
 			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixRemove, DisplayNameOfChartEvents<TEvent>> }; }
@@ -164,8 +164,8 @@ namespace PeepoDrumKit
 			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
 			AddSingleLongEventBase(ChartCourseListType* map, TEvent newValue, std::vector<TEvent> eventsToRemove) : Map(map), NewValue(newValue), EventsToRemove(map, std::move(eventsToRemove)) { }
 
-			void Undo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(NewValue)); EventsToRemove.Undo(); }
-			void Redo() override { EventsToRemove.Redo(); GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); }
+			void Undo() override { GetEventList<EventList>(*Map).RemoveAtBeat(GetBeat(NewValue)); EventsToRemove.Undo(); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
+			void Redo() override { EventsToRemove.Redo(); GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
 			Undo::CommandInfo GetInfo() const override { return { ConstevalStrJoined<ActionPrefixAdd, DisplayNameOfLongChartEvent<TEvent>> }; }
@@ -184,8 +184,8 @@ namespace PeepoDrumKit
 			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
 			UpdateSingleChartEventBase(ChartCourseListType* map, TEvent newValue) : Map(map), NewValue(newValue), OldValue(*GetEventList<EventList>(*Map).TryFindExactAtBeat(GetBeat(newValue))) { assert(GetBeat(newValue) == GetBeat(OldValue)); }
 
-			void Undo() override { GetEventList<EventList>(*Map).InsertOrUpdate(OldValue); }
-			void Redo() override { GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); }
+			void Undo() override { GetEventList<EventList>(*Map).InsertOrUpdate(OldValue); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
+			void Redo() override { GetEventList<EventList>(*Map).InsertOrUpdate(NewValue); if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
 
 			Undo::MergeResult TryMerge(Command& commandToMerge) override
 			{
@@ -213,8 +213,8 @@ namespace PeepoDrumKit
 			constexpr static auto EventList = TempoMapMemberPointer<TEvent>;
 			ReplaceAllChartEventsBase(ChartCourseListType* map, SortedEventsList newValues) : Map(map), NewValues(std::move(newValues)), OldValues(GetEventList<EventList>(*map)) { }
 
-			void Undo() override { GetEventList<EventList>(*Map) = OldValues; }
-			void Redo() override { GetEventList<EventList>(*Map) = NewValues; }
+			void Undo() override { GetEventList<EventList>(*Map) = OldValues; if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
+			void Redo() override { GetEventList<EventList>(*Map) = NewValues; if constexpr (EventList != nullptr) { Map->RebuildAccelerationStructure(); } }
 
 			Undo::MergeResult TryMerge(Command& commandToMerge) override
 			{
@@ -242,42 +242,31 @@ namespace PeepoDrumKit
 		};
 	}
 
-	// NOTE: Tempo map commands
-	namespace Commands
-	{
-		// Generic command wrappers
-		template <typename TCommand>
-		struct InvalidateTempoMapAccelerationStructure : TCommand
-		{
-			using TCommand::TCommand;
-			void Undo() override { TCommand::Undo(); TCommand::Map->RebuildAccelerationStructure(); }
-			void Redo() override { TCommand::Redo(); TCommand::Map->RebuildAccelerationStructure(); }
-		};
-
-		// Specializations and aliases
-
-		using AddTempoChange = AddSingleChartEvent<TempoChange>;
-		using RemoveTempoChange = RemoveSingleChartEvent<TempoChange>;
-		using UpdateTempoChange = UpdateSingleChartEvent<TempoChange>;
-		using AddTimeSignatureChange = AddSingleChartEvent<TimeSignatureChange>;
-		using RemoveTimeSignatureChange = RemoveSingleChartEvent<TimeSignatureChange>;
-		using UpdateTimeSignatureChange = UpdateSingleChartEvent<TimeSignatureChange>;
-	}
-
 	// NOTE: Chart change commands
 	namespace Commands
 	{
 		// Specializations and aliases
+		using AddTempoChange = AddSingleChartEvent<TempoChange>;
+		using RemoveTempoChange = RemoveSingleChartEvent<TempoChange>;
+		using UpdateTempoChange = UpdateSingleChartEvent<TempoChange>;
+		using AddTimeSignatureChange = AddSingleChartEvent<TimeSignatureChange>;
+
+		using RemoveTimeSignatureChange = RemoveSingleChartEvent<TimeSignatureChange>;
+		using UpdateTimeSignatureChange = UpdateSingleChartEvent<TimeSignatureChange>;
+
 		using AddJPOSScroll = AddSingleChartEvent<JPOSScrollChange>;
 		using RemoveJPOSScroll = RemoveSingleChartEvent<JPOSScrollChange>;
 		using UpdateJPOSScroll = UpdateSingleChartEvent<JPOSScrollChange>;
+
 		using AddScrollType = AddSingleChartEvent<ScrollType>;
 		using RemoveScrollType = RemoveSingleChartEvent<ScrollType>;
 		using UpdateScrollType = UpdateSingleChartEvent<ScrollType>;
+
 		using AddScrollChange = AddSingleChartEvent<ScrollChange>;
 		using AddMultipleScrollChanges = AddMultipleChartEvents<ScrollChange>;
 		using RemoveScrollChange = RemoveSingleChartEvent<ScrollChange>;
 		using UpdateScrollChange = UpdateSingleChartEvent<ScrollChange>;
+
 		using AddBarLineChange = AddSingleChartEvent<BarLineChange>;
 		using RemoveBarLineChange = RemoveSingleChartEvent<BarLineChange>;
 
