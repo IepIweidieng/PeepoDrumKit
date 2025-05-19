@@ -2287,17 +2287,18 @@ namespace PeepoDrumKit
 				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_BAR_LINE_VISIBILITY"), [&]
 				{
 					const BarLineChange* barLineChangeAtCursor = course.BarLineChanges.TryFindLastAtBeat(cursorBeat);
-					auto insertOrUpdateCursorBarLineChange = [&](b8 newIsVisible)
+					auto insertOrUpdateCursorBarLineChange = [&](i8 newVisibility)
 					{
 						if (barLineChangeAtCursor == nullptr || barLineChangeAtCursor->BeatTime != cursorBeat)
-							context.Undo.Execute<Commands::AddBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newIsVisible });
+							context.Undo.Execute<Commands::AddBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newVisibility == 0 });
 						else
-							context.Undo.Execute<Commands::UpdateBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newIsVisible });
+							context.Undo.Execute<Commands::UpdateBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newVisibility == 0 });
 					};
 
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
-					if (b8 v = (barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : FallbackEvent<BarLineChange>.IsVisible; GuiEnumLikeButtons("##OnOffBarLineAtCursor", &v, UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN")))
+					b8 isVisible = (barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : FallbackEvent<BarLineChange>.IsVisible;
+					if (i8 v = isVisible ? 0 : 1; GuiEnumLikeButtons("##OnOffBarLineAtCursor", &v, UI_Str("BAR_LINE_VISIBILITY_VISIBLE"), UI_Str("BAR_LINE_VISIBILITY_HIDDEN")))
 						insertOrUpdateCursorBarLineChange(v);
 
 					Gui::PushID(&course.BarLineChanges);
@@ -2309,7 +2310,7 @@ namespace PeepoDrumKit
 					else
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
-							insertOrUpdateCursorBarLineChange((barLineChangeAtCursor != nullptr) ? barLineChangeAtCursor->IsVisible : FallbackEvent<BarLineChange>.IsVisible);
+							insertOrUpdateCursorBarLineChange(isVisible);
 					}
 					Gui::EndDisabled();
 
