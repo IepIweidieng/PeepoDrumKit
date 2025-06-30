@@ -447,7 +447,7 @@ namespace PeepoDrumKit
 	{
 		char buffer[32]; const auto text = std::string_view(buffer, sprintf_s(buffer, "%d", popCount));
 		ImFont* const font = FontLarge_EN;
-		const f32 fontSize = (font->FontSize * scale);
+		const f32 fontSize = (font->LegacySize * scale);
 		const vec2 textSize = font->CalcTextSizeA(fontSize, F32Max, -1.0f, Gui::StringViewStart(text), Gui::StringViewEnd(text));
 		const vec2 textPosition = (center - (textSize * 0.5f)) - vec2(0.0f, 1.0f);
 

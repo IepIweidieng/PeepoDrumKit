@@ -116,8 +116,10 @@ namespace ApplicationHost
 		{
 			for (i32 f = 0; f < EnumCountI32<BuiltInFont>; f++)
 			{
+				ImFont* font = GetBuiltInFont(static_cast<BuiltInFont>(f));
 				it.RectSizes[f] = ivec2(GuiScaleI32_AtTarget(FontBaseSizes[f] + 2) + (iconBorder * 2));
-				it.RectIDs[f] = io.Fonts->AddCustomRectFontGlyph(GetBuiltInFont(static_cast<BuiltInFont>(f)), it.Icon->Codepoint, it.RectSizes[f].x, it.RectSizes[f].y, GuiScale_AtTarget(FontBaseSizes[f] + 3.0f), vec2(2 - iconBorder, -iconBorder));
+				it.RectIDs[f] = io.Fonts->AddCustomRectFontGlyph(font, it.Icon->Codepoint, it.RectSizes[f].x, it.RectSizes[f].y, GuiScale_AtTarget(FontBaseSizes[f] + 3.0f), vec2(2 - iconBorder, -iconBorder));
+				font->GetFontBaked(font->LegacySize)->Glyphs.back().Colored = true; // Don't want to tint bitmap RGB icons
 			}
 		}
 
@@ -129,16 +131,9 @@ namespace ApplicationHost
 
 		for (const BitmapIcon& it : icons)
 		{
-			for (ImFont* font : io.Fonts->Fonts)
-			{
-				// HACK: Don't want to tint bitmap RGB icons and it doesn't look like the CustomRect API exposes this in any other way (?)
-				if (ImFontGlyph* glyph = const_cast<ImFontGlyph*>(font->FindGlyphNoFallback(it.Icon->Codepoint)); glyph != nullptr)
-					glyph->Colored = true;
-			}
-
 			for (i32 f = 0; f < EnumCountI32<BuiltInFont>; f++)
 			{
-				if (const ImFontAtlasCustomRect* customRect = io.Fonts->GetCustomRectByIndex(it.RectIDs[f]); customRect != nullptr)
+				if (ImFontAtlasRect customRect = {}; io.Fonts->GetCustomRect(it.RectIDs[f], &customRect))
 				{
 					const i32 newWidth = it.RectSizes[f].x - (iconBorder * 2);
 					const i32 newHeight = it.RectSizes[f].y - (iconBorder * 2);
@@ -152,7 +147,7 @@ namespace ApplicationHost
 						reinterpret_cast<unsigned char*>(newPixels), newWidth, newHeight, (newWidth * sizeof(u32)), 4);
 
 					for (i32 y = 0; y < newHeight; y++)
-						memcpy(&fontRGBA[(customRect->Y + y + iconBorder) * fontWidth + (customRect->X + iconBorder)], &newPixels[y * newWidth], newWidth * sizeof(u32));
+						memcpy(&fontRGBA[(customRect.y + y + iconBorder) * fontWidth + (customRect.x + iconBorder)], &newPixels[y * newWidth], newWidth * sizeof(u32));
 				}
 			}
 		}
@@ -233,18 +228,24 @@ namespace ApplicationHost
 		auto addFont = [&](i32 fontSizePixels, const ImWchar* glyphRanges, Ownership ownership) -> ImFont*
 		{
 			ImFontConfig fontConfig = {};
+			ImFont* font = nullptr;
 			if (GlobalState.FontFileContent != nullptr)
 			{
 				fontConfig.FontDataOwnedByAtlas = (ownership == Ownership::Move) ? true : false;
 				fontConfig.EllipsisChar = '\0';
 				//sprintf_s(fontConfig.Name, "%.*s, %dpx", FmtStrViewArgs(fontFileName), fontSizePixels);
-				return io.Fonts->AddFontFromMemoryTTF(GlobalState.FontFileContent, static_cast<int>(GlobalState.FontFileContentSize), static_cast<f32>(fontSizePixels), &fontConfig, glyphRanges);
+				font = io.Fonts->AddFontFromMemoryTTF(GlobalState.FontFileContent, static_cast<int>(GlobalState.FontFileContentSize), static_cast<f32>(fontSizePixels), &fontConfig, glyphRanges);
 			}
 			else
 			{
 				fontConfig.SizePixels = static_cast<f32>(fontSizePixels);
-				return io.Fonts->AddFontDefault(&fontConfig);
+				font = io.Fonts->AddFontDefault(&fontConfig);
 			}
+			// TODO: Rework icon embedding to avoid locking in a baked font
+			// Lock in baked font to ensure proper icon embedding
+			font->GetFontBaked(fontSizePixels);
+			font->Flags |= ImFontFlags_LockBakedSizes;
+			return font;
 		};
 
 		const b8 rebuild = !io.Fonts->Fonts.empty();

@@ -48,7 +48,7 @@ namespace ImGui
 			{
 				// HACK: Take from "imgui.cpp -> ImGui::UpdateMouseWheel() -> Vertical Mouse Wheel scrolling"
 				const f32 max_step = window->InnerRect.GetHeight() * 0.67f;
-				const f32 scroll_step = ImFloor(ImMin(5 * window->CalcFontSize(), max_step));
+				const f32 scroll_step = ImTrunc(ImMin(5 * window->FontRefSize, max_step));
 				const f32 wheel_y = ImGui::GetIO().MouseWheel;
 
 				// HACK: Adjust for the scroll amount that was already added by the native imgui scroll handling
