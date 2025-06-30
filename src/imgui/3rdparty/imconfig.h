@@ -150,8 +150,8 @@ enum ImGuiModEx_
 
 /*
 #define IM_VEC4_CLASS_EXTRA                                                     \
-        constexpr ImVec4(const MyVec4& f) : x(f.x), y(f.y), z(f.z), w(f.w) {}   \
-        operator MyVec4() const { return MyVec4(x,y,z,w); }
+		constexpr ImVec4(const MyVec4& f) : x(f.x), y(f.y), z(f.z), w(f.w) {}   \
+		operator MyVec4() const { return MyVec4(x,y,z,w); }
 */
 //---- ...Or use Dear ImGui's own very basic math operators.
 //#define IMGUI_DEFINE_MATH_OPERATORS
@@ -180,6 +180,6 @@ enum ImGuiModEx_
 /*
 namespace ImGui
 {
-    void MyFunction(const char* name, MyMatrix44* mtx);
+	void MyFunction(const char* name, MyMatrix44* mtx);
 }
 */
