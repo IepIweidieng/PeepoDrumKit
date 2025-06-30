@@ -130,6 +130,7 @@ static constexpr ImGuiKeyInfo NamedImGuiKeyInfoTable[] =
 	{ ImGuiKey_KeypadEqual,		"KeypadEqual", "Keypad Equal", },
 	{ ImGuiKey_AppBack,		"AppBack", "App Back", },
 	{ ImGuiKey_AppForward,		"AppForward", "App Forward", },
+	{ ImGuiKey_Oem102,			"Oem102", "OEM 102", },
 
 	{ ImGuiKey_GamepadStart,		"GamepadStart", "Gamepad Start", },              // Menu (Xbox)          + (Switch)   Start/Options (PS) // --
 	{ ImGuiKey_GamepadBack,			"GamepadBack", "Gamepad Back", },                // View (Xbox)          - (Switch)   Share (PS)         // --
