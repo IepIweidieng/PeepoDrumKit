@@ -466,18 +466,18 @@ namespace PeepoDrumKit
 
 		Gui::UpdateSmoothScrollWindow();
 
-		Gui::PushFont(FontLarge_EN);
+		Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 		{
 			// Header with current version
 			{
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenDark);
-				Gui::PushFont(FontLarge_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 				Gui::TextUnformatted("Update Notes");
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenBright);
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::Text("Current version: %s", BuildInfo::CurrentVersion());
 				Gui::Separator();
 				Gui::PopFont();
@@ -487,7 +487,7 @@ namespace PeepoDrumKit
 			// Update Log wrapper
 			{
 				Gui::PushStyleColor(ImGuiCol_Text, colors.RedDark);
-				Gui::PushFont(FontLarge_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 				Gui::TextUnformatted("Update Logs:");
 				Gui::PopFont();
 				Gui::PopStyleColor();
@@ -495,11 +495,11 @@ namespace PeepoDrumKit
 				// v1.1
 				{
 					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
-					Gui::PushFont(FontMedium_EN);
+					Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 					Gui::TextUnformatted("v1.1");
 					Gui::PopFont();
 
-					Gui::PushFont(FontMain_CJKV);
+					Gui::PushFont(FontCJKV, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 					Gui::TextUnformatted("- Add support for #HBSCROLL and #BMSCROLL methods");
 					Gui::TextUnformatted("- Add support for the #JPOSSCROLL gimmick");
 					Gui::TextUnformatted("- Add support for complex #SCROLL changes (y axis)");
@@ -516,11 +516,11 @@ namespace PeepoDrumKit
 				// v1.0
 				{
 					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
-					Gui::PushFont(FontMedium_EN);
+					Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 					Gui::TextUnformatted("v1.0");
 					Gui::PopFont();
 
-					Gui::PushFont(FontMain_CJKV);
+					Gui::PushFont(FontCJKV, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 					Gui::TextUnformatted("- Add support for the Bomb (C) note");
 					Gui::TextUnformatted("- Add support for the Fuseroll (D) note");
 					Gui::TextUnformatted("- Add support for the ADLib (F) note");
@@ -565,21 +565,21 @@ namespace PeepoDrumKit
 
 		Gui::UpdateSmoothScrollWindow();
 
-		Gui::PushFont(FontLarge_EN);
+		Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 		{
 			// Header with chart main information
 			{
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenDark);
-				Gui::PushFont(FontLarge_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 				Gui::TextUnformatted("Chart Stats");
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenBright);
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::Text("%s", chart.ChartTitle.Base().c_str());
 				Gui::PopFont();
-				Gui::PushFont(FontMain_CJKV);
+				Gui::PushFont(FontCJKV, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 				Gui::Text("%s", trimPrefix(chart.ChartSubtitle.Base()).c_str());
 				Gui::Text("Charter: %s", course.CourseCreator.c_str());
 				Gui::Text("%s Lv.%d", UI_StrRuntime(DifficultyTypeNames[(int)course.Type]), course.Level);
@@ -602,12 +602,12 @@ namespace PeepoDrumKit
 				f64 _density = _maxCombo / chart.ChartDuration.Seconds;
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.RedDark);
-				Gui::PushFont(FontLarge_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 				Gui::Text("Max Combo: %d", _maxCombo);
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.RedDark);
 				Gui::Text("Density: %.3f hit/s", _density);
@@ -676,17 +676,17 @@ namespace PeepoDrumKit
 		Gui::UpdateSmoothScrollWindow();
 
 		// TODO: Maybe use .md markup language to write instructions (?) (how feasable would it be to integrate peepo emotes inbetween text..?)
-		Gui::PushFont(FontLarge_EN);
+		Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 		{
 			{
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenDark);
-				Gui::PushFont(FontLarge_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 				Gui::TextUnformatted("Welcome to Peepo Drum Kit (Unofficial fork)");
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenBright);
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::TextWrapped("Things are still very much WIP and subject to change with some features still missing " UTF8_FeelsOkayMan);
 				Gui::Separator();
 				Gui::TextUnformatted("");
@@ -696,13 +696,13 @@ namespace PeepoDrumKit
 
 			{
 				Gui::PushStyleColor(ImGuiCol_Text, colors.RedDark);
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::TextUnformatted("Basic Controls:");
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
-				Gui::PushFont(FontMain_CJKV);
+				Gui::PushFont(FontCJKV, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 				if (Gui::BeginTable("ControlsTable", 2, ImGuiTableFlags_BordersInner | ImGuiTableFlags_NoSavedSettings))
 				{
 					static constexpr auto row = [&](auto funcLeft, auto funcRight)
@@ -756,7 +756,7 @@ namespace PeepoDrumKit
 			}
 
 			{
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::PushStyleColor(ImGuiCol_Text, colors.WhiteDark);
 				Gui::TextUnformatted("");
 				Gui::TextUnformatted("About reading and writing TJAs:");
@@ -806,7 +806,7 @@ namespace PeepoDrumKit
 
 		if (Gui::BeginTable("UndoHistoryTable", 2, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, Gui::GetContentRegionAvail()))
 		{
-			Gui::PushFont(FontMedium_EN);
+			Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 			Gui::TableSetupScrollFreeze(0, 1);
 			Gui::TableSetupColumn(UI_Str("UNDO_HISTORY_DESCRIPTION"), ImGuiTableColumnFlags_None);
 			Gui::TableSetupColumn(UI_Str("UNDO_HISTORY_TIME"), ImGuiTableColumnFlags_None);
@@ -883,7 +883,7 @@ namespace PeepoDrumKit
 			const b8 resetPressed = windowFocused && Gui::IsAnyPressed(*Settings.Input.TempoCalculator_Reset, false);
 			const b8 resetDown = windowFocused && Gui::IsAnyDown(*Settings.Input.TempoCalculator_Reset);
 
-			Gui::PushFont(FontLarge_EN);
+			Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 			{
 				const Time lastBeatDuration = Time::FromSec(60.0 / Round(Calculator.LastTempo.BPM));
 				const f32 tapBeatLerpT = ImSaturate((Calculator.TapCount == 0) ? 1.0f : static_cast<f32>(Calculator.LastTap.GetElapsed() / lastBeatDuration));
@@ -919,7 +919,7 @@ namespace PeepoDrumKit
 		Gui::PopStyleColor(3);
 		Gui::PopStyleVar(1);
 
-		Gui::PushFont(FontMedium_EN);
+		Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 		if (Gui::BeginTable("Table", 2, ImGuiTableFlags_BordersInner | ImGuiTableFlags_NoSavedSettings, Gui::GetContentRegionAvail()))
 		{
 			cstr formatStrBPM_g = (Calculator.TapCount > 1) ? "%g BPM" : "--.-- BPM";
@@ -1063,7 +1063,7 @@ namespace PeepoDrumKit
 
 			if (SelectedItems.empty())
 			{
-				Gui::PushFont(FontLarge_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Large));
 				Gui::PushItemFlag(ImGuiItemFlags_Disabled, true);
 				Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
 				Gui::PushStyleColor(ImGuiCol_Button, 0x00000000);

@@ -446,8 +446,8 @@ namespace PeepoDrumKit
 	static void DrawTimelineNoteBalloonPopCount(ChartGraphicsResources& gfx, ImDrawList* drawList, vec2 center, f32 scale, i32 popCount)
 	{
 		char buffer[32]; const auto text = std::string_view(buffer, sprintf_s(buffer, "%d", popCount));
-		ImFont* const font = FontLarge_EN;
-		const f32 fontSize = (font->LegacySize * scale);
+		ImFont* const font = FontEN;
+		const f32 fontSize = (FontBaseSizes::Large * scale);
 		const vec2 textSize = font->CalcTextSizeA(fontSize, F32Max, -1.0f, Gui::StringViewStart(text), Gui::StringViewEnd(text));
 		const vec2 textPosition = (center - (textSize * 0.5f)) - vec2(0.0f, 1.0f);
 
@@ -691,7 +691,7 @@ namespace PeepoDrumKit
 		{
 			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
 
-			Gui::PushFont(FontMain_CJKV);
+			Gui::PushFont(FontCJKV, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 			for (size_t i = 0; i < list.size(); i++)
 			{
 				const LyricChange* prevLyric = IndexOrNull(static_cast<i32>(i) - 1, list);
@@ -1026,7 +1026,7 @@ namespace PeepoDrumKit
 
 				// TODO: ...
 				static constexpr f32 buttonAlpha = 0.35f;
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, buttonAlpha));
 				Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, buttonAlpha));
 				Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, buttonAlpha));
@@ -2660,7 +2660,7 @@ namespace PeepoDrumKit
 			const b8 displayTimeInSongSpace = (*Settings.General.DisplayTimeInSongSpace && Absolute(context.Chart.SongOffset.ToMS()) > 0.5);
 			const Time timeLabelDisplayOffset = displayTimeInSongSpace ? -context.Chart.SongOffset : Time::Zero();
 
-			Gui::PushFont(FontMedium_EN);
+			Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 			const Time visibleTimeOverdraw = Camera.TimePerScreenPixel() * (Gui::CalcTextSize("00:00.000").x + Gui::GetFrameHeight());
 			ForEachTimelineVisibleGridLine(*this, context, visibleTimeOverdraw, [&](const ForEachGridLineData& gridIt)
 			{
@@ -2769,7 +2769,7 @@ namespace PeepoDrumKit
 		{
 			const Time visibleTimeOverdraw = Camera.TimePerScreenPixel() * (Gui::GetFrameHeight() * 4.0f);
 			const DrawTimelineContentItemRowParam rowParam = { *this, context, DrawListContent, GetMinMaxVisibleTime(visibleTimeOverdraw), isPlayback, cursorTime, cursorBeatOnPlaybackStart };
-			Gui::PushFont(FontMedium_EN);
+			Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 			ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
 			{
 				// NOTE: Row label text

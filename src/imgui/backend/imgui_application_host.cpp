@@ -73,7 +73,6 @@ namespace ApplicationHost
 	static constexpr u32 Win32WindowBackgroundColor = 0x001F1F1F;
 	static constexpr f32 D3D11SwapChainClearColor[4] = { 0.12f, 0.12f, 0.12f, 1.0f };
 	static constexpr cstr FontFilePath = "assets/NotoSansCJKjp-Regular.otf";
-	static constexpr i32 FontBaseSizes[EnumCount<BuiltInFont>] = { 16, 18, 22 };
 
 	static LRESULT WINAPI MainWindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -521,9 +520,8 @@ namespace ApplicationHost
 		io.FontDefault = nullptr;
 
 		// NOTE: Unfortunately Dear ImGui does not allow avoiding these copies at the moment as far as I can tell (except for maybe some super hacky "inject nullptrs before shutdown")
-		FontMain_CJKV = addFont(GuiScaleI32_AtTarget(FontBaseSizes[0]), GlobalGlyphRanges.CJKV, Ownership::Copy);
-		FontMedium_EN = addFont(GuiScaleI32_AtTarget(FontBaseSizes[1]), GlobalGlyphRanges.EN, Ownership::Copy);
-		FontLarge_EN = addFont(GuiScaleI32_AtTarget(FontBaseSizes[2]), GlobalGlyphRanges.EN, Ownership::Copy);
+		FontCJKV = addFont(GuiScaleI32_AtTarget(FontBaseSizes::Small), GlobalGlyphRanges.CJKV, Ownership::Copy);
+		FontEN = addFont(GuiScaleI32_AtTarget(FontBaseSizes::Medium), GlobalGlyphRanges.EN, Ownership::Copy);
 	}
 
 	static void LoadFontToGlobalState(std::string& fontFilePath)
@@ -565,6 +563,7 @@ namespace ApplicationHost
 
 	static void ImGuiAndUserUpdateThenRenderAndPresentFrame()
 	{
+		// update font and size
 		if (!GlobalIsWindowMinimized && GlobalSwapChainWaitableObject != NULL)
 			::WaitForSingleObjectEx(GlobalSwapChainWaitableObject, 1000, true);
 		
@@ -605,18 +604,22 @@ namespace ApplicationHost
 			if (GuiScaleAnimationElapsed >= GuiScaleAnimationDuration)
 			{
 				IsGuiScaleCurrentlyAnimating = false;
-				GImGui->IO.FontGlobalScale = 1.0f;
+				GImGui->Style.FontScaleMain = 1.0f;
 				GuiScaleFactorCurrent = GuiScaleFactorTarget;
 			}
 			else
 			{
 				const f32 t = (GuiScaleAnimationElapsed / GuiScaleAnimationDuration);
-				const f32 fontSizeCurrent = static_cast<f32>(GuiScaleI32(FontBaseSizes[0]));
-				const f32 fontSizeTarget = static_cast<f32>(GuiScaleI32_AtTarget(FontBaseSizes[0]));
-				GImGui->IO.FontGlobalScale = Lerp(fontSizeCurrent, fontSizeTarget, t) / fontSizeTarget;
+				const f32 fontSizeCurrent = static_cast<f32>(GuiScaleI32(FontBaseSizes::Small));
+				const f32 fontSizeTarget = static_cast<f32>(GuiScaleI32_AtTarget(FontBaseSizes::Small));
+				GImGui->Style.FontScaleMain = fontSizeCurrent / fontSizeTarget;
 				GuiScaleFactorCurrent = Lerp(GuiScaleFactorLastAnimationStart, GuiScaleFactorTarget, t);
 			}
 		}
+
+		// set font and size
+		ImGui::PushFont(FontCJKV, GuiScaleI32_AtTarget(FontBaseSizes::Small));
+		defer { ImGui::PopFont(); };
 
 		ImGui_ImplDX11_NewFrame();
 		ImGui_ImplWin32_NewFrame();

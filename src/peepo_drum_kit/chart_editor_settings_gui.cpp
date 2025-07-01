@@ -176,7 +176,7 @@ namespace PeepoDrumKit
 			addGroupPadding(GuiScale(2.0f));
 			{
 				Gui::AlignTextToFramePadding();
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				GuiTextWithCategoryHighlight(in.Header);
 				Gui::PopFont();
 
@@ -415,7 +415,7 @@ namespace PeepoDrumKit
 			{
 				Gui::UpdateSmoothScrollWindow();
 
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::TableSetupScrollFreeze(0, 1);
 				Gui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, Gui::CalcTextSize("(Default)").x + Gui::GetFrameHeight());
 				Gui::TableSetupColumn("Action", ImGuiTableColumnFlags_None);
@@ -521,7 +521,7 @@ namespace PeepoDrumKit
 				Gui::PushStyleVar(ImGuiStyleVar_FramePadding, GuiScale(vec2(8.0f, 6.0f)));
 				Gui::PushStyleColor(ImGuiCol_Border, Gui::GetStyleColorVec4(ImGuiCol_TableBorderStrong));
 				Gui::SetNextWindowPos(Gui::GetMousePos(), ImGuiCond_Appearing, vec2(0.0f, 0.0f));
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::Begin(selectedBindingName, nullptr, allowInputWindowFlag | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking);
 				{
 					if ((Gui::IsMouseClicked(ImGuiMouseButton_Left, false) && !Gui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) ||

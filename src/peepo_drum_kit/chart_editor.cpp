@@ -942,7 +942,7 @@ namespace PeepoDrumKit
 			Gui::PushStyleVar(ImGuiStyleVar_WindowRounding, GuiScale(6.0f));
 			Gui::PushStyleColor(ImGuiCol_WindowBg, Gui::ColorU32WithNewAlpha(Gui::GetColorU32(ImGuiCol_FrameBg), 1.0f));
 			Gui::PushStyleColor(ImGuiCol_Button, 0x00000000);
-			Gui::PushFont(FontMedium_EN);
+			Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 
 			constexpr ImGuiWindowFlags popupFlags =
 				ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing |
@@ -1001,7 +1001,7 @@ namespace PeepoDrumKit
 			if (Gui::BeginPopupModal(UI_WindowName(saveConfirmationPopupID), &isPopupOpen, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
 			{
 				const vec2 buttonSize = GuiScale(vec2(120.0f, 0.0f));
-				Gui::PushFont(FontMedium_EN);
+				Gui::PushFont(FontEN, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				{
 					// NOTE: Manual child size calculation required for proper dynamic scaling
 					Gui::BeginChild("TextChild", vec2((buttonSize.x * 3.0f) + Gui::GetStyle().ItemSpacing.x, Gui::GetFontSize() * 3.0f), true, ImGuiWindowFlags_NoBackground);
