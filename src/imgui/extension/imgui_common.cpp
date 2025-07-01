@@ -247,7 +247,7 @@ namespace ImGui
 			const ImVec2 backup_frame_padding = style.FramePadding;
 
 			style.FramePadding.x = style.FramePadding.y;
-			ImGuiButtonFlags button_flags = ImGuiItemFlags_ButtonRepeat;
+			ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
 			if (flags & ImGuiInputTextFlags_ReadOnly)
 				BeginDisabled();
 			SameLine(0, button_spacing_x);
@@ -258,13 +258,13 @@ namespace ImGui
 				const float backup_item_spacing_y = g.Style.ItemSpacing.y;
 				g.DrawListSharedData.FontSize = button_size;
 				g.Style.ItemSpacing.y = button_spacing_y;
-				if (ArrowButtonEx("+", ImGuiDir_Up, ImVec2(button_size, button_size), button_flags))
+				if (ArrowButtonEx("+", ImGuiDir_Up, ImVec2(button_size, button_size), 0))
 				{
 					DataTypeApplyOp(data_type, '+', p_data, p_data, g.IO.KeyCtrl && p_step_fast ? p_step_fast : p_step);
 					result.ValueChanged = true;
 					result.ButtonClicked = true;
 				}
-				if (ArrowButtonEx("-", ImGuiDir_Down, ImVec2(button_size, button_size), button_flags))
+				if (ArrowButtonEx("-", ImGuiDir_Down, ImVec2(button_size, button_size), 0))
 				{
 					DataTypeApplyOp(data_type, '-', p_data, p_data, g.IO.KeyCtrl && p_step_fast ? p_step_fast : p_step);
 					result.ValueChanged = true;
@@ -276,14 +276,14 @@ namespace ImGui
 			}
 			else
 			{
-				if (ButtonEx("-", ImVec2(button_size, button_size), button_flags))
+				if (ButtonEx("-", ImVec2(button_size, button_size), 0))
 				{
 					DataTypeApplyOp(data_type, '-', p_data, p_data, g.IO.KeyCtrl && p_step_fast ? p_step_fast : p_step);
 					result.ValueChanged = true;
 					result.ButtonClicked = true;
 				}
 				SameLine(0, style.ItemInnerSpacing.x);
-				if (ButtonEx("+", ImVec2(button_size, button_size), button_flags))
+				if (ButtonEx("+", ImVec2(button_size, button_size), 0))
 				{
 					DataTypeApplyOp(data_type, '+', p_data, p_data, g.IO.KeyCtrl && p_step_fast ? p_step_fast : p_step);
 					result.ValueChanged = true;
@@ -292,6 +292,7 @@ namespace ImGui
 			}
 			if (flags & ImGuiInputTextFlags_ReadOnly)
 				EndDisabled();
+			ImGui::PopItemFlag();
 
 			const char* label_end = FindRenderedTextEnd(label);
 			if (label != label_end)
