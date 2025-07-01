@@ -89,7 +89,6 @@ namespace ApplicationHost
 	static b8						GlobalIsWindowFocused = false;
 	static UINT_PTR					GlobalWindowRedrawTimerID = {};
 	static HANDLE					GlobalSwapChainWaitableObject = NULL;
-	static struct { const ImWchar *CJKV, *EN; } GlobalGlyphRanges = {};
 	static ImGuiStyle				GlobalOriginalScaleStyle = {};
 
 	static b8 CreateGlobalD3D11(const StartupParam& startupParam, HWND hWnd);
@@ -408,78 +407,15 @@ namespace ApplicationHost
 	}
 #endif
 
-	static void ImGuiLoadCJKVGlyphRange()
-	{
-		if (ExternalGlobalFontGlyphsTarget.has_value()) {
-			ExternalGlobalFontGlyphs = std::move(ExternalGlobalFontGlyphsTarget.value());
-			ExternalGlobalFontGlyphsTarget.reset();
-		}
-		else if (GlobalGlyphRanges.CJKV != nullptr
-			&& FontMainUseFullCJKVCurrent == FontMainUseFullCJKVTarget
-			) {
-			return;
-		}
-
-		ImGuiIO& io = ImGui::GetIO();
-
-		// NOTE: Using the glyph ranges builder here takes around ~0.15ms in release and ~2ms in debug builds
-		static ImVector<ImWchar>		globalRangesCJKV, globalRangesEN;
-		static ImFontGlyphRangesBuilder globalRangesBuilderCJKV, globalRangesBuilderEN;
-
-		// HACK: Somewhat arbitrary non-exhaustive list of glyphs sometimes seen in song names etc.
-		static constexpr const char additionalGlyphs[] =
-			u8"ΔΨαλμχд‐’“”…′※™ⅠⅡⅤⅥⅦⅩ↑→↓∞∫≠⊆⑨▼◆◇"
-			u8"○◎★☆♂♡♢♥♦♨♪亰什儚兩凋區叩吠吼咄哭嗚嘘"
-			u8"噛囃堡姐孩學對弩彡彷徨怎怯愴戀戈捌掴撥擺朧朶"
-			u8"杓棍棕檄欅洩涵渕溟滾漾漿潘澤濤濱炸焉焔爛狗獨"
-			u8"琲甜睛筐篭繋繚繧翡舘芒范蔀蔔蔡薇薔薛蘋蘿號蛻"
-			u8"裙訶譚變賽逅邂郢雙霍霖靡韶餃驢髭魄麹麼鼠﻿";
-
-		// HACK: The mere 常用 + 人名 kanji of course aren't anywhere near sufficient, **especially** for song names and file paths.
-		//		 This *should* include *at least* the ~6000 漢字漢検１級 + common "fancy" unicode characters used as variations of the regular ASCII set.
-		//		 Creating a font atlas that big upfront however absolutely kills startup times so the only sane solution is to use dynamic glyph rasterization
-		//		 which will hopefully be fully implemented in the not too distant future :Copium: (https://github.com/ocornut/imgui/pull/3471)
-		globalRangesCJKV.clear();
-		globalRangesBuilderCJKV.Clear();
-		globalRangesBuilderCJKV.AddText(additionalGlyphs, additionalGlyphs + (ArrayCount(additionalGlyphs) - sizeof('\0')));
-		globalRangesBuilderCJKV.AddText(ExternalGlobalFontGlyphs.c_str(), ExternalGlobalFontGlyphs.c_str() + ExternalGlobalFontGlyphs.size());
-		globalRangesBuilderCJKV.AddText(LanguageLabelsGlobalFontGlyphs.c_str(), LanguageLabelsGlobalFontGlyphs.c_str() + LanguageLabelsGlobalFontGlyphs.size());
-		if (FontMainUseFullCJKVTarget) {
-			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
-		}
-		// HACK: Only load default ranges for debug builds to compensate for slow font (re)building
-		else if (PEEPO_DEBUG) {
-			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesDefault());
-		}
-		else {
-			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesJapanese());
-			globalRangesBuilderCJKV.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-		}
-		globalRangesBuilderCJKV.BuildRanges(&globalRangesCJKV);
-
-		globalRangesEN.clear();
-		globalRangesBuilderEN.Clear();
-		globalRangesBuilderEN.AddRanges(io.Fonts->GetGlyphRangesDefault());
-		globalRangesBuilderEN.AddText(ExternalGlobalFontGlyphs.data(), ExternalGlobalFontGlyphs.data() + ExternalGlobalFontGlyphs.size());
-		globalRangesBuilderEN.BuildRanges(&globalRangesEN);
-
-		GlobalGlyphRanges.CJKV = globalRangesCJKV.Data;
-		GlobalGlyphRanges.EN = globalRangesEN.Data;
-
-		FontMainUseFullCJKVCurrent = FontMainUseFullCJKVTarget;
-	}
-
 	static void ImGuiUpdateBuildFonts()
 	{
 		// TODO: Fonts should probably be set up by the application itself instead of being tucked away here but it doesn't really matter too much for now..
 		ImGuiIO& io = ImGui::GetIO();
 
-		ImGuiLoadCJKVGlyphRange();
-
 		//const std::string_view fontFileName = Path::GetFileName(FontFilePath);
 
 		enum class Ownership : u8 { Copy, Move };
-		auto addFont = [&](i32 fontSizePixels, const ImWchar* glyphRanges, Ownership ownership) -> ImFont*
+		auto addFont = [&](i32 fontSizePixels, Ownership ownership) -> ImFont*
 		{
 			// load the base font
 			ImFontConfig fontConfig = {};
@@ -493,7 +429,7 @@ namespace ApplicationHost
 				fontConfig.FontDataOwnedByAtlas = (ownership == Ownership::Move) ? true : false;
 				fontConfig.EllipsisChar = '\0';
 				//sprintf_s(fontConfig.Name, "%.*s, %dpx", FmtStrViewArgs(fontFileName), fontSizePixels);
-				font = io.Fonts->AddFontFromMemoryTTF(GlobalState.FontFileContent, static_cast<int>(GlobalState.FontFileContentSize), static_cast<f32>(fontSizePixels), &fontConfig, glyphRanges);
+				font = io.Fonts->AddFontFromMemoryTTF(GlobalState.FontFileContent, static_cast<int>(GlobalState.FontFileContentSize), static_cast<f32>(fontSizePixels), &fontConfig, nullptr);
 			}
 			else
 			{
@@ -505,7 +441,6 @@ namespace ApplicationHost
 			ImFontConfig cfgIcons = {};
 			strcpy_s(cfgIcons.Name, ArrayCount(cfgIcons.Name), "Peepo Embedded Icons");
 			cfgIcons.FontLoader = ImFontAtlasGetFontLoaderForEmbeddedIcons();
-			cfgIcons.GlyphRanges = ranges_embedded_icons;
 			cfgIcons.MergeMode = true;
 			io.Fonts->AddFont(&cfgIcons);
 #endif
@@ -520,8 +455,7 @@ namespace ApplicationHost
 		io.FontDefault = nullptr;
 
 		// NOTE: Unfortunately Dear ImGui does not allow avoiding these copies at the moment as far as I can tell (except for maybe some super hacky "inject nullptrs before shutdown")
-		FontCJKV = addFont(GuiScaleI32_AtTarget(FontBaseSizes::Small), GlobalGlyphRanges.CJKV, Ownership::Copy);
-		FontEN = addFont(GuiScaleI32_AtTarget(FontBaseSizes::Medium), GlobalGlyphRanges.EN, Ownership::Copy);
+		FontMain = addFont(GuiScaleI32_AtTarget(FontBaseSizes::Small), Ownership::Copy);
 	}
 
 	static void LoadFontToGlobalState(std::string& fontFilePath)
@@ -574,11 +508,6 @@ namespace ApplicationHost
 			ImGuiUpdateBuildFonts();
 			FontMainFileNameCurrent = FontMainFileNameTarget;
 		}
-		else if (ExternalGlobalFontGlyphsTarget.has_value()
-			|| FontMainUseFullCJKVCurrent != FontMainUseFullCJKVTarget
-			) {
-			ImGuiUpdateBuildFonts();
-		}
 
 		if (!ApproxmiatelySame(GuiScaleFactorTarget, GuiScaleFactorToSetNextFrame))
 		{
@@ -618,7 +547,7 @@ namespace ApplicationHost
 		}
 
 		// set font and size
-		ImGui::PushFont(FontCJKV, GuiScaleI32_AtTarget(FontBaseSizes::Small));
+		ImGui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 		defer { ImGui::PopFont(); };
 
 		ImGui_ImplDX11_NewFrame();

@@ -15,16 +15,8 @@ EmbeddedIconsList GetEmbeddedIconsList();
 
 // NOTE: Exposed here specifically to be used with PushFont() / PopFont()
 struct ImFont;
-inline ImFont* FontCJKV = nullptr;
-inline ImFont* FontEN = nullptr;
+inline ImFont* FontMain = nullptr;
 enum FontBaseSizes : i32 { Small = 16, Medium = 18, Large = 22 };
-enum class BuiltInFont : u8 { FontCJKV, FontEN, Count };
-inline ImFont* GetBuiltInFont(BuiltInFont font) { return (font == BuiltInFont::FontCJKV) ? FontCJKV : FontEN; }
-inline std::string ExternalGlobalFontGlyphs = "";
-inline std::optional<std::string> ExternalGlobalFontGlyphsTarget = std::nullopt;
-inline std::string LanguageLabelsGlobalFontGlyphs = "";
-inline bool FontMainUseFullCJKVCurrent = false;
-inline bool FontMainUseFullCJKVTarget = FontMainUseFullCJKVCurrent;
 inline std::string FontMainFileNameDefault = "NotoSansCJKjp-Regular.otf";
 inline std::string FontMainFileNameTarget = FontMainFileNameDefault;
 inline std::string FontMainFileNameCurrent = "";
