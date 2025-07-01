@@ -35,8 +35,6 @@ IMGUI_IMPL_API void     ImGui_ImplDX11_RenderDrawData(ImDrawData* draw_data);
 IMGUI_IMPL_API bool     ImGui_ImplDX11_CreateDeviceObjects();
 IMGUI_IMPL_API void     ImGui_ImplDX11_InvalidateDeviceObjects();
 
-IMGUI_IMPL_API bool     ImGui_ImplDX11_RecreateFontTexture();
-
 // (Advanced) Use e.g. if you need to precisely control the timing of texture updates (e.g. for staged rendering), by setting ImDrawData::Textures = NULL to handle this manually.
 IMGUI_IMPL_API void     ImGui_ImplDX11_UpdateTexture(ImTextureData* tex);
 

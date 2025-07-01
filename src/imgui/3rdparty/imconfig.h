@@ -26,8 +26,8 @@ namespace ImGui
 // HACK: Convert the rasterized stb_truetype font alpha values from linear to gamma space as a workaround for not being properly sRGB aware.
 //		 The correct gamma value supposedly should be around 1.8 (at least as per the FT_Render_Glyph docs) however that ends up looking "too strong".
 //		 For easy testing, a change of this variable will automatically be detected by the backend and force a full font rebuild. (based on https://github.com/ocornut/imgui/pull/4950)
-#define IMGUI_HACKS_DELINEARIZE_FONTS 1
-inline f32 IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA = 1.3f; // 1.4f; // 1.8f; // 2.2f;
+// #define IMGUI_HACKS_DELINEARIZE_FONTS 1
+// inline f32 IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA = 1.3f; // 1.4f; // 1.8f; // 2.2f;
 
 // HACK: Temporary workaround for a potential infinite loop in ImGui::ShrinkWidths() when using unrounded font sizes (https://github.com/ocornut/imgui/issues/5652)
 #define IMGUI_HACKS_SHRINK_WIDTHS_LOOP_SAFETY_LIMIT 10'000

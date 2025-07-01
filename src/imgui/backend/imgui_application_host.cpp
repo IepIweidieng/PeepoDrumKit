@@ -92,10 +92,6 @@ namespace ApplicationHost
 	static HANDLE					GlobalSwapChainWaitableObject = NULL;
 	static struct { const ImWchar *CJKV, *EN; } GlobalGlyphRanges = {};
 	static ImGuiStyle				GlobalOriginalScaleStyle = {};
-	static b8						GlobalIsFirstFrameAfterFontRebuild = true;
-#if IMGUI_HACKS_DELINEARIZE_FONTS
-	static f32						GlobalLastUsedDelinearizedFontGamma = IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA;
-#endif
 
 	static b8 CreateGlobalD3D11(const StartupParam& startupParam, HWND hWnd);
 	static void CleanupGlobalD3D11();
@@ -528,16 +524,6 @@ namespace ApplicationHost
 		FontMain_CJKV = addFont(GuiScaleI32_AtTarget(FontBaseSizes[0]), GlobalGlyphRanges.CJKV, Ownership::Copy);
 		FontMedium_EN = addFont(GuiScaleI32_AtTarget(FontBaseSizes[1]), GlobalGlyphRanges.EN, Ownership::Copy);
 		FontLarge_EN = addFont(GuiScaleI32_AtTarget(FontBaseSizes[2]), GlobalGlyphRanges.EN, Ownership::Copy);
-
-		if (rebuild) {
-			std::cout << "ImGuiUpdateBuildFonts: RecreateFontTexture" << std::endl;
-			ImGui_ImplDX11_RecreateFontTexture();
-		}
-
-#if IMGUI_HACKS_DELINEARIZE_FONTS
-		GlobalLastUsedDelinearizedFontGamma = IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA;
-#endif
-		GlobalIsFirstFrameAfterFontRebuild = true;
 	}
 
 	static void LoadFontToGlobalState(std::string& fontFilePath)
@@ -601,7 +587,6 @@ namespace ApplicationHost
 
 			GuiScaleFactorTarget = ClampRoundGuiScaleFactor(GuiScaleFactorToSetNextFrame);
 			GuiScaleFactorToSetNextFrame = GuiScaleFactorTarget;
-			ImGuiUpdateBuildFonts();
 
 			ImGui::GetStyle() = GlobalOriginalScaleStyle;
 			if (!ApproxmiatelySame(GuiScaleFactorTarget, 1.0f))
@@ -613,12 +598,6 @@ namespace ApplicationHost
 			else
 				GuiScaleFactorCurrent = GuiScaleFactorTarget;
 		}
-#if IMGUI_HACKS_DELINEARIZE_FONTS
-		else if (!ApproxmiatelySame(GlobalLastUsedDelinearizedFontGamma, IMGUI_HACKS_DELINEARIZE_FONTS_GAMMA))
-		{
-			ImGuiUpdateBuildFonts();
-		}
-#endif
 
 		if (IsGuiScaleCurrentlyAnimating)
 		{
@@ -643,18 +622,6 @@ namespace ApplicationHost
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 		ImGui_UpdateInternalInputExtraDataAtStartOfFrame();
-
-		if (GlobalIsFirstFrameAfterFontRebuild)
-		{
-			// HACK: First stub out with '\0' so that ImFont::BuildLookupTable() doesn't try to overwrite it using FindFirstExistingGlyph()
-			//		 then disable using -1 so that the built in ellipsis glyph won't being used (since it doesn't look too great, with "Noto Sans CJK JP" at least)
-			for (ImFont* font : ImGui::GetIO().Fonts->Fonts)
-			{
-				if (font->EllipsisChar == '\0')
-					font->EllipsisChar = static_cast<ImWchar>(-1);
-			}
-			GlobalIsFirstFrameAfterFontRebuild = false;
-		}
 
 		assert(GlobalOnUserUpdate != nullptr);
 		GlobalOnUserUpdate();
