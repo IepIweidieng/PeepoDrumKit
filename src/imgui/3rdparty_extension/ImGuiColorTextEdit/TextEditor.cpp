@@ -1022,7 +1022,7 @@ void TextEditor::Render()
 						g.PlatformImeData.WantVisible = true;
 						g.PlatformImeData.InputPos = cstart;
 						g.PlatformImeData.InputLineHeight = g.FontSize;
-						g.PlatformImeViewport = g.CurrentWindow->Viewport->ID;
+						g.PlatformImeData.ViewportId = g.CurrentWindow->Viewport->ID;
 					}
 #else
 					auto timeEnd = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();

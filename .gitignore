@@ -92,6 +92,10 @@ StyleCopReport.xml
 *.svclog
 *.scc
 
+# auto-generated C headers for HLSL shaders
+src/imgui/backend/*_ps.h
+src/imgui/backend/*_vs.h
+
 # Chutzpah Test files
 _Chutzpah*
 
