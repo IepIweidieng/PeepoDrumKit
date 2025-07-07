@@ -286,6 +286,10 @@ namespace PeepoDrumKit
 						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 4));
 					Gui::Separator();
 
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_N1_1"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, isAnyItemSelected))
+						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(-1, 1));
+					Gui::Separator();
+
 					WithDefault<CustomScaleRatioList>& customRatios = Settings_Mutable.General.CustomScaleRatios;
 					WithDefault<MultiInputBinding>* customBindings[] =
 					{

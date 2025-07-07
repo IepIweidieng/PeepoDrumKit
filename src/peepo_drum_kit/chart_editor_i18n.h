@@ -98,6 +98,7 @@ X("ACT_TRANSFORM_RATIO_4_3",						"4:3 (16th to 12th)") \
 X("ACT_TRANSFORM_RATIO_1_2",						"1:2 (4th to 8th)") \
 X("ACT_TRANSFORM_RATIO_2_3",						"2:3 (8th to 12th)") \
 X("ACT_TRANSFORM_RATIO_3_4",						"3:4 (12th to 16th)") \
+X("ACT_TRANSFORM_RATIO_N1_1",						"-1:1 (reverse)") \
 X("ACT_TRANSFORM_ADD_NEW_RATIO",					"Add New Ratio...") \
 X("ACT_TRANSFORM_CUSTOM_RATIO",						"Select Custom Ratio") \
 X("INFO_TRANSFORM_CUSTOM_RATIO_DELETE",				"Input 0:0 to delete") \

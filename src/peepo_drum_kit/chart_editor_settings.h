@@ -227,6 +227,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_1To2 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_2To3 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_3To4 = {};
+			WithDefault<MultiInputBinding> Timeline_ReverseItemTime_N1To1 = {};
 			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomA = {};
 			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomB = {};
 			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomC = {};
@@ -321,7 +322,7 @@ namespace PeepoDrumKit
 		IniVoidPtrTypeFromStringFunc FromStringFunc;
 		IniVoidPtrTypeToStringFunc ToStringFunc;
 	};
-	struct SettingsReflectionMap { SettingsReflectionMember MemberSlots[128]; size_t MemberCount; };
+	struct SettingsReflectionMap { SettingsReflectionMember MemberSlots[192]; size_t MemberCount; };
 
 	SettingsReflectionMap StaticallyInitializeAppSettingsReflectionMap();
 	inline const SettingsReflectionMap AppSettingsReflectionMap = StaticallyInitializeAppSettingsReflectionMap();
