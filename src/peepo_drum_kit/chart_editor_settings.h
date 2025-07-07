@@ -41,6 +41,16 @@ namespace PeepoDrumKit
 		inline PlaybackSpeedStepList(std::initializer_list<f32> args) : V(std::forward<std::initializer_list<f32>>(args)) {}
 	};
 
+	struct CustomScaleRatio
+	{
+		ivec2 TimeRatio;
+		CustomScaleRatio() = default;
+		CustomScaleRatio(const ivec2& timeRatio) : TimeRatio(timeRatio) { }
+		b8 operator==(const CustomScaleRatio& o) const { return (TimeRatio == o.TimeRatio); }
+		b8 operator!=(const CustomScaleRatio& o) const { return !(*this == o); }
+	};
+	using CustomScaleRatioList = std::vector<CustomScaleRatio>;
+
 	enum class BoolOrDefault : u8 { Default = 0, True = 1, False = 2 };
 	struct Optional_B8
 	{
@@ -135,6 +145,7 @@ namespace PeepoDrumKit
 			WithDefault<b8> ConvertSelectionToScrollChanges_UnselectOld = false;
 			WithDefault<b8> ConvertSelectionToScrollChanges_SelectNew = true;
 			WithDefault<CustomSelectionPatternList> CustomSelectionPatterns = {};
+			WithDefault<CustomScaleRatioList> CustomScaleRatios = {};
 			// TODO: ...
 			static inline WithDefault<vec2> GameViewportAspectRatioMin = vec2(0.0f, 0.0f);
 			static inline WithDefault<vec2> GameViewportAspectRatioMax = vec2(0.0f, 0.0f);
@@ -218,6 +229,12 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_1To2 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_2To3 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_3To4 = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomA = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomB = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomC = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomD = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomE = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomF = {};
 			WithDefault<MultiInputBinding> Timeline_StepCursorLeft = { KeyBinding(ImGuiKey_LeftArrow) };
 			WithDefault<MultiInputBinding> Timeline_StepCursorRight = { KeyBinding(ImGuiKey_RightArrow) };
 			WithDefault<MultiInputBinding> Timeline_JumpToTimelineStart = { KeyBinding(ImGuiKey_Home) };
@@ -306,7 +323,7 @@ namespace PeepoDrumKit
 		IniVoidPtrTypeFromStringFunc FromStringFunc;
 		IniVoidPtrTypeToStringFunc ToStringFunc;
 	};
-	struct SettingsReflectionMap { SettingsReflectionMember MemberSlots[128]; size_t MemberCount; };
+	struct SettingsReflectionMap { SettingsReflectionMember MemberSlots[192]; size_t MemberCount; };
 
 	SettingsReflectionMap StaticallyInitializeAppSettingsReflectionMap();
 	inline const SettingsReflectionMap AppSettingsReflectionMap = StaticallyInitializeAppSettingsReflectionMap();

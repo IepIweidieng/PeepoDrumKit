@@ -140,6 +140,26 @@ namespace PeepoDrumKit
 			stringToAppendTo += FixedBufferStringView(in.Data);
 		}
 
+		static IniMemberParseResult FromString(std::string_view stringToParse, CustomScaleRatio& out)
+		{
+			IniMemberParseResult res = {};
+			ASCII::ForEachInCharSeparatedList(stringToParse, ':', [&, i = 0](std::string_view part) mutable
+			{
+				auto resI = (i >= 2) ? MemberParseError("More than 2 ratio components")
+					: FromString(ASCII::Trim(part), out.TimeRatio[i++]);
+				if (resI.HasError)
+					res = resI;
+			});
+			return res;
+		}
+
+		static void ToString(const CustomScaleRatio& in, std::string& stringToAppendTo)
+		{
+			ToString(in.TimeRatio[0], stringToAppendTo);
+			stringToAppendTo += ":";
+			ToString(in.TimeRatio[1], stringToAppendTo);
+		}
+
 		template <typename TOption, typename TIn = TOption, typename FnConvert = void>
 		static IniMemberParseResult FromString(std::string_view stringToParse, std::vector<TOption>& out, FnConvert fnConvert)
 		{
@@ -445,6 +465,7 @@ namespace PeepoDrumKit
 			X(General.ConvertSelectionToScrollChanges_UnselectOld, "convert_selection_to_scroll_changes_unselect_old");
 			X(General.ConvertSelectionToScrollChanges_SelectNew, "convert_selection_to_scroll_changes_select_new");
 			X(General.CustomSelectionPatterns, "custom_selection_patterns");
+			X(General.CustomScaleRatios, "custom_scale_ratios");
 
 			SECTION("audio");
 			X(Audio.OpenDeviceOnStartup, "open_device_on_startup");
@@ -517,6 +538,12 @@ namespace PeepoDrumKit
 			X(Input.Timeline_CompressItemTime_1To2, "timeline_compress_item_time_1_to_2");
 			X(Input.Timeline_CompressItemTime_2To3, "timeline_compress_item_time_2_to_3");
 			X(Input.Timeline_CompressItemTime_3To4, "timeline_compress_item_time_3_to_4");
+			X(Input.Timeline_ScaleItemTime_CustomA, "timeline_scale_item_time_custom_a");
+			X(Input.Timeline_ScaleItemTime_CustomB, "timeline_scale_item_time_custom_b");
+			X(Input.Timeline_ScaleItemTime_CustomC, "timeline_scale_item_time_custom_c");
+			X(Input.Timeline_ScaleItemTime_CustomD, "timeline_scale_item_time_custom_d");
+			X(Input.Timeline_ScaleItemTime_CustomE, "timeline_scale_item_time_custom_e");
+			X(Input.Timeline_ScaleItemTime_CustomF, "timeline_scale_item_time_custom_f");
 			X(Input.Timeline_StepCursorLeft, "timeline_step_cursor_left");
 			X(Input.Timeline_StepCursorRight, "timeline_step_cursor_right");
 			X(Input.Timeline_JumpToTimelineStart, "timeline_jump_to_timeline_start");

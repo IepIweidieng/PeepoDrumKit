@@ -2432,6 +2432,18 @@ namespace PeepoDrumKit
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_1To2, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(1, 2));
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_2To3, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 3));
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_3To4, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 4));
+
+				const MultiInputBinding* customBindings[] =
+				{
+					&*Settings.Input.Timeline_ScaleItemTime_CustomA, &*Settings.Input.Timeline_ScaleItemTime_CustomB, &*Settings.Input.Timeline_ScaleItemTime_CustomC,
+					&*Settings.Input.Timeline_ScaleItemTime_CustomD, &*Settings.Input.Timeline_ScaleItemTime_CustomE, &*Settings.Input.Timeline_ScaleItemTime_CustomF,
+				};
+
+				for (size_t i = 0; i < ArrayCount(customBindings); i++)
+				{
+					if (i < Settings.General.CustomScaleRatios->size() && Gui::IsAnyPressed(*customBindings[i], false))
+						ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio((*Settings.General.CustomScaleRatios)[i].TimeRatio));
+				}
 			}
 		}
 
