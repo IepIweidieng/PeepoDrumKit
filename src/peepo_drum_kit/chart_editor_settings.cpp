@@ -170,7 +170,7 @@ namespace PeepoDrumKit
 		static void ToString(const CustomSelectionPatternList& in, std::string& stringToAppendTo)
 		{
 			for (size_t i = 0; i < in.V.size(); i++)
-				stringToAppendTo.append((i > 0) ? ", " : "").append(in.V[i].Data);
+				stringToAppendTo.append((i > 0) ? ", " : "").append(FixedBufferStringView(in.V[i].Data));
 		}
 
 		static IniMemberParseResult FromString(std::string_view stringToParse, MultiInputBinding& out)
