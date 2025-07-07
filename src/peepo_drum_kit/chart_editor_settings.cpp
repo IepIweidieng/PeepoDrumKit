@@ -129,48 +129,81 @@ namespace PeepoDrumKit
 			char b[32]; stringToAppendTo += std::string_view(b, sprintf_s(b, "%d", in.Ticks));
 		}
 
-		static IniMemberParseResult FromString(std::string_view stringToParse, PlaybackSpeedStepList& out)
+		static IniMemberParseResult FromString(std::string_view stringToParse, CustomSelectionPattern& out)
+		{
+			CopyStringViewIntoFixedBuffer(out.Data, stringToParse);
+			return {};
+		}
+
+		static void ToString(const CustomSelectionPattern& in, std::string& stringToAppendTo)
+		{
+			stringToAppendTo += FixedBufferStringView(in.Data);
+		}
+
+		template <typename TOption, typename TIn = TOption, typename FnConvert = void>
+		static IniMemberParseResult FromString(std::string_view stringToParse, std::vector<TOption>& out, FnConvert fnConvert)
 		{
 			b8 hasAnyError = false;
+			cstr lastErrorMessage = nullptr;
 			size_t expectedCount = 0;
 			ASCII::ForEachInCommaSeparatedList(stringToParse, [&](std::string_view) { expectedCount++; });
-			out.V.clear();
-			out.V.reserve(expectedCount);
+			out.clear();
+			out.reserve(expectedCount);
 			ASCII::ForEachInCommaSeparatedList(stringToParse, [&](std::string_view commaSeparatedValue)
 			{
-				if (f32 v = 0.0f; ASCII::TryParseF32(ASCII::Trim(commaSeparatedValue), v))
-					out.V.push_back(FromPercent(v));
-				else
+				TIn v = {};
+				IniMemberParseResult res = FromString(ASCII::Trim(commaSeparatedValue), v);
+				if (res.HasError) {
 					hasAnyError = true;
+					lastErrorMessage = res.ErrorMessage;
+				}
+				else {
+					out.push_back(fnConvert(v));
+				}
 			});
-			return hasAnyError ? MemberParseError("Invalid float") : IniMemberParseResult {};
+			return hasAnyError ? MemberParseError(lastErrorMessage) : IniMemberParseResult{};
+		}
+
+		template <typename TOption, typename FnConvert>
+		static void ToString(const std::vector<TOption>& in, std::string& stringToAppendTo, FnConvert fnConvert)
+		{
+			for (size_t i = 0; i < in.size(); i++) {
+				if (i > 0)
+					stringToAppendTo += ", ";
+				ToString(fnConvert(in[i]), stringToAppendTo);
+			}
+		}
+
+		template <typename TOption>
+		static IniMemberParseResult FromString(std::string_view stringToParse, std::vector<TOption>& out)
+		{
+			return FromString(stringToParse, out, [](auto&& x) { return x; });
+		}
+
+		template <typename TOption>
+		static void ToString(const std::vector<TOption>& in, std::string& stringToAppendTo)
+		{
+			ToString(in, stringToAppendTo, [](auto&& x) { return x; });
+		}
+
+		static IniMemberParseResult FromString(std::string_view stringToParse, PlaybackSpeedStepList& out)
+		{
+			return FromString(stringToParse, out.V, FromPercent);
 		}
 
 		static void ToString(const PlaybackSpeedStepList& in, std::string& stringToAppendTo)
 		{
-			char b[32];
-			for (size_t i = 0; i < in.V.size(); i++)
-				stringToAppendTo += std::string_view(b, sprintf_s(b, (i > 0) ? ", %g" : "%g", ToPercent(in.V[i])));
+			ToString(in.V, stringToAppendTo, ToPercent);
 		}
 
 		static IniMemberParseResult FromString(std::string_view stringToParse, CustomSelectionPatternList& out)
 		{
-			b8 hasAnyError = false;
-			size_t expectedCount = 0;
-			ASCII::ForEachInCommaSeparatedList(stringToParse, [&](std::string_view) { expectedCount++; });
-			out.V.clear();
-			out.V.reserve(expectedCount);
-			ASCII::ForEachInCommaSeparatedList(stringToParse, [&](std::string_view commaSeparatedValue)
-			{
-				CopyStringViewIntoFixedBuffer(out.V.emplace_back().Data, ASCII::Trim(commaSeparatedValue));
-			});
-			return hasAnyError ? MemberParseError("Invalid float") : IniMemberParseResult {};
+			return FromString(stringToParse, out.V);
 		}
 
 		static void ToString(const CustomSelectionPatternList& in, std::string& stringToAppendTo)
 		{
-			for (size_t i = 0; i < in.V.size(); i++)
-				stringToAppendTo.append((i > 0) ? ", " : "").append(FixedBufferStringView(in.V[i].Data));
+			ToString(in.V, stringToAppendTo);
 		}
 
 		static IniMemberParseResult FromString(std::string_view stringToParse, MultiInputBinding& out)
