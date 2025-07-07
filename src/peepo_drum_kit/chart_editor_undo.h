@@ -686,5 +686,11 @@ namespace PeepoDrumKit
 			using RemoveThenAddMultipleGenericItems::RemoveThenAddMultipleGenericItems;
 			Undo::CommandInfo GetInfo() const override { return { "Compress Items" }; }
 		};
+
+		struct RemoveThenAddMultipleGenericItems_ReverseItems : RemoveThenAddMultipleGenericItems
+		{
+			using RemoveThenAddMultipleGenericItems::RemoveThenAddMultipleGenericItems;
+			Undo::CommandInfo GetInfo() const override { return { "Reverse Items" }; }
+		};
 	}
 }

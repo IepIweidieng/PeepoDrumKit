@@ -538,6 +538,7 @@ namespace PeepoDrumKit
 			X(Input.Timeline_CompressItemTime_1To2, "timeline_compress_item_time_1_to_2");
 			X(Input.Timeline_CompressItemTime_2To3, "timeline_compress_item_time_2_to_3");
 			X(Input.Timeline_CompressItemTime_3To4, "timeline_compress_item_time_3_to_4");
+			X(Input.Timeline_ReverseItemTime_N1To1, "timeline_reverse_item_time_n1_to_1");
 			X(Input.Timeline_ScaleItemTime_CustomA, "timeline_scale_item_time_custom_a");
 			X(Input.Timeline_ScaleItemTime_CustomB, "timeline_scale_item_time_custom_b");
 			X(Input.Timeline_ScaleItemTime_CustomC, "timeline_scale_item_time_custom_c");
