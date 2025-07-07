@@ -660,8 +660,8 @@ namespace PeepoDrumKit
 			// NOTE: Long note placement preview
 			if (timeline.LongNotePlacement.IsActive && context.ChartSelectedBranch == branchForThisRow)
 			{
-				const Beat minBeat = timeline.LongNotePlacement.GetMin(), maxBeat = timeline.LongNotePlacement.GetMax();
-				const vec2 localTL = vec2(timeline.Camera.TimeToLocalSpaceX(context.BeatToTime(minBeat)), rowIt.LocalY);
+				const Beat minBeatAfter = timeline.LongNotePlacement.GetMin(), maxBeat = timeline.LongNotePlacement.GetMax();
+				const vec2 localTL = vec2(timeline.Camera.TimeToLocalSpaceX(context.BeatToTime(minBeatAfter)), rowIt.LocalY);
 				const vec2 localCenter = localTL + vec2(0.0f, rowIt.LocalHeight * 0.5f);
 				const vec2 localTR = vec2(timeline.Camera.TimeToLocalSpaceX(context.BeatToTime(maxBeat)), rowIt.LocalY);
 				const vec2 localCenterEnd = localTR + vec2(0.0f, rowIt.LocalHeight * 0.5f);
@@ -669,7 +669,7 @@ namespace PeepoDrumKit
 				DrawTimelineNote(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), 1.0f, timeline.LongNotePlacement.NoteType, 0.7f);
 
 				if (IsBalloonNote(timeline.LongNotePlacement.NoteType))
-					DrawTimelineNoteBalloonPopCount(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), 1.0f, DefaultBalloonPopCount(maxBeat - minBeat, timeline.CurrentGridBarDivision));
+					DrawTimelineNoteBalloonPopCount(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), 1.0f, DefaultBalloonPopCount(maxBeat - minBeatAfter, timeline.CurrentGridBarDivision));
 			}
 		}
 		else if constexpr (std::is_same_v<T, GoGoRange>)
@@ -1702,14 +1702,16 @@ namespace PeepoDrumKit
 
 			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
 
-			b8 isFirst = true; Beat firstBeat = {}, minBeat = {};
+			b8 isFirst = true; Beat firstBeat = {}, minBeatBefore = {}, minBeatAfter = {};
 			std::vector<GenericListStructWithType> itemsToRemove; itemsToRemove.reserve(selectedItemCount);
 			std::vector<GenericListStructWithType> itemsToAdd; itemsToAdd.reserve(selectedItemCount);
 			std::vector<size_t> idxItemsToAlignToStart; // move last selected item to start for reversing end-unbounded items
 			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
 			{
 				const Beat origBeat = GetBeat(it, course);
-				if (isFirst) { minBeat = firstBeat = origBeat; isFirst = false; }
+				if (isFirst) { minBeatAfter = minBeatBefore = firstBeat = origBeat; isFirst = false; }
+				else if (origBeat < minBeatBefore) // Happens because ForEachSelectedChartItem is not in ascending order across rows
+					minBeatBefore = origBeat;
 
 				auto& itemToRemove = itemsToRemove.emplace_back();
 				itemToRemove.List = it.List;
@@ -1728,9 +1730,9 @@ namespace PeepoDrumKit
 							idxItemsToAlignToStart.back() = itemsToAdd.size() - 1;
 						else
 							idxItemsToAlignToStart.push_back(itemsToAdd.size() - 1);
-					}
-					if (nowBeat < minBeat) // only consider item head for realigning region
-						minBeat = nowBeat;
+}
+					if (nowBeat < minBeatAfter) // only consider item head for realigning region
+						minBeatAfter = nowBeat;
 				}
 
 				if (origBeatDuration > Beat::Zero()) {
@@ -1748,8 +1750,8 @@ namespace PeepoDrumKit
 						nowBeat = std::min(nowBeat, nowBeatEnd); // in case of negative time duration
 					}
 				}
-				if (reverse && ListIsItemEndBounded(it.List) && nowBeat < minBeat) // handle overlapping items with varying lengths from different row
-					minBeat = nowBeat;
+				if (!(reverse && !ListIsItemEndBounded(it.List)) && nowBeat < minBeatAfter) // handle overlapping items with varying lengths from different row
+					minBeatAfter = nowBeat;
 
 				if (IsNotesList(itemToAdd.List))
 					itemToAdd.Value.POD.Note.ClickAnimationTimeRemaining = itemToAdd.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
@@ -1761,12 +1763,12 @@ namespace PeepoDrumKit
 			{
 				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }
 
-				if (reverse) { // realign region to originally earliest item
+				if (minBeatBefore != minBeatAfter) { // realign region to originally earliest item
 					for (auto& it : itemsToAdd)
-						SetBeat(GetBeat(it) + firstBeat - minBeat, it);
-					for (auto& idx : idxItemsToAlignToStart)
-						SetBeat(firstBeat, itemsToAdd[idx]);
+						SetBeat(GetBeat(it) + minBeatBefore - minBeatAfter, it);
 				}
+				for (auto& idx : idxItemsToAlignToStart)
+					SetBeat(minBeatBefore, itemsToAdd[idx]);
 
 				if (reverse)
 					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_ReverseItems>(&course, std::move(itemsToRemove), std::move(itemsToAdd));
@@ -2479,19 +2481,19 @@ namespace PeepoDrumKit
 			auto placeLongNoteOnBindingRelease = [this, &context](NoteType longNoteType)
 			{
 				SortedNotesList& notes = context.ChartSelectedCourse->GetNotes(context.ChartSelectedBranch);
-				const Beat minBeat = LongNotePlacement.GetMin();
+				const Beat minBeatAfter = LongNotePlacement.GetMin();
 				const Beat maxBeat = LongNotePlacement.GetMax();
 
 				std::vector<Note> notesToRemove;
 				for (const Note& existingNote : notes)
 				{
-					if (existingNote.GetStart() <= maxBeat && minBeat <= existingNote.GetEnd())
+					if (existingNote.GetStart() <= maxBeat && minBeatAfter <= existingNote.GetEnd())
 						notesToRemove.push_back(existingNote);
 				}
 
 				Note newLongNote {};
-				newLongNote.BeatTime = minBeat;
-				newLongNote.BeatDuration = (maxBeat - minBeat);
+				newLongNote.BeatTime = minBeatAfter;
+				newLongNote.BeatDuration = (maxBeat - minBeatAfter);
 				newLongNote.BalloonPopCount = IsBalloonNote(longNoteType) ? DefaultBalloonPopCount(newLongNote.BeatDuration, CurrentGridBarDivision) : 0;
 				newLongNote.Type = longNoteType;
 				newLongNote.ClickAnimationTimeRemaining = newLongNote.ClickAnimationTimeDuration = NoteHitAnimationDuration;
