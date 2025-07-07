@@ -461,6 +461,7 @@ namespace PeepoDrumKit
 			X(Input.Timeline_SelectAll, "timeline_select_all");
 			X(Input.Timeline_ClearSelection, "timeline_clear_selection");
 			X(Input.Timeline_InvertSelection, "timeline_invert_selection");
+			X(Input.Timeline_SelectToChartEnd, "timeline_select_to_chart_end");
 			X(Input.Timeline_SelectAllWithinRangeSelection, "timeline_select_all_within_range_selection");
 			X(Input.Timeline_ShiftSelectionLeft, "timeline_shift_selection_left");
 			X(Input.Timeline_ShiftSelectionRight, "timeline_shift_selection_right");

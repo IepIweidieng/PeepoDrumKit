@@ -1505,6 +1505,13 @@ namespace PeepoDrumKit
 		case SelectionAction::SelectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(true, it, course); }); } break;
 		case SelectionAction::UnselectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(false, it, course); }); } break;
 		case SelectionAction::InvertAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(!GetIsSelected(it, course), it, course); }); } break;
+		case SelectionAction::SelectToEnd:
+			ForEachChartItem(course, [&](const ForEachChartItemData& it)
+			{
+				if (GetBeat(it, course) >= context.GetCursorBeat())
+					SetIsSelected(true, it, course);
+			});
+			break;
 		case SelectionAction::SelectAllWithinRangeSelection:
 		{
 			if (RangeSelection.IsActiveAndHasEnd())
@@ -2135,6 +2142,7 @@ namespace PeepoDrumKit
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_SelectAll, false)) ExecuteSelectionAction(context, SelectionAction::SelectAll, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_ClearSelection, false)) ExecuteSelectionAction(context, SelectionAction::UnselectAll, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_InvertSelection, false)) ExecuteSelectionAction(context, SelectionAction::InvertAll, param);
+					if (Gui::IsAnyPressed(*Settings.Input.Timeline_SelectToChartEnd, false)) ExecuteSelectionAction(context, SelectionAction::SelectToEnd, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_SelectAllWithinRangeSelection, false)) ExecuteSelectionAction(context, SelectionAction::SelectAllWithinRangeSelection, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_ShiftSelectionLeft, true)) ExecuteSelectionAction(context, SelectionAction::PerRowShiftSelected, param.SetShiftDelta(-1));
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_ShiftSelectionRight, true)) ExecuteSelectionAction(context, SelectionAction::PerRowShiftSelected, param.SetShiftDelta(+1));

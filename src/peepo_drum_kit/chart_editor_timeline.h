@@ -171,13 +171,19 @@ namespace PeepoDrumKit
 	static constexpr f32 TimelineCameraBaseScrollX = -32.0f;
 
 	enum class ClipboardAction : u8 { Cut, Copy, Paste, Delete };
-	enum class SelectionAction : u8 { SelectAll, UnselectAll, InvertAll, SelectAllWithinRangeSelection, PerRowShiftSelected, PerRowSelectPattern };
+	enum class SelectionAction : u8 {
+		SelectAll, UnselectAll, InvertAll,
+		SelectToEnd, SelectAllWithinRangeSelection,
+		PerRowShiftSelected, PerRowSelectPattern,
+	};
 	union SelectionActionParam
 	{
 		struct { i32 ShiftDelta; };
 		struct { cstr Pattern; }; // NOTE: In the format: "xo", "xoo", "xooo", "xxoo", etc.
+		struct { Beat BeatCursor; };
 		inline SelectionActionParam& SetShiftDelta(i32 v) { ShiftDelta = v; return *this; }
 		inline SelectionActionParam& SetPattern(cstr pattern) { Pattern = pattern; return *this; }
+		inline SelectionActionParam& SetBeatCursor(Beat beat) { BeatCursor = beat; return *this; }
 	};
 	enum class TransformAction : u8 { FlipNoteType, ToggleNoteSize, ScaleItemTime };
 	union TransformActionParam

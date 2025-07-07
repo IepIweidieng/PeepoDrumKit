@@ -195,6 +195,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_SelectAll = {};
 			WithDefault<MultiInputBinding> Timeline_ClearSelection = {};
 			WithDefault<MultiInputBinding> Timeline_InvertSelection = {};
+			WithDefault<MultiInputBinding> Timeline_SelectToChartEnd = {};
 			WithDefault<MultiInputBinding> Timeline_SelectAllWithinRangeSelection = {};
 			WithDefault<MultiInputBinding> Timeline_ShiftSelectionLeft = { KeyBinding(ImGuiKey_LeftArrow, ImGuiMod_Ctrl) };
 			WithDefault<MultiInputBinding> Timeline_ShiftSelectionRight = { KeyBinding(ImGuiKey_RightArrow, ImGuiMod_Ctrl) };

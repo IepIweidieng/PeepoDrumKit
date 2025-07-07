@@ -73,6 +73,7 @@ X("ACT_FILE_SAVE_AS",								"Save As...") \
 /* selection menu */ \
 X("ACT_SELECTION_REFINE",							"Refine Selection") \
 X("ACT_SELECTION_SELECT_ALL",						"Select All") \
+X("ACT_SELECTION_SELECT_TO_CHART_END",				"Select to End of Chart") \
 X("ACT_SELECTION_CLEAR",							"Clear Selection") \
 X("ACT_SELECTION_INVERT",							"Invert Selection") \
 X("ACT_SELECTION_START_RANGE",						"Start Range Selection") \

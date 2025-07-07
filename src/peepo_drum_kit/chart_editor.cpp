@@ -171,6 +171,8 @@ namespace PeepoDrumKit
 					timeline.ExecuteSelectionAction(context, SelectionAction::UnselectAll, param);
 				if (Gui::MenuItem(UI_Str("ACT_SELECTION_INVERT"), ToShortcutString(*Settings.Input.Timeline_InvertSelection).Data))
 					timeline.ExecuteSelectionAction(context, SelectionAction::InvertAll, param);
+				if (Gui::MenuItem(UI_Str("ACT_SELECTION_SELECT_TO_CHART_END"), ToShortcutString(*Settings.Input.Timeline_SelectToChartEnd).Data))
+					timeline.ExecuteSelectionAction(context, SelectionAction::SelectToEnd, param.SetBeatCursor(context.GetCursorBeat()));
 				if (Gui::MenuItem(UI_Str("ACT_SELECTION_FROM_RANGE"), ToShortcutString(*Settings.Input.Timeline_SelectAllWithinRangeSelection).Data, nullptr, timeline.RangeSelection.IsActiveAndHasEnd()))
 					timeline.ExecuteSelectionAction(context, SelectionAction::SelectAllWithinRangeSelection, param);
 				Gui::Separator();

@@ -772,6 +772,7 @@ namespace PeepoDrumKit
 						{ &settings.Input.Timeline_SelectAll, "Timeline: Select All", },
 						{ &settings.Input.Timeline_ClearSelection, "Timeline: Clear Selection", },
 						{ &settings.Input.Timeline_InvertSelection, "Timeline: Invert Selection", },
+						{ &settings.Input.Timeline_SelectToChartEnd, "Timeline: Select to End of Chart", },
 						{ &settings.Input.Timeline_SelectAllWithinRangeSelection, "Timeline: Select All within Range Selection", },
 						{ &settings.Input.Timeline_ShiftSelectionLeft, "Timeline: Shift selection Left", },
 						{ &settings.Input.Timeline_ShiftSelectionRight, "Timeline: Shift selection Right", },
