@@ -72,10 +72,9 @@ namespace PeepoDrumKit
 		return GuiDragLabelScalar(label, ImGuiDataType_Float, inOutValue, speed, &min, &max, flags);
 	}
 
-	static b8 GuiInputFraction(cstr label, ivec2* inOutValue, std::optional<ivec2> valueRange, i32 step = 0, i32 stepFast = 0, const u32* textColorOverride = nullptr)
+	b8 GuiInputFraction(cstr label, ivec2* inOutValue, std::optional<ivec2> valueRange, i32 step, i32 stepFast, const u32* textColorOverride, std::string_view divisionText)
 	{
 		static constexpr i32 components = 2;
-		static constexpr std::string_view divisionText = " / ";
 		const f32 divisionLabelWidth = Gui::CalcTextSize(Gui::StringViewStart(divisionText), Gui::StringViewEnd(divisionText)).x;
 		const f32 perComponentInputFloatWidth = Floor(((Gui::GetContentRegionAvail().x - divisionLabelWidth) / static_cast<f32>(components)));
 

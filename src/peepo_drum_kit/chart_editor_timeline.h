@@ -190,6 +190,7 @@ namespace PeepoDrumKit
 	{
 		struct { i32 TimeRatio[2]; };
 		inline TransformActionParam& SetTimeRatio(i32 numerator, i32 denominator) { TimeRatio[0] = numerator; TimeRatio[1] = denominator; return *this; }
+		inline TransformActionParam& SetTimeRatio(const ivec2& ratio) { return SetTimeRatio(ratio[0], ratio[1]); }
 	};
 
 	struct ChartTimeline
