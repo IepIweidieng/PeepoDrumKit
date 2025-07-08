@@ -230,14 +230,14 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_8 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_9 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_10 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_12 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_12 = { KeyBinding(ImGuiKey_1) };
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_14 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_16 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_16 = { KeyBinding(ImGuiKey_2) };
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_18 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_20 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_24 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_28 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_32 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_20 = { KeyBinding(ImGuiKey_5) };
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_24 = { KeyBinding(ImGuiKey_3) };
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_28 = { KeyBinding(ImGuiKey_6) };
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_32 = { KeyBinding(ImGuiKey_4) };
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_36 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_40 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_48 = {};
@@ -246,10 +246,10 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_192 = {};
 			WithDefault<MultiInputBinding> Timeline_IncreasePlaybackSpeed = { KeyBinding(ImGuiKey_C) };
 			WithDefault<MultiInputBinding> Timeline_DecreasePlaybackSpeed = { KeyBinding(ImGuiKey_Z) };
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_100 = {};
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_75 = {};
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_50 = {};
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_25 = {};
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_100 = { KeyBinding(ImGuiKey_7) };
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_75 = { KeyBinding(ImGuiKey_8) };
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_50 = { KeyBinding(ImGuiKey_9) };
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_25 = { KeyBinding(ImGuiKey_0) };
 			WithDefault<MultiInputBinding> Timeline_TogglePlayback = { KeyBinding(ImGuiKey_Space) };
 			WithDefault<MultiInputBinding> Timeline_ToggleMetronome = { KeyBinding(ImGuiKey_M) };
 
