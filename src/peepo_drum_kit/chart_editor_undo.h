@@ -692,5 +692,39 @@ namespace PeepoDrumKit
 			using RemoveThenAddMultipleGenericItems::RemoveThenAddMultipleGenericItems;
 			Undo::CommandInfo GetInfo() const override { return { "Reverse Items" }; }
 		};
+
+		template <typename TCommand>
+		struct ChangeRangeSelection : TCommand
+		{
+			template <typename... TArgs>
+			ChangeRangeSelection(std::pair<Beat*, Beat*> selectedRange, std::pair<Beat, Beat> rangeDataNew, TArgs&&... args)
+				: SelectedRange(selectedRange), RangeDataOld(*selectedRange.first, *selectedRange.second), RangeDataNew(rangeDataNew), TCommand(args...)
+			{
+			}
+
+			void Undo() override { TCommand::Undo(); *SelectedRange.first = RangeDataOld.first; *SelectedRange.second = RangeDataOld.second; }
+			void Redo() override { TCommand::Redo(); *SelectedRange.first = RangeDataNew.first; *SelectedRange.second = RangeDataNew.second; }
+
+			std::pair<Beat*, Beat*> SelectedRange;
+			std::pair<Beat, Beat> RangeDataOld, RangeDataNew;
+		};
+
+		struct RemoveThenAddMultipleGenericItems_ExpandRange : ChangeRangeSelection<RemoveThenAddMultipleGenericItems>
+		{
+			using ChangeRangeSelection::ChangeRangeSelection;
+			Undo::CommandInfo GetInfo() const override { return { "Expand Range" }; }
+		};
+
+		struct RemoveThenAddMultipleGenericItems_CompressRange : ChangeRangeSelection<RemoveThenAddMultipleGenericItems>
+		{
+			using ChangeRangeSelection::ChangeRangeSelection;
+			Undo::CommandInfo GetInfo() const override { return { "Compress Range" }; }
+		};
+
+		struct RemoveThenAddMultipleGenericItems_ReverseRange : ChangeRangeSelection<RemoveThenAddMultipleGenericItems>
+		{
+			using ChangeRangeSelection::ChangeRangeSelection;
+			Undo::CommandInfo GetInfo() const override { return { "Reverse Range" }; }
+		};
 	}
 }

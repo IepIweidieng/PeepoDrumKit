@@ -268,26 +268,26 @@ namespace PeepoDrumKit
 				if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_TOGGLE_NOTE_SIZES"), ToShortcutString(*Settings.Input.Timeline_ToggleNoteSize).Data, nullptr, isAnyNoteSelected))
 					timeline.ExecuteTransformAction(context, TransformAction::ToggleNoteSize, param);
 
-				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_SCALE_ITEMS")))
+				auto scaleMenu = [&](TransformAction scaleAction, b8 enabled)
 				{
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_1"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_2To1).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 1));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_2"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_3To2).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 2));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_4_3"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_4To3).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(4, 3));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_1"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_2To1).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 1));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_2"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_3To2).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 2));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_4_3"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_4To3).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(4, 3));
 					Gui::Separator();
 
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_1_2"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_1To2).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(1, 2));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_3"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_2To3).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 3));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_4"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_3To4).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 4));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_1_2"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_1To2).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(1, 2));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_3"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_2To3).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 3));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_4"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_3To4).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 4));
 					Gui::Separator();
 
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_N1_1"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(-1, 1));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_N1_1"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
 					Gui::Separator();
 
 					WithDefault<CustomScaleRatioList>& customRatios = Settings_Mutable.General.CustomScaleRatios;
@@ -311,8 +311,8 @@ namespace PeepoDrumKit
 					for (size_t i = 0; i < customRatios->size(); i++)
 					{
 						char label[64]; sprintf_s(label, "%s %c", UI_Str("ACT_TRANSFORM_CUSTOM_RATIO"), static_cast<char>('A' + i));
-						if (Gui::MenuItem(label, (i < ArrayCount(customBindings)) ? ToShortcutString(**customBindings[i]).Data : "", nullptr, isAnyItemSelected && (*customRatios)[i].TimeRatio[1] != 0))
-							timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio((*customRatios)[i].TimeRatio));
+						if (Gui::MenuItem(label, (i < ArrayCount(customBindings)) ? ToShortcutString(**customBindings[i]).Data : "", nullptr, enabled && (*customRatios)[i].TimeRatio[1] != 0))
+							timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio((*customRatios)[i].TimeRatio));
 					}
 
 					size_t indexToRemove = customRatios->size();
@@ -353,7 +353,15 @@ namespace PeepoDrumKit
 					}
 					if (!customRatios->empty())
 						Gui::MenuItem(UI_Str("INFO_TRANSFORM_CUSTOM_RATIO_DELETE"), nullptr, false, false);
+				};
 
+				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_SCALE_ITEMS"))) {
+					scaleMenu(TransformAction::ScaleItemTime, isAnyItemSelected);
+					Gui::EndMenu();
+				}
+
+				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_SCALE_RANGE"))) {
+					scaleMenu(TransformAction::ScaleRangeTime, timeline.RangeSelection.IsActiveAndHasEnd());
 					Gui::EndMenu();
 				}
 

@@ -702,6 +702,8 @@ struct Time
 	static Time FromString(cstr inBuffer);
 };
 
+constexpr Time abs(Time time) { return Time::FromSec(abs(time.Seconds)); }
+
 struct Date
 {
 	// NOTE: This struct is only intended for quick string formatting and version checks so the storage format matches that of how a human would write it

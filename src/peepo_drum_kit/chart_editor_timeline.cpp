@@ -1779,6 +1779,149 @@ namespace PeepoDrumKit
 				context.Undo.DisallowMergeForLastCommand();
 			}
 		} break;
+		case TransformAction::ScaleRangeTime:
+		{
+			assert(param.TimeRatio[1] != 0);
+			if (param.TimeRatio[0] == param.TimeRatio[1])
+				break;
+			bool reverse = (param.TimeRatio[0] / param.TimeRatio[1] < 0); // flip the selected region
+			i32 ratioAbs[2] = { abs(param.TimeRatio[0]), abs(param.TimeRatio[1]) };
+			if (!RangeSelection.IsActiveAndHasEnd())
+				return;
+
+			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
+
+			const Beat firstBeat = RangeSelection.GetMin(), latestBeat = RangeSelection.GetMax();
+			Beat minBeatAfter = firstBeat, maxBeatAfter = scale(latestBeat, firstBeat, param.TimeRatio);
+			if (minBeatAfter > maxBeatAfter)
+				std::swap(minBeatAfter, maxBeatAfter);
+			auto getRangeTimes = [&, res = std::optional<std::tuple<Time, Time, Time, Time>>{}]() mutable
+			{
+				if (!res.has_value())
+					res = std::tuple{ context.BeatToTime(firstBeat), context.BeatToTime(latestBeat), context.BeatToTime(minBeatAfter), context.BeatToTime(maxBeatAfter) };
+				return res.value();
+			};
+
+			std::vector<GenericListStructWithType> itemsToRemove;
+			std::vector<GenericListStructWithType> itemsToAdd;
+			std::vector<size_t> idxItemsToAlignToStart; // move last selected item to start for reversing end-unbounded items
+			ForEachChartItem(course, [&](const ForEachChartItemData& it)
+			{
+				const Beat origBeat = GetBeat(it, course);
+				auto& itemToRemove = itemsToRemove.emplace_back();
+				itemToRemove.List = it.List;
+				TryGetGenericStruct(course, it.List, it.Index, itemToRemove.Value);
+
+				auto& itemToAdd = itemsToAdd.emplace_back(itemToRemove);
+
+				b8 changed = false;
+				Beat nowBeat = origBeat;
+				if (origBeat > latestBeat) { // no scale AFTER range end; scale on range end for reversing
+					SetBeat(nowBeat += maxBeatAfter - latestBeat + (firstBeat - minBeatAfter), itemToAdd);
+					if (nowBeat != origBeat)
+						changed = true;
+				} else {
+					if (origBeat >= firstBeat) {
+						SetBeat(nowBeat = (((nowBeat - firstBeat) / param.TimeRatio[1]) * param.TimeRatio[0]) + firstBeat + (firstBeat - minBeatAfter), itemToAdd);
+						changed = true;
+					}
+
+					Beat origBeatDuration = GetBeatDuration(itemToAdd);
+					if (reverse && !ListIsItemEndBounded(it.List)) { // use the next item as the end for reversing end-unbounded items
+						Beat origBeatLastEffect = GetLastEffectBeat(course, it.List, it.Index);
+						if (origBeatLastEffect > origBeat) {
+							origBeatDuration = origBeatLastEffect - origBeat;
+							if (origBeat >= firstBeat && origBeatLastEffect > latestBeat) {
+								if (!idxItemsToAlignToStart.empty() && itemsToAdd[idxItemsToAlignToStart.back()].List == it.List)
+									idxItemsToAlignToStart.back() = itemsToAdd.size() - 1;
+								else
+									idxItemsToAlignToStart.push_back(itemsToAdd.size() - 1);
+								changed = true;
+							}
+						}
+					}
+
+					if (origBeatDuration > Beat::Zero()) {
+						Beat origBeatEnd = origBeat + origBeatDuration;
+						Beat nowBeatEnd = origBeatEnd;
+						if (origBeatEnd > latestBeat)
+							nowBeatEnd += maxBeatAfter - latestBeat + (firstBeat - minBeatAfter);
+						else if (origBeatEnd >= firstBeat)
+							nowBeatEnd = scale(nowBeatEnd, firstBeat, param.TimeRatio) + (firstBeat - minBeatAfter);
+						Beat nowBeatDuration = abs(nowBeatEnd - nowBeat) * ((origBeatEnd > origBeat) ? 1 : -1);
+						SetBeatDuration(Max(Beat::FromTicks(1), nowBeatDuration), itemToAdd);
+						if ((origBeatEnd > origBeat) != (nowBeatEnd > nowBeat)) // reversed
+							SetBeat(nowBeat -= nowBeatDuration, itemToAdd);
+						changed = true;
+					}
+					if (const auto [hasTimeDuration, origTimeDuration] = GetTimeDuration(itemToAdd); hasTimeDuration) {
+						const auto [firstTime, latestTime, minTimeAfter, maxTimeAfter] = getRangeTimes();
+						const Time origTime = context.BeatToTime(origBeat);
+						const Time origTimeEnd = origTime + origTimeDuration;
+						Time nowTime = context.BeatToTime(nowBeat);
+						Time nowTimeEnd = origTimeEnd;
+						if (origTimeEnd > latestTime)
+							nowTimeEnd += maxTimeAfter - latestTime + (firstTime - minTimeAfter);
+						else if (origTimeEnd >= firstTime)
+							nowTimeEnd = scale(nowTimeEnd, firstTime, param.TimeRatio) + (firstTime - minTimeAfter);
+						SetTimeDuration(abs(nowTimeEnd - nowTime) * ((origTimeEnd > origTime) ? 1 : -1), itemToAdd);
+						if ((origTimeEnd > origTime) != (nowTimeEnd > nowTime)) { // reversed
+							const Beat origEndBeat = context.TimeToBeat(context.BeatToTime(origBeat) + origTimeDuration, true); // in original timing
+							Beat nowBeatEnd = scale(origEndBeat, firstBeat, param.TimeRatio);
+							SetBeat(nowBeatEnd, itemToAdd);
+						}
+						changed = true;
+					}
+				}
+				if (!changed) {
+					itemsToRemove.pop_back();
+					itemsToAdd.pop_back();
+				}
+
+				if (IsNotesList(itemToAdd.List))
+					itemToAdd.Value.POD.Note.ClickAnimationTimeRemaining = itemToAdd.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
+			});
+
+			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
+			// BUG: Overwritten items not correctly restored on undo (?)
+			if (!itemsToRemove.empty() || !itemsToAdd.empty())
+			{
+				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }
+
+				if (firstBeat != minBeatAfter) { // realign region to earliest item
+					maxBeatAfter += firstBeat - minBeatAfter;
+					minBeatAfter = firstBeat;
+				}
+				for (auto& idx : idxItemsToAlignToStart)
+					SetBeat(firstBeat, itemsToAdd[idx]);
+
+				if (reverse) { // for range reversing, it is possible for long events to be reversed into negative beats; clip at beat 0
+					for (auto& it : itemsToAdd) {
+						if (Beat beat = GetBeat(it); beat < Beat::Zero()) {
+							SetBeat(Beat::Zero(), it);
+							if (Beat beatDuration = GetBeatDuration(it); beatDuration > Beat::Zero())
+								SetBeatDuration(Max(Beat::FromTicks(1), beatDuration - (Beat::Zero() - beat)), it);
+							if (auto [hasTimeDuration, timeDuration] = GetTimeDuration(it); hasTimeDuration) {
+								const Time zeroTime = context.BeatToTime(Beat::Zero());
+								const Time startTime = context.BeatToTime(beat);
+								SetTimeDuration(timeDuration - (zeroTime - startTime), it);
+							}
+						}
+					}
+				}
+
+				std::pair selectedRange = { &RangeSelection.Start, &RangeSelection.End };
+				std::pair newRange = { minBeatAfter, maxBeatAfter };
+
+				if (reverse)
+					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_ReverseRange>(selectedRange, newRange, &course, std::move(itemsToRemove), std::move(itemsToAdd));
+				else if (param.TimeRatio[0] < param.TimeRatio[1])
+					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_CompressRange>(selectedRange, newRange, &course, std::move(itemsToRemove), std::move(itemsToAdd));
+				else
+					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_ExpandRange>(selectedRange, newRange, &course, std::move(itemsToRemove), std::move(itemsToAdd));
+				context.Undo.DisallowMergeForLastCommand();
+			}
+		} break;
 		}
 	}
 
@@ -2511,13 +2654,16 @@ namespace PeepoDrumKit
 				TransformActionParam param {};
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_FlipNoteType, false)) ExecuteTransformAction(context, TransformAction::FlipNoteType, param);
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ToggleNoteSize, false)) ExecuteTransformAction(context, TransformAction::ToggleNoteSize, param);
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_2To1, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 1));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_3To2, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 2));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_4To3, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(4, 3));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_1To2, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(1, 2));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_2To3, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 3));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_3To4, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 4));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ReverseItemTime_N1To1, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(-1, 1));
+
+				// NOTE: tentatively use the same set of keybinds for item and range scale
+				TransformAction scaleAction = RangeSelection.IsActiveAndHasEnd() ? TransformAction::ScaleRangeTime : TransformAction::ScaleItemTime;;
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_2To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 1));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_3To2, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 2));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_4To3, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(4, 3));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_1To2, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(1, 2));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_2To3, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 3));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_3To4, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 4));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ReverseItemTime_N1To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
 
 				const MultiInputBinding* customBindings[] =
 				{
@@ -2528,7 +2674,7 @@ namespace PeepoDrumKit
 				for (size_t i = 0; i < ArrayCount(customBindings); i++)
 				{
 					if (i < Settings.General.CustomScaleRatios->size() && Gui::IsAnyPressed(*customBindings[i], false))
-						ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio((*Settings.General.CustomScaleRatios)[i].TimeRatio));
+						ExecuteTransformAction(context, scaleAction, param.SetTimeRatio((*Settings.General.CustomScaleRatios)[i].TimeRatio));
 				}
 			}
 		}
