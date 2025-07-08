@@ -185,7 +185,7 @@ namespace PeepoDrumKit
 		inline SelectionActionParam& SetPattern(cstr pattern) { Pattern = pattern; return *this; }
 		inline SelectionActionParam& SetBeatCursor(Beat beat) { BeatCursor = beat; return *this; }
 	};
-	enum class TransformAction : u8 { FlipNoteType, ToggleNoteSize, ScaleItemTime };
+	enum class TransformAction : u8 { FlipNoteType, ToggleNoteSize, ScaleItemTime, ScaleRangeTime };
 	union TransformActionParam
 	{
 		struct { i32 TimeRatio[2]; };
@@ -195,7 +195,7 @@ namespace PeepoDrumKit
 
 	struct ChartTimeline
 	{
-		TimelineCamera Camera = []() { TimelineCamera out {}; out.PositionCurrent.x = out.PositionTarget.x = TimelineCameraBaseScrollX; return out; }();
+		TimelineCamera Camera = []() { TimelineCamera out{}; out.PositionCurrent.x = out.PositionTarget.x = TimelineCameraBaseScrollX; return out; }();
 
 		// NOTE: All in screen space
 		TimelineRegions Regions = {};

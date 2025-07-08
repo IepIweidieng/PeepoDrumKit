@@ -92,6 +92,7 @@ X("PROMPT_SELECTION_CUSTOM_PATTERN_DELETE",			"Delete?") \
 X("ACT_TRANSFORM_FLIP_NOTE_TYPES",					"Flip Note Types") \
 X("ACT_TRANSFORM_TOGGLE_NOTE_SIZES",				"Toggle Note Sizes") \
 X("ACT_TRANSFORM_SCALE_ITEMS",						"Scale Items") \
+X("ACT_TRANSFORM_SCALE_RANGE",						"Scale Range") \
 X("ACT_TRANSFORM_RATIO_2_1",						"2:1 (8th to 4th)") \
 X("ACT_TRANSFORM_RATIO_3_2",						"3:2 (12th to 8th)") \
 X("ACT_TRANSFORM_RATIO_4_3",						"4:3 (16th to 12th)") \
