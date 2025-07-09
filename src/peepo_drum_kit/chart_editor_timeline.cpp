@@ -1588,6 +1588,43 @@ namespace PeepoDrumKit
 		}
 	}
 
+	static Beat GetLastEffectBeat(const ChartCourse& course, GenericList list, size_t index)
+	{
+		assert(!ListIsItemEndBounded(list)); // not handled here
+		Beat beatStartNext;
+		if (!TryGet<GenericMember::Beat_Start>(course, list, index + 1, beatStartNext))
+			return Beat::FromTicks(I32Max); // arbitrary fallback; ultimately unused
+		if (!(ListHasNoteStaticEffects(list) || ListHasBarlineStaticEffects(list)) // can just end at note or barline
+			|| list == GenericList::TempoChanges // need to be handled with scroll changes instead (TODO)
+			) {
+			return beatStartNext;
+		}
+		// do not end at note or barline if they are effect targets of the next event
+		Beat lastEffectBeat = Beat::FromTicks(-1);
+		if (ListHasNoteStaticEffects(list)) {
+			for (const auto& note : course.Notes_Normal) { // no sorted-by-end lists => need linear search for handling overlapping notes
+				if (!(note.BeatTime <= beatStartNext - Beat::FromTicks(1)))
+					break;
+				if (auto beatEnd = note.BeatTime + note.BeatDuration; beatEnd <= beatStartNext - Beat::FromTicks(1))
+					lastEffectBeat = std::max(lastEffectBeat, beatEnd);
+			}
+		}
+		if (ListHasBarlineStaticEffects(list)) {
+			Beat beatLastBarline = Beat::Zero();
+			course.TempoMap.ForEachBeatBar([&](const SortedTempoMap::ForEachBeatBarData& it)
+			{
+				if (!it.IsBar)
+					return ControlFlow::Continue;
+				if (!(it.Beat <= beatStartNext - Beat::FromTicks(1)))
+					return ControlFlow::Break;
+				beatLastBarline = it.Beat;
+				return ControlFlow::Continue;
+			});
+			lastEffectBeat = std::max(lastEffectBeat, beatLastBarline);
+		}
+		return lastEffectBeat;
+	}
+
 	void ChartTimeline::ExecuteTransformAction(ChartContext& context, TransformAction action, const TransformActionParam& param)
 	{
 		ChartCourse& course = *context.ChartSelectedCourse;
@@ -1668,6 +1705,7 @@ namespace PeepoDrumKit
 			b8 isFirst = true; Beat firstBeat = {}, minBeat = {};
 			std::vector<GenericListStructWithType> itemsToRemove; itemsToRemove.reserve(selectedItemCount);
 			std::vector<GenericListStructWithType> itemsToAdd; itemsToAdd.reserve(selectedItemCount);
+			std::vector<size_t> idxItemsToAlignToStart; // move last selected item to start for reversing end-unbounded items
 			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
 			{
 				const Beat origBeat = GetBeat(it, course);
@@ -1680,7 +1718,22 @@ namespace PeepoDrumKit
 				auto& itemToAdd = itemsToAdd.emplace_back(itemToRemove);
 				Beat nowBeat = scale(origBeat, firstBeat, param.TimeRatio);
 				SetBeat(nowBeat, itemToAdd);
-				if (const Beat origBeatDuration = GetBeatDuration(itemToAdd); origBeatDuration > Beat::Zero()) {
+
+				Beat origBeatDuration = GetBeatDuration(itemToAdd);
+				if (reverse && !ListIsItemEndBounded(it.List)) { // use the next item as the end for reversing end-unbounded items
+					Beat origBeatLastEffect = GetLastEffectBeat(course, it.List, it.Index);
+					if (origBeatLastEffect > origBeat) {
+						origBeatDuration = origBeatLastEffect - origBeat;
+						if (!idxItemsToAlignToStart.empty() && itemsToAdd[idxItemsToAlignToStart.back()].List == it.List)
+							idxItemsToAlignToStart.back() = itemsToAdd.size() - 1;
+						else
+							idxItemsToAlignToStart.push_back(itemsToAdd.size() - 1);
+					}
+					if (nowBeat < minBeat) // only consider item head for realigning region
+						minBeat = nowBeat;
+				}
+
+				if (origBeatDuration > Beat::Zero()) {
 					Beat nowBeatDuration = scale(origBeatDuration, Beat::Zero(), ratioAbs);
 					SetBeatDuration(Max(Beat::FromTicks(1), nowBeatDuration), itemToAdd);
 					if (reverse)
@@ -1695,7 +1748,7 @@ namespace PeepoDrumKit
 						nowBeat = std::min(nowBeat, nowBeatEnd); // in case of negative time duration
 					}
 				}
-				if (reverse && nowBeat < minBeat) // handle overlapping items with varying lengths from different row
+				if (reverse && ListIsItemEndBounded(it.List) && nowBeat < minBeat) // handle overlapping items with varying lengths from different row
 					minBeat = nowBeat;
 
 				if (IsNotesList(itemToAdd.List))
@@ -1711,6 +1764,8 @@ namespace PeepoDrumKit
 				if (reverse) { // realign region to originally earliest item
 					for (auto& it : itemsToAdd)
 						SetBeat(GetBeat(it) + firstBeat - minBeat, it);
+					for (auto& idx : idxItemsToAlignToStart)
+						SetBeat(firstBeat, itemsToAdd[idx]);
 				}
 
 				if (reverse)
