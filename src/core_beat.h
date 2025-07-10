@@ -227,8 +227,12 @@ public:
 			const Beat durationPerBeat = abs(thisSignature.GetDurationPerBeat());
 			const Beat durationPerBar = abs(durationPerBeat * beatsPerBar);
 
-			if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatIt, barIndex, true }) == ControlFlow::Break)
+			if (auto flow = perBeatBarFunc(ForEachBeatBarData{ thisSignature, beatIt, barIndex, true }); flow == ControlFlow::Break) {
 				return;
+			} else if (flow == ControlFlow::Continue) {
+				beatIt += durationPerBar;
+				continue;
+			}
 			beatIt += durationPerBeat;
 
 			for (i32 beatIndexWithinBar = 1; beatIndexWithinBar < beatsPerBar; beatIndexWithinBar++)

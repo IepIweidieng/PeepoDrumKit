@@ -310,7 +310,7 @@ namespace PeepoDrumKit
 			if (timeIt >= minMaxVisibleTime.Max || (it.IsBar && timeIt >= chartDuration))
 				return ControlFlow::Break;
 			else
-				return ControlFlow::Continue;
+				return ControlFlow::Fallthrough;
 		});
 	}
 
@@ -971,7 +971,7 @@ namespace PeepoDrumKit
 					return ControlFlow::Break;
 				}
 
-				return ControlFlow::Continue;
+				return ControlFlow::Fallthrough;
 			});
 		}
 	}

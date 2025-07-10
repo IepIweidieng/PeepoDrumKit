@@ -120,7 +120,7 @@ template <typename T>
 using remove_member_pointer_t = typename remove_member_pointer<T>::type;
 
 // NOTE: Specifically to be used with ForEachX(perXFunc) style iterator functions
-enum class ControlFlow : u8 { Break, Continue };
+enum class ControlFlow : u8 { Fallthrough, Continue, Break };
 
 // NOTE: Assumes the enum class EnumType { ..., Count }; convention to be used everywhere
 template <typename EnumType>
