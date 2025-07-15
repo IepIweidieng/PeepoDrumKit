@@ -1,4 +1,4 @@
-#include "chart_editor_timeline.h"
+﻿#include "chart_editor_timeline.h"
 #include "chart_editor_undo.h"
 #include "chart_editor_theme.h"
 #include "chart_editor_i18n.h"
@@ -1588,43 +1588,6 @@ namespace PeepoDrumKit
 		}
 	}
 
-	static Beat GetLastEffectBeat(const ChartCourse& course, GenericList list, size_t index)
-	{
-		assert(!ListIsItemEndBounded(list)); // not handled here
-		Beat beatStartNext;
-		if (!TryGet<GenericMember::Beat_Start>(course, list, index + 1, beatStartNext))
-			return Beat::FromTicks(I32Max); // arbitrary fallback; ultimately unused
-		if (!(ListHasNoteStaticEffects(list) || ListHasBarlineStaticEffects(list)) // can just end at note or barline
-			|| list == GenericList::TempoChanges // need to be handled with scroll changes instead (TODO)
-			) {
-			return beatStartNext;
-		}
-		// do not end at note or barline if they are effect targets of the next event
-		Beat lastEffectBeat = Beat::FromTicks(-1);
-		if (ListHasNoteStaticEffects(list)) {
-			for (const auto& note : course.Notes_Normal) { // no sorted-by-end lists => need linear search for handling overlapping notes
-				if (!(note.BeatTime <= beatStartNext - Beat::FromTicks(1)))
-					break;
-				if (auto beatEnd = note.BeatTime + note.BeatDuration; beatEnd <= beatStartNext - Beat::FromTicks(1))
-					lastEffectBeat = std::max(lastEffectBeat, beatEnd);
-			}
-		}
-		if (ListHasBarlineStaticEffects(list)) {
-			Beat beatLastBarline = Beat::Zero();
-			course.TempoMap.ForEachBeatBar([&](const SortedTempoMap::ForEachBeatBarData& it)
-			{
-				if (!it.IsBar)
-					return ControlFlow::Continue;
-				if (!(it.Beat <= beatStartNext - Beat::FromTicks(1)))
-					return ControlFlow::Break;
-				beatLastBarline = it.Beat;
-				return ControlFlow::Continue;
-			});
-			lastEffectBeat = std::max(lastEffectBeat, beatLastBarline);
-		}
-		return lastEffectBeat;
-	}
-
 	void ChartTimeline::ExecuteTransformAction(ChartContext& context, TransformAction action, const TransformActionParam& param)
 	{
 		ChartCourse& course = *context.ChartSelectedCourse;
@@ -1789,22 +1752,19 @@ namespace PeepoDrumKit
 			if (!RangeSelection.IsActiveAndHasEnd())
 				return;
 
+			enum RangeSide : u8 { Past, Present, Future, Count };
 			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
 
 			const Beat firstBeat = RangeSelection.GetMin(), latestBeat = RangeSelection.GetMax();
 			Beat minBeatAfter = firstBeat, maxBeatAfter = scale(latestBeat, firstBeat, param.TimeRatio);
 			if (minBeatAfter > maxBeatAfter)
 				std::swap(minBeatAfter, maxBeatAfter);
-			auto getRangeTimes = [&, res = std::optional<std::tuple<Time, Time, Time, Time>>{}]() mutable
-			{
-				if (!res.has_value())
-					res = std::tuple{ context.BeatToTime(firstBeat), context.BeatToTime(latestBeat), context.BeatToTime(minBeatAfter), context.BeatToTime(maxBeatAfter) };
-				return res.value();
-			};
+
+			const auto scaleBeatIn = [&](const auto& beat) { return scale(beat, firstBeat, param.TimeRatio) + (firstBeat - minBeatAfter); };
+			const auto scaleBeatAfter = [&](const auto& beat) { return beat + maxBeatAfter - latestBeat + (firstBeat - minBeatAfter); };
 
 			std::vector<GenericListStructWithType> itemsToRemove;
 			std::vector<GenericListStructWithType> itemsToAdd;
-			std::vector<size_t> idxItemsToAlignToStart; // move last selected item to start for reversing end-unbounded items
 			ForEachChartItem(course, [&](const ForEachChartItemData& it)
 			{
 				const Beat origBeat = GetBeat(it, course);
@@ -1812,74 +1772,123 @@ namespace PeepoDrumKit
 				itemToRemove.List = it.List;
 				TryGetGenericStruct(course, it.List, it.Index, itemToRemove.Value);
 
-				auto& itemToAdd = itemsToAdd.emplace_back(itemToRemove);
+				GenericListStructWithType itemToAdd[EnumCount<RangeSide>] = {};
 
 				b8 changed = false;
 				Beat nowBeat = origBeat;
 				if (origBeat > latestBeat) { // no scale AFTER range end; scale on range end for reversing
-					SetBeat(nowBeat += maxBeatAfter - latestBeat + (firstBeat - minBeatAfter), itemToAdd);
-					if (nowBeat != origBeat)
+					nowBeat = scaleBeatAfter(nowBeat);
+					if (nowBeat != origBeat) {
+						SetBeat(nowBeat, itemToAdd[RangeSide::Future] = itemToRemove);
 						changed = true;
+					}
 				} else {
+					auto headSide = RangeSide::Past, endSide = RangeSide::Past;
+
 					if (origBeat >= firstBeat) {
-						SetBeat(nowBeat = (((nowBeat - firstBeat) / param.TimeRatio[1]) * param.TimeRatio[0]) + firstBeat + (firstBeat - minBeatAfter), itemToAdd);
+						headSide = RangeSide::Present;
+						SetBeat(nowBeat = scaleBeatIn(nowBeat), itemToAdd[1] = itemToRemove);
 						changed = true;
 					}
 
-					Beat origBeatDuration = GetBeatDuration(itemToAdd);
-					if (reverse && !ListIsItemEndBounded(it.List)) { // use the next item as the end for reversing end-unbounded items
-						Beat origBeatLastEffect = GetLastEffectBeat(course, it.List, it.Index);
-						if (origBeatLastEffect > origBeat) {
-							origBeatDuration = origBeatLastEffect - origBeat;
-							if (origBeat >= firstBeat && origBeatLastEffect > latestBeat) {
-								if (!idxItemsToAlignToStart.empty() && itemsToAdd[idxItemsToAlignToStart.back()].List == it.List)
-									idxItemsToAlignToStart.back() = itemsToAdd.size() - 1;
-								else
-									idxItemsToAlignToStart.push_back(itemsToAdd.size() - 1);
-								changed = true;
-							}
-						}
-					}
-
-					if (origBeatDuration > Beat::Zero()) {
-						Beat origBeatEnd = origBeat + origBeatDuration;
-						Beat nowBeatEnd = origBeatEnd;
+					auto splitAndScale = [&](const Beat origBeatDuration, auto&& setItemHeadAndEnd)
+					{
+						const b8 reverseDuration = (origBeatDuration < Beat::Zero());
+						const Beat origBeatEnd = origBeat + origBeatDuration;
 						if (origBeatEnd > latestBeat)
-							nowBeatEnd += maxBeatAfter - latestBeat + (firstBeat - minBeatAfter);
+							endSide = RangeSide::Future;
 						else if (origBeatEnd >= firstBeat)
-							nowBeatEnd = scale(nowBeatEnd, firstBeat, param.TimeRatio) + (firstBeat - minBeatAfter);
-						Beat nowBeatDuration = abs(nowBeatEnd - nowBeat) * ((origBeatEnd > origBeat) ? 1 : -1);
-						SetBeatDuration(Max(Beat::FromTicks(1), nowBeatDuration), itemToAdd);
-						if ((origBeatEnd > origBeat) != (nowBeatEnd > nowBeat)) // reversed
-							SetBeat(nowBeat -= nowBeatDuration, itemToAdd);
-						changed = true;
-					}
-					if (const auto [hasTimeDuration, origTimeDuration] = GetTimeDuration(itemToAdd); hasTimeDuration) {
-						const auto [firstTime, latestTime, minTimeAfter, maxTimeAfter] = getRangeTimes();
-						const Time origTime = context.BeatToTime(origBeat);
-						const Time origTimeEnd = origTime + origTimeDuration;
-						Time nowTime = context.BeatToTime(nowBeat);
-						Time nowTimeEnd = origTimeEnd;
-						if (origTimeEnd > latestTime)
-							nowTimeEnd += maxTimeAfter - latestTime + (firstTime - minTimeAfter);
-						else if (origTimeEnd >= firstTime)
-							nowTimeEnd = scale(nowTimeEnd, firstTime, param.TimeRatio) + (firstTime - minTimeAfter);
-						SetTimeDuration(abs(nowTimeEnd - nowTime) * ((origTimeEnd > origTime) ? 1 : -1), itemToAdd);
-						if ((origTimeEnd > origTime) != (nowTimeEnd > nowTime)) { // reversed
-							const Beat origEndBeat = context.TimeToBeat(context.BeatToTime(origBeat) + origTimeDuration, true); // in original timing
-							Beat nowBeatEnd = scale(origEndBeat, firstBeat, param.TimeRatio);
-							SetBeat(nowBeatEnd, itemToAdd);
+							endSide = RangeSide::Present;
+
+						// to calculate using non-negative duration
+						const auto& origBeatMin = std::min(origBeat, origBeatEnd), origBeatMax = std::max(origBeat, origBeatEnd);
+						const auto& minSide = std::min(headSide, endSide), maxSide = std::max(headSide, endSide);
+
+						// split: s-[->(e … s)-]>e → s₁->e₁[s₂->(e₂ … s₃)->e₃]s₄->e₄
+						b8 hasPast = (minSide == RangeSide::Past);
+						b8 hasPresent = (minSide <= RangeSide::Present && maxSide >= RangeSide::Present);
+						b8 hasFuture = (maxSide == RangeSide::Future);
+
+						const Beat beatMinPst = origBeatMin;
+						const Beat beatMaxPst = std::min(firstBeat, origBeatMax);
+						const Beat beatMinFtr = scaleBeatAfter(std::max(latestBeat, origBeatMin));
+						const Beat beatMaxFtr = (origBeatMax.Ticks >= I32Max) ? origBeatMax : scaleBeatAfter(origBeatMax); // for endless events
+
+						// reverse: move s₄ to effective first beat
+						Beat beatMinFtrMoved = beatMinFtr;
+						if (reverse && hasFuture && !ListIsItemEndBounded(it.List)) {
+							Beat origBeatFirstEffect = GetFirstEffectBeatAfter<false>(course, it.List, latestBeat);
+							if (origBeatFirstEffect - origBeatMin < origBeatDuration)
+								beatMinFtrMoved = scaleBeatAfter(origBeatFirstEffect);
+							else
+								hasFuture = false; // no space to insert
 						}
+
+						if (hasPresent) {
+							auto maxSidePrs = RangeSide::Present;
+							Beat beatHeadPrs = scaleBeatIn(std::max(firstBeat, origBeatMin));
+							Beat beatEndPrs = scaleBeatIn(std::min(latestBeat, origBeatMax));
+							Beat beatMinPrs = std::min(beatHeadPrs, beatEndPrs), beatMaxPrs = std::max(beatHeadPrs, beatEndPrs); // handle reversing
+							// merge if the original item was single note or the resulting items have the same value
+							if (hasPast && beatMaxPst == beatMinPrs) {
+								beatMinPrs = beatMinPst;
+								hasPast = false;
+							}
+							if (hasFuture && beatMinFtr == beatMaxPrs) {
+								maxSidePrs = RangeSide::Future;
+								beatMaxPrs = beatMaxFtr;
+								hasFuture = false;
+							}
+							setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, itemToAdd[RangeSide::Present] = itemToRemove);
+						}
+						if (hasPast)
+							setItemHeadAndEnd(beatMinPst, beatMaxPst, reverseDuration, maxSide, RangeSide::Past, itemToAdd[RangeSide::Past] = itemToRemove);
+						if (hasFuture)
+							setItemHeadAndEnd(beatMinFtrMoved, beatMaxFtr, reverseDuration, maxSide, RangeSide::Future, itemToAdd[RangeSide::Future] = itemToRemove);
 						changed = true;
+					};
+
+					Beat origBeatDuration = GetBeatDuration(itemToRemove);
+					if (!ListIsItemEndBounded(it.List)) {
+						Beat origBeatLastEffect = GetLastEffectBeat(course, it.List, it.Index);
+						if (origBeatLastEffect > origBeat)
+							origBeatDuration = origBeatLastEffect - origBeat;
+					}
+					if (origBeatDuration > Beat::Zero()) {
+						splitAndScale(origBeatDuration, [](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
+						{
+							auto duration = end - head;
+							SetBeat(reverse ? end : head, item);
+							SetBeatDuration(Max(Beat::FromTicks(1), reverse ? -duration : duration), item);
+						});
+					}
+
+					if (const auto [hasTimeDuration, origTimeDuration] = GetTimeDuration(itemToRemove); hasTimeDuration) {
+						const Beat origEndBeat = context.TimeToBeat(context.BeatToTime(origBeat) + origTimeDuration, true); // in original timing
+						const Time origTimeExtra = context.BeatToTime(origEndBeat) - (context.BeatToTime(origBeat) + origTimeDuration);
+						splitAndScale(origEndBeat - origBeat, [&](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
+						{
+							auto duration = context.BeatToTime(end) - context.BeatToTime(head);
+							if (maxSideSet == maxSideItem)
+								duration += (maxSideSet == RangeSide::Present) ? scale(origTimeExtra, Time::Zero(), param.TimeRatio) : origTimeExtra;
+							SetBeat(reverse ? end : head, item);
+							SetTimeDuration(reverse ? -duration : duration, item);
+						});
 					}
 				}
+
+				// actually insert items
 				if (!changed) {
 					itemsToRemove.pop_back();
-					itemsToAdd.pop_back();
+					return;
 				}
-
-				if (IsNotesList(itemToAdd.List))
-					itemToAdd.Value.POD.Note.ClickAnimationTimeRemaining = itemToAdd.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
+				for (auto& item : itemToAdd) {
+					if (item.List == GenericList::Count)
+						continue;
+					if (IsNotesList(it.List))
+						item.Value.POD.Note.ClickAnimationTimeRemaining = item.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
+					itemsToAdd.push_back(std::move(item));
+				}
 			});
 
 			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
@@ -1892,8 +1901,6 @@ namespace PeepoDrumKit
 					maxBeatAfter += firstBeat - minBeatAfter;
 					minBeatAfter = firstBeat;
 				}
-				for (auto& idx : idxItemsToAlignToStart)
-					SetBeat(firstBeat, itemsToAdd[idx]);
 
 				if (reverse) { // for range reversing, it is possible for long events to be reversed into negative beats; clip at beat 0
 					for (auto& it : itemsToAdd) {

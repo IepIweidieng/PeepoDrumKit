@@ -884,8 +884,8 @@ namespace PeepoDrumKit
 		GenericList List;
 		GenericListStruct Value;
 
-		// Default constructor
-		GenericListStructWithType() : List(GenericList::TempoChanges), Value() {}
+		// Default constructor: empty value
+		GenericListStructWithType() : List(GenericList::Count), Value() {}
 
 		// Constructor with parameters
 		GenericListStructWithType(GenericList list, const GenericListStruct& value)
@@ -1146,5 +1146,98 @@ namespace PeepoDrumKit
 				if (typedList[i].IsSelected)
 					perSelectedItemFunc(ForEachChartItemData{ list, i });
 		}, course);
+	}
+
+	// helpers for end-unbounded events
+	template <b8 Inclusive>
+	constexpr Beat GetLastEffectBeatBefore(const ChartCourse& course, GenericList list, Beat beat)
+	{
+		constexpr auto compare = [](auto&& a, auto&& b) constexpr { if constexpr (Inclusive) { return a <= b; } else { return a < b; } };
+		assert(!ListIsItemEndBounded(list) && "Not for end-bounded events"); // not handled here
+		if (!(ListHasNoteStaticEffects(list) || ListHasBarlineStaticEffects(list)) // can just end at note or barline
+			|| list == GenericList::TempoChanges // need to be handled with scroll changes instead (TODO)
+			) {
+			return beat;
+		}
+		// do not end at note or barline if they are effect targets of the next event
+		Beat lastEffectBeat = Beat::FromTicks(-1);
+		if (ListHasNoteStaticEffects(list)) {
+			for (const auto& note : course.Notes_Normal) { // no sorted-by-end lists => need linear search for handling overlapping notes
+				if (!compare(note.BeatTime, beat))
+					break;
+				if (auto beatEnd = note.BeatTime + note.BeatDuration; compare(beatEnd, beat))
+					lastEffectBeat = std::max(lastEffectBeat, beatEnd);
+			}
+		}
+		if (ListHasBarlineStaticEffects(list)) {
+			Beat beatLastBarline = Beat::Zero();
+			course.TempoMap.ForEachBeatBar([&](const SortedTempoMap::ForEachBeatBarData& it)
+				{
+					if (!it.IsBar)
+						return ControlFlow::Continue;
+					if (!compare(it.Beat, beat))
+						return ControlFlow::Break;
+					beatLastBarline = it.Beat;
+					return ControlFlow::Continue;
+				});
+			lastEffectBeat = std::max(lastEffectBeat, beatLastBarline);
+		}
+		return lastEffectBeat;
+	}
+
+	constexpr Beat GetLastEffectBeatBefore(const ChartCourse& course, GenericList list, Beat beat, b8 inclusive)
+	{
+		return (inclusive) ? GetLastEffectBeatBefore<true>(course, list, beat) : GetLastEffectBeatBefore<false>(course, list, beat);
+	}
+
+	template <b8 Inclusive>
+	constexpr Beat GetFirstEffectBeatAfter(const ChartCourse& course, GenericList list, Beat beat)
+	{
+		constexpr auto compare = [](auto&& a, auto&& b) constexpr { if constexpr (Inclusive) { return a >= b; } else { return a > b; } };
+		assert(!ListIsItemEndBounded(list) && "Not for end-bounded events");
+		if (!(ListHasNoteStaticEffects(list) || ListHasBarlineStaticEffects(list)) // can just end at note or barline
+			|| list == GenericList::TempoChanges // need to be handled with scroll changes instead (TODO)
+			) {
+			return beat;
+		}
+		// end at note or barline if they are effect targets of the current event
+		Beat firstEffectBeat = Beat::FromTicks(I32Max);
+		if (ListHasNoteStaticEffects(list)) {
+			for (const auto& note : course.Notes_Normal) { // no sorted-by-end lists => need linear search for handling overlapping notes
+				if (auto beatEnd = note.BeatTime + note.BeatDuration; compare(beatEnd, beat))
+					firstEffectBeat = std::min(firstEffectBeat, beatEnd);
+				if (compare(note.BeatTime, beat))
+					break;
+			}
+		}
+		if (ListHasBarlineStaticEffects(list)) {
+			Beat beatFirstBarline = Beat::FromTicks(I32Max);
+			course.TempoMap.ForEachBeatBar([&](const SortedTempoMap::ForEachBeatBarData& it)
+				{
+					if (!it.IsBar)
+						return ControlFlow::Continue;
+					if (compare(it.Beat, beat)) {
+						beatFirstBarline = it.Beat;
+						return ControlFlow::Break;
+					}
+					return ControlFlow::Continue;
+				});
+			firstEffectBeat = std::min(firstEffectBeat, beatFirstBarline);
+		}
+		return firstEffectBeat;
+	}
+
+	constexpr Beat GetFirstEffectBeatAfter(const ChartCourse& course, GenericList list, Beat beat, b8 inclusive)
+	{
+		return (inclusive) ? GetFirstEffectBeatAfter<true>(course, list, beat) : GetFirstEffectBeatAfter<false>(course, list, beat);
+	}
+
+	constexpr Beat GetLastEffectBeat(const ChartCourse& course, GenericList list, size_t index)
+	{
+		assert(!ListIsItemEndBounded(list) && "Not for end-bounded events");
+		Beat beatStartNext = {};
+		if (!TryGet<GenericMember::Beat_Start>(course, list, index + 1, beatStartNext))
+			return Beat::FromTicks(I32Max);
+		return GetLastEffectBeatBefore<false>(course, list, beatStartNext);
 	}
 }
