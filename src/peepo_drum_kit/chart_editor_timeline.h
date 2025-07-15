@@ -395,8 +395,9 @@ namespace PeepoDrumKit
 							assert(duration > Beat::Zero());
 							SetBeatDuration(duration, event);
 							// insert and record as added
-							size_t iEvent = eventList->InsertOrUpdate(std::move(event));
-							eventsToAdd.push_back(iEvent);
+							auto [iEvent, isInserted] = eventList->InsertOrIgnore(std::move(event));
+							if (isInserted)
+								eventsToAdd.push_back(iEvent);
 						}
 					}
 				}

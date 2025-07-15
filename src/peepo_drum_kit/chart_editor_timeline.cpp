@@ -1721,7 +1721,6 @@ namespace PeepoDrumKit
 			});
 
 			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
-			// BUG: Overwritten items not correctly restored on undo (?)
 			if (!itemsToRemove.empty() || !itemsToAdd.empty())
 			{
 				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }
@@ -1892,7 +1891,6 @@ namespace PeepoDrumKit
 			});
 
 			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
-			// BUG: Overwritten items not correctly restored on undo (?)
 			if (!itemsToRemove.empty() || !itemsToAdd.empty())
 			{
 				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }

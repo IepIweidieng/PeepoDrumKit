@@ -143,7 +143,13 @@ public:
 	T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
 	const T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
 
-	size_t InsertOrUpdate(T valueToInsertOrUpdate);
+	// return the to-insert index
+	template <typename Func> size_t InsertOrFunc(const T& valueToInsert, Func funcExist);
+	// return { the to-insert index, is inserted }
+	std::pair<size_t, b8> InsertOrIgnore(const T& valueToInsert);
+	// return the insertion or update index
+	size_t InsertOrUpdate(const T& valueToInsertOrUpdate);
+
 	void RemoveAtBeat(Beat beatToFindAndRemove);
 	void RemoveAtIndex(size_t indexToRemove);
 
@@ -367,29 +373,41 @@ inline b8 ValidateIsSortedByBeat(const BeatSortedList<T>& sortedList)
 	return std::is_sorted(sortedList.begin(), sortedList.end(), [](const T& a, const T& b) { return GetBeat(a) < GetBeat(b); });
 }
 
-// return the insertion or update index
-template <typename T>
-size_t BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
+template <typename T> template <typename Func>
+size_t BeatSortedList<T>::InsertOrFunc(const T& valueToInsert, Func funcExist)
 {
-	const size_t insertionIndex = LinearlySearchForInsertionIndex(*this, GetBeat(valueToInsertOrUpdate));
+	const size_t insertionIndex = LinearlySearchForInsertionIndex(*this, GetBeat(valueToInsert));
 	if (InBounds(insertionIndex, Sorted))
 	{
-		if (T& existing = Sorted[insertionIndex]; GetBeat(existing) == GetBeat(valueToInsertOrUpdate))
-			existing = valueToInsertOrUpdate;
+		if (T& existing = Sorted[insertionIndex]; GetBeat(existing) == GetBeat(valueToInsert))
+			funcExist(existing, valueToInsert);
 		else
-			Sorted.insert(Sorted.begin() + insertionIndex, valueToInsertOrUpdate);
+			Sorted.insert(Sorted.begin() + insertionIndex, valueToInsert);
 	}
 	else
 	{
-		Sorted.push_back(valueToInsertOrUpdate);
+		Sorted.push_back(valueToInsert);
 	}
 
 #if PEEPO_DEBUG
-	assert(GetBeat(valueToInsertOrUpdate).Ticks >= 0);
+	assert(GetBeat(valueToInsert).Ticks >= 0);
 	assert(ValidateIsSortedByBeat(*this));
 #endif
 
 	return insertionIndex;
+}
+
+template <typename T>
+std::pair<size_t, b8> BeatSortedList<T>::InsertOrIgnore(const T& valueToInsert)
+{
+	b8 isInserted = true;
+	return { InsertOrFunc(valueToInsert, [&](...) { isInserted = false; }), isInserted };
+}
+
+template <typename T>
+size_t BeatSortedList<T>::InsertOrUpdate(const T& valueToInsertOrUpdate)
+{
+	return InsertOrFunc(valueToInsertOrUpdate, [&](T& existing, ...) { existing = valueToInsertOrUpdate; });
 }
 
 template <typename T>

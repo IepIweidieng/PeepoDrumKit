@@ -870,6 +870,9 @@ namespace PeepoDrumKit
 		}
 
 		GenericListStruct() {};
+
+		template <typename TEvent, std::enable_if_t<!expect_type_v<TEvent, GenericListStruct>, bool> = true>
+		constexpr GenericListStruct(TEvent&& event);
 	};
 
 	template <auto... Tags, typename FAction, typename GenericListStructWithTypeT, typename... Args,
@@ -890,6 +893,9 @@ namespace PeepoDrumKit
 		// Constructor with parameters
 		GenericListStructWithType(GenericList list, const GenericListStruct& value)
 			: List(list), Value(value) {}
+
+		template <typename TEvent, std::enable_if_t<!expect_type_v<TEvent, GenericListStruct>, bool> = true>
+		constexpr GenericListStructWithType(GenericList list, TEvent&& event);
 	};
 
 	/// tuple-like GenericList access definition
@@ -947,6 +953,31 @@ namespace PeepoDrumKit
 
 	template <typename T>
 	constexpr b8 IsChartEventType = IsNonListChartEventTrait<std::remove_cv_t<std::remove_reference_t<T>>>::value || IsChartEventTypeHelper<T, make_enum_sequence<GenericList>>::value;
+
+	template <typename T, typename = void>
+	struct ChartEventTypeToGenericListHelper : std::false_type {};
+
+	template <typename T, GenericList... Lists>
+	struct ChartEventTypeToGenericListHelper<T, enum_sequence<GenericList, Lists...>>
+		: std::conditional_t<IsChartEventType<T>,
+			std::integral_constant<GenericList, std::min({ (expect_type_v<T, GenericListStructType<Lists>> ? Lists : GenericList::Count)... })>,
+			std::false_type>
+		{};
+
+	template <typename T>
+	constexpr GenericList ChartEventTypeToGenericList = ChartEventTypeToGenericListHelper<T, make_enum_sequence<GenericList>>::value;
+
+	template <typename TEvent, typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
+	constexpr decltype(auto) get(GenericListStructT&& inValue)
+	{
+		return get<ChartEventTypeToGenericList<TEvent>>(std::forward<GenericListStructT>(inValue));
+	}
+
+	template <typename TEvent, std::enable_if_t<!expect_type_v<TEvent, GenericListStruct>, bool>>
+	constexpr GenericListStruct::GenericListStruct(TEvent&& event) { get<TEvent>(*this) = event; };
+
+	template <typename TEvent, std::enable_if_t<!expect_type_v<TEvent, GenericListStruct>, bool>>
+	constexpr GenericListStructWithType::GenericListStructWithType(GenericList list, TEvent&& event) : List(list) { get<TEvent>(Value) = event; };
 
 	template <GenericMember Member, typename FAction, typename T, std::enable_if_t<IsChartEventType<T>, bool> = true, typename... Args>
 	constexpr __forceinline b8 TryDo(FAction&& action, T&& event, Args&&... args)
@@ -1096,7 +1127,15 @@ namespace PeepoDrumKit
 			course, inValue);
 	}
 
-	inline b8 TryAddGenericStruct(ChartCourse& course, GenericList list, GenericListStruct inValue)
+	template <typename Func>
+	b8 TryAddOrFuncGenericStruct(ChartCourse& course, GenericList list, GenericListStruct inValue, Func funcExist)
+	{
+		return ApplySingleGenericList(list,
+			[&](auto&& typedList, auto&& typedInValue) { typedList.InsertOrFunc(typedInValue, funcExist); return true; }, false,
+			course, std::move(inValue)); // `std::move` makes no differences on POD
+	}
+
+	inline b8 TryAddOrReplaceGenericStruct(ChartCourse& course, GenericList list, GenericListStruct inValue)
 	{
 		return ApplySingleGenericList(list,
 			[&](auto&& typedList, auto&& typedInValue) { typedList.InsertOrUpdate(typedInValue); return true; }, false,
