@@ -1743,7 +1743,8 @@ namespace PeepoDrumKit
 				itemToRemove.List = it.List;
 				TryGetGenericStruct(course, it.List, it.Index, itemToRemove.Value);
 
-				auto& itemToAdd = itemsToAdd.emplace_back(itemToRemove);
+				itemsToAdd.push_back(itemToRemove);
+				auto& itemToAdd = itemsToAdd.back();
 				Beat nowBeat = scale(origBeat, firstBeat, ratioBeat);
 				SetBeat(nowBeat, itemToAdd);
 
@@ -1838,24 +1839,18 @@ namespace PeepoDrumKit
 				itemToRemove.List = it.List;
 				TryGetGenericStruct(course, it.List, it.Index, itemToRemove.Value);
 
-				GenericListStructWithType itemToAdd[EnumCount<RangeSide>] = {};
+				std::vector<GenericListStructWithType> itemToAdd = {};
 
 				b8 changed = false;
-				Beat nowBeat = origBeat;
 				if (origBeat > latestBeat) { // no scale AFTER range end; scale on range end for reversing
-					nowBeat = scaleBeatAfter(nowBeat);
+					Beat nowBeat = scaleBeatAfter(origBeat);
 					if (nowBeat != origBeat) {
-						SetBeat(nowBeat, itemToAdd[RangeSide::Future] = itemToRemove);
+						SetBeat(nowBeat, (itemToAdd.push_back(itemToRemove), itemToAdd.back()));
 						changed = true;
 					}
 				} else {
-					auto headSide = RangeSide::Past, endSide = RangeSide::Past;
-
-					if (origBeat >= firstBeat) {
-						headSide = RangeSide::Present;
-						SetBeat(nowBeat = scaleBeatIn(nowBeat), itemToAdd[1] = itemToRemove);
-						changed = true;
-					}
+					const auto headSide = (origBeat >= firstBeat) ? RangeSide::Present : RangeSide::Past;
+					auto endSide = RangeSide::Past;
 
 					auto splitAndScale = [&](const Beat origBeatDuration, auto&& setItemHeadAndEnd)
 					{
@@ -1896,7 +1891,8 @@ namespace PeepoDrumKit
 							Beat beatEndPrs = scaleBeatIn(std::min(latestBeat, origBeatMax));
 							Beat beatMinPrs = std::min(beatHeadPrs, beatEndPrs), beatMaxPrs = std::max(beatHeadPrs, beatEndPrs); // handle reversing
 							// merge if the original item was single note or the resulting items have the same value
-							b8 changedIn = ScaleChartItemValues(itemToAdd[RangeSide::Present] = itemToRemove, param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
+							itemToAdd.push_back(itemToRemove);
+							b8 changedIn = ScaleChartItemValues(itemToAdd.back(), param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
 							if (!changedIn) {
 								if (hasPast && beatMaxPst == beatMinPrs) {
 									beatMinPrs = beatMinPst;
@@ -1908,12 +1904,12 @@ namespace PeepoDrumKit
 									hasFuture = false;
 								}
 							}
-							setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, itemToAdd[RangeSide::Present]);
+							setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, itemToAdd.back());
 						}
 						if (hasPast)
-							setItemHeadAndEnd(beatMinPst, beatMaxPst, reverseDuration, maxSide, RangeSide::Past, itemToAdd[RangeSide::Past] = itemToRemove);
+							setItemHeadAndEnd(beatMinPst, beatMaxPst, reverseDuration, maxSide, RangeSide::Past, (itemToAdd.push_back(itemToRemove), itemToAdd.back()));
 						if (hasFuture)
-							setItemHeadAndEnd(beatMinFtrMoved, beatMaxFtr, reverseDuration, maxSide, RangeSide::Future, itemToAdd[RangeSide::Future] = itemToRemove);
+							setItemHeadAndEnd(beatMinFtrMoved, beatMaxFtr, reverseDuration, maxSide, RangeSide::Future, (itemToAdd.push_back(itemToRemove), itemToAdd.back()));
 						changed = true;
 					};
 
@@ -1949,8 +1945,13 @@ namespace PeepoDrumKit
 						}
 					}
 
-					if (!changed && origBeat >= firstBeat && origBeat <= latestBeat)
-						changed = ScaleChartItemValues(itemToAdd[RangeSide::Present], param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
+					if (!changed && headSide == RangeSide::Present) {
+						Beat nowBeat = scaleBeatIn(origBeat);
+						itemToAdd.push_back(itemToRemove);
+						SetBeat(nowBeat, itemToAdd.back());
+						changed |= (nowBeat != origBeat);
+						changed |= ScaleChartItemValues(itemToAdd[0], param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
+					}
 				}
 
 				// actually insert items
@@ -1959,8 +1960,6 @@ namespace PeepoDrumKit
 					return;
 				}
 				for (auto& item : itemToAdd) {
-					if (item.List == GenericList::Count)
-						continue;
 					if (IsNotesList(it.List))
 						item.Value.POD.Note.ClickAnimationTimeRemaining = item.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 					itemsToAdd.push_back(std::move(item));
