@@ -93,13 +93,18 @@ X("ACT_TRANSFORM_FLIP_NOTE_TYPES",					"Flip Note Types") \
 X("ACT_TRANSFORM_TOGGLE_NOTE_SIZES",				"Toggle Note Sizes") \
 X("ACT_TRANSFORM_SCALE_ITEMS",						"Scale Items") \
 X("ACT_TRANSFORM_SCALE_RANGE",						"Scale Range") \
+X("ACT_TRANSFORM_SCALE_BY_TEMPO",					"Scale by Tempo") \
+X("ACT_TRANSFORM_SCALE_KEEP_TIME_POSITION",			"Keep Time Position") \
+X("ACT_TRANSFORM_SCALE_KEEP_TIME_SIGNATURE",		"Keep Time Signature") \
+X("ACT_TRANSFORM_SCALE_KEEP_ITEM_DURATION",			"Keep Item Duration") \
 X("ACT_TRANSFORM_RATIO_2_1",						"2:1 (8th to 4th)") \
 X("ACT_TRANSFORM_RATIO_3_2",						"3:2 (12th to 8th)") \
 X("ACT_TRANSFORM_RATIO_4_3",						"4:3 (16th to 12th)") \
 X("ACT_TRANSFORM_RATIO_1_2",						"1:2 (4th to 8th)") \
 X("ACT_TRANSFORM_RATIO_2_3",						"2:3 (8th to 12th)") \
 X("ACT_TRANSFORM_RATIO_3_4",						"3:4 (12th to 16th)") \
-X("ACT_TRANSFORM_RATIO_N1_1",						"-1:1 (reverse)") \
+X("ACT_TRANSFORM_RATIO_N1_1_TIME",					"-1:1 (reverse time)") \
+X("ACT_TRANSFORM_RATIO_N1_1_SCROLL",				"-1:1 (reverse scroll)") \
 X("ACT_TRANSFORM_ADD_NEW_RATIO",					"Add New Ratio...") \
 X("ACT_TRANSFORM_CUSTOM_RATIO",						"Select Custom Ratio") \
 X("INFO_TRANSFORM_CUSTOM_RATIO_DELETE",				"Input 0:0 to delete") \

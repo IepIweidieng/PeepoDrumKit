@@ -286,7 +286,8 @@ namespace PeepoDrumKit
 						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 4));
 					Gui::Separator();
 
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_N1_1"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, enabled))
+					b8 reveresScroll = (*Settings.General.TransformScale_ByTempo || *Settings.General.TransformScale_KeepTimePosition);
+					if (Gui::MenuItem(reveresScroll ? UI_Str("ACT_TRANSFORM_RATIO_N1_1_SCROLL") : UI_Str("ACT_TRANSFORM_RATIO_N1_1_TIME"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, enabled))
 						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
 					Gui::Separator();
 
@@ -310,8 +311,9 @@ namespace PeepoDrumKit
 
 					for (size_t i = 0; i < customRatios->size(); i++)
 					{
+						b8 canScale = ((*customRatios)[i].TimeRatio[0] != 0 && (*customRatios)[i].TimeRatio[1] != 0);
 						char label[64]; sprintf_s(label, "%s %c", UI_Str("ACT_TRANSFORM_CUSTOM_RATIO"), static_cast<char>('A' + i));
-						if (Gui::MenuItem(label, (i < ArrayCount(customBindings)) ? ToShortcutString(**customBindings[i]).Data : "", nullptr, enabled && (*customRatios)[i].TimeRatio[1] != 0))
+						if (Gui::MenuItem(label, (i < ArrayCount(customBindings)) ? ToShortcutString(**customBindings[i]).Data : "", nullptr, enabled && canScale))
 							timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio((*customRatios)[i].TimeRatio));
 					}
 
@@ -353,6 +355,19 @@ namespace PeepoDrumKit
 					}
 					if (!customRatios->empty())
 						Gui::MenuItem(UI_Str("INFO_TRANSFORM_CUSTOM_RATIO_DELETE"), nullptr, false, false);
+
+					for (const auto& [pSetting, label] : {
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_ByTempo, UI_Str("ACT_TRANSFORM_SCALE_BY_TEMPO") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepTimePosition, UI_Str("ACT_TRANSFORM_SCALE_KEEP_TIME_POSITION") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepTimeSignature, UI_Str("ACT_TRANSFORM_SCALE_KEEP_TIME_SIGNATURE") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepItemDuration, UI_Str("ACT_TRANSFORM_SCALE_KEEP_ITEM_DURATION") },
+						}) {
+						if (b8 v = *(Settings.General.*pSetting); Gui::Checkbox(label, &v)) {
+							(Settings_Mutable.General.*pSetting).Value = v;
+							(Settings_Mutable.General.*pSetting).SetHasValueIfNotDefault();
+							Settings_Mutable.IsDirty = true;
+						}
+					}
 				};
 
 				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_SCALE_ITEMS"))) {
