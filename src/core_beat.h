@@ -80,7 +80,7 @@ struct TimeSignature
 
 	constexpr i32 GetBeatsPerBar() const { return Numerator; }
 	constexpr Beat GetDurationPerBeat() const { return Beat::FromBars(1) / Denominator; }
-	constexpr Beat GetDurationPerBar() const { return GetDurationPerBeat() * GetBeatsPerBar(); }
+	constexpr Beat GetDurationPerBar() const { const auto sim = GetSimplified(); return Beat::FromBars(1) * sim.Numerator / sim.Denominator; }
 
 	constexpr size_t size() const { return 2; }
 	constexpr i32* data() { return &Numerator; }
@@ -279,24 +279,24 @@ public:
 			thisSignature.Numerator = (isSignatureNegative ? -1 : 1) * ClampBot(abs(thisSignature.Numerator), 1);
 			thisSignature.Denominator = ClampBot(abs(thisSignature.Denominator), 1);
 
-			const i32 beatsPerBar = abs(thisSignature.GetBeatsPerBar());
-			const Beat durationPerBeat = abs(thisSignature.GetDurationPerBeat());
-			const Beat durationPerBar = abs(durationPerBeat * beatsPerBar);
-
+			const Beat durationPerBar = std::max(abs(thisSignature.GetDurationPerBar()), Beat::FromTicks(1));
 			if (auto flow = perBeatBarFunc(ForEachBeatBarData{ thisSignature, beatIt, barIndex, true }); flow == ControlFlow::Break) {
 				return;
 			} else if (flow == ControlFlow::Continue) {
 				beatIt += durationPerBar;
 				continue;
 			}
-			beatIt += durationPerBeat;
 
+			const i32 beatsPerBar = abs(thisSignature.GetBeatsPerBar());
+			const Beat durationPerBeat = abs(thisSignature.GetDurationPerBeat());
+			Beat beatWithinBar = beatIt;
 			for (i32 beatIndexWithinBar = 1; beatIndexWithinBar < beatsPerBar; beatIndexWithinBar++)
 			{
-				if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatIt, barIndex, false }) == ControlFlow::Break)
+				beatWithinBar += durationPerBeat;
+				if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatWithinBar, barIndex, false }) == ControlFlow::Break)
 					return;
-				beatIt += durationPerBeat;
 			}
+			beatIt += durationPerBar;
 		}
 	}
 };
