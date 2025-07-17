@@ -2,7 +2,6 @@
 #include "chart_editor_undo.h"
 #include "chart_editor_theme.h"
 #include "chart_editor_i18n.h"
-#include <numeric>
 
 namespace PeepoDrumKit
 {
@@ -1632,15 +1631,7 @@ namespace PeepoDrumKit
 				const auto denomOrig = v.Denominator;
 				v.Numerator *= std::abs(ratioBeat[0]);
 				v.Denominator *= std::abs(ratioBeat[1]);
-				// simplify time signature
-				auto gcd = std::gcd(v.Numerator, v.Denominator);
-				v.Numerator /= gcd;
-				v.Denominator /= gcd;
-				// use original denominator if possible
-				if (denomOrig % v.Denominator == 0) {
-					v.Numerator *= denomOrig / v.Denominator;
-					v.Denominator = denomOrig;
-				}
+				v.Simplify(denomOrig); // use original denominator if possible
 				changed = true;
 			}
 			if ((byTempo || keepTimePos) && Sign(ratio[0]) * Sign(ratio[1]) < 0) { // flip sign when BPM does
@@ -1650,6 +1641,204 @@ namespace PeepoDrumKit
 			TrySet<GenericMember::TimeSignature_V>(item, v);
 		}
 		return changed;
+	}
+
+	template <typename Arr0, typename Arr1>
+	static auto FragmentChartItem(const GenericListStructWithType& item, Beat beatDuration, Beat beatSplit, const Arr0& ratio, const Arr1& ratioBeat, b8 reverseBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature)
+	{
+		std::vector<std::tuple<GenericListStructWithType, Beat, b8>> res = {}; // {itemSplit, beatDurationSplit, isSplitPoint}
+		Beat beatHead = GetBeat(item), beatEnd = beatHead + beatDuration;
+		Beat beatMin = std::min(beatHead, beatEnd), beatMax = std::max(beatHead, beatEnd);
+		if (!(beatSplit > beatMin && beatSplit < beatMax))
+			return res;
+
+		if (TimeSignature v; !keepTimeSignature && TryGet<GenericMember::TimeSignature_V>(item, v)) {
+
+			if (reverseBeat || std::abs(ratioBeat[0]) != std::abs(ratioBeat[1]) // scaled
+				|| ((byTempo || keepTimePos) && Sign(ratio[0]) * Sign(ratio[1]) < 0) // flip sign when BPM does
+				) {
+				Beat beatPerBar = abs(v.GetDurationPerBar());
+				Beat beatEffectPre = (beatPerBar == Beat::Zero()) ? beatMin : beatMin + std::floor((beatSplit - beatMin) / beatPerBar) * beatPerBar;
+
+				// /|| - - - - //| - - - - /| - - - - /|| -> process as usual; no fragmenting
+				if (beatEffectPre != beatSplit) {
+					// /|| - - - - /| - - -//- /| - - - - /||, ||: time sig change, |: measure border, -: beat, //: split, /: wanted measure border
+					res.emplace_back(item, Beat::Zero(), false);
+					if (beatEffectPre != beatMin) {
+						// -> /|| - - - - /|| - - -//- /| - - - - /||
+						res.emplace_back(item, Beat::Zero(), false);
+						SetBeat(beatEffectPre, get<0>(res.back()));
+					}
+					// -> /|| - - - - /|| - - -//| - / - - | - - /(||), (||): mid-measure time sig change (unspecified behavior on defined measure)
+					TimeSignature vPre = { Sign(v) * (beatSplit - beatEffectPre).Ticks, Beat::FromBars(1).Ticks };
+					vPre.Simplify(v.Denominator);
+					TrySet<GenericMember::TimeSignature_V>(get<0>(res.back()), vPre);
+					// -> /|| - - - - /|| - - -//|| - / - - - | - /(||)
+					res.emplace_back(item, Beat::Zero(), true);
+					SetBeat(beatSplit, get<0>(res.back()));
+					// -> /|| - - - - /|| - - -//|| - /| - | - | - | - /||
+					TimeSignature vPost = { Sign(v) * (beatEffectPre + beatPerBar - beatSplit).Ticks, Beat::FromBars(1).Ticks };
+					vPost.Simplify(v.Denominator);
+					TrySet<GenericMember::TimeSignature_V>(get<0>(res.back()), vPost);
+					if (Beat beatEffectPost = beatEffectPre + beatPerBar; beatEffectPost < beatMax) {
+						// -> /|| - - - - /|| - - -//|| - /|| - - - - /||, done
+						res.emplace_back(item, Beat::Zero(), false);
+						SetBeat(beatEffectPost, get<0>(res.back()));
+					}
+
+					// calculate duration
+					for (size_t i = 1; i < std::size(res); ++i) {
+						auto& [itemPrev, beatDurationPrev, _] = res[i - 1];
+						beatDurationPrev = GetBeat(get<0>(res[i])) - GetBeat(itemPrev);
+					}
+					auto& [itemLast, beatDurationLast, _] = res.back();
+					beatDurationLast = beatMax - GetBeat(itemLast);
+				}
+			}
+		}
+		return res;
+	}
+
+	template <typename ArrB, typename Arr0, typename Arr1, std::enable_if_t<expect_type_v<decltype(std::declval<ArrB>()[0]), Beat>, b8> = true>
+	static auto FragmentChartItem(const GenericListStructWithType& item, Beat beatDuration, ArrB&& beatSplits,
+		const Arr0& ratio, const Arr1& ratioBeat, b8 reverseBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature)
+	{
+		b8 fragmented = false;
+		std::vector res = { std::tuple{ item, beatDuration, false } }; // {itemSplit, beatDurationSplit, isSplitPoint}
+		for (Beat beatSplit : beatSplits) {
+			decltype(res) fragmentsI = {};
+			for (auto& fragJ : res) {
+				auto& [itemJ, beatDurationJ, isSplitPointJ] = fragJ;
+				auto fragmentsJ = FragmentChartItem(itemJ, beatDurationJ, beatSplit, ratio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepTimeSignature);
+				if (fragmentsJ.empty()) {
+					fragmentsI.push_back(std::move(fragJ));
+				} else {
+					auto& isSplitPointJ0 = get<2>(fragmentsJ[0]);
+					isSplitPointJ0 |= isSplitPointJ;
+					std::move(begin(fragmentsJ), end(fragmentsJ), std::back_insert_iterator(fragmentsI));
+					fragmented = true;
+				}
+			}
+			res = std::move(fragmentsI);
+		}
+		return fragmented ? res : (res = {});
+	}
+
+	static auto MergeChartItem(const GenericListStructWithType& itemX, Beat beatDurationX, const GenericListStructWithType& itemY, Beat beatDurationY, b8 keepTimeSignature)
+	{
+		assert(GetBeat(itemX) <= GetBeat(itemY) && "unhandled item order");
+
+		std::vector<GenericListStructWithType> res = {};
+		if (itemX.List != itemY.List)
+			return res;
+		if ((beatDurationX > Beat::Zero()) != (beatDurationY > Beat::Zero())) // cannot determine head
+			return res;
+
+		Beat beatHeadX = GetBeat(itemX), beatEndX = beatHeadX + beatDurationX;
+		Beat beatMinX = std::min(beatHeadX, beatEndX), beatMaxX = std::max(beatHeadX, beatEndX);
+		Beat beatHeadY = GetBeat(itemY), beatEndY = beatHeadY + beatDurationY;
+		Beat beatMinY = std::min(beatHeadY, beatEndY), beatMaxY = std::max(beatHeadY, beatEndY);
+		if (beatMaxX != beatMinY)
+			return res;
+		Beat beatMid = beatMaxX;
+
+		if (TimeSignature vX, vY; !keepTimeSignature && TryGet<GenericMember::TimeSignature_V>(itemX, vX) && TryGet<GenericMember::TimeSignature_V>(itemY, vY)) {
+			if (Sign(vX) * Sign(vY) >= 0) { // only zero or same-direction time sigs are mergeable
+				Beat beatPerBarX = abs(vX.GetDurationPerBar()), beatPerBarY = abs(vY.GetDurationPerBar());
+				Beat beatEffectPre = (beatPerBarX == Beat::Zero()) ? beatMinX : beatMinX + std::floor((beatMid - beatMinX) / beatPerBarX) * beatPerBarX;
+				TimeSignature vPre = vX;
+
+				// /|| - - - - /| - - -//|| - - /| - - /||, ||: time sig change, |: measure border, -: beat, //: merge, /: wanted measure border
+				res.push_back(itemX);
+				if (beatEffectPre == beatMid) // split before merge, not at merge
+					beatEffectPre -= beatPerBarX;
+				if (beatEffectPre > beatMinX && beatEffectPre != beatMid) {
+					// -> /|| - - - - /|| - - -//(||) - | - / - | - /(||), (||): mid-measure time sig change (unspecified behavior on defined measure)
+					res.push_back(itemX);
+					SetBeat(beatEffectPre, res.back());
+				}
+				if (beatEffectPre != beatMinX) {
+					vPre = { Sign(vX) * (beatMid - std::max(beatMinX, beatEffectPre)).Ticks, Beat::FromBars(1).Ticks };
+					vPre.Simplify(vX.Denominator);
+				}
+				// -> /|| - - - - /|| - - -//- - /| - - /(||)
+				TimeSignature vMerged = (vPre + vY).GetSimplified(vX.Denominator);
+				TrySet<GenericMember::TimeSignature_V>(res.back(), vMerged);
+				if (vMerged == vX && std::size(res) > 1)
+					res.pop_back();
+				if (Beat beatEffectPost = beatMid + beatPerBarY; beatEffectPost < beatMaxY) {
+					// -> /|| - - - - /|| - - -//- - /|| - - /||, done
+					res.push_back(itemY);
+					SetBeat(beatEffectPost, res.back());
+				}
+			}
+		}
+		return res;
+	}
+
+	template <typename ArrB, typename Arr0, typename Arr1, typename Func>
+	static auto RefragmentChartItem(const GenericListStructWithType& item, const Beat origBeatDuration, ArrB&& beatSplits,
+		const Arr0& ratio, const Arr1& ratioBeat, b8 reverseBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature,
+		Func&& mapFragment)
+	{
+		std::vector<GenericListStructWithType> res = {};
+		std::vector<i8> mergeWays = {};
+		auto fragments = FragmentChartItem(item, origBeatDuration, beatSplits, ratio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepTimeSignature);
+		b8 needSplitByMap = fragments.empty();
+		if (needSplitByMap)
+			fragments = { std::tuple{ item, origBeatDuration, false } };
+
+		for (size_t i = 0; i < std::size(fragments); ++i) {
+			auto& [itemI, beatDurationI, isSplitPointI] = fragments[i];
+			const auto [hasPast, hasPresent, hasFuture] = mapFragment(itemI, beatDurationI, needSplitByMap, res);
+			if (!needSplitByMap) {
+				i32 nFragments = (static_cast<i32>(hasPast) + hasPresent + hasFuture);
+				assert(nFragments <= 1 && "Fragment failed. Expected exactly 1 or no items to be inserted per fragment");
+				if (nFragments > 0)
+					mergeWays.push_back(!isSplitPointI ? 0 : (reverseBeat && hasPresent) ? 1 : -1);
+			}
+		}
+
+		if (needSplitByMap)
+			return res;
+
+		// index of merged items in beat order
+		std::vector<i8> orderToIdxItems (size(mergeWays));
+		std::iota(begin(orderToIdxItems), end(orderToIdxItems), 0);
+		std::sort(begin(orderToIdxItems), end(orderToIdxItems), [&](size_t i, size_t j)
+		{
+			return GetBeat(res[i]) < GetBeat(res[j]);
+		});
+		{ // rearrange added items in beat order
+			decltype(res) itemToAddOrdered = {};
+			itemToAddOrdered.reserve(size(res));
+			for (auto idx : orderToIdxItems)
+				itemToAddOrdered.push_back(std::move(res[idx]));
+			res = std::move(itemToAddOrdered);
+		}
+
+		for (size_t i = size(res); i-- > 0;) { // merge from back to allow removing and inserting
+			const auto mergeWay = mergeWays[orderToIdxItems[i]];
+			if (mergeWay == 0)
+				continue;
+			auto ordI = i, ordJ = i + Sign(mergeWay);
+			if (!(ordJ >= 0 && ordJ < size(mergeWays))) // only merge between fragments
+				continue;
+			if (ordI > ordJ)
+				std::swap(ordI, ordJ);
+			const auto& itemI = res[ordI], & itemJ = res[ordJ];
+			const auto idxI = orderToIdxItems[ordI], idxJ = orderToIdxItems[ordJ];
+			const auto& fragI = fragments[idxI], & fragJ = fragments[idxJ];
+			auto mergedItems = MergeChartItem(itemI, get<1>(fragI), itemJ, get<1>(fragJ), keepTimeSignature);
+			if (!mergedItems.empty()) {
+				if (mergeWays[idxI] > 0)
+					mergeWays[idxI] = 0; // already merged
+				res.erase(begin(res) + ordI, begin(res) + ordJ + 1);
+				std::move(std::begin(mergedItems), std::end(mergedItems), std::insert_iterator(res, begin(res) + ordI));
+			}
+		}
+
+		return res;
 	}
 
 	void ChartTimeline::ExecuteTransformAction(ChartContext& context, TransformAction action, const TransformActionParam& param)
@@ -1819,6 +2008,7 @@ namespace PeepoDrumKit
 				return;
 
 			auto [byTempo, keepTimePos, keepItemDur, ratioBeat, ratioBeatAbs, reverseBeat] = GetScaleChartItemRatios(param);
+			const b8 keepTimeSig = *Settings.General.TransformScale_KeepTimeSignature;
 			enum RangeSide : u8 { Past, Present, Future, Count };
 			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
 
@@ -1826,6 +2016,9 @@ namespace PeepoDrumKit
 			Beat minBeatAfter = firstBeat, maxBeatAfter = scale(latestBeat, firstBeat, ratioBeat);
 			if (minBeatAfter > maxBeatAfter)
 				std::swap(minBeatAfter, maxBeatAfter);
+
+			auto getRangeSide = [&](Beat origBeat) { return (origBeat > latestBeat) ? RangeSide::Future : (origBeat >= firstBeat) ? RangeSide::Present : RangeSide::Past; };
+			auto getRangeSideToFtr = [&](Beat origBeat) { return (origBeat >= latestBeat) ? RangeSide::Future : (origBeat >= firstBeat) ? RangeSide::Present : RangeSide::Past; };
 
 			const auto scaleBeatIn = [&](const auto& beat) { return scale(beat, firstBeat, ratioBeat) + (firstBeat - minBeatAfter); };
 			const auto scaleBeatAfter = [&](const auto& beat) { return beat + maxBeatAfter - latestBeat + (firstBeat - minBeatAfter); };
@@ -1842,24 +2035,20 @@ namespace PeepoDrumKit
 				std::vector<GenericListStructWithType> itemToAdd = {};
 
 				b8 changed = false;
-				if (origBeat > latestBeat) { // no scale AFTER range end; scale on range end for reversing
+				if (getRangeSide(origBeat) == RangeSide::Future) {
 					Beat nowBeat = scaleBeatAfter(origBeat);
 					if (nowBeat != origBeat) {
 						SetBeat(nowBeat, (itemToAdd.push_back(itemToRemove), itemToAdd.back()));
 						changed = true;
 					}
 				} else {
-					const auto headSide = (origBeat >= firstBeat) ? RangeSide::Present : RangeSide::Past;
-					auto endSide = RangeSide::Past;
-
-					auto splitAndScale = [&](const Beat origBeatDuration, auto&& setItemHeadAndEnd)
+					auto splitAndScale = [&](const GenericListStructWithType& item, const Beat origBeat, const Beat origBeatDuration, b8 needSplit, auto&& splitItems, auto&& setItemHeadAndEnd)
 					{
 						const b8 reverseDuration = (origBeatDuration < Beat::Zero());
 						const Beat origBeatEnd = origBeat + origBeatDuration;
-						if (origBeatEnd > latestBeat)
-							endSide = RangeSide::Future;
-						else if (origBeatEnd >= firstBeat)
-							endSide = RangeSide::Present;
+
+						const auto headSide = needSplit ? getRangeSide(origBeat) : getRangeSideToFtr(origBeat);
+						const auto endSide = needSplit ? getRangeSide(origBeatEnd) : headSide;
 
 						// to calculate using non-negative duration
 						const auto& origBeatMin = std::min(origBeat, origBeatEnd), origBeatMax = std::max(origBeat, origBeatEnd);
@@ -1877,10 +2066,10 @@ namespace PeepoDrumKit
 
 						// reverse: move s₄ to effective first beat
 						Beat beatMinFtrMoved = beatMinFtr;
-						if (reverseBeat && hasFuture && !ListIsItemEndBounded(it.List)) {
-							Beat origBeatFirstEffect = GetFirstEffectBeatAfter<false>(course, it.List, latestBeat);
-							if (origBeatFirstEffect - origBeatMin < origBeatDuration)
-								beatMinFtrMoved = scaleBeatAfter(origBeatFirstEffect);
+						if (reverseBeat && hasFuture && !ListIsItemEndBounded(item.List)) {
+							Beat origBeatFirstEffect = GetFirstEffectBeatAfter<false>(course, item.List, latestBeat);
+							if (origBeatFirstEffect < origBeatEnd)
+								beatMinFtrMoved = scaleBeatAfter(std::max(origBeatFirstEffect, origBeatMin));
 							else
 								hasFuture = false; // no space to insert
 						}
@@ -1891,8 +2080,8 @@ namespace PeepoDrumKit
 							Beat beatEndPrs = scaleBeatIn(std::min(latestBeat, origBeatMax));
 							Beat beatMinPrs = std::min(beatHeadPrs, beatEndPrs), beatMaxPrs = std::max(beatHeadPrs, beatEndPrs); // handle reversing
 							// merge if the original item was single note or the resulting items have the same value
-							itemToAdd.push_back(itemToRemove);
-							b8 changedIn = ScaleChartItemValues(itemToAdd.back(), param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
+							splitItems.push_back(item);
+							b8 changedIn = ScaleChartItemValues(splitItems.back(), param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepTimeSig);
 							if (!changedIn) {
 								if (hasPast && beatMaxPst == beatMinPrs) {
 									beatMinPrs = beatMinPst;
@@ -1904,13 +2093,15 @@ namespace PeepoDrumKit
 									hasFuture = false;
 								}
 							}
-							setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, itemToAdd.back());
+							setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, splitItems.back());
 						}
 						if (hasPast)
-							setItemHeadAndEnd(beatMinPst, beatMaxPst, reverseDuration, maxSide, RangeSide::Past, (itemToAdd.push_back(itemToRemove), itemToAdd.back()));
+							setItemHeadAndEnd(beatMinPst, beatMaxPst, reverseDuration, maxSide, RangeSide::Past, (splitItems.push_back(item), splitItems.back()));
 						if (hasFuture)
-							setItemHeadAndEnd(beatMinFtrMoved, beatMaxFtr, reverseDuration, maxSide, RangeSide::Future, (itemToAdd.push_back(itemToRemove), itemToAdd.back()));
+							setItemHeadAndEnd(beatMinFtrMoved, beatMaxFtr, reverseDuration, maxSide, RangeSide::Future, (splitItems.push_back(item), splitItems.back()));
 						changed = true;
+
+						return std::array{ hasPast, hasPresent, hasFuture };
 					};
 
 					Beat origBeatDuration = GetBeatDuration(itemToRemove);
@@ -1921,12 +2112,18 @@ namespace PeepoDrumKit
 					}
 					if (origBeatDuration > Beat::Zero()) {
 						if (!keepItemDur || !ListIsItemEndBounded(it.List)) {
-							splitAndScale(origBeatDuration, [](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
-							{
-								auto duration = end - head;
-								SetBeat(reverse ? end : head, item);
-								SetBeatDuration(Max(Beat::FromTicks(1), reverse ? -duration : duration), item);
-							});
+							auto fragments = RefragmentChartItem(itemToRemove, origBeatDuration,
+								std::array{ firstBeat, latestBeat }, param.TimeRatio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepTimeSig,
+								[&](const GenericListStructWithType& itemI, Beat& beatDurationI, b8 needSplit, auto&& fragments)
+								{
+									return splitAndScale(itemI, GetBeat(itemI), beatDurationI, needSplit, fragments, [&](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
+									{
+										auto duration = end - head;
+										SetBeat(reverse ? end : head, item);
+										SetBeatDuration(Max(Beat::FromTicks(1), beatDurationI = (reverse ? -duration : duration)), item);
+									});
+								});
+							std::move(begin(fragments), end(fragments), std::back_insert_iterator(itemToAdd));
 						}
 					}
 
@@ -1934,7 +2131,7 @@ namespace PeepoDrumKit
 						if (!(keepItemDur || keepTimePos)) {
 							const Beat origEndBeat = context.TimeToBeat(context.BeatToTime(origBeat) + origTimeDuration, true); // in original timing
 							const Time origTimeExtra = context.BeatToTime(origEndBeat) - (context.BeatToTime(origBeat) + origTimeDuration);
-							splitAndScale(origEndBeat - origBeat, [&](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
+							const auto [hasPast, hasPresent, hasFuture] = splitAndScale(itemToRemove, origBeat, origEndBeat - origBeat, true, itemToAdd, [&](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
 							{
 								auto duration = context.BeatToTime(end) - context.BeatToTime(head);
 								if (maxSideSet == maxSideItem)
@@ -1945,12 +2142,12 @@ namespace PeepoDrumKit
 						}
 					}
 
-					if (!changed && headSide == RangeSide::Present) {
+					if (!changed && getRangeSide(origBeat) == RangeSide::Present) {
 						Beat nowBeat = scaleBeatIn(origBeat);
 						itemToAdd.push_back(itemToRemove);
 						SetBeat(nowBeat, itemToAdd.back());
 						changed |= (nowBeat != origBeat);
-						changed |= ScaleChartItemValues(itemToAdd[0], param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
+						changed |= ScaleChartItemValues(itemToAdd[0], param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepTimeSig);
 					}
 				}
 

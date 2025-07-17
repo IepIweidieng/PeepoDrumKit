@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <numeric>
 
 struct Beat
 {
@@ -34,6 +35,7 @@ struct Beat
 	constexpr Beat operator*(const i32 ticks) const { return Beat(Ticks * ticks); }
 	constexpr Beat operator/(const i32 ticks) const { return Beat(Ticks / ticks); }
 	constexpr Beat operator%(const Beat& other) const { return Beat(Ticks % other.Ticks); }
+	constexpr i32 operator/(const Beat& other) const { return Ticks / other.Ticks; }
 
 	constexpr Beat& operator+=(const Beat& other) { (Ticks += other.Ticks); return *this; }
 	constexpr Beat& operator-=(const Beat& other) { (Ticks -= other.Ticks); return *this; }
@@ -41,10 +43,13 @@ struct Beat
 	constexpr Beat& operator/=(const i32 ticks) { (Ticks *= ticks); return *this; }
 	constexpr Beat& operator%=(const Beat& other) { (Ticks %= other.Ticks); return *this; }
 
+	constexpr Beat operator+() const { return Beat(+Ticks); }
 	constexpr Beat operator-() const { return Beat(-Ticks); }
 };
 
 constexpr Beat abs(Beat beat) { return Beat(abs(beat.Ticks)); }
+template <typename T, std::enable_if_t<!expect_type_v<T, Beat>, bool> = true>
+constexpr auto operator*(T&& v, Beat beat) { return beat * v; }
 inline Beat FloorBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Floor(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat RoundBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Round(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat CeilBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Ceil(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
@@ -84,8 +89,53 @@ struct TimeSignature
 	constexpr b8 operator!=(const TimeSignature& other) const { return (Numerator != other.Numerator) || (Denominator != other.Denominator); }
 	constexpr i32 operator[](size_t index) const { return (&Numerator)[index]; }
 	constexpr i32& operator[](size_t index) { return (&Numerator)[index]; }
+
+	constexpr TimeSignature GetSimplified(i32 denomTarget = 0) const& { return TimeSignature(*this).GetSimplified(denomTarget); }
+	constexpr TimeSignature GetSimplified(i32 denomTarget = 0) && { Simplify(denomTarget); return *this; }
+	constexpr void Simplify(i32 denomTarget = 0)
+	{
+		if (Denominator == 0)
+			return;
+		auto gcd = std::gcd(Numerator, Denominator);
+		Numerator /= gcd;
+		Denominator /= gcd;
+		if ((denomTarget != 0) && (denomTarget % Denominator == 0) && (abs(denomTarget / Denominator) < abs(I32Max / Numerator))) { // use target denominator
+			Numerator *= denomTarget / Denominator;
+			Denominator = denomTarget;
+		} else if ((Denominator < 0) != (denomTarget < 0)) { // use non-negative denominator
+			Numerator *= -1;
+			Denominator *= -1;
+		}
+	}
+
+	constexpr TimeSignature operator+(const TimeSignature& other) const
+	{
+		auto thisSim = GetSimplified(), otherSim = other.GetSimplified();
+		i32 denom = std::lcm(thisSim.Denominator, otherSim.Denominator);
+		i32 factorThis = denom / thisSim.Denominator;
+		i32 factorOther = denom / otherSim.Denominator;
+		return TimeSignature(factorThis * thisSim.Numerator + factorOther * otherSim.Numerator, denom)
+			.GetSimplified(std::min(abs(Denominator), abs(other.Denominator)));
+	}
+	constexpr TimeSignature operator-(const TimeSignature& other) const { return *this + -other; }
+
+	constexpr TimeSignature operator*(const TimeSignature& other) const
+	{
+		auto thisSim = GetSimplified(), otherSim = other.GetSimplified();
+		return TimeSignature(thisSim.Numerator * otherSim.Numerator, thisSim.Denominator * otherSim.Denominator)
+			.GetSimplified(std::min(abs(Denominator), abs(other.Denominator)));
+	}
+	constexpr TimeSignature operator/(const TimeSignature& other) const { return *this * TimeSignature(other.Denominator, other.Numerator); }
+	constexpr TimeSignature operator*(const i32 rate) const { return *this * TimeSignature(rate, 1); }
+	constexpr TimeSignature operator/(const i32 rate) const { return *this * TimeSignature(1, rate); }
+
+	constexpr TimeSignature operator+() const { return *this; }
+	constexpr TimeSignature operator-() const { return { -Numerator, Denominator }; }
 };
 
+constexpr i32 Sign(TimeSignature value) { return Sign(value.Numerator) * ((value.Denominator < 0) ? -1 : 1); }
+template <typename T, std::enable_if_t<!expect_type_v<T, TimeSignature>, bool> = true>
+constexpr auto operator*(T&& v, TimeSignature signature) { return signature * v; }
 constexpr b8 IsTimeSignatureSupported(TimeSignature v) { return (v.Numerator != 0 && v.Denominator > 0) && (Beat::FromBars(1).Ticks % v.Denominator) == 0; }
 
 // NOTE: Defined within PeepoDrumKit for making the Get/SetBeat() and other access functions accessible
