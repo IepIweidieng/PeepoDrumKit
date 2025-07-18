@@ -2074,6 +2074,13 @@ namespace PeepoDrumKit
 								hasFuture = false; // no space to insert
 						}
 
+						if (!ListIsItemEndBounded(item.List)) { // prevent 0-duration events if duration is implicit
+							if (beatMaxPst <= beatMinPst)
+								hasPast = false;
+							if (beatMaxFtr <= beatMinFtr)
+								hasFuture = false;
+						}
+
 						if (hasPresent) {
 							auto maxSidePrs = RangeSide::Present;
 							Beat beatHeadPrs = scaleBeatIn(std::max(firstBeat, origBeatMin));
@@ -2093,7 +2100,12 @@ namespace PeepoDrumKit
 									hasFuture = false;
 								}
 							}
-							setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, splitItems.back());
+							if (!ListIsItemEndBounded(item.List) && beatMaxPrs - beatMinPrs == Beat::Zero()) {
+								splitItems.pop_back();
+								hasPresent = false;
+							} else {
+								setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, splitItems.back());
+							}
 						}
 						if (hasPast)
 							setItemHeadAndEnd(beatMinPst, beatMaxPst, reverseDuration, maxSide, RangeSide::Past, (splitItems.push_back(item), splitItems.back()));
