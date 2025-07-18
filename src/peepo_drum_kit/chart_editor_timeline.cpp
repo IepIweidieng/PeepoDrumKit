@@ -2941,6 +2941,7 @@ namespace PeepoDrumKit
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_1To2, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(1, 2));
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_2To3, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 3));
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_3To4, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 4));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_0To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(0, 1));
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ReverseItemTime_N1To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
 
 				const MultiInputBinding* customBindings[] =

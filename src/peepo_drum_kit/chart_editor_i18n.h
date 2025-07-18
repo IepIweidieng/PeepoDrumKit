@@ -103,6 +103,7 @@ X("ACT_TRANSFORM_RATIO_4_3",						"4:3 (16th to 12th)") \
 X("ACT_TRANSFORM_RATIO_1_2",						"1:2 (4th to 8th)") \
 X("ACT_TRANSFORM_RATIO_2_3",						"2:3 (8th to 12th)") \
 X("ACT_TRANSFORM_RATIO_3_4",						"3:4 (12th to 16th)") \
+X("ACT_TRANSFORM_RATIO_0_1",						"0:1 (remove time)") \
 X("ACT_TRANSFORM_RATIO_N1_1_TIME",					"-1:1 (reverse time)") \
 X("ACT_TRANSFORM_RATIO_N1_1_SCROLL",				"-1:1 (reverse scroll)") \
 X("ACT_TRANSFORM_ADD_NEW_RATIO",					"Add New Ratio...") \

@@ -99,10 +99,12 @@ struct TimeSignature
 		auto gcd = std::gcd(Numerator, Denominator);
 		Numerator /= gcd;
 		Denominator /= gcd;
-		if ((denomTarget != 0) && (denomTarget % Denominator == 0) && (abs(denomTarget / Denominator) < abs(I32Max / Numerator))) { // use target denominator
+		if (Numerator == 0 && denomTarget != 0) { // just use target denominator
+			Denominator = denomTarget;
+		} else if ((denomTarget != 0) && (denomTarget % Denominator == 0) && (abs(denomTarget / Denominator) < abs(I32Max / Numerator))) { // scale to target denominator if possible
 			Numerator *= denomTarget / Denominator;
 			Denominator = denomTarget;
-		} else if ((Denominator < 0) != (denomTarget < 0)) { // use non-negative denominator
+		} else if ((Denominator < 0) != (denomTarget < 0)) { // scale to non-negative denominator
 			Numerator *= -1;
 			Denominator *= -1;
 		}

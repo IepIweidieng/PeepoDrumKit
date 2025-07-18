@@ -233,6 +233,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_1To2 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_2To3 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_3To4 = {};
+			WithDefault<MultiInputBinding> Timeline_CompressItemTime_0To1 = {};
 			WithDefault<MultiInputBinding> Timeline_ReverseItemTime_N1To1 = {};
 			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomA = {};
 			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomB = {};

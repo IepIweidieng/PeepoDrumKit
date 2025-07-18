@@ -795,6 +795,7 @@ namespace PeepoDrumKit
 						{ &settings.Input.Timeline_CompressItemTime_1To2, "Timeline: Compress Item/Range Time 1:2", },
 						{ &settings.Input.Timeline_CompressItemTime_2To3, "Timeline: Compress Item/Range Time 2:3", },
 						{ &settings.Input.Timeline_CompressItemTime_3To4, "Timeline: Compress Item/Range Time 3:4", },
+						{ &settings.Input.Timeline_CompressItemTime_0To1, "Timeline: Compress Item/Range Time 0:1", },
 						{ &settings.Input.Timeline_ReverseItemTime_N1To1, "Timeline: Reverse Item/Range Time -1:1", },
 						{ &settings.Input.Timeline_ScaleItemTime_CustomA, "Timeline: Scale Item/Range Time Custom A", },
 						{ &settings.Input.Timeline_ScaleItemTime_CustomB, "Timeline: Scale Item/Range Time Custom B", },

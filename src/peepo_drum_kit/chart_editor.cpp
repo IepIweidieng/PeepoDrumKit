@@ -286,8 +286,10 @@ namespace PeepoDrumKit
 						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 4));
 					Gui::Separator();
 
-					b8 reveresScroll = (*Settings.General.TransformScale_ByTempo || *Settings.General.TransformScale_KeepTimePosition);
-					if (Gui::MenuItem(reveresScroll ? UI_Str("ACT_TRANSFORM_RATIO_N1_1_SCROLL") : UI_Str("ACT_TRANSFORM_RATIO_N1_1_TIME"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, enabled))
+					b8 willTouchTempo = (*Settings.General.TransformScale_ByTempo || *Settings.General.TransformScale_KeepTimePosition);
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_0_1"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_0To1).Data, nullptr, enabled && !willTouchTempo))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(0, 1));
+					if (Gui::MenuItem(willTouchTempo ? UI_Str("ACT_TRANSFORM_RATIO_N1_1_SCROLL") : UI_Str("ACT_TRANSFORM_RATIO_N1_1_TIME"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, enabled))
 						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
 					Gui::Separator();
 
@@ -311,7 +313,7 @@ namespace PeepoDrumKit
 
 					for (size_t i = 0; i < customRatios->size(); i++)
 					{
-						b8 canScale = ((*customRatios)[i].TimeRatio[0] != 0 && (*customRatios)[i].TimeRatio[1] != 0);
+						b8 canScale = (!willTouchTempo || ((*customRatios)[i].TimeRatio[0] != 0)) && ((*customRatios)[i].TimeRatio[1] != 0);
 						char label[64]; sprintf_s(label, "%s %c", UI_Str("ACT_TRANSFORM_CUSTOM_RATIO"), static_cast<char>('A' + i));
 						if (Gui::MenuItem(label, (i < ArrayCount(customBindings)) ? ToShortcutString(**customBindings[i]).Data : "", nullptr, enabled && canScale))
 							timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio((*customRatios)[i].TimeRatio));
