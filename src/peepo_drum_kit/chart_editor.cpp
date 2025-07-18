@@ -1,6 +1,7 @@
 ﻿#include "chart_editor.h"
 #include "core_build_info.h"
 #include "chart_editor_undo.h"
+#include "chart_editor_widgets.h"
 #include "audio/audio_file_formats.h"
 #include "chart_editor_i18n.h"
 
@@ -171,6 +172,8 @@ namespace PeepoDrumKit
 					timeline.ExecuteSelectionAction(context, SelectionAction::UnselectAll, param);
 				if (Gui::MenuItem(UI_Str("ACT_SELECTION_INVERT"), ToShortcutString(*Settings.Input.Timeline_InvertSelection).Data))
 					timeline.ExecuteSelectionAction(context, SelectionAction::InvertAll, param);
+				if (Gui::MenuItem(UI_Str("ACT_SELECTION_SELECT_TO_CHART_END"), ToShortcutString(*Settings.Input.Timeline_SelectToChartEnd).Data))
+					timeline.ExecuteSelectionAction(context, SelectionAction::SelectToEnd, param.SetBeatCursor(context.GetCursorBeat()));
 				if (Gui::MenuItem(UI_Str("ACT_SELECTION_FROM_RANGE"), ToShortcutString(*Settings.Input.Timeline_SelectAllWithinRangeSelection).Data, nullptr, timeline.RangeSelection.IsActiveAndHasEnd()))
 					timeline.ExecuteSelectionAction(context, SelectionAction::SelectAllWithinRangeSelection, param);
 				Gui::Separator();
@@ -265,25 +268,117 @@ namespace PeepoDrumKit
 				if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_TOGGLE_NOTE_SIZES"), ToShortcutString(*Settings.Input.Timeline_ToggleNoteSize).Data, nullptr, isAnyNoteSelected))
 					timeline.ExecuteTransformAction(context, TransformAction::ToggleNoteSize, param);
 
-				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_EXPAND_ITEMS")))
+				auto scaleMenu = [&](TransformAction scaleAction, b8 enabled)
 				{
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_1"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_2To1).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 1));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_2"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_3To2).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 2));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_4_3"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_4To3).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(4, 3));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_1"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_2To1).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 1));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_2"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_3To2).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 2));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_4_3"), ToShortcutString(*Settings.Input.Timeline_ExpandItemTime_4To3).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(4, 3));
+					Gui::Separator();
+
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_1_2"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_1To2).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(1, 2));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_3"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_2To3).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 3));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_4"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_3To4).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 4));
+					Gui::Separator();
+
+					b8 willTouchTempo = (*Settings.General.TransformScale_ByTempo || *Settings.General.TransformScale_KeepTimePosition);
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_0_1"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_0To1).Data, nullptr, enabled && !willTouchTempo))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(0, 1));
+					if (Gui::MenuItem(willTouchTempo ? UI_Str("ACT_TRANSFORM_RATIO_N1_1_SCROLL") : UI_Str("ACT_TRANSFORM_RATIO_N1_1_TIME"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, enabled))
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
+					Gui::Separator();
+
+					WithDefault<CustomScaleRatioList>& customRatios = Settings_Mutable.General.CustomScaleRatios;
+					WithDefault<MultiInputBinding>* customBindings[] =
+					{
+						&Settings_Mutable.Input.Timeline_ScaleItemTime_CustomA, &Settings_Mutable.Input.Timeline_ScaleItemTime_CustomB, &Settings_Mutable.Input.Timeline_ScaleItemTime_CustomC,
+						&Settings_Mutable.Input.Timeline_ScaleItemTime_CustomD, &Settings_Mutable.Input.Timeline_ScaleItemTime_CustomE, &Settings_Mutable.Input.Timeline_ScaleItemTime_CustomF,
+					};
+
+					const b8 disableAddNew = (customRatios->size() >= 6);
+					if (Gui::Selectable(UI_Str("ACT_TRANSFORM_ADD_NEW_RATIO"), false, ImGuiSelectableFlags_NoAutoClosePopups | (disableAddNew ? ImGuiSelectableFlags_Disabled : 0)))
+					{
+						static constexpr ivec2 defaultRatio = { 3, 1 };
+						const ivec2 newRatio = { defaultRatio[0] + static_cast<i32>(customRatios->size()), defaultRatio[1] };
+
+						customRatios->emplace_back(newRatio);
+						customRatios.SetHasValueIfNotDefault();
+						Settings_Mutable.IsDirty = true;
+					}
+
+					for (size_t i = 0; i < customRatios->size(); i++)
+					{
+						b8 canScale = (!willTouchTempo || ((*customRatios)[i].TimeRatio[0] != 0)) && ((*customRatios)[i].TimeRatio[1] != 0);
+						char label[64]; sprintf_s(label, "%s %c", UI_Str("ACT_TRANSFORM_CUSTOM_RATIO"), static_cast<char>('A' + i));
+						if (Gui::MenuItem(label, (i < ArrayCount(customBindings)) ? ToShortcutString(**customBindings[i]).Data : "", nullptr, enabled && canScale))
+							timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio((*customRatios)[i].TimeRatio));
+					}
+
+					size_t indexToRemove = customRatios->size();
+					for (size_t i = 0; i < customRatios->size(); i++)
+					{
+						auto& ratio = (*customRatios)[i];
+						Gui::PushID(&ratio);
+						Gui::PushStyleVar(ImGuiStyleVar_FramePadding, vec2(Gui::GetStyle().FramePadding.x, 0.0f));
+						{
+							char label[] = { static_cast<char>('A' + i), '\0' };
+							Gui::TextUnformatted(label);
+							Gui::SameLine();
+
+							Gui::SetNextItemWidth(Gui::GetContentRegionAvail().x);
+
+							Gui::BeginGroup();
+							if (GuiInputFraction("##Ratio", &ratio.TimeRatio, std::nullopt, 1, 4,
+								(*customRatios)[i].TimeRatio == ivec2{ 0, 0 } ? PtrArg(Gui::GetColorU32(ImGuiCol_TextDisabled))
+									: !IsTimeSignatureSupported({ ratio.TimeRatio[0], ratio.TimeRatio[1] }) ? &InputTextWarningTextColor
+									: nullptr,
+								" : ")
+								) {
+								customRatios.SetHasValueIfNotDefault();
+								Settings_Mutable.IsDirty = true;
+							}
+							Gui::EndGroup();
+							if (!(Gui::IsItemActive() || Gui::IsItemFocused()) && (*customRatios)[i].TimeRatio == ivec2{ 0, 0 })
+								indexToRemove = i;
+						}
+						Gui::PopStyleVar();
+						Gui::PopID();
+					}
+
+					if (indexToRemove < customRatios->size()) {
+						customRatios->erase(customRatios->begin() + indexToRemove);
+						customRatios.SetHasValueIfNotDefault();
+						Settings_Mutable.IsDirty = true;
+					}
+					if (!customRatios->empty())
+						Gui::MenuItem(UI_Str("INFO_TRANSFORM_CUSTOM_RATIO_DELETE"), nullptr, false, false);
+
+					for (const auto& [pSetting, label] : {
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_ByTempo, UI_Str("ACT_TRANSFORM_SCALE_BY_TEMPO") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepTimePosition, UI_Str("ACT_TRANSFORM_SCALE_KEEP_TIME_POSITION") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepTimeSignature, UI_Str("ACT_TRANSFORM_SCALE_KEEP_TIME_SIGNATURE") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepItemDuration, UI_Str("ACT_TRANSFORM_SCALE_KEEP_ITEM_DURATION") },
+						}) {
+						if (b8 v = *(Settings.General.*pSetting); Gui::Checkbox(label, &v)) {
+							(Settings_Mutable.General.*pSetting).Value = v;
+							(Settings_Mutable.General.*pSetting).SetHasValueIfNotDefault();
+							Settings_Mutable.IsDirty = true;
+						}
+					}
+				};
+
+				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_SCALE_ITEMS"))) {
+					scaleMenu(TransformAction::ScaleItemTime, isAnyItemSelected);
 					Gui::EndMenu();
 				}
 
-				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_COMPRESS_ITEMS")))
-				{
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_1_2"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_1To2).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(1, 2));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_2_3"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_2To3).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 3));
-					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_3_4"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_3To4).Data, nullptr, isAnyItemSelected))
-						timeline.ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 4));
+				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_SCALE_RANGE"))) {
+					scaleMenu(TransformAction::ScaleRangeTime, timeline.RangeSelection.IsActiveAndHasEnd());
 					Gui::EndMenu();
 				}
 

@@ -171,19 +171,26 @@ namespace PeepoDrumKit
 	static constexpr f32 TimelineCameraBaseScrollX = -32.0f;
 
 	enum class ClipboardAction : u8 { Cut, Copy, Paste, Delete };
-	enum class SelectionAction : u8 { SelectAll, UnselectAll, InvertAll, SelectAllWithinRangeSelection, PerRowShiftSelected, PerRowSelectPattern };
+	enum class SelectionAction : u8 {
+		SelectAll, UnselectAll, InvertAll,
+		SelectToEnd, SelectAllWithinRangeSelection,
+		PerRowShiftSelected, PerRowSelectPattern,
+	};
 	union SelectionActionParam
 	{
 		struct { i32 ShiftDelta; };
 		struct { cstr Pattern; }; // NOTE: In the format: "xo", "xoo", "xooo", "xxoo", etc.
+		struct { Beat BeatCursor; };
 		inline SelectionActionParam& SetShiftDelta(i32 v) { ShiftDelta = v; return *this; }
 		inline SelectionActionParam& SetPattern(cstr pattern) { Pattern = pattern; return *this; }
+		inline SelectionActionParam& SetBeatCursor(Beat beat) { BeatCursor = beat; return *this; }
 	};
-	enum class TransformAction : u8 { FlipNoteType, ToggleNoteSize, ScaleItemTime };
+	enum class TransformAction : u8 { FlipNoteType, ToggleNoteSize, ScaleItemTime, ScaleRangeTime };
 	union TransformActionParam
 	{
 		struct { i32 TimeRatio[2]; };
 		inline TransformActionParam& SetTimeRatio(i32 numerator, i32 denominator) { TimeRatio[0] = numerator; TimeRatio[1] = denominator; return *this; }
+		inline TransformActionParam& SetTimeRatio(const ivec2& ratio) { return SetTimeRatio(ratio[0], ratio[1]); }
 	};
 
 	struct ChartTimeline
@@ -388,8 +395,9 @@ namespace PeepoDrumKit
 							assert(duration > Beat::Zero());
 							SetBeatDuration(duration, event);
 							// insert and record as added
-							size_t iEvent = eventList->InsertOrUpdate(std::move(event));
-							eventsToAdd.push_back(iEvent);
+							auto [iEvent, isInserted] = eventList->InsertOrIgnore(std::move(event));
+							if (isInserted)
+								eventsToAdd.push_back(iEvent);
 						}
 					}
 				}

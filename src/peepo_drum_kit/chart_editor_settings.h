@@ -41,6 +41,16 @@ namespace PeepoDrumKit
 		inline PlaybackSpeedStepList(std::initializer_list<f32> args) : V(std::forward<std::initializer_list<f32>>(args)) {}
 	};
 
+	struct CustomScaleRatio
+	{
+		ivec2 TimeRatio;
+		CustomScaleRatio() = default;
+		CustomScaleRatio(const ivec2& timeRatio) : TimeRatio(timeRatio) { }
+		b8 operator==(const CustomScaleRatio& o) const { return (TimeRatio == o.TimeRatio); }
+		b8 operator!=(const CustomScaleRatio& o) const { return !(*this == o); }
+	};
+	using CustomScaleRatioList = std::vector<CustomScaleRatio>;
+
 	enum class BoolOrDefault : u8 { Default = 0, True = 1, False = 2 };
 	struct Optional_B8
 	{
@@ -135,6 +145,11 @@ namespace PeepoDrumKit
 			WithDefault<b8> ConvertSelectionToScrollChanges_UnselectOld = false;
 			WithDefault<b8> ConvertSelectionToScrollChanges_SelectNew = true;
 			WithDefault<CustomSelectionPatternList> CustomSelectionPatterns = {};
+			WithDefault<CustomScaleRatioList> CustomScaleRatios = {};
+			WithDefault<b8> TransformScale_ByTempo = false;
+			WithDefault<b8> TransformScale_KeepTimePosition = false;
+			WithDefault<b8> TransformScale_KeepTimeSignature = false;
+			WithDefault<b8> TransformScale_KeepItemDuration = false;
 			// TODO: ...
 			static inline WithDefault<vec2> GameViewportAspectRatioMin = vec2(0.0f, 0.0f);
 			static inline WithDefault<vec2> GameViewportAspectRatioMax = vec2(0.0f, 0.0f);
@@ -195,6 +210,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_SelectAll = {};
 			WithDefault<MultiInputBinding> Timeline_ClearSelection = {};
 			WithDefault<MultiInputBinding> Timeline_InvertSelection = {};
+			WithDefault<MultiInputBinding> Timeline_SelectToChartEnd = {};
 			WithDefault<MultiInputBinding> Timeline_SelectAllWithinRangeSelection = {};
 			WithDefault<MultiInputBinding> Timeline_ShiftSelectionLeft = { KeyBinding(ImGuiKey_LeftArrow, ImGuiMod_Ctrl) };
 			WithDefault<MultiInputBinding> Timeline_ShiftSelectionRight = { KeyBinding(ImGuiKey_RightArrow, ImGuiMod_Ctrl) };
@@ -217,6 +233,14 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_1To2 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_2To3 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_3To4 = {};
+			WithDefault<MultiInputBinding> Timeline_CompressItemTime_0To1 = {};
+			WithDefault<MultiInputBinding> Timeline_ReverseItemTime_N1To1 = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomA = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomB = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomC = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomD = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomE = {};
+			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomF = {};
 			WithDefault<MultiInputBinding> Timeline_StepCursorLeft = { KeyBinding(ImGuiKey_LeftArrow) };
 			WithDefault<MultiInputBinding> Timeline_StepCursorRight = { KeyBinding(ImGuiKey_RightArrow) };
 			WithDefault<MultiInputBinding> Timeline_JumpToTimelineStart = { KeyBinding(ImGuiKey_Home) };
@@ -230,14 +254,14 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_8 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_9 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_10 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_12 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_12 = { KeyBinding(ImGuiKey_1) };
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_14 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_16 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_16 = { KeyBinding(ImGuiKey_2) };
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_18 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_20 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_24 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_28 = {};
-			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_32 = {};
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_20 = { KeyBinding(ImGuiKey_5) };
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_24 = { KeyBinding(ImGuiKey_3) };
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_28 = { KeyBinding(ImGuiKey_6) };
+			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_32 = { KeyBinding(ImGuiKey_4) };
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_36 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_40 = {};
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_48 = {};
@@ -246,10 +270,10 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_SetGridDivision_1_192 = {};
 			WithDefault<MultiInputBinding> Timeline_IncreasePlaybackSpeed = { KeyBinding(ImGuiKey_C) };
 			WithDefault<MultiInputBinding> Timeline_DecreasePlaybackSpeed = { KeyBinding(ImGuiKey_Z) };
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_100 = {};
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_75 = {};
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_50 = {};
-			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_25 = {};
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_100 = { KeyBinding(ImGuiKey_7) };
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_75 = { KeyBinding(ImGuiKey_8) };
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_50 = { KeyBinding(ImGuiKey_9) };
+			WithDefault<MultiInputBinding> Timeline_SetPlaybackSpeed_25 = { KeyBinding(ImGuiKey_0) };
 			WithDefault<MultiInputBinding> Timeline_TogglePlayback = { KeyBinding(ImGuiKey_Space) };
 			WithDefault<MultiInputBinding> Timeline_ToggleMetronome = { KeyBinding(ImGuiKey_M) };
 
@@ -305,7 +329,7 @@ namespace PeepoDrumKit
 		IniVoidPtrTypeFromStringFunc FromStringFunc;
 		IniVoidPtrTypeToStringFunc ToStringFunc;
 	};
-	struct SettingsReflectionMap { SettingsReflectionMember MemberSlots[128]; size_t MemberCount; };
+	struct SettingsReflectionMap { SettingsReflectionMember MemberSlots[192]; size_t MemberCount; };
 
 	SettingsReflectionMap StaticallyInitializeAppSettingsReflectionMap();
 	inline const SettingsReflectionMap AppSettingsReflectionMap = StaticallyInitializeAppSettingsReflectionMap();

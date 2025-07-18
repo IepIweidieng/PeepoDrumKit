@@ -344,7 +344,7 @@ namespace PeepoDrumKit
 					outConvertedMeasure.StartTime = it.Beat;
 					outConvertedMeasure.TimeSignature = it.Signature;
 				}
-				return (it.Beat >= Max(inChartBeatDuration, inChartMaxUsedBeat)) ? ControlFlow::Break : ControlFlow::Continue;
+				return (it.Beat >= Max(inChartBeatDuration, inChartMaxUsedBeat)) ? ControlFlow::Break : ControlFlow::Fallthrough;
 			});
 
 			if (outConvertedMeasures.empty())

@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <numeric>
 
 struct Beat
 {
@@ -34,6 +35,7 @@ struct Beat
 	constexpr Beat operator*(const i32 ticks) const { return Beat(Ticks * ticks); }
 	constexpr Beat operator/(const i32 ticks) const { return Beat(Ticks / ticks); }
 	constexpr Beat operator%(const Beat& other) const { return Beat(Ticks % other.Ticks); }
+	constexpr i32 operator/(const Beat& other) const { return Ticks / other.Ticks; }
 
 	constexpr Beat& operator+=(const Beat& other) { (Ticks += other.Ticks); return *this; }
 	constexpr Beat& operator-=(const Beat& other) { (Ticks -= other.Ticks); return *this; }
@@ -41,10 +43,13 @@ struct Beat
 	constexpr Beat& operator/=(const i32 ticks) { (Ticks *= ticks); return *this; }
 	constexpr Beat& operator%=(const Beat& other) { (Ticks %= other.Ticks); return *this; }
 
+	constexpr Beat operator+() const { return Beat(+Ticks); }
 	constexpr Beat operator-() const { return Beat(-Ticks); }
 };
 
 constexpr Beat abs(Beat beat) { return Beat(abs(beat.Ticks)); }
+template <typename T, std::enable_if_t<!expect_type_v<T, Beat>, bool> = true>
+constexpr auto operator*(T&& v, Beat beat) { return beat * v; }
 inline Beat FloorBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Floor(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat RoundBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Round(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
 inline Beat CeilBeatToGrid(Beat beat, Beat grid) { return Beat::FromTicks(static_cast<i32>(Ceil(static_cast<f64>(beat.Ticks) / static_cast<f64>(grid.Ticks))) * grid.Ticks); }
@@ -75,7 +80,7 @@ struct TimeSignature
 
 	constexpr i32 GetBeatsPerBar() const { return Numerator; }
 	constexpr Beat GetDurationPerBeat() const { return Beat::FromBars(1) / Denominator; }
-	constexpr Beat GetDurationPerBar() const { return GetDurationPerBeat() * GetBeatsPerBar(); }
+	constexpr Beat GetDurationPerBar() const { const auto sim = GetSimplified(); return Beat::FromBars(1) * sim.Numerator / sim.Denominator; }
 
 	constexpr size_t size() const { return 2; }
 	constexpr i32* data() { return &Numerator; }
@@ -84,8 +89,55 @@ struct TimeSignature
 	constexpr b8 operator!=(const TimeSignature& other) const { return (Numerator != other.Numerator) || (Denominator != other.Denominator); }
 	constexpr i32 operator[](size_t index) const { return (&Numerator)[index]; }
 	constexpr i32& operator[](size_t index) { return (&Numerator)[index]; }
+
+	constexpr TimeSignature GetSimplified(i32 denomTarget = 0) const& { return TimeSignature(*this).GetSimplified(denomTarget); }
+	constexpr TimeSignature GetSimplified(i32 denomTarget = 0) && { Simplify(denomTarget); return *this; }
+	constexpr void Simplify(i32 denomTarget = 0)
+	{
+		if (Denominator == 0)
+			return;
+		auto gcd = std::gcd(Numerator, Denominator);
+		Numerator /= gcd;
+		Denominator /= gcd;
+		if (Numerator == 0 && denomTarget != 0) { // just use target denominator
+			Denominator = denomTarget;
+		} else if ((denomTarget != 0) && (denomTarget % Denominator == 0) && (abs(denomTarget / Denominator) < abs(I32Max / Numerator))) { // scale to target denominator if possible
+			Numerator *= denomTarget / Denominator;
+			Denominator = denomTarget;
+		} else if ((Denominator < 0) != (denomTarget < 0)) { // scale to non-negative denominator
+			Numerator *= -1;
+			Denominator *= -1;
+		}
+	}
+
+	constexpr TimeSignature operator+(const TimeSignature& other) const
+	{
+		auto thisSim = GetSimplified(), otherSim = other.GetSimplified();
+		i32 denom = std::lcm(thisSim.Denominator, otherSim.Denominator);
+		i32 factorThis = denom / thisSim.Denominator;
+		i32 factorOther = denom / otherSim.Denominator;
+		return TimeSignature(factorThis * thisSim.Numerator + factorOther * otherSim.Numerator, denom)
+			.GetSimplified(std::min(abs(Denominator), abs(other.Denominator)));
+	}
+	constexpr TimeSignature operator-(const TimeSignature& other) const { return *this + -other; }
+
+	constexpr TimeSignature operator*(const TimeSignature& other) const
+	{
+		auto thisSim = GetSimplified(), otherSim = other.GetSimplified();
+		return TimeSignature(thisSim.Numerator * otherSim.Numerator, thisSim.Denominator * otherSim.Denominator)
+			.GetSimplified(std::min(abs(Denominator), abs(other.Denominator)));
+	}
+	constexpr TimeSignature operator/(const TimeSignature& other) const { return *this * TimeSignature(other.Denominator, other.Numerator); }
+	constexpr TimeSignature operator*(const i32 rate) const { return *this * TimeSignature(rate, 1); }
+	constexpr TimeSignature operator/(const i32 rate) const { return *this * TimeSignature(1, rate); }
+
+	constexpr TimeSignature operator+() const { return *this; }
+	constexpr TimeSignature operator-() const { return { -Numerator, Denominator }; }
 };
 
+constexpr i32 Sign(TimeSignature value) { return Sign(value.Numerator) * ((value.Denominator < 0) ? -1 : 1); }
+template <typename T, std::enable_if_t<!expect_type_v<T, TimeSignature>, bool> = true>
+constexpr auto operator*(T&& v, TimeSignature signature) { return signature * v; }
 constexpr b8 IsTimeSignatureSupported(TimeSignature v) { return (v.Numerator != 0 && v.Denominator > 0) && (Beat::FromBars(1).Ticks % v.Denominator) == 0; }
 
 // NOTE: Defined within PeepoDrumKit for making the Get/SetBeat() and other access functions accessible
@@ -143,7 +195,13 @@ public:
 	T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true);
 	const T* TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck = true) const;
 
-	size_t InsertOrUpdate(T valueToInsertOrUpdate);
+	// return the to-insert index
+	template <typename Func> size_t InsertOrFunc(const T& valueToInsert, Func funcExist);
+	// return { the to-insert index, is inserted }
+	std::pair<size_t, b8> InsertOrIgnore(const T& valueToInsert);
+	// return the insertion or update index
+	size_t InsertOrUpdate(const T& valueToInsertOrUpdate);
+
 	void RemoveAtBeat(Beat beatToFindAndRemove);
 	void RemoveAtIndex(size_t indexToRemove);
 
@@ -223,20 +281,24 @@ public:
 			thisSignature.Numerator = (isSignatureNegative ? -1 : 1) * ClampBot(abs(thisSignature.Numerator), 1);
 			thisSignature.Denominator = ClampBot(abs(thisSignature.Denominator), 1);
 
+			const Beat durationPerBar = std::max(abs(thisSignature.GetDurationPerBar()), Beat::FromTicks(1));
+			if (auto flow = perBeatBarFunc(ForEachBeatBarData{ thisSignature, beatIt, barIndex, true }); flow == ControlFlow::Break) {
+				return;
+			} else if (flow == ControlFlow::Continue) {
+				beatIt += durationPerBar;
+				continue;
+			}
+
 			const i32 beatsPerBar = abs(thisSignature.GetBeatsPerBar());
 			const Beat durationPerBeat = abs(thisSignature.GetDurationPerBeat());
-			const Beat durationPerBar = abs(durationPerBeat * beatsPerBar);
-
-			if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatIt, barIndex, true }) == ControlFlow::Break)
-				return;
-			beatIt += durationPerBeat;
-
+			Beat beatWithinBar = beatIt;
 			for (i32 beatIndexWithinBar = 1; beatIndexWithinBar < beatsPerBar; beatIndexWithinBar++)
 			{
-				if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatIt, barIndex, false }) == ControlFlow::Break)
+				beatWithinBar += durationPerBeat;
+				if (perBeatBarFunc(ForEachBeatBarData { thisSignature, beatWithinBar, barIndex, false }) == ControlFlow::Break)
 					return;
-				beatIt += durationPerBeat;
 			}
+			beatIt += durationPerBar;
 		}
 	}
 };
@@ -363,29 +425,41 @@ inline b8 ValidateIsSortedByBeat(const BeatSortedList<T>& sortedList)
 	return std::is_sorted(sortedList.begin(), sortedList.end(), [](const T& a, const T& b) { return GetBeat(a) < GetBeat(b); });
 }
 
-// return the insertion or update index
-template <typename T>
-size_t BeatSortedList<T>::InsertOrUpdate(T valueToInsertOrUpdate)
+template <typename T> template <typename Func>
+size_t BeatSortedList<T>::InsertOrFunc(const T& valueToInsert, Func funcExist)
 {
-	const size_t insertionIndex = LinearlySearchForInsertionIndex(*this, GetBeat(valueToInsertOrUpdate));
+	const size_t insertionIndex = LinearlySearchForInsertionIndex(*this, GetBeat(valueToInsert));
 	if (InBounds(insertionIndex, Sorted))
 	{
-		if (T& existing = Sorted[insertionIndex]; GetBeat(existing) == GetBeat(valueToInsertOrUpdate))
-			existing = valueToInsertOrUpdate;
+		if (T& existing = Sorted[insertionIndex]; GetBeat(existing) == GetBeat(valueToInsert))
+			funcExist(existing, valueToInsert);
 		else
-			Sorted.insert(Sorted.begin() + insertionIndex, valueToInsertOrUpdate);
+			Sorted.insert(Sorted.begin() + insertionIndex, valueToInsert);
 	}
 	else
 	{
-		Sorted.push_back(valueToInsertOrUpdate);
+		Sorted.push_back(valueToInsert);
 	}
 
 #if PEEPO_DEBUG
-	assert(GetBeat(valueToInsertOrUpdate).Ticks >= 0);
+	assert(GetBeat(valueToInsert).Ticks >= 0);
 	assert(ValidateIsSortedByBeat(*this));
 #endif
 
 	return insertionIndex;
+}
+
+template <typename T>
+std::pair<size_t, b8> BeatSortedList<T>::InsertOrIgnore(const T& valueToInsert)
+{
+	b8 isInserted = true;
+	return { InsertOrFunc(valueToInsert, [&](...) { isInserted = false; }), isInserted };
+}
+
+template <typename T>
+size_t BeatSortedList<T>::InsertOrUpdate(const T& valueToInsertOrUpdate)
+{
+	return InsertOrFunc(valueToInsertOrUpdate, [&](T& existing, ...) { existing = valueToInsertOrUpdate; });
 }
 
 template <typename T>

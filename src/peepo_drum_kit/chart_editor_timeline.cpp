@@ -1,4 +1,4 @@
-#include "chart_editor_timeline.h"
+﻿#include "chart_editor_timeline.h"
 #include "chart_editor_undo.h"
 #include "chart_editor_theme.h"
 #include "chart_editor_i18n.h"
@@ -310,7 +310,7 @@ namespace PeepoDrumKit
 			if (timeIt >= minMaxVisibleTime.Max || (it.IsBar && timeIt >= chartDuration))
 				return ControlFlow::Break;
 			else
-				return ControlFlow::Continue;
+				return ControlFlow::Fallthrough;
 		});
 	}
 
@@ -660,8 +660,8 @@ namespace PeepoDrumKit
 			// NOTE: Long note placement preview
 			if (timeline.LongNotePlacement.IsActive && context.ChartSelectedBranch == branchForThisRow)
 			{
-				const Beat minBeat = timeline.LongNotePlacement.GetMin(), maxBeat = timeline.LongNotePlacement.GetMax();
-				const vec2 localTL = vec2(timeline.Camera.TimeToLocalSpaceX(context.BeatToTime(minBeat)), rowIt.LocalY);
+				const Beat minBeatAfter = timeline.LongNotePlacement.GetMin(), maxBeat = timeline.LongNotePlacement.GetMax();
+				const vec2 localTL = vec2(timeline.Camera.TimeToLocalSpaceX(context.BeatToTime(minBeatAfter)), rowIt.LocalY);
 				const vec2 localCenter = localTL + vec2(0.0f, rowIt.LocalHeight * 0.5f);
 				const vec2 localTR = vec2(timeline.Camera.TimeToLocalSpaceX(context.BeatToTime(maxBeat)), rowIt.LocalY);
 				const vec2 localCenterEnd = localTR + vec2(0.0f, rowIt.LocalHeight * 0.5f);
@@ -669,7 +669,7 @@ namespace PeepoDrumKit
 				DrawTimelineNote(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), 1.0f, timeline.LongNotePlacement.NoteType, 0.7f);
 
 				if (IsBalloonNote(timeline.LongNotePlacement.NoteType))
-					DrawTimelineNoteBalloonPopCount(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), 1.0f, DefaultBalloonPopCount(maxBeat - minBeat, timeline.CurrentGridBarDivision));
+					DrawTimelineNoteBalloonPopCount(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter), 1.0f, DefaultBalloonPopCount(maxBeat - minBeatAfter, timeline.CurrentGridBarDivision));
 			}
 		}
 		else if constexpr (std::is_same_v<T, GoGoRange>)
@@ -700,9 +700,9 @@ namespace PeepoDrumKit
 				if (thisLyric.Lyric.empty() && prevLyric != nullptr && !prevLyric->Lyric.empty())
 					continue;
 
-				const Beat lastBeat = (thisLyric.BeatTime <= chartBeatDuration) ? chartBeatDuration : Beat::FromTicks(I32Max);
+				const Beat nowBeat = (thisLyric.BeatTime <= chartBeatDuration) ? chartBeatDuration : Beat::FromTicks(I32Max);
 				const Time startTime = context.BeatToTime(thisLyric.BeatTime);
-				const Time endTime = context.BeatToTime(thisLyric.Lyric.empty() ? thisLyric.BeatTime : (nextLyric != nullptr) ? nextLyric->BeatTime : lastBeat);
+				const Time endTime = context.BeatToTime(thisLyric.Lyric.empty() ? thisLyric.BeatTime : (nextLyric != nullptr) ? nextLyric->BeatTime : nowBeat);
 				if (endTime < visibleTime.Min || startTime > visibleTime.Max)
 					continue;
 
@@ -971,7 +971,7 @@ namespace PeepoDrumKit
 					return ControlFlow::Break;
 				}
 
-				return ControlFlow::Continue;
+				return ControlFlow::Fallthrough;
 			});
 		}
 	}
@@ -1505,6 +1505,13 @@ namespace PeepoDrumKit
 		case SelectionAction::SelectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(true, it, course); }); } break;
 		case SelectionAction::UnselectAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(false, it, course); }); } break;
 		case SelectionAction::InvertAll: { ForEachChartItem(course, [&](const ForEachChartItemData& it) { SetIsSelected(!GetIsSelected(it, course), it, course); }); } break;
+		case SelectionAction::SelectToEnd:
+			ForEachChartItem(course, [&](const ForEachChartItemData& it)
+			{
+				if (GetBeat(it, course) >= context.GetCursorBeat())
+					SetIsSelected(true, it, course);
+			});
+			break;
 		case SelectionAction::SelectAllWithinRangeSelection:
 		{
 			if (RangeSelection.IsActiveAndHasEnd())
@@ -1581,6 +1588,259 @@ namespace PeepoDrumKit
 		}
 	}
 
+	static auto GetScaleChartItemRatios(const TransformActionParam& param)
+	{
+		bool byTempo = *Settings.General.TransformScale_ByTempo;
+		bool keepTimePos = *Settings.General.TransformScale_KeepTimePosition;
+		bool keepItemDur = *Settings.General.TransformScale_KeepItemDuration;
+		std::array ratioBeat = { param.TimeRatio[0], param.TimeRatio[1] };
+		if (byTempo) {
+			if (keepTimePos) // scale tempo, adjust beat to compensate
+				std::swap(ratioBeat[0], ratioBeat[1]);
+			else // just scale tempo
+				ratioBeat[0] = ratioBeat[1] = 1;
+		}
+		std::array ratioBeatAbs = { abs(ratioBeat[0]), abs(ratioBeat[1]) };
+		if (byTempo || keepTimePos)
+			ratioBeat = ratioBeatAbs; // reverse scroll instead
+		bool reverseBeat = !(byTempo || keepTimePos) && (ratioBeat[0] / ratioBeat[1] < 0); // flip the selected region
+		return std::tuple{ byTempo, keepTimePos, keepItemDur, ratioBeat, ratioBeatAbs, reverseBeat };
+	}
+
+	template <typename Arr0, typename Arr1>
+	static b8 ScaleChartItemValues(GenericListStructWithType& item, const Arr0& ratio, const Arr1& ratioBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature)
+	{
+		static_assert(std::size(decltype(ratio){}) == 2 && std::size(decltype(ratioBeat){}) == 2);
+
+		if (ratio[0] == ratio[1])
+			return false; // no change
+
+		b8 changed = false;
+		if (Tempo v; TryGet<GenericMember::Tempo_V>(item, v)) {
+			changed = true;
+			if (byTempo) // scale beat interval (60/BPM)
+				v.BPM = v.BPM * ratio[1] / ratio[0];
+			else if (keepTimePos) // scale beat, adjust beat interval (60/BPM) to compensate
+				v.BPM = v.BPM * ratio[0] / ratio[1];
+			else
+				changed = false;
+			TrySet<GenericMember::Tempo_V>(item, v);
+		}
+		if (TimeSignature v; !keepTimeSignature && TryGet<GenericMember::TimeSignature_V>(item, v)) {
+			if (std::abs(ratioBeat[0]) != std::abs(ratioBeat[1])) {
+				const auto denomOrig = v.Denominator;
+				v.Numerator *= std::abs(ratioBeat[0]);
+				v.Denominator *= std::abs(ratioBeat[1]);
+				v.Simplify(denomOrig); // use original denominator if possible
+				changed = true;
+			}
+			if ((byTempo || keepTimePos) && Sign(ratio[0]) * Sign(ratio[1]) < 0) { // flip sign when BPM does
+				v.Numerator *= -1;
+				changed = true;
+			}
+			TrySet<GenericMember::TimeSignature_V>(item, v);
+		}
+		return changed;
+	}
+
+	template <typename Arr0, typename Arr1>
+	static auto FragmentChartItem(const GenericListStructWithType& item, Beat beatDuration, Beat beatSplit, const Arr0& ratio, const Arr1& ratioBeat, b8 reverseBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature)
+	{
+		std::vector<std::tuple<GenericListStructWithType, Beat, b8>> res = {}; // {itemSplit, beatDurationSplit, isSplitPoint}
+		Beat beatHead = GetBeat(item), beatEnd = beatHead + beatDuration;
+		Beat beatMin = std::min(beatHead, beatEnd), beatMax = std::max(beatHead, beatEnd);
+		if (!(beatSplit > beatMin && beatSplit < beatMax))
+			return res;
+
+		if (TimeSignature v; !keepTimeSignature && TryGet<GenericMember::TimeSignature_V>(item, v)) {
+
+			if (reverseBeat || std::abs(ratioBeat[0]) != std::abs(ratioBeat[1]) // scaled
+				|| ((byTempo || keepTimePos) && Sign(ratio[0]) * Sign(ratio[1]) < 0) // flip sign when BPM does
+				) {
+				Beat beatPerBar = abs(v.GetDurationPerBar());
+				Beat beatEffectPre = (beatPerBar == Beat::Zero()) ? beatMin : beatMin + std::floor((beatSplit - beatMin) / beatPerBar) * beatPerBar;
+
+				// /|| - - - - //| - - - - /| - - - - /|| -> process as usual; no fragmenting
+				if (beatEffectPre != beatSplit) {
+					// /|| - - - - /| - - -//- /| - - - - /||, ||: time sig change, |: measure border, -: beat, //: split, /: wanted measure border
+					res.emplace_back(item, Beat::Zero(), false);
+					if (beatEffectPre != beatMin) {
+						// -> /|| - - - - /|| - - -//- /| - - - - /||
+						res.emplace_back(item, Beat::Zero(), false);
+						SetBeat(beatEffectPre, get<0>(res.back()));
+					}
+					// -> /|| - - - - /|| - - -//| - / - - | - - /(||), (||): mid-measure time sig change (unspecified behavior on defined measure)
+					TimeSignature vPre = { Sign(v) * (beatSplit - beatEffectPre).Ticks, Beat::FromBars(1).Ticks };
+					vPre.Simplify(v.Denominator);
+					TrySet<GenericMember::TimeSignature_V>(get<0>(res.back()), vPre);
+					// -> /|| - - - - /|| - - -//|| - / - - - | - /(||)
+					res.emplace_back(item, Beat::Zero(), true);
+					SetBeat(beatSplit, get<0>(res.back()));
+					// -> /|| - - - - /|| - - -//|| - /| - | - | - | - /||
+					TimeSignature vPost = { Sign(v) * (beatEffectPre + beatPerBar - beatSplit).Ticks, Beat::FromBars(1).Ticks };
+					vPost.Simplify(v.Denominator);
+					TrySet<GenericMember::TimeSignature_V>(get<0>(res.back()), vPost);
+					if (Beat beatEffectPost = beatEffectPre + beatPerBar; beatEffectPost < beatMax) {
+						// -> /|| - - - - /|| - - -//|| - /|| - - - - /||, done
+						res.emplace_back(item, Beat::Zero(), false);
+						SetBeat(beatEffectPost, get<0>(res.back()));
+					}
+
+					// calculate duration
+					for (size_t i = 1; i < std::size(res); ++i) {
+						auto& [itemPrev, beatDurationPrev, _] = res[i - 1];
+						beatDurationPrev = GetBeat(get<0>(res[i])) - GetBeat(itemPrev);
+					}
+					auto& [itemLast, beatDurationLast, _] = res.back();
+					beatDurationLast = beatMax - GetBeat(itemLast);
+				}
+			}
+		}
+		return res;
+	}
+
+	template <typename ArrB, typename Arr0, typename Arr1, std::enable_if_t<expect_type_v<decltype(std::declval<ArrB>()[0]), Beat>, b8> = true>
+	static auto FragmentChartItem(const GenericListStructWithType& item, Beat beatDuration, ArrB&& beatSplits,
+		const Arr0& ratio, const Arr1& ratioBeat, b8 reverseBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature)
+	{
+		b8 fragmented = false;
+		std::vector res = { std::tuple{ item, beatDuration, false } }; // {itemSplit, beatDurationSplit, isSplitPoint}
+		for (Beat beatSplit : beatSplits) {
+			decltype(res) fragmentsI = {};
+			for (auto& fragJ : res) {
+				auto& [itemJ, beatDurationJ, isSplitPointJ] = fragJ;
+				auto fragmentsJ = FragmentChartItem(itemJ, beatDurationJ, beatSplit, ratio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepTimeSignature);
+				if (fragmentsJ.empty()) {
+					fragmentsI.push_back(std::move(fragJ));
+				} else {
+					auto& isSplitPointJ0 = get<2>(fragmentsJ[0]);
+					isSplitPointJ0 |= isSplitPointJ;
+					std::move(begin(fragmentsJ), end(fragmentsJ), std::back_insert_iterator(fragmentsI));
+					fragmented = true;
+				}
+			}
+			res = std::move(fragmentsI);
+		}
+		return fragmented ? res : (res = {});
+	}
+
+	static auto MergeChartItem(const GenericListStructWithType& itemX, Beat beatDurationX, const GenericListStructWithType& itemY, Beat beatDurationY, b8 keepTimeSignature)
+	{
+		assert(GetBeat(itemX) <= GetBeat(itemY) && "unhandled item order");
+
+		std::vector<GenericListStructWithType> res = {};
+		if (itemX.List != itemY.List)
+			return res;
+		if ((beatDurationX > Beat::Zero()) != (beatDurationY > Beat::Zero())) // cannot determine head
+			return res;
+
+		Beat beatHeadX = GetBeat(itemX), beatEndX = beatHeadX + beatDurationX;
+		Beat beatMinX = std::min(beatHeadX, beatEndX), beatMaxX = std::max(beatHeadX, beatEndX);
+		Beat beatHeadY = GetBeat(itemY), beatEndY = beatHeadY + beatDurationY;
+		Beat beatMinY = std::min(beatHeadY, beatEndY), beatMaxY = std::max(beatHeadY, beatEndY);
+		if (beatMaxX != beatMinY)
+			return res;
+		Beat beatMid = beatMaxX;
+
+		if (TimeSignature vX, vY; !keepTimeSignature && TryGet<GenericMember::TimeSignature_V>(itemX, vX) && TryGet<GenericMember::TimeSignature_V>(itemY, vY)) {
+			if (Sign(vX) * Sign(vY) >= 0) { // only zero or same-direction time sigs are mergeable
+				Beat beatPerBarX = abs(vX.GetDurationPerBar()), beatPerBarY = abs(vY.GetDurationPerBar());
+				Beat beatEffectPre = (beatPerBarX == Beat::Zero()) ? beatMinX : beatMinX + std::floor((beatMid - beatMinX) / beatPerBarX) * beatPerBarX;
+				TimeSignature vPre = vX;
+
+				// /|| - - - - /| - - -//|| - - /| - - /||, ||: time sig change, |: measure border, -: beat, //: merge, /: wanted measure border
+				res.push_back(itemX);
+				if (beatEffectPre == beatMid) // split before merge, not at merge
+					beatEffectPre -= beatPerBarX;
+				if (beatEffectPre > beatMinX && beatEffectPre != beatMid) {
+					// -> /|| - - - - /|| - - -//(||) - | - / - | - /(||), (||): mid-measure time sig change (unspecified behavior on defined measure)
+					res.push_back(itemX);
+					SetBeat(beatEffectPre, res.back());
+				}
+				if (beatEffectPre != beatMinX) {
+					vPre = { Sign(vX) * (beatMid - std::max(beatMinX, beatEffectPre)).Ticks, Beat::FromBars(1).Ticks };
+					vPre.Simplify(vX.Denominator);
+				}
+				// -> /|| - - - - /|| - - -//- - /| - - /(||)
+				TimeSignature vMerged = (vPre + vY).GetSimplified(vX.Denominator);
+				TrySet<GenericMember::TimeSignature_V>(res.back(), vMerged);
+				if (vMerged == vX && std::size(res) > 1)
+					res.pop_back();
+				if (Beat beatEffectPost = beatMid + beatPerBarY; beatEffectPost < beatMaxY) {
+					// -> /|| - - - - /|| - - -//- - /|| - - /||, done
+					res.push_back(itemY);
+					SetBeat(beatEffectPost, res.back());
+				}
+			}
+		}
+		return res;
+	}
+
+	template <typename ArrB, typename Arr0, typename Arr1, typename Func>
+	static auto RefragmentChartItem(const GenericListStructWithType& item, const Beat origBeatDuration, ArrB&& beatSplits,
+		const Arr0& ratio, const Arr1& ratioBeat, b8 reverseBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature,
+		Func&& mapFragment)
+	{
+		std::vector<GenericListStructWithType> res = {};
+		std::vector<i8> mergeWays = {};
+		auto fragments = FragmentChartItem(item, origBeatDuration, beatSplits, ratio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepTimeSignature);
+		b8 needSplitByMap = fragments.empty();
+		if (needSplitByMap)
+			fragments = { std::tuple{ item, origBeatDuration, false } };
+
+		for (size_t i = 0; i < std::size(fragments); ++i) {
+			auto& [itemI, beatDurationI, isSplitPointI] = fragments[i];
+			const auto [hasPast, hasPresent, hasFuture] = mapFragment(itemI, beatDurationI, needSplitByMap, res);
+			if (!needSplitByMap) {
+				i32 nFragments = (static_cast<i32>(hasPast) + hasPresent + hasFuture);
+				assert(nFragments <= 1 && "Fragment failed. Expected exactly 1 or no items to be inserted per fragment");
+				if (nFragments > 0)
+					mergeWays.push_back(!isSplitPointI ? 0 : (reverseBeat && hasPresent) ? 1 : -1);
+			}
+		}
+
+		if (needSplitByMap)
+			return res;
+
+		// index of merged items in beat order
+		std::vector<i8> orderToIdxItems (size(mergeWays));
+		std::iota(begin(orderToIdxItems), end(orderToIdxItems), 0);
+		std::sort(begin(orderToIdxItems), end(orderToIdxItems), [&](size_t i, size_t j)
+		{
+			return GetBeat(res[i]) < GetBeat(res[j]);
+		});
+		{ // rearrange added items in beat order
+			decltype(res) itemToAddOrdered = {};
+			itemToAddOrdered.reserve(size(res));
+			for (auto idx : orderToIdxItems)
+				itemToAddOrdered.push_back(std::move(res[idx]));
+			res = std::move(itemToAddOrdered);
+		}
+
+		for (size_t i = size(res); i-- > 0;) { // merge from back to allow removing and inserting
+			const auto mergeWay = mergeWays[orderToIdxItems[i]];
+			if (mergeWay == 0)
+				continue;
+			auto ordI = i, ordJ = i + Sign(mergeWay);
+			if (!(ordJ >= 0 && ordJ < size(mergeWays))) // only merge between fragments
+				continue;
+			if (ordI > ordJ)
+				std::swap(ordI, ordJ);
+			const auto& itemI = res[ordI], & itemJ = res[ordJ];
+			const auto idxI = orderToIdxItems[ordI], idxJ = orderToIdxItems[ordJ];
+			const auto& fragI = fragments[idxI], & fragJ = fragments[idxJ];
+			auto mergedItems = MergeChartItem(itemI, get<1>(fragI), itemJ, get<1>(fragJ), keepTimeSignature);
+			if (!mergedItems.empty()) {
+				if (mergeWays[idxI] > 0)
+					mergeWays[idxI] = 0; // already merged
+				res.erase(begin(res) + ordI, begin(res) + ordJ + 1);
+				std::move(std::begin(mergedItems), std::end(mergedItems), std::insert_iterator(res, begin(res) + ordI));
+			}
+		}
+
+		return res;
+	}
+
 	void ChartTimeline::ExecuteTransformAction(ChartContext& context, TransformAction action, const TransformActionParam& param)
 	{
 		ChartCourse& course = *context.ChartSelectedCourse;
@@ -1647,43 +1907,308 @@ namespace PeepoDrumKit
 		} break;
 		case TransformAction::ScaleItemTime:
 		{
-			assert(param.TimeRatio[0] > 0 && param.TimeRatio[1] > 0 && param.TimeRatio[0] != param.TimeRatio[1]);
+			assert(param.TimeRatio[1] != 0);
+			if (param.TimeRatio[0] == param.TimeRatio[1])
+				break;
 			size_t selectedItemCount = 0; ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it) { selectedItemCount++; });
 			if (selectedItemCount <= 0)
 				return;
 
-			b8 isFirst = true; Beat firstBeat = {};
+			auto [byTempo, keepTimePos, keepItemDur, ratioBeat, ratioBeatAbs, reverseBeat] = GetScaleChartItemRatios(param);
+			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
+
+			b8 isFirst = true; Beat firstBeat = {}, minBeatBefore = {}, minBeatAfter = {};
 			std::vector<GenericListStructWithType> itemsToRemove; itemsToRemove.reserve(selectedItemCount);
 			std::vector<GenericListStructWithType> itemsToAdd; itemsToAdd.reserve(selectedItemCount);
+			std::vector<size_t> idxItemsToAlignToStart; // move last selected item to start for reversing end-unbounded items
 			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
 			{
-				if (isFirst) { firstBeat = GetBeat(it, course); isFirst = false; }
+				const Beat origBeat = GetBeat(it, course);
+				if (isFirst) { minBeatAfter = minBeatBefore = firstBeat = origBeat; isFirst = false; }
+				else if (origBeat < minBeatBefore) // Happens because ForEachSelectedChartItem is not in ascending order across rows
+					minBeatBefore = origBeat;
 
 				auto& itemToRemove = itemsToRemove.emplace_back();
 				itemToRemove.List = it.List;
 				TryGetGenericStruct(course, it.List, it.Index, itemToRemove.Value);
 
-				auto& itemToAdd = itemsToAdd.emplace_back(itemToRemove);
-				SetBeat((((GetBeat(itemToAdd) - firstBeat) / param.TimeRatio[1]) * param.TimeRatio[0]) + firstBeat, itemToAdd);
-				if (GetBeatDuration(itemToAdd) > Beat::Zero())
-					SetBeatDuration(Max(Beat::FromTicks(1), (GetBeatDuration(itemToAdd) / param.TimeRatio[1]) * param.TimeRatio[0]), itemToAdd);
-				if (auto [hasTimeDuration, timeDuration] = GetTimeDuration(itemToAdd); hasTimeDuration)
-					SetTimeDuration((timeDuration / param.TimeRatio[1]) * param.TimeRatio[0], itemToAdd);
+				itemsToAdd.push_back(itemToRemove);
+				auto& itemToAdd = itemsToAdd.back();
+				Beat nowBeat = scale(origBeat, firstBeat, ratioBeat);
+				SetBeat(nowBeat, itemToAdd);
+
+				Beat origBeatDuration = GetBeatDuration(itemToAdd);
+				if (reverseBeat && !ListIsItemEndBounded(it.List)) { // use the next item as the end for reversing end-unbounded items
+					Beat origBeatLastEffect = GetLastEffectBeat(course, it.List, it.Index);
+					if (origBeatLastEffect > origBeat) {
+						origBeatDuration = origBeatLastEffect - origBeat;
+						if (!idxItemsToAlignToStart.empty() && itemsToAdd[idxItemsToAlignToStart.back()].List == it.List)
+							idxItemsToAlignToStart.back() = itemsToAdd.size() - 1;
+						else
+							idxItemsToAlignToStart.push_back(itemsToAdd.size() - 1);
+					}
+					if (nowBeat < minBeatAfter) // only consider item head for realigning region
+						minBeatAfter = nowBeat;
+				}
+
+				if (origBeatDuration > Beat::Zero()) {
+					if (!keepItemDur || !ListIsItemEndBounded(it.List)) {
+						Beat nowBeatDuration = scale(origBeatDuration, Beat::Zero(), ratioBeatAbs);
+						SetBeatDuration(Max(Beat::FromTicks(1), nowBeatDuration), itemToAdd);
+						if (reverseBeat)
+							SetBeat(nowBeat -= nowBeatDuration, itemToAdd);
+					}
+				}
+				if (const auto [hasTimeDuration, origTimeDuration] = GetTimeDuration(itemToAdd); hasTimeDuration) {
+					if (!(keepItemDur || keepTimePos)) {
+						SetTimeDuration(scale(origTimeDuration, Time::Zero(), ratioBeatAbs), itemToAdd);
+						if (reverseBeat) {
+							const Beat origEndBeat = context.TimeToBeat(context.BeatToTime(origBeat) + origTimeDuration, true); // in original timing
+							Beat nowBeatEnd = scale(origEndBeat, firstBeat, param.TimeRatio);
+							SetBeat(nowBeatEnd, itemToAdd);
+							nowBeat = std::min(nowBeat, nowBeatEnd); // in case of negative time duration
+						}
+					}
+				}
+				ScaleChartItemValues(itemToAdd, param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
+				if (!(reverseBeat && !ListIsItemEndBounded(it.List)) && nowBeat < minBeatAfter) // handle overlapping items with varying lengths from different row
+					minBeatAfter = nowBeat;
 
 				if (IsNotesList(itemToAdd.List))
 					itemToAdd.Value.POD.Note.ClickAnimationTimeRemaining = itemToAdd.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 			});
 
 			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
-			// BUG: Overwritten items not correctly restored on undo (?)
 			if (!itemsToRemove.empty() || !itemsToAdd.empty())
 			{
 				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }
 
-				if (param.TimeRatio[0] < param.TimeRatio[1])
+				if (minBeatBefore != minBeatAfter) { // realign region to originally earliest item
+					for (auto& it : itemsToAdd)
+						SetBeat(GetBeat(it) + minBeatBefore - minBeatAfter, it);
+				}
+				for (auto& idx : idxItemsToAlignToStart)
+					SetBeat(minBeatBefore, itemsToAdd[idx]);
+
+				if (reverseBeat)
+					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_ReverseItems>(&course, std::move(itemsToRemove), std::move(itemsToAdd));
+				else if (ratioBeat[0] < ratioBeat[1])
 					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_CompressItems>(&course, std::move(itemsToRemove), std::move(itemsToAdd));
 				else
 					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_ExpandItems>(&course, std::move(itemsToRemove), std::move(itemsToAdd));
+				context.Undo.DisallowMergeForLastCommand();
+			}
+		} break;
+		case TransformAction::ScaleRangeTime:
+		{
+			assert(param.TimeRatio[1] != 0);
+			if (param.TimeRatio[0] == param.TimeRatio[1])
+				break;
+			if (!RangeSelection.IsActiveAndHasEnd())
+				return;
+
+			auto [byTempo, keepTimePos, keepItemDur, ratioBeat, ratioBeatAbs, reverseBeat] = GetScaleChartItemRatios(param);
+			const b8 keepTimeSig = *Settings.General.TransformScale_KeepTimeSignature;
+			enum RangeSide : u8 { Past, Present, Future, Count };
+			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
+
+			const Beat firstBeat = RangeSelection.GetMin(), latestBeat = RangeSelection.GetMax();
+			Beat minBeatAfter = firstBeat, maxBeatAfter = scale(latestBeat, firstBeat, ratioBeat);
+			if (minBeatAfter > maxBeatAfter)
+				std::swap(minBeatAfter, maxBeatAfter);
+
+			auto getRangeSide = [&](Beat origBeat) { return (origBeat > latestBeat) ? RangeSide::Future : (origBeat >= firstBeat) ? RangeSide::Present : RangeSide::Past; };
+			auto getRangeSideToFtr = [&](Beat origBeat) { return (origBeat >= latestBeat) ? RangeSide::Future : (origBeat >= firstBeat) ? RangeSide::Present : RangeSide::Past; };
+
+			const auto scaleBeatIn = [&](const auto& beat) { return scale(beat, firstBeat, ratioBeat) + (firstBeat - minBeatAfter); };
+			const auto scaleBeatAfter = [&](const auto& beat) { return beat + maxBeatAfter - latestBeat + (firstBeat - minBeatAfter); };
+
+			std::vector<GenericListStructWithType> itemsToRemove;
+			std::vector<GenericListStructWithType> itemsToAdd;
+			ForEachChartItem(course, [&](const ForEachChartItemData& it)
+			{
+				const Beat origBeat = GetBeat(it, course);
+				auto& itemToRemove = itemsToRemove.emplace_back();
+				itemToRemove.List = it.List;
+				TryGetGenericStruct(course, it.List, it.Index, itemToRemove.Value);
+
+				std::vector<GenericListStructWithType> itemToAdd = {};
+
+				b8 changed = false;
+				if (getRangeSide(origBeat) == RangeSide::Future) {
+					Beat nowBeat = scaleBeatAfter(origBeat);
+					if (nowBeat != origBeat) {
+						SetBeat(nowBeat, (itemToAdd.push_back(itemToRemove), itemToAdd.back()));
+						changed = true;
+					}
+				} else {
+					auto splitAndScale = [&](const GenericListStructWithType& item, const Beat origBeat, const Beat origBeatDuration, b8 needSplit, auto&& splitItems, auto&& setItemHeadAndEnd)
+					{
+						const b8 reverseDuration = (origBeatDuration < Beat::Zero());
+						const Beat origBeatEnd = origBeat + origBeatDuration;
+
+						const auto headSide = needSplit ? getRangeSide(origBeat) : getRangeSideToFtr(origBeat);
+						const auto endSide = needSplit ? getRangeSide(origBeatEnd) : headSide;
+
+						// to calculate using non-negative duration
+						const auto& origBeatMin = std::min(origBeat, origBeatEnd), origBeatMax = std::max(origBeat, origBeatEnd);
+						const auto& minSide = std::min(headSide, endSide), maxSide = std::max(headSide, endSide);
+
+						// split: s-[->(e … s)-]>e → s₁->e₁[s₂->(e₂ … s₃)->e₃]s₄->e₄
+						b8 hasPast = (minSide == RangeSide::Past);
+						b8 hasPresent = (minSide <= RangeSide::Present && maxSide >= RangeSide::Present);
+						b8 hasFuture = (maxSide == RangeSide::Future);
+
+						const Beat beatMinPst = origBeatMin;
+						const Beat beatMaxPst = std::min(firstBeat, origBeatMax);
+						const Beat beatMinFtr = scaleBeatAfter(std::max(latestBeat, origBeatMin));
+						const Beat beatMaxFtr = (origBeatMax.Ticks >= I32Max) ? origBeatMax : scaleBeatAfter(origBeatMax); // for endless events
+
+						// reverse: move s₄ to effective first beat
+						Beat beatMinFtrMoved = beatMinFtr;
+						if (reverseBeat && hasFuture && !ListIsItemEndBounded(item.List)) {
+							Beat origBeatFirstEffect = GetFirstEffectBeatAfter<false>(course, item.List, latestBeat);
+							if (origBeatFirstEffect < origBeatEnd)
+								beatMinFtrMoved = scaleBeatAfter(std::max(origBeatFirstEffect, origBeatMin));
+							else
+								hasFuture = false; // no space to insert
+						}
+
+						if (!ListIsItemEndBounded(item.List)) { // prevent 0-duration events if duration is implicit
+							if (beatMaxPst <= beatMinPst)
+								hasPast = false;
+							if (beatMaxFtr <= beatMinFtr)
+								hasFuture = false;
+						}
+
+						if (hasPresent) {
+							auto maxSidePrs = RangeSide::Present;
+							Beat beatHeadPrs = scaleBeatIn(std::max(firstBeat, origBeatMin));
+							Beat beatEndPrs = scaleBeatIn(std::min(latestBeat, origBeatMax));
+							Beat beatMinPrs = std::min(beatHeadPrs, beatEndPrs), beatMaxPrs = std::max(beatHeadPrs, beatEndPrs); // handle reversing
+							// merge if the original item was single note or the resulting items have the same value
+							splitItems.push_back(item);
+							b8 changedIn = ScaleChartItemValues(splitItems.back(), param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepTimeSig);
+							if (!changedIn) {
+								if (hasPast && beatMaxPst == beatMinPrs) {
+									beatMinPrs = beatMinPst;
+									hasPast = false;
+								}
+								if (hasFuture && beatMinFtr == beatMaxPrs) {
+									maxSidePrs = RangeSide::Future;
+									beatMaxPrs = beatMaxFtr;
+									hasFuture = false;
+								}
+							}
+							if (!ListIsItemEndBounded(item.List) && beatMaxPrs - beatMinPrs == Beat::Zero()) {
+								splitItems.pop_back();
+								hasPresent = false;
+							} else {
+								setItemHeadAndEnd(beatMinPrs, beatMaxPrs, reverseDuration, maxSide, maxSidePrs, splitItems.back());
+							}
+						}
+						if (hasPast)
+							setItemHeadAndEnd(beatMinPst, beatMaxPst, reverseDuration, maxSide, RangeSide::Past, (splitItems.push_back(item), splitItems.back()));
+						if (hasFuture)
+							setItemHeadAndEnd(beatMinFtrMoved, beatMaxFtr, reverseDuration, maxSide, RangeSide::Future, (splitItems.push_back(item), splitItems.back()));
+						changed = true;
+
+						return std::array{ hasPast, hasPresent, hasFuture };
+					};
+
+					Beat origBeatDuration = GetBeatDuration(itemToRemove);
+					if (!ListIsItemEndBounded(it.List)) {
+						Beat origBeatLastEffect = GetLastEffectBeat(course, it.List, it.Index);
+						if (origBeatLastEffect > origBeat)
+							origBeatDuration = origBeatLastEffect - origBeat;
+					}
+					if (origBeatDuration > Beat::Zero()) {
+						if (!keepItemDur || !ListIsItemEndBounded(it.List)) {
+							auto fragments = RefragmentChartItem(itemToRemove, origBeatDuration,
+								std::array{ firstBeat, latestBeat }, param.TimeRatio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepTimeSig,
+								[&](const GenericListStructWithType& itemI, Beat& beatDurationI, b8 needSplit, auto&& fragments)
+								{
+									return splitAndScale(itemI, GetBeat(itemI), beatDurationI, needSplit, fragments, [&](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
+									{
+										auto duration = end - head;
+										SetBeat(reverse ? end : head, item);
+										SetBeatDuration(Max(Beat::FromTicks(1), beatDurationI = (reverse ? -duration : duration)), item);
+									});
+								});
+							std::move(begin(fragments), end(fragments), std::back_insert_iterator(itemToAdd));
+						}
+					}
+
+					if (const auto [hasTimeDuration, origTimeDuration] = GetTimeDuration(itemToRemove); hasTimeDuration) {
+						if (!(keepItemDur || keepTimePos)) {
+							const Beat origEndBeat = context.TimeToBeat(context.BeatToTime(origBeat) + origTimeDuration, true); // in original timing
+							const Time origTimeExtra = context.BeatToTime(origEndBeat) - (context.BeatToTime(origBeat) + origTimeDuration);
+							const auto [hasPast, hasPresent, hasFuture] = splitAndScale(itemToRemove, origBeat, origEndBeat - origBeat, true, itemToAdd, [&](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
+							{
+								auto duration = context.BeatToTime(end) - context.BeatToTime(head);
+								if (maxSideSet == maxSideItem)
+									duration += (maxSideSet == RangeSide::Present) ? scale(origTimeExtra, Time::Zero(), param.TimeRatio) : origTimeExtra;
+								SetBeat(reverse ? end : head, item);
+								SetTimeDuration(reverse ? -duration : duration, item);
+							});
+						}
+					}
+
+					if (!changed && getRangeSide(origBeat) == RangeSide::Present) {
+						Beat nowBeat = scaleBeatIn(origBeat);
+						itemToAdd.push_back(itemToRemove);
+						SetBeat(nowBeat, itemToAdd.back());
+						changed |= (nowBeat != origBeat);
+						changed |= ScaleChartItemValues(itemToAdd[0], param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepTimeSig);
+					}
+				}
+
+				// actually insert items
+				if (!changed) {
+					itemsToRemove.pop_back();
+					return;
+				}
+				for (auto& item : itemToAdd) {
+					if (IsNotesList(it.List))
+						item.Value.POD.Note.ClickAnimationTimeRemaining = item.Value.POD.Note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
+					itemsToAdd.push_back(std::move(item));
+				}
+			});
+
+			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
+			if (!itemsToRemove.empty() || !itemsToAdd.empty())
+			{
+				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }
+
+				if (firstBeat != minBeatAfter) { // realign region to earliest item
+					maxBeatAfter += firstBeat - minBeatAfter;
+					minBeatAfter = firstBeat;
+				}
+
+				if (reverseBeat) { // for range reversing, it is possible for long events to be reversed into negative beats; clip at beat 0
+					for (auto& it : itemsToAdd) {
+						if (Beat beat = GetBeat(it); beat < Beat::Zero()) {
+							SetBeat(Beat::Zero(), it);
+							if (Beat beatDuration = GetBeatDuration(it); beatDuration > Beat::Zero())
+								SetBeatDuration(Max(Beat::FromTicks(1), beatDuration - (Beat::Zero() - beat)), it);
+							if (auto [hasTimeDuration, timeDuration] = GetTimeDuration(it); hasTimeDuration) {
+								const Time zeroTime = context.BeatToTime(Beat::Zero());
+								const Time startTime = context.BeatToTime(beat);
+								SetTimeDuration(timeDuration - (zeroTime - startTime), it);
+							}
+						}
+					}
+				}
+
+				std::pair selectedRange = { &RangeSelection.Start, &RangeSelection.End };
+				std::pair newRange = { minBeatAfter, maxBeatAfter };
+
+				if (reverseBeat)
+					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_ReverseRange>(selectedRange, newRange, &course, std::move(itemsToRemove), std::move(itemsToAdd));
+				else if (abs(param.TimeRatio[0]) < abs(param.TimeRatio[1]))
+					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_CompressRange>(selectedRange, newRange, &course, std::move(itemsToRemove), std::move(itemsToAdd));
+				else
+					context.Undo.Execute<Commands::RemoveThenAddMultipleGenericItems_ExpandRange>(selectedRange, newRange, &course, std::move(itemsToRemove), std::move(itemsToAdd));
 				context.Undo.DisallowMergeForLastCommand();
 			}
 		} break;
@@ -2135,6 +2660,7 @@ namespace PeepoDrumKit
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_SelectAll, false)) ExecuteSelectionAction(context, SelectionAction::SelectAll, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_ClearSelection, false)) ExecuteSelectionAction(context, SelectionAction::UnselectAll, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_InvertSelection, false)) ExecuteSelectionAction(context, SelectionAction::InvertAll, param);
+					if (Gui::IsAnyPressed(*Settings.Input.Timeline_SelectToChartEnd, false)) ExecuteSelectionAction(context, SelectionAction::SelectToEnd, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_SelectAllWithinRangeSelection, false)) ExecuteSelectionAction(context, SelectionAction::SelectAllWithinRangeSelection, param);
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_ShiftSelectionLeft, true)) ExecuteSelectionAction(context, SelectionAction::PerRowShiftSelected, param.SetShiftDelta(-1));
 					if (Gui::IsAnyPressed(*Settings.Input.Timeline_ShiftSelectionRight, true)) ExecuteSelectionAction(context, SelectionAction::PerRowShiftSelected, param.SetShiftDelta(+1));
@@ -2388,19 +2914,19 @@ namespace PeepoDrumKit
 			auto placeLongNoteOnBindingRelease = [this, &context](NoteType longNoteType)
 			{
 				SortedNotesList& notes = context.ChartSelectedCourse->GetNotes(context.ChartSelectedBranch);
-				const Beat minBeat = LongNotePlacement.GetMin();
+				const Beat minBeatAfter = LongNotePlacement.GetMin();
 				const Beat maxBeat = LongNotePlacement.GetMax();
 
 				std::vector<Note> notesToRemove;
 				for (const Note& existingNote : notes)
 				{
-					if (existingNote.GetStart() <= maxBeat && minBeat <= existingNote.GetEnd())
+					if (existingNote.GetStart() <= maxBeat && minBeatAfter <= existingNote.GetEnd())
 						notesToRemove.push_back(existingNote);
 				}
 
 				Note newLongNote {};
-				newLongNote.BeatTime = minBeat;
-				newLongNote.BeatDuration = (maxBeat - minBeat);
+				newLongNote.BeatTime = minBeatAfter;
+				newLongNote.BeatDuration = (maxBeat - minBeatAfter);
 				newLongNote.BalloonPopCount = IsBalloonNote(longNoteType) ? DefaultBalloonPopCount(newLongNote.BeatDuration, CurrentGridBarDivision) : 0;
 				newLongNote.Type = longNoteType;
 				newLongNote.ClickAnimationTimeRemaining = newLongNote.ClickAnimationTimeDuration = NoteHitAnimationDuration;
@@ -2418,12 +2944,29 @@ namespace PeepoDrumKit
 				TransformActionParam param {};
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_FlipNoteType, false)) ExecuteTransformAction(context, TransformAction::FlipNoteType, param);
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ToggleNoteSize, false)) ExecuteTransformAction(context, TransformAction::ToggleNoteSize, param);
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_2To1, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 1));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_3To2, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 2));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_4To3, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(4, 3));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_1To2, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(1, 2));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_2To3, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(2, 3));
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_3To4, false)) ExecuteTransformAction(context, TransformAction::ScaleItemTime, param.SetTimeRatio(3, 4));
+
+				// NOTE: tentatively use the same set of keybinds for item and range scale
+				TransformAction scaleAction = RangeSelection.IsActiveAndHasEnd() ? TransformAction::ScaleRangeTime : TransformAction::ScaleItemTime;;
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_2To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 1));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_3To2, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 2));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_4To3, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(4, 3));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_1To2, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(1, 2));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_2To3, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 3));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_3To4, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 4));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_CompressItemTime_0To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(0, 1));
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ReverseItemTime_N1To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
+
+				const MultiInputBinding* customBindings[] =
+				{
+					&*Settings.Input.Timeline_ScaleItemTime_CustomA, &*Settings.Input.Timeline_ScaleItemTime_CustomB, &*Settings.Input.Timeline_ScaleItemTime_CustomC,
+					&*Settings.Input.Timeline_ScaleItemTime_CustomD, &*Settings.Input.Timeline_ScaleItemTime_CustomE, &*Settings.Input.Timeline_ScaleItemTime_CustomF,
+				};
+
+				for (size_t i = 0; i < ArrayCount(customBindings); i++)
+				{
+					if (i < Settings.General.CustomScaleRatios->size() && Gui::IsAnyPressed(*customBindings[i], false))
+						ExecuteTransformAction(context, scaleAction, param.SetTimeRatio((*Settings.General.CustomScaleRatios)[i].TimeRatio));
+				}
 			}
 		}
 
