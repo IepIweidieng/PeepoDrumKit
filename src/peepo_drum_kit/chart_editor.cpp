@@ -576,11 +576,35 @@ namespace PeepoDrumKit
 					// NOTE: To essentially make these tab items look similar to regular menu items (the inverted Active <-> Hovered colors are not a mistake)
 					Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 					Gui::PushStyleColor(ImGuiCol_TabSelected, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-					if (Gui::BeginTabBar("MenuBarTabs", ImGuiTabBarFlags_FittingPolicyScroll))
+					if (Gui::BeginTabBar("MenuBarTabs", ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyScroll))
 					{
 						// HACK: How to properly manage the imgui selected tab internal state..?
 						static const ChartCourse* lastFrameSelectedCoursePtrID = nullptr;
 						b8 isAnyCourseTabSelected = false;
+
+						// Reorder courses by querying tab bar order
+						if (ImGuiTabBar* tab_bar = Gui::GetCurrentTabBar(); tab_bar->ReorderRequestTabId != 0) {
+							// save current order
+							std::vector<ImGuiID> tabIdx = {};
+							for (const auto& tab : tab_bar->Tabs)
+								tabIdx.push_back(tab.ID);
+							// force update order
+							Gui::TabBarProcessReorder(tab_bar);
+							tab_bar->ReorderRequestTabId = 0; // cancel further reorder
+							// reorder courses into updated tab order
+							auto& courses = context.Chart.Courses;
+							std::vector<std::unique_ptr<ChartCourse>> reorderedCourses (size(courses));
+							for (size_t i = 0; i < std::size(courses); ++i) {
+								auto& course = courses[i];
+								ImGuiTabItem* tab = Gui::TabBarFindTabByID(tab_bar, tabIdx[i]);
+								assert(tab != nullptr && "failed to reorder courses; found a course without tab");
+								i32 newOrder = Gui::TabBarGetTabOrder(tab_bar, tab);
+								assert(newOrder >= 0 && newOrder < size(courses) && "failed to reorder courses; found a tab without course");
+								reorderedCourses[newOrder] = std::move(course);
+							}
+							courses = std::move(reorderedCourses);
+							context.Undo.NotifyChangesWereMade();
+						}
 
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
