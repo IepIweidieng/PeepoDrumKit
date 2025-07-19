@@ -556,13 +556,11 @@ namespace PeepoDrumKit
 							char labelBuffer[128];
 							sprintf_s(labelBuffer, "%s", dt.CurrentName);
 
-							if (Gui::MenuItem(
-								labelBuffer, 
-								" ",
-								false,
-								!std::any_of(context.Chart.Courses.begin(), context.Chart.Courses.end(), [&dt](const std::unique_ptr<PeepoDrumKit::ChartCourse>& obj) { return obj->Type == dt.dType; })
-								))
+							b8 isDiffExist = std::any_of(begin(context.Chart.Courses), end(context.Chart.Courses), [&](const auto& obj) { return obj->Type == dt.dType; });
+							if (Gui::MenuItem(labelBuffer, " ", false, !isDiffExist)) {
 								CreateNewDifficulty(context, dt.dType);
+								context.Undo.NotifyChangesWereMade();
+							}
 						}
 						Gui::EndMenu();
 					}
