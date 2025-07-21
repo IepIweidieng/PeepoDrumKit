@@ -396,23 +396,26 @@ struct Complex {
 	constexpr Complex& operator*=(const f32 scalar) { *this = (*this * scalar); return *this; }
 	constexpr Complex& operator/=(const f32 scalar) { *this = (*this / scalar); return *this; }
 	constexpr Complex operator-() const { return { -cpx }; }
+
+#define PAT_APLUSB_RE "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d])"
+#define PAT_APLUSB_IM "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?[iI]"
+#define PAT_APLUSB_IM_UNIT "[+-]?[iI]"
+	static inline const std::regex PatPureImaginary = std::regex("^(?=[iI.\\d+-])(?:(" PAT_APLUSB_IM ")|(" PAT_APLUSB_IM_UNIT "))?$");
+	static inline const std::regex PatComplex = std::regex("^(?=[iI.\\d+-])(" PAT_APLUSB_RE ")?\\s*(?:(" PAT_APLUSB_IM ")|(" PAT_APLUSB_IM_UNIT "))?$");
+#undef PAT_APLUSB_RE
+#undef PAT_APLUSB_IM
+#undef PAT_APLUSB_IM_UNIT
+
 	friend std::istream& operator>>(std::istream& in, Complex& value)
 	{
 		f32 real = 0.0f;
 		f32 imag = 0.0f;
-#define PAT_APLUSB_RE "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d])"
-#define PAT_APLUSB_IM "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?[iI]"
-#define PAT_APLUSB_IM_UNIT "[+-]?[iI]"
-		std::regex aplusb("^(?=[iI.\\d+-])(" PAT_APLUSB_RE ")?\\s*(?:(" PAT_APLUSB_IM ")|(" PAT_APLUSB_IM_UNIT "))?$");
-#undef PAT_APLUSB_RE
-#undef PAT_APLUSB_IM
-#undef PAT_APLUSB_IM_UNIT
 		std::string input;
 		in >> input;
 
 		std::smatch matches;
 
-		if (std::regex_match(input, matches, aplusb)) {
+		if (std::regex_match(input, matches, PatComplex)) {
 			if (matches[1].length() > 0) {
 				real = std::stof(matches[1]);
 			}
