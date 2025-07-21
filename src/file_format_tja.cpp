@@ -880,6 +880,9 @@ namespace TJA
 		return outTJA;
 	}
 
+	static const ParsedMainMetadata DefaultMainMetadata = {};
+	static const ParsedCourseMetadata DefaultCourseMetadata = {};
+
 	void ConvertParsedToText(const ParsedTJA& inContent, std::string& out, Encoding encoding)
 	{
 		// TODO: ... or maybe tokenize first instead of going right to text..?
@@ -889,7 +892,6 @@ namespace TJA
 
 		static constexpr auto appendLine = [](std::string& out, std::string_view line) { out += line; out += '\n'; };
 		static constexpr auto appendProperyLine = [](std::string& out, Key key, std::string_view value) { out += KeyStrings[EnumToIndex(key)]; out += ':'; out += value; out += '\n'; };
-		static constexpr auto appendProperyLineIfNotEmpty = [](std::string& out, Key key, std::string_view value) { if (!value.empty()) { appendProperyLine(out, key, value); } };
 		static constexpr auto appendCommandLine = [](std::string& out, Key key, std::string_view value) { out += '#'; out += KeyStrings[EnumToIndex(key)]; if (!value.empty()) { out += ' '; out += value; }out += '\n'; };
 		static constexpr auto appendBalloonProperyLine = [](std::string& out, Key key, const std::vector<i32>& popCounts)
 		{
@@ -972,78 +974,148 @@ namespace TJA
 
 		DifficultyType currentCourseScope = DifficultyType::Count; // default course scope
 
-		appendProperyLine(out, Key::Main_TITLE, inContent.Metadata.TITLE);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLEJA, inContent.Metadata.TITLE_JA);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLEEN, inContent.Metadata.TITLE_EN);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLECN, inContent.Metadata.TITLE_CN);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLETW, inContent.Metadata.TITLE_TW);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLEKO, inContent.Metadata.TITLE_KO);
-		appendProperyLine(out, Key::Main_SUBTITLE, inContent.Metadata.SUBTITLE);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLEJA, inContent.Metadata.SUBTITLE_JA);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLEEN, inContent.Metadata.SUBTITLE_EN);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLECN, inContent.Metadata.SUBTITLE_CN);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLETW, inContent.Metadata.SUBTITLE_TW);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLEKO, inContent.Metadata.SUBTITLE_KO);
-		appendProperyLine(out, Key::Main_BPM, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.BPM.BPM)));
-		appendProperyLine(out, Key::Main_WAVE, inContent.Metadata.WAVE);
-		appendProperyLineIfNotEmpty(out, Key::Main_PREIMAGE, inContent.Metadata.PREIMAGE);
-		appendProperyLine(out, Key::Main_OFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.OFFSET.Seconds)));
-		appendProperyLine(out, Key::Main_DEMOSTART, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.DEMOSTART.Seconds)));
-		appendProperyLineIfNotEmpty(out, Key::Main_GENRE, inContent.Metadata.GENRE);
-		if (inContent.Metadata.SCOREMODE != ScoreMode {}) appendProperyLine(out, Key::Main_SCOREMODE, std::string_view(buffer, sprintf_s(buffer, "%d", static_cast<i32>(inContent.Metadata.SCOREMODE))));
-		appendProperyLineIfNotEmpty(out, Key::Main_MAKER, inContent.Metadata.MAKER);
-		appendProperyLineIfNotEmpty(out, Key::Main_LYRICS, inContent.Metadata.LYRICS);
-		if (!ApproxmiatelySame(inContent.Metadata.SONGVOL, 1.0f)) appendProperyLine(out, Key::Main_SONGVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SONGVOL))));
-		if (!ApproxmiatelySame(inContent.Metadata.SEVOL, 1.0f)) appendProperyLine(out, Key::Main_SEVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SEVOL))));
+		auto shouldEmitMainMetadata = [&, &inContent = inContent](auto ParsedMainMetadata::*... membs) // MSVC++ bug?: cannot implicitly capture variables when used in folder expression
+		{
+			return (... || (inContent.Metadata.*membs != DefaultMainMetadata.*membs));
+		};
+
+		appendProperyLine(out, Key::Main_TITLE, inContent.Metadata.TITLE); // Required for TaikoJiro
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::TITLE_JA, &ParsedMainMetadata::TITLE_EN, &ParsedMainMetadata::TITLE_CN, &ParsedMainMetadata::TITLE_TW, &ParsedMainMetadata::TITLE_KO)) {
+			appendProperyLine(out, Key::Main_TITLEJA, inContent.Metadata.TITLE_JA);
+			appendProperyLine(out, Key::Main_TITLEEN, inContent.Metadata.TITLE_EN);
+			appendProperyLine(out, Key::Main_TITLECN, inContent.Metadata.TITLE_CN);
+			appendProperyLine(out, Key::Main_TITLETW, inContent.Metadata.TITLE_TW);
+			appendProperyLine(out, Key::Main_TITLEKO, inContent.Metadata.TITLE_KO);
+		}
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE, &ParsedMainMetadata::SUBTITLE_JA, &ParsedMainMetadata::SUBTITLE_EN, &ParsedMainMetadata::SUBTITLE_CN, &ParsedMainMetadata::SUBTITLE_TW, &ParsedMainMetadata::SUBTITLE_KO))
+			appendProperyLine(out, Key::Main_SUBTITLE, inContent.Metadata.SUBTITLE); // Better to be explicit if localized
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE_JA, &ParsedMainMetadata::SUBTITLE_EN, &ParsedMainMetadata::SUBTITLE_CN, &ParsedMainMetadata::SUBTITLE_TW, &ParsedMainMetadata::SUBTITLE_KO)) {
+			appendProperyLine(out, Key::Main_SUBTITLEJA, inContent.Metadata.SUBTITLE_JA);
+			appendProperyLine(out, Key::Main_SUBTITLEEN, inContent.Metadata.SUBTITLE_EN);
+			appendProperyLine(out, Key::Main_SUBTITLECN, inContent.Metadata.SUBTITLE_CN);
+			appendProperyLine(out, Key::Main_SUBTITLETW, inContent.Metadata.SUBTITLE_TW);
+			appendProperyLine(out, Key::Main_SUBTITLEKO, inContent.Metadata.SUBTITLE_KO);
+		}
+		appendProperyLine(out, Key::Main_BPM, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.BPM.BPM))); // Better to be explicit
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::WAVE))
+			appendProperyLine(out, Key::Main_WAVE, inContent.Metadata.WAVE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::PREIMAGE))
+			appendProperyLine(out, Key::Main_PREIMAGE, inContent.Metadata.PREIMAGE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::WAVE, &ParsedMainMetadata::OFFSET)) // Better to be explicit if `WAVE:` is given
+			appendProperyLine(out, Key::Main_OFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.OFFSET.Seconds)));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::DEMOSTART))
+			appendProperyLine(out, Key::Main_DEMOSTART, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.DEMOSTART.Seconds)));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::GENRE))
+			appendProperyLine(out, Key::Main_GENRE, inContent.Metadata.GENRE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SCOREMODE))
+			appendProperyLine(out, Key::Main_SCOREMODE, std::string_view(buffer, sprintf_s(buffer, "%d", static_cast<i32>(inContent.Metadata.SCOREMODE))));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::MAKER))
+			appendProperyLine(out, Key::Main_MAKER, inContent.Metadata.MAKER);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::LYRICS))
+			appendProperyLine(out, Key::Main_LYRICS, inContent.Metadata.LYRICS);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SONGVOL))
+			appendProperyLine(out, Key::Main_SONGVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SONGVOL))));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SEVOL))
+			appendProperyLine(out, Key::Main_SEVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SEVOL))));
 		// TODO: Key::Main_SIDE;
-		//if (inContent.Metadata.LIFE != 0) appendProperyLine(out, Key::Main_LIFE, std::string_view(buffer, sprintf_s(buffer, "%d", inContent.Metadata.LIFE)));
 		// TODO: Key::Main_GAME;
-		if (inContent.Metadata.HEADSCROLL != 1.0f) appendProperyLine(out, Key::Main_HEADSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.HEADSCROLL)));
-		appendProperyLineIfNotEmpty(out, Key::Main_BGIMAGE, inContent.Metadata.BGIMAGE);
-		appendProperyLineIfNotEmpty(out, Key::Main_BGMOVIE, inContent.Metadata.BGMOVIE);
-		if (inContent.Metadata.MOVIEOFFSET != Time::Zero()) appendProperyLine(out, Key::Main_MOVIEOFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.MOVIEOFFSET.Seconds)));
-		appendProperyLineIfNotEmpty(out, Key::Main_TAIKOWEBSKIN, inContent.Metadata.TAIKOWEBSKIN);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::HEADSCROLL))
+			appendProperyLine(out, Key::Main_HEADSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.HEADSCROLL)));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE))
+			appendProperyLine(out, Key::Main_BGIMAGE, inContent.Metadata.BGIMAGE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGMOVIE))
+			appendProperyLine(out, Key::Main_BGMOVIE, inContent.Metadata.BGMOVIE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE, &ParsedMainMetadata::BGMOVIE, &ParsedMainMetadata::MOVIEOFFSET)) // Better to be explicit if bg is given
+			appendProperyLine(out, Key::Main_MOVIEOFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.MOVIEOFFSET.Seconds)));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::TAIKOWEBSKIN))
+			appendProperyLine(out, Key::Main_TAIKOWEBSKIN, inContent.Metadata.TAIKOWEBSKIN);
 		appendLine(out, "");
 
-		for (const ParsedCourse& course : inContent.Courses)
+		// group difficulties by course scope
+		using CourseIter = decltype(inContent.Courses)::const_iterator;
+		std::vector<std::pair<CourseIter, CourseIter>> courseScopes = {};
+
+		for (auto it = begin(inContent.Courses); it != end(inContent.Courses); ++it) {
+			const auto& course = *it;
+			if (course.Metadata.COURSE == currentCourseScope)
+				continue;
+			// change course scope
+			if (!courseScopes.empty())
+				courseScopes.back().second = it;
+			courseScopes.emplace_back(it, end(inContent.Courses));
+			currentCourseScope = course.Metadata.COURSE;
+		}
+		// revert course scope
+		currentCourseScope = DifficultyType::Count;
+
+		static constexpr auto courseMetadataDifferWithin = [](CourseIter it, CourseIter itBeg, CourseIter itEnd, auto ParsedCourseMetadata::*... membs)
 		{
+			for (CourseIter itI = itBeg; itI != itEnd; ++itI) {
+				if ((... || (it->Metadata.*membs != itI->Metadata.*membs)))
+					return true;
+			}
+			return false;
+		};
+
+		auto convertCourse = [&](CourseIter it, CourseIter itBeg, CourseIter itEnd)
+		{
+			auto shouldEmitCourseMetadata = [&, &inContent = inContent](auto ParsedCourseMetadata::*... membs) // MSVC++ bug?: cannot implicitly capture variables when used in folder expression
+			{
+				if (it == itBeg) {
+					return (... || (it->Metadata.*membs != DefaultCourseMetadata.*membs)) // group-initial, non-default
+						|| courseMetadataDifferWithin(it, begin(inContent.Courses), end(inContent.Courses), membs...); // differ globally, better to be explicit
+				}
+				return courseMetadataDifferWithin(it, itBeg, itEnd, membs...); // differ in group, better to be explicit
+			};
+
+			const ParsedCourse& course = *it;
 			if (&course != &inContent.Courses[0])
 				appendLine(out, "");
 
-			b8 firstInCourseScope = (course.Metadata.COURSE != currentCourseScope);
-			if (firstInCourseScope) { // change course scope
+			b8 firstInGroup = (it == itBeg);
+			if (firstInGroup) { // change course scope
 				appendProperyLine(out, Key::Course_COURSE, difficultyTypeToString(course.Metadata.COURSE));
 				currentCourseScope = course.Metadata.COURSE;
 			}
 
-			if (firstInCourseScope)
+			// scope-like, omit mid-group when possible
+			if (firstInGroup ? shouldEmitCourseMetadata(&ParsedCourseMetadata::STYLE) : course.Metadata.STYLE != (it - 1)->Metadata.STYLE) {
+				if (firstInGroup)
+					appendLine(out, "");
+				appendProperyLine(out, Key::Course_STYLE, styleModeToString(course.Metadata.STYLE));
 				appendLine(out, "");
-			appendProperyLine(out, Key::Course_STYLE, styleModeToString(course.Metadata.STYLE));
-			appendLine(out, "");
+			}
 
-			//(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : "-"),
-			if (course.Metadata.LEVEL_DECIMALTAG == -1)
-				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LEVEL)));
-			else
-				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%.1f", course.Metadata.LEVEL + static_cast<float>(course.Metadata.LEVEL_DECIMALTAG) / 10. )));
+			// Unspecified default value
+			if (firstInGroup || shouldEmitCourseMetadata(&ParsedCourseMetadata::LEVEL, &ParsedCourseMetadata::LEVEL_DECIMALTAG)) {
+				if (course.Metadata.LEVEL_DECIMALTAG == -1)
+					appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LEVEL)));
+				else
+					appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%.1f", course.Metadata.LEVEL + static_cast<float>(course.Metadata.LEVEL_DECIMALTAG) / 10.)));
+			}
 
+			// Better to be explicit
 			if (course.Metadata.COURSE == DifficultyType::Tower) {
 				appendProperyLine(out, Key::Course_LIFE, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LIFE)));
 				appendProperyLine(out, Key::Course_SIDE, sideToString(course.Metadata.SIDE));
 			}
 
+			// Better to be explicit
 			if (!course.Metadata.BALLOON.empty() || !course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
-				appendBalloonProperyLine(out, Key::Course_BALLOON, course.Metadata.BALLOON);
+				appendBalloonProperyLine(out, Key::Course_BALLOON, course.Metadata.BALLOON); // necessary for branched charts as branched BALLOON headers are not handled consistently across all simulators
 			if (!course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
 			{
 				appendBalloonProperyLine(out, Key::Course_BALLOONNOR, course.Metadata.BALLOON_Normal);
 				appendBalloonProperyLine(out, Key::Course_BALLOONEXP, course.Metadata.BALLOON_Expert);
 				appendBalloonProperyLine(out, Key::Course_BALLOONMAS, course.Metadata.BALLOON_Master);
 			}
-			appendProperyLine(out, Key::Course_SCOREINIT, (course.Metadata.SCOREINIT == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREINIT)));
-			appendProperyLine(out, Key::Course_SCOREDIFF, (course.Metadata.SCOREDIFF == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREDIFF)));
 
-			if (!course.Metadata.NOTESDESIGNER.empty())
+			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::SCOREINIT, &ParsedCourseMetadata::SCOREDIFF)) {
+				appendProperyLine(out, Key::Course_SCOREINIT, (course.Metadata.SCOREINIT == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREINIT)));
+				appendProperyLine(out, Key::Course_SCOREDIFF, (course.Metadata.SCOREDIFF == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREDIFF)));
+			}
+
+			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::NOTESDESIGNER))
 			{
 				switch (course.Metadata.COURSE)
 				{
@@ -1180,6 +1252,11 @@ namespace TJA
 				}
 			}
 			appendCommandLine(out, Key::Chart_END, "");
+		};
+
+		for (const auto& [itBeg, itEnd] : courseScopes) {
+			for (CourseIter it = itBeg; it != itEnd; ++it)
+				convertCourse(it, itBeg, itEnd);
 		}
 	}
 
