@@ -170,11 +170,11 @@ namespace ASCII
 	template <typename Func>
 	void ForEachInSpaceSeparatedList(std::string_view spaceSeparatedList, Func perValueFunc) { return ForEachInCharSeparatedList(spaceSeparatedList, ' ', perValueFunc); }
 
-	b8 TryParseU32(std::string_view string, u32& out);
-	b8 TryParseI32(std::string_view string, i32& out);
-	b8 TryParseU64(std::string_view string, u64& out);
-	b8 TryParseI64(std::string_view string, i64& out);
-	b8 TryParseF32(std::string_view string, f32& out);
-	b8 TryParseF64(std::string_view string, f64& out);
-	b8 TryParseCPX(std::string_view string, Complex& out);
+	b8 TryParse(std::string_view string, u32& out);
+	b8 TryParse(std::string_view string, i32& out);
+	b8 TryParse(std::string_view string, u64& out);
+	b8 TryParse(std::string_view string, i64& out);
+	b8 TryParse(std::string_view string, f32& out);
+	b8 TryParse(std::string_view string, f64& out);
+	b8 TryParse(std::string_view string, Complex& out);
 }
