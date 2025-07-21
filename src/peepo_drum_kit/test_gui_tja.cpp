@@ -116,8 +116,14 @@ namespace PeepoDrumKit
 	static void SetImGuiColorTextEditErrorMarkersFromErrorList(TextEditor& outTextEditor, const TJA::ErrorList& inErrorList)
 	{
 		TextEditor::ErrorMarkers errorMarkers;
-		for (const auto& error : inErrorList.Errors)
-			errorMarkers[error.LineIndex + 1] = error.Description;
+		for (const auto& error : inErrorList.Errors) {
+			if (auto it = errorMarkers.find(error.LineIndex + 1); it == end(errorMarkers)) {
+				errorMarkers[error.LineIndex + 1] = error.Description;
+			} else {
+				it->second += "\n";
+				it->second += error.Description;
+			}
+		}
 		outTextEditor.SetErrorMarkers(errorMarkers);
 	}
 
