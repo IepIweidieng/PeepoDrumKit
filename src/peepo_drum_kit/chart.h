@@ -4,6 +4,7 @@
 #include "core_beat.h"
 #include "file_format_tja.h"
 #include <unordered_map>
+#include "chart_editor_i18n.h"
 
 namespace PeepoDrumKit
 {
@@ -135,6 +136,18 @@ namespace PeepoDrumKit
 		"DIFFICULTY_TYPE_TOWER",
 		"DIFFICULTY_TYPE_DAN",
 	};
+
+	static inline std::string GetStyleName(i32 style, i32 playerSide)
+	{
+		if (style == 1)
+			return UI_Str("PLAYER_SIDE_STYLE_SINGLE");
+		char buf[32];
+		std::string res = (style == 2) ? UI_Str("PLAYER_SIDE_STYLE_DOUBLE")
+			: std::string(buf, sprintf_s(buf, UI_Str("PLAYER_SIDE_STYLE_FMT_%d_STYLE"), style));
+		std::string_view strPlaySide (buf, sprintf_s(buf, UI_Str("PLAYER_SIDE_PLAYER_FMT_%d_PLAYER"), playerSide));
+		res += " ("; res += strPlaySide; res += ")";
+		return res;
+	}
 
 	constexpr cstr SideNames[EnumCount<Side>] =
 	{
@@ -343,6 +356,8 @@ namespace PeepoDrumKit
 		DifficultyType Type = DifficultyType::Oni;
 		DifficultyLevel Level = DifficultyLevel { 1 };
 		DifficultyLevelDecimal Decimal = DifficultyLevelDecimal::None;
+		i32 Style = 1;
+		i32 PlayerSide = 1;
 
 		std::string CourseCreator;
 

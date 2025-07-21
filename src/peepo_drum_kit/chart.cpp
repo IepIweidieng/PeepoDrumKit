@@ -171,6 +171,9 @@ namespace PeepoDrumKit
 			outCourse.Type = Clamp(static_cast<DifficultyType>(inCourse.CourseMetadata.COURSE), DifficultyType {}, DifficultyType::Count);
 			outCourse.Level = Clamp(static_cast<DifficultyLevel>(inCourse.CourseMetadata.LEVEL), DifficultyLevel::Min, DifficultyLevel::Max);
 			outCourse.Decimal = Clamp(static_cast<DifficultyLevelDecimal>(inCourse.CourseMetadata.LEVEL_DECIMALTAG), DifficultyLevelDecimal::None, DifficultyLevelDecimal::Max);
+			outCourse.Style = std::max(inCourse.CourseMetadata.STYLE, 1);
+			outCourse.PlayerSide = std::clamp(inCourse.CourseMetadata.START_PLAYERSIDE, 1, outCourse.Style);
+
 			outCourse.CourseCreator = inCourse.CourseMetadata.NOTESDESIGNER;
 
 			outCourse.Life = Clamp(static_cast<TowerLives>(inCourse.CourseMetadata.LIFE), TowerLives::Min, TowerLives::Max);
@@ -319,6 +322,8 @@ namespace PeepoDrumKit
 			outCourse.Metadata.COURSE = static_cast<TJA::DifficultyType>(inCourse.Type);
 			outCourse.Metadata.LEVEL = static_cast<i32>(inCourse.Level);
 			outCourse.Metadata.LEVEL_DECIMALTAG = static_cast<i32>(inCourse.Decimal);
+			outCourse.Metadata.STYLE = inCourse.Style;
+			outCourse.Metadata.START_PLAYERSIDE = inCourse.PlayerSide;
 			outCourse.Metadata.NOTESDESIGNER = inCourse.CourseCreator;
 			for (const Note& inNote : inCourse.Notes_Normal) if (IsBalloonNote(inNote.Type)) { outCourse.Metadata.BALLOON.push_back(inNote.BalloonPopCount); }
 			outCourse.Metadata.SCOREINIT = inCourse.ScoreInit;

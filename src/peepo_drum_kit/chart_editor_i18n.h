@@ -198,6 +198,7 @@ X("DETAILS_CHART_PROPERTIES_COURSE",				"Selected Course") \
 X("COURSE_PROP_DIFFICULTY_TYPE",					"Difficulty Type") \
 X("COURSE_PROP_DIFFICULTY_LEVEL",					"Difficulty Level") \
 X("COURSE_PROP_DIFFICULTY_LEVEL_DECIMAL",			"Difficulty Level Decimal") \
+X("COURSE_PROP_PLAYER_SIDE_COUNT",					"Player Side/Count") \
 X("COURSE_PROP_TOWER_LIFE",							"Lives") \
 X("COURSE_PROP_TOWER_SIDE",							"Side") \
 X("COURSE_PROP_CREATOR",							"Course Creator") \
@@ -246,6 +247,8 @@ X("DIFFICULTY_TYPE_TOWER",							"Tower") \
 X("DIFFICULTY_TYPE_DAN",							"Dan") \
 X("PLAYER_SIDE_STYLE_SINGLE",						"Single") \
 X("PLAYER_SIDE_STYLE_DOUBLE",						"Double") \
+X("PLAYER_SIDE_STYLE_FMT_%d_STYLE",					"%d-players") \
+X("PLAYER_SIDE_PLAYER_FMT_%d_PLAYER",				"P%d") \
 X("SIDE_NORMAL",									"Sweet (Normal)") \
 X("SIDE_EX",										"Spicy (Ex)") \
 /* undo history tab */ \

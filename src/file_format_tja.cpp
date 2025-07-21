@@ -340,11 +340,18 @@ namespace TJA
 			if (ASCII::MatchesInsensitive(in, "s")) { *out = BranchCondition::Score; return true; }
 			*out = BranchCondition::Precise; return false;
 		};
-		static constexpr auto tryParseStyleMode = [](std::string_view in, StyleMode* out) -> b8
+		static constexpr auto tryParseStyleMode = [](std::string_view in, i32* out) -> b8
 		{
-			if (ASCII::MatchesInsensitive(in, "Single") || in == "1") { *out = StyleMode::Single; return true; }
-			if (ASCII::MatchesInsensitive(in, "Double") || ASCII::MatchesInsensitive(in, "Couple") || in == "2") { *out = StyleMode::Double; return true; }
-			*out = StyleMode::Single; return false;
+			if (ASCII::MatchesInsensitive(in, "Single")) { *out = 1; return true; }
+			if (ASCII::MatchesInsensitive(in, "Double") || ASCII::MatchesInsensitive(in, "Couple")) { *out = 2; return true; }
+			if (ASCII::TryParseI32(in, *out) && *out > 0) { return true; }
+			*out = 1; return false;
+		};
+		static constexpr auto tryParsePlayerSide = [](std::string_view in, i32* out) -> b8
+		{
+			if (in.empty()) { *out = 0; return true; }
+			if (ASCII::MatchesInsensitive(in.substr(0, 1), "P") && ASCII::TryParseI32(in.substr(1), *out) && *out > 0) { return true; }
+			*out = 0; return false;
 		};
 		static constexpr auto tryParseGaugeIncrementMethod = [](std::string_view in, GaugeIncrementMethod* out) -> b8
 		{
@@ -376,7 +383,6 @@ namespace TJA
 		};
 
 		ParsedTJA outTJA = {};
-		ParsedCourse* currentCourse = nullptr;
 
 		i32 currentMeasureNoteCount = 0;
 		b8 currentlyBetweenChartStartAndEnd = false;
@@ -384,12 +390,35 @@ namespace TJA
 		b8 currentlyInBetweenMeasure = false;
 		Complex cachedScrollSpeed = Complex(1.f, 0.f);
 
-		auto pushChartCommand = [&outTJA, &currentCourse](ParsedChartCommandType type) -> ParsedChartCommand&
+		// chart scope handler
+		DifficultyType currentCourseScope = DifficultyType::Count; // default course scope
+		const ParsedCourseMetadata* lastMetadatas[EnumCount<DifficultyType> + 1] = {};
+
+		ParsedCourse* currentCourse = nullptr;
+
+		auto initCurrentCourse = [&]()
+		{
+			for (auto courseScope : { currentCourseScope, DifficultyType::Count }) {
+				if (auto lastMetadata = lastMetadatas[EnumToIndex(courseScope)]; lastMetadata != nullptr) {
+					outTJA.Courses.emplace_back().Metadata = *lastMetadata; // inherit last (need to explicitly copy)
+					currentCourse = &outTJA.Courses.back();
+					lastMetadatas[EnumToIndex(currentCourseScope)] = &currentCourse->Metadata;
+					return;
+				}
+			}
+			currentCourse = &outTJA.Courses.emplace_back(); // create from scratch;
+			lastMetadatas[EnumToIndex(currentCourseScope)] = &currentCourse->Metadata;
+		};
+		auto getCurrentCourse = [&]()
 		{
 			if (currentCourse == nullptr)
-				currentCourse = &outTJA.Courses.emplace_back();
+				initCurrentCourse();
+			return currentCourse;
+		};
 
-			auto& newCommand = currentCourse->ChartCommands.emplace_back();
+		auto pushChartCommand = [&](ParsedChartCommandType type) -> ParsedChartCommand&
+		{
+			auto& newCommand = getCurrentCourse()->ChartCommands.emplace_back();
 			newCommand.Type = type;
 			return newCommand;
 		};
@@ -469,16 +498,22 @@ namespace TJA
 					default: { assert(!"Unhandled Key::Main_ switch case despite (Key::Main_First to Key::Main_Last) range check"); } break;
 					}
 				}
+				else if (token.Key == Key::Course_COURSE) { // special case of Key::Course_
+					const std::string_view in = ASCII::Trim(token.ValueString);
+					if (DifficultyType course; !tryParseDifficultyType(in, &course)) {
+						outErrors.Push(lineIndex, "Invalid difficulty '%.*s'", FmtStrViewArgs(in));
+					} else { // change course scope
+						currentCourseScope = course;
+						initCurrentCourse();
+						getCurrentCourse()->Metadata.COURSE = course;
+					}
+				}
 				else if (token.Key >= Key::Course_First && token.Key <= Key::Course_Last)
 				{
-					if (currentCourse == nullptr)
-						currentCourse = &outTJA.Courses.emplace_back();
-
 					const std::string_view in = ASCII::Trim(token.ValueString);
-					ParsedCourseMetadata& out = currentCourse->Metadata;
+					ParsedCourseMetadata& out = getCurrentCourse()->Metadata;
 					switch (token.Key)
 					{
-					case Key::Course_COURSE: { if (!tryParseDifficultyType(in, &out.COURSE)) { outErrors.Push(lineIndex, "Invalid difficulty '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_LEVEL: 
 					{ 
 						f32 _level;
@@ -505,7 +540,7 @@ namespace TJA
 					case Key::Course_BALLOONNOR: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON_Normal)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_BALLOONEXP: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON_Expert)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_BALLOONMAS: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON_Master)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_STYLE: { if (!tryParseStyleMode(in, &out.STYLE)) { outErrors.Push(lineIndex, "Unknown style mode '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_STYLE: { if (!tryParseStyleMode(in, &out.STYLE)) { outErrors.Push(lineIndex, "Unknown or invalid style mode '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_EXPLICIT: { if (!tryParseI32(in, &out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_NOTESDESIGNER0: { out.NOTESDESIGNER = in; } break;
 					case Key::Course_NOTESDESIGNER1: { out.NOTESDESIGNER = in; } break;
@@ -548,6 +583,16 @@ namespace TJA
 						if (currentlyBetweenChartStartAndEnd)
 							outErrors.Push(lineIndex, "Missing #END command");
 
+						ParsedCourseMetadata& out = getCurrentCourse()->Metadata;
+						if (!tryParsePlayerSide(in, &out.START_PLAYERSIDE) || out.START_PLAYERSIDE < 0)
+							outErrors.Push(lineIndex, "Invalid player side '%.*s', expected '' or 'Pn' ('P1', 'P2', ...)", FmtStrViewArgs(in));
+						else if (out.START_PLAYERSIDE == 0 && out.STYLE > 1)
+							outErrors.Push(lineIndex, "Empty player side '%.*s' is invalid for multi-player modes", FmtStrViewArgs(in));
+						else if (out.START_PLAYERSIDE > 0 && out.STYLE == 1)
+							outErrors.Push(lineIndex, "Player side ('%.*s') is invalid in single-player mode", FmtStrViewArgs(in));
+						else if (out.START_PLAYERSIDE > out.STYLE)
+							outErrors.Push(lineIndex, "The player side '%.*s' is invalid in %d-player mode", FmtStrViewArgs(in), out.STYLE);
+
 						currentlyBetweenChartStartAndEnd = true;
 					} break;
 					case Key::Chart_END:
@@ -588,8 +633,7 @@ namespace TJA
 								outErrors.Push(lineIndex, "Invalid time signature '%.*s'", FmtStrViewArgs(in));
 
 							// NOTE: Just a limitation of the fixed point Beat implementation, arguably not a problem with the file itself..?
-							// if (((Beat::TicksPerBeat * 4) % currentCourse->ChartCommands.back().Param.ChangeTimeSignature.Value.Denominator) != 0)
-							if (!IsTimeSignatureSupported(currentCourse->ChartCommands.back().Param.ChangeTimeSignature.Value))
+							if (!IsTimeSignatureSupported(getCurrentCourse()->ChartCommands.back().Param.ChangeTimeSignature.Value))
 								outErrors.Push(lineIndex, "Unsupported time signature denominator '%.*s'", FmtStrViewArgs(in));
 						}
 					} break;
@@ -894,6 +938,15 @@ namespace TJA
 			default: return "";
 			}
 		};
+		static auto styleModeToString = [&](i32 in) -> std::string
+		{
+			switch (in)
+			{
+			case 1: return "Single";
+			case 2: return "Double";
+			default: return std::to_string(in);
+			}
+		};
 		static constexpr auto sideToString = [](SongSelectSide in) -> cstr
 		{
 			switch (in)
@@ -916,6 +969,8 @@ namespace TJA
 			}
 			out += '\n';
 		}
+
+		DifficultyType currentCourseScope = DifficultyType::Count; // default course scope
 
 		appendProperyLine(out, Key::Main_TITLE, inContent.Metadata.TITLE);
 		appendProperyLineIfNotEmpty(out, Key::Main_TITLEJA, inContent.Metadata.TITLE_JA);
@@ -955,7 +1010,17 @@ namespace TJA
 			if (&course != &inContent.Courses[0])
 				appendLine(out, "");
 
-			appendProperyLine(out, Key::Course_COURSE, difficultyTypeToString(course.Metadata.COURSE));
+			b8 firstInCourseScope = (course.Metadata.COURSE != currentCourseScope);
+			if (firstInCourseScope) { // change course scope
+				appendProperyLine(out, Key::Course_COURSE, difficultyTypeToString(course.Metadata.COURSE));
+				currentCourseScope = course.Metadata.COURSE;
+			}
+
+			if (firstInCourseScope)
+				appendLine(out, "");
+			appendProperyLine(out, Key::Course_STYLE, styleModeToString(course.Metadata.STYLE));
+			appendLine(out, "");
+
 			//(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : "-"),
 			if (course.Metadata.LEVEL_DECIMALTAG == -1)
 				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LEVEL)));
@@ -977,7 +1042,7 @@ namespace TJA
 			}
 			appendProperyLine(out, Key::Course_SCOREINIT, (course.Metadata.SCOREINIT == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREINIT)));
 			appendProperyLine(out, Key::Course_SCOREDIFF, (course.Metadata.SCOREDIFF == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREDIFF)));
-			// TODO: Key::Course_STYLE;
+
 			if (!course.Metadata.NOTESDESIGNER.empty())
 			{
 				switch (course.Metadata.COURSE)
@@ -997,7 +1062,11 @@ namespace TJA
 			// TODO: Key::Course_HIDDENBRANCH;
 			appendLine(out, "");
 
-			appendCommandLine(out, Key::Chart_START, "");
+			if (course.Metadata.STYLE <= 1)
+				appendCommandLine(out, Key::Chart_START, "");
+			else
+				appendCommandLine(out, Key::Chart_START, "P" + std::to_string(course.Metadata.START_PLAYERSIDE));
+
 			for (const ParsedChartCommand& command : course.ChartCommands)
 			{
 				switch (command.Type)
