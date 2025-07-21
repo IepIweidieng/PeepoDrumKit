@@ -606,11 +606,11 @@ namespace PeepoDrumKit
 
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
-							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s (%s)###Course_%p", UI_StrRuntime(
-								DifficultyTypeNames[EnumToIndex(course->Type)]), 
+							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s %s###Course_%p",
+								UI_StrRuntime(DifficultyTypeNames[EnumToIndex(course->Type)]),
 								static_cast<i32>(course->Level), 
 								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
-								UI_Str("PLAYER_SIDE_STYLE_SINGLE"), 
+								GetStyleName(course->Style, course->PlayerSide).data(),
 								course.get());
 							const b8 setSelectedThisFrame = (course.get() == context.ChartSelectedCourse && course.get() != lastFrameSelectedCoursePtrID);
 
