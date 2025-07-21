@@ -215,6 +215,10 @@ namespace TJA
 			}
 		}
 
+		// end-of-file token as implicit `#END`
+		if (!lines.empty())
+			outTokens.push_back({ TokenType::HashChartCommand, Key::Chart_END, static_cast<i16>(size(lines) - 1) });
+
 		return outTokens;
 	}
 
@@ -381,6 +385,7 @@ namespace TJA
 		ParsedTJA outTJA = {};
 
 		i32 currentMeasureNoteCount = 0;
+		b8 currentlyBetweenFirstCommandAndEnd = false;
 		b8 currentlyBetweenChartStartAndEnd = false;
 		b8 currentlyBetweenGoGoStartAndEnd = false;
 		b8 currentlyInBetweenMeasure = false;
@@ -456,8 +461,18 @@ namespace TJA
 
 			case TokenType::KeyColonValue:
 			{
+				if (currentlyBetweenFirstCommandAndEnd && !(token.Key >= Key::Course_EXAM1 && token.Key <= Key::Course_EXAM7)) {
+					if (currentlyBetweenChartStartAndEnd)
+						outErrors.Push(lineIndex, "This property should not be placed between #START and #END");
+					else
+						outErrors.Push(lineIndex, "This property should be placed before the first chart command");
+				}
+
 				if (token.Key >= Key::Main_First && token.Key <= Key::Main_Last)
 				{
+					if (currentCourseScope != DifficultyType::Count)
+						outErrors.Push(lineIndex, "This property is per-file in most simulators and should be defined before the first COURSE:");
+
 					const std::string_view in = ASCII::Trim(token.ValueString);
 					ParsedMainMetadata& out = outTJA.Metadata;
 					switch (token.Key)
@@ -506,6 +521,9 @@ namespace TJA
 				}
 				else if (token.Key >= Key::Course_First && token.Key <= Key::Course_Last)
 				{
+					if (currentCourseScope == DifficultyType::Count)
+						outErrors.Push(lineIndex, "This property has course scope, defining this before the first COURSE: is not supported on some simulators");
+
 					const std::string_view in = ASCII::Trim(token.ValueString);
 					ParsedCourseMetadata& out = getCurrentCourse()->Metadata;
 					switch (token.Key)
@@ -566,11 +584,22 @@ namespace TJA
 
 			case TokenType::HashChartCommand:
 			{
+				if (!currentlyBetweenFirstCommandAndEnd) {
+					if (currentCourseScope == DifficultyType::Count && !(token.Key == Key::Chart_END && token.KeyString.empty())) // exclude implicit `#END` from end-of-file
+						outErrors.Push(lineIndex, "Defining chart body before the first COURSE: is not supported on some simulators");
+					currentlyBetweenFirstCommandAndEnd = true;
+				}
+
+				if (!currentlyBetweenChartStartAndEnd) {
+					if (token.Key != Key::Chart_START && token.Key != Key::Chart_END
+						&& token.Key != Key::Chart_BMSCROLL && token.Key != Key::Chart_HBSCROLL && token.Key != Key::Chart_NMSCROLL
+						) {
+						outErrors.Push(lineIndex, "This chart command should be placed between #START and #END");
+					}
+				}
+
 				if (token.Key >= Key::Chart_First && token.Key <= Key::Chart_Last)
 				{
-					if (token.Key != Key::Chart_START && token.Key != Key::Chart_END && !currentlyBetweenChartStartAndEnd)
-						outErrors.Push(lineIndex, "Chart commands must be placed between #START and #END");
-
 					const std::string_view in = ASCII::Trim(token.ValueString);
 					switch (token.Key)
 					{
@@ -593,8 +622,12 @@ namespace TJA
 					} break;
 					case Key::Chart_END:
 					{
-						if (!currentlyBetweenChartStartAndEnd)
+						b8 isEof = token.KeyString.empty(); // implicit `#END` from end-of-file
+						if (!currentlyBetweenChartStartAndEnd) {
+							if (isEof)
+								break;
 							outErrors.Push(lineIndex, "Missing #START command");
+						}
 
 						if (currentlyBetweenGoGoStartAndEnd)
 						{
@@ -614,7 +647,10 @@ namespace TJA
 							currentlyInBetweenMeasure = false;
 						}
 
-						currentlyBetweenChartStartAndEnd = false;
+						if (isEof && currentlyBetweenChartStartAndEnd)
+							outErrors.Push(lineIndex, "Missing #END command");
+
+						currentlyBetweenFirstCommandAndEnd = currentlyBetweenChartStartAndEnd = false;
 						currentCourse = nullptr;
 					} break;
 					case Key::Chart_MEASURE:
@@ -908,9 +944,6 @@ namespace TJA
 			} break;
 			}
 		}
-
-		if (currentlyBetweenChartStartAndEnd)
-			outErrors.Push(tokens.empty() ? 0 : tokens.back().LineIndex, "Missing #END command");
 
 #if 1 // DEBUG: Always add at least one course for now so the debug gui has something to display
 		if (outTJA.Courses.empty())
