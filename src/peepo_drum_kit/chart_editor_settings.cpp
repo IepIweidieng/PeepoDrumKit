@@ -42,7 +42,7 @@ namespace PeepoDrumKit
 		if (in == "") { return true; }
 		if (in == "true") { out = true; return true; }
 		if (in == "false") { out = false; return true; }
-		if (i32 v = 0; ASCII::TryParseI32(in, v)) { out = (v != 0); return true; }
+		if (i32 v = 0; ASCII::TryParse(in, v)) { out = (v != 0); return true; }
 		return false;
 	}
 
@@ -51,7 +51,7 @@ namespace PeepoDrumKit
 		if (in == "") { out.Reset(); return true; }
 		if (in == "true") { out.SetValue(true); return true; }
 		if (in == "false") { out.SetValue(false); return true; }
-		if (i32 v = 0; ASCII::TryParseI32(in, v)) { out.SetValue((v != 0)); return true; }
+		if (i32 v = 0; ASCII::TryParse(in, v)) { out.SetValue((v != 0)); return true; }
 		return false;
 	}
 
@@ -66,10 +66,10 @@ namespace PeepoDrumKit
 		ASCII::ForEachInCommaSeparatedList(in, [&, index = 0](std::string_view value) mutable
 		{
 			value = ASCII::Trim(value);
-			if (index == 0) { outSuccess &= ASCII::TryParseF32(value, outTL.x); }
-			if (index == 1) { outSuccess &= ASCII::TryParseF32(value, outTL.y); }
-			if (index == 2) { outSuccess &= ASCII::TryParseF32(value, outSize.x); }
-			if (index == 3) { outSuccess &= ASCII::TryParseF32(value, outSize.y); }
+			if (index == 0) { outSuccess &= ASCII::TryParse(value, outTL.x); }
+			if (index == 1) { outSuccess &= ASCII::TryParse(value, outTL.y); }
+			if (index == 2) { outSuccess &= ASCII::TryParse(value, outSize.x); }
+			if (index == 3) { outSuccess &= ASCII::TryParse(value, outSize.y); }
 			index++;
 		});
 		out = Rect::FromTLSize(outTL, outSize); return outSuccess;
@@ -81,7 +81,7 @@ namespace PeepoDrumKit
 
 		static IniMemberParseResult FromString(std::string_view stringToParse, i32& out)
 		{
-			return ASCII::TryParseI32(stringToParse, out) ? IniMemberParseResult {} : MemberParseError("Invalid int");
+			return ASCII::TryParse(stringToParse, out) ? IniMemberParseResult {} : MemberParseError("Invalid int");
 		}
 
 		static void ToString(const i32& in, std::string& stringToAppendTo)
@@ -91,7 +91,7 @@ namespace PeepoDrumKit
 
 		static IniMemberParseResult FromString(std::string_view stringToParse, f32& out)
 		{
-			return ASCII::TryParseF32(stringToParse, out) ? IniMemberParseResult {} : MemberParseError("Invalid float");
+			return ASCII::TryParse(stringToParse, out) ? IniMemberParseResult {} : MemberParseError("Invalid float");
 		}
 
 		static void ToString(const f32& in, std::string& stringToAppendTo)
@@ -121,7 +121,7 @@ namespace PeepoDrumKit
 
 		static IniMemberParseResult FromString(std::string_view stringToParse, Beat& out)
 		{
-			return ASCII::TryParseI32(stringToParse, out.Ticks) ? IniMemberParseResult {} : MemberParseError("Invalid int");
+			return ASCII::TryParse(stringToParse, out.Ticks) ? IniMemberParseResult {} : MemberParseError("Invalid int");
 		}
 
 		static void ToString(const Beat& in, std::string& stringToAppendTo)
@@ -289,9 +289,9 @@ namespace PeepoDrumKit
 						// TODO: ...
 					}
 				}
-				else if (it.Key == "gui_scale") { if (f32 v = out.LastSession.GuiScale; ASCII::TryParseF32(in, v)) out.LastSession.GuiScale = FromPercent(v); else return parser.Error_InvalidFloat(); }
+				else if (it.Key == "gui_scale") { if (f32 v = out.LastSession.GuiScale; ASCII::TryParse(in, v)) out.LastSession.GuiScale = FromPercent(v); else return parser.Error_InvalidFloat(); }
 				else if (it.Key == "gui_language") { out.LastSession.GuiLanguage = in; }
-				else if (it.Key == "os_window_swap_interval") { if (!ASCII::TryParseI32(in, out.LastSession.OSWindow_SwapInterval)) return parser.Error_InvalidInt(); }
+				else if (it.Key == "os_window_swap_interval") { if (!ASCII::TryParse(in, out.LastSession.OSWindow_SwapInterval)) return parser.Error_InvalidInt(); }
 				else if (it.Key == "os_window_region") { if (!RectFromTLSizeString(in, out.LastSession.OSWindow_Region)) return parser.Error_InvalidRect(); }
 				else if (it.Key == "os_window_region_restore") { if (!RectFromTLSizeString(in, out.LastSession.OSWindow_RegionRestore)) return parser.Error_InvalidRect(); }
 				else if (it.Key == "os_window_is_fullscreen") { if (!BoolFromString(in, out.LastSession.OSWindow_IsFullscreen)) return parser.Error_InvalidBool(); }
@@ -310,7 +310,7 @@ namespace PeepoDrumKit
 			else if (parser.CurrentSection == "recent_files")
 			{
 				const std::string_view indexSuffix = ASCII::TrimPrefix(it.Key, "file_");
-				if (i32 v = 0; ASCII::TryParseI32(indexSuffix, v))
+				if (i32 v = 0; ASCII::TryParse(indexSuffix, v))
 					out.RecentFiles.Add(std::string { in }, true);
 				else
 					return parser.Error("Invalid file index");

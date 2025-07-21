@@ -1286,7 +1286,7 @@ namespace PeepoDrumKit
 						const std::string_view beatSubStr = ASCII::Trim(itemParam.substr(0, commaIndex));
 						const std::string_view lyricSubStr = ASCII::Trim(itemParam.substr(commaIndex + sizeof(',')));
 
-						ASCII::TryParseI32(beatSubStr, newItemValue.BeatTime.Ticks);
+						ASCII::TryParse(beatSubStr, newItemValue.BeatTime.Ticks);
 						newItemValue.Lyric = lyricSubStr;
 					}
 				}
@@ -1299,9 +1299,9 @@ namespace PeepoDrumKit
 						{
 							if (v = ASCII::Trim(v); !v.empty())
 							{
-								parsedParams[paramIndex].IsValidI32 = ASCII::TryParseI32(v, parsedParams[paramIndex].I32);
-								parsedParams[paramIndex].IsValidF32 = ASCII::TryParseF32(v, parsedParams[paramIndex].F32);
-								parsedParams[paramIndex].IsValidCPX = ASCII::TryParseCPX(v, parsedParams[paramIndex].CPX);
+								parsedParams[paramIndex].IsValidI32 = ASCII::TryParse(v, parsedParams[paramIndex].I32);
+								parsedParams[paramIndex].IsValidF32 = ASCII::TryParse(v, parsedParams[paramIndex].F32);
+								parsedParams[paramIndex].IsValidCPX = ASCII::TryParse(v, parsedParams[paramIndex].CPX);
 							}
 						}
 						paramIndex++;
