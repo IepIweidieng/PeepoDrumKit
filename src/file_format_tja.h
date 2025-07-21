@@ -336,13 +336,14 @@ namespace TJA
 		DifficultyType COURSE = DifficultyType::Oni;
 		i32 LEVEL = 1;
 		i32 LEVEL_DECIMALTAG = -1;
+		i32 STYLE = 1;
+		i32 START_PLAYERSIDE = 0;
 		std::vector<i32> BALLOON;
 		std::vector<i32> BALLOON_Normal;
 		std::vector<i32> BALLOON_Expert;
 		std::vector<i32> BALLOON_Master;
 		i32 SCOREINIT = 0;
 		i32 SCOREDIFF = 0;
-		StyleMode STYLE = StyleMode::Single;
 		i32 EXPLICIT = 0;
 		i32 LIFE = 5;
 		SongSelectSide SIDE = SongSelectSide::Normal;

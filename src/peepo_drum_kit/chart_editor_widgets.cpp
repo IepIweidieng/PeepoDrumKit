@@ -581,7 +581,7 @@ namespace PeepoDrumKit
 				Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 				Gui::Text("%s", trimPrefix(chart.ChartSubtitle.Base()).c_str());
 				Gui::Text("Charter: %s", course.CourseCreator.c_str());
-				Gui::Text("%s Lv.%d", UI_StrRuntime(DifficultyTypeNames[(int)course.Type]), course.Level);
+				Gui::Text("%s Lv.%d %s", UI_StrRuntime(DifficultyTypeNames[(int)course.Type]), course.Level, GetStyleName(course.Style, course.PlayerSide).c_str());
 				Gui::Separator();
 				Gui::PopFont();
 				Gui::PopStyleColor();
@@ -1913,6 +1913,18 @@ namespace PeepoDrumKit
 						Gui::SetNextItemWidth(-1.0f);
 						if (GuiDifficultyDecimalLevelStarSliderWidget("##DifficultyLevelDecimal", &course.Decimal, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
 							context.Undo.NotifyChangesWereMade();
+				});
+				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_PLAYER_SIDE_COUNT"), [&]
+				{
+					Gui::SetNextItemWidth(-1.0f);
+
+					if (ivec2 v = { course.PlayerSide, course.Style };
+						GuiInputFraction("##PlayerSideCount", &v, {}, 1, 5, nullptr)
+						) {
+						course.Style = std::max(v[1], 1);
+						course.PlayerSide = std::clamp(v[0], 1, course.Style);
+						context.Undo.NotifyChangesWereMade();
+					}
 				});
 
 				// Tower

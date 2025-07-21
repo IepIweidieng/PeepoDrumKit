@@ -20,6 +20,13 @@ namespace PeepoDrumKit
 	static constexpr cstr TJAStyleModeNames[] = { "Single", "Double", };
 	static_assert(ArrayCount(TJAStyleModeNames) == EnumCount<TJA::StyleMode>);
 
+	static std::string GetTJAStyleModeName(i32 style)
+	{
+		if (i32 idx = style - 1; idx >= 0 && idx < std::size(TJAStyleModeNames))
+			return TJAStyleModeNames[idx];
+		return std::to_string(style) + "-players";
+	}
+
 	static constexpr cstr TJAParsedChartCommandTypeNames[] =
 	{
 		"UNKNOWN",
@@ -311,7 +318,7 @@ namespace PeepoDrumKit
 					TJADifficultyTypeNames[EnumToIndex(course.Metadata.COURSE)],
 					course.Metadata.LEVEL,
 					(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : ""),
-					TJAStyleModeNames[EnumToIndex(course.Metadata.STYLE)],
+					GetTJAStyleModeName(course.Metadata.STYLE).c_str(),
 					courseIndex);
 
 				Gui::PushID(static_cast<ImGuiID>(courseIndex));
@@ -342,10 +349,11 @@ namespace PeepoDrumKit
 							char b[256];
 							row("Difficulty Type", TJADifficultyTypeNames[EnumToIndex(metadata.COURSE)]);
 							row("Difficulty Level", std::string_view(b, sprintf_s(b, "%d", metadata.LEVEL)));
+							row("Style", GetTJAStyleModeName(metadata.STYLE));
+							row("Player Side", std::string_view(b, sprintf_s(b, "%d", metadata.START_PLAYERSIDE)));
 
 							row("Score Init", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREINIT)));
 							row("Score Diff", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREDIFF)));
-							row("Style", TJAStyleModeNames[EnumToIndex(metadata.STYLE)]);
 
 							auto rowBalloonPops = [](std::string_view propertyKey, const std::vector<i32>& i32s)
 							{
