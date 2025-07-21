@@ -895,6 +895,7 @@ namespace TJA
 			{
 				if (currentlyBetweenChartStartAndEnd)
 				{
+					b8 hasSpaces = false;
 					currentlyInBetweenMeasure = true;
 
 					ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::MeasureNotes);
@@ -912,22 +913,20 @@ namespace TJA
 							currentMeasureNoteCount = 0;
 							currentlyInBetweenMeasure = false;
 							break;
-						}
-						else
-						{
+						} else if (ASCII::IsWhitespace(c)) { // Whitespaces are ignore in TaikoJiro, especially must be ignored in GAME:Jube
+							if (!hasSpaces) {
+								outErrors.Push(lineIndex, "Whitespaces in the middle of note data is not supported on some simulators");
+								hasSpaces = true;
+							}
+						} else {
 							// NOTE: Treating unknown note types as empty spaces makes the most sense because that way timing won't be messed up 
 							//		 in case it's somehow a genuine note that just happens to be unsupported by this parser (?)
 							NoteType parsedNoteTypeOrNone = NoteType::None;
 							if (!tryParseNoteTypeChar(c, &parsedNoteTypeOrNone))
 								outErrors.Push(lineIndex, "Unknown note type '%c'", c);
 
-							// NOTE: Except for whitespace I guess, those never make sense to be valid notes (?)
-							//		 The format just doesn't really describe how to handle this...
-							if (!ASCII::IsWhitespace(c))
-							{
-								newCommand.Param.MeasureNotes.Notes.push_back(parsedNoteTypeOrNone);
-								currentMeasureNoteCount++;
-							}
+							newCommand.Param.MeasureNotes.Notes.push_back(parsedNoteTypeOrNone);
+							currentMeasureNoteCount++;
 						}
 					}
 				}
