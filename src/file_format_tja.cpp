@@ -220,19 +220,22 @@ namespace TJA
 
 	ParsedTJA ParseTokens(const std::vector<Token>& tokens, ErrorList& outErrors)
 	{
-		static constexpr auto tryParse = [](std::string_view in, auto* out) -> b8 { if (in.empty()) { *out = {}; return true; } else { return ASCII::TryParse(in, *out); } };
+		static constexpr auto tryParseDefaultForEmpty = [](std::string_view in, auto* out, auto dflt) -> b8 { if (in.empty()) { *out = dflt; return true; } else { return ASCII::TryParse(in, *out); } };
 		static constexpr auto tryParseCommaSeparatedValues = [](std::string_view in, auto* out) -> b8
 		{
 			i32 count = 0;
 			ASCII::ForEachInCommaSeparatedList(in, [&](std::string_view) { count++; });
-			out->reserve(count);
+			std::remove_reference_t<decltype(*out)> tmp = {};
+			tmp.reserve(count);
 			b8 allSuccessful = true;
 			ASCII::ForEachInCommaSeparatedList(in, [&](std::string_view valueString)
 			{
 				i32 v = 0;
 				allSuccessful &= ASCII::TryParse(ASCII::Trim(valueString), v);
-				out->push_back(v);
+				tmp.push_back(v);
 			});
+			if (allSuccessful)
+				*out = std::move(tmp);
 			return allSuccessful;
 		};
 		static constexpr auto tryParseDifficultyType = [](std::string_view in, DifficultyType* out) -> b8
@@ -250,19 +253,16 @@ namespace TJA
 		};
 		static constexpr auto tryParseTime = [](std::string_view in, Time* out) -> b8
 		{
-			if (in.empty()) { *out = Time::Zero(); return true; }
 			if (f32 v; ASCII::TryParse(in, v)) { *out = Time::FromSec(v); return true; }
 			return false;
 		};
 		static constexpr auto tryParseTempo = [](std::string_view in, Tempo* out) -> b8
 		{
-			if (in.empty()) { *out = Tempo(0.0f); return true; }
 			if (f32 v; ASCII::TryParse(in, v)) { *out = Tempo(v); return true; }
 			return false;
 		};
 		static constexpr auto tryParsePercent = [](std::string_view in, f32* out) -> b8
 		{
-			if (in.empty()) { *out = 0.0f; return true; }
 			if (f32 v; ASCII::TryParse(in, v)) { *out = FromPercent(v); return true; }
 			return false;
 		};
@@ -274,13 +274,10 @@ namespace TJA
 
 			const std::string_view inNum = ASCII::Trim(in.substr(0, splitIndex));
 			const std::string_view inDen = ASCII::Trim(in.substr(splitIndex + 1));
-			if (i32 outNum, outDen; ASCII::TryParse(inNum, outNum) && ASCII::TryParse(inDen, outDen))
-			{
+			if (i32 outNum, outDen; ASCII::TryParse(inNum, outNum) && ASCII::TryParse(inDen, outDen)) {
 				*out = TimeSignature(outNum, outDen);
 				return true;
-			}
-			else
-			{
+			} else {
 				return false;
 			}
 		};
@@ -330,27 +327,27 @@ namespace TJA
 		static constexpr auto tryParseScrollDirection = [](std::string_view in, ScrollDirection* out) -> b8
 		{
 			if (i32 v; ASCII::TryParse(in, v)) { *out = static_cast<ScrollDirection>(v); return true; }
-			*out = ScrollDirection::FromRight; return false;
+			return false;
 		};
 		static constexpr auto tryParseBranchCondition = [](std::string_view in, BranchCondition* out) -> b8
 		{
 			if (ASCII::MatchesInsensitive(in, "r")) { *out = BranchCondition::Roll; return true; }
 			if (ASCII::MatchesInsensitive(in, "p")) { *out = BranchCondition::Precise; return true; }
 			if (ASCII::MatchesInsensitive(in, "s")) { *out = BranchCondition::Score; return true; }
-			*out = BranchCondition::Precise; return false;
+			return false;
 		};
 		static constexpr auto tryParseStyleMode = [](std::string_view in, i32* out) -> b8
 		{
 			if (ASCII::MatchesInsensitive(in, "Single")) { *out = 1; return true; }
 			if (ASCII::MatchesInsensitive(in, "Double") || ASCII::MatchesInsensitive(in, "Couple")) { *out = 2; return true; }
 			if (ASCII::TryParse(in, *out) && *out > 0) { return true; }
-			*out = 1; return false;
+			return false;
 		};
 		static constexpr auto tryParsePlayerSide = [](std::string_view in, i32* out) -> b8
 		{
 			if (in.empty()) { *out = 0; return true; }
 			if (ASCII::MatchesInsensitive(in.substr(0, 1), "P") && ASCII::TryParse(in.substr(1), *out) && *out > 0) { return true; }
-			*out = 0; return false;
+			return false;
 		};
 		static constexpr auto tryParseGaugeIncrementMethod = [](std::string_view in, GaugeIncrementMethod* out) -> b8
 		{
@@ -359,7 +356,7 @@ namespace TJA
 			if (ASCII::MatchesInsensitive(in, "ROUND")) { *out = GaugeIncrementMethod::Round; return true; }
 			if (ASCII::MatchesInsensitive(in, "NOTFIX")) { *out = GaugeIncrementMethod::NotFix; return true; }
 			if (ASCII::MatchesInsensitive(in, "CEILING")) { *out = GaugeIncrementMethod::Ceiling; return true; }
-			return true;
+			return false;
 		};
 
 		static constexpr auto validateEndOfMeasureNoteCount = [](i32 noteCountAtEndOfMeasure, i32 lineIndex, ErrorList& outErrors)
@@ -489,7 +486,7 @@ namespace TJA
 					case Key::Main_SONGVOL: { if (!tryParsePercent(in, &out.SONGVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_SEVOL: { if (!tryParsePercent(in, &out.SEVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_GAME: { if (!tryParseGameType(in, &out.GAME)) { outErrors.Push(lineIndex, "Unknown game type '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_HEADSCROLL: { if (!tryParse(in, &out.HEADSCROLL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Main_HEADSCROLL: { if (!ASCII::TryParse(in, out.HEADSCROLL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_BGIMAGE: { out.BGIMAGE = in; } break;
 					case Key::Main_BGMOVIE: { out.BGMOVIE = in; } break;
 					case Key::Main_MOVIEOFFSET: { if (!tryParseTime(in, &out.MOVIEOFFSET)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
@@ -517,7 +514,7 @@ namespace TJA
 					{ 
 						f32 _level;
 						bool containsDot = (in.find('.') != std::string_view::npos);
-						if (!tryParse(in, &_level)) // tryParse(in, &out.LEVEL)
+						if (!ASCII::TryParse(in, _level))
 						{ 
 							outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in));
 							break;
@@ -525,7 +522,7 @@ namespace TJA
 						out.LEVEL = static_cast<int>(_level);
 						if (containsDot) {
 							std::string_view devpart = in.substr(in.find('.') + 1, 1);
-							if (!tryParse(devpart, &out.LEVEL_DECIMALTAG))
+							if (!tryParseDefaultForEmpty(devpart, &out.LEVEL_DECIMALTAG, 0))
 							{
 								outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(devpart));
 								break;
@@ -534,13 +531,13 @@ namespace TJA
 						break;
 					} 
 					case Key::Course_BALLOON: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SCOREINIT: { if (!tryParse(in, &out.SCOREINIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SCOREDIFF: { if (!tryParse(in, &out.SCOREDIFF)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SCOREINIT: { if (!tryParseDefaultForEmpty(in, &out.SCOREINIT, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SCOREDIFF: { if (!tryParseDefaultForEmpty(in, &out.SCOREDIFF, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_BALLOONNOR: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Normal)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_BALLOONEXP: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Expert)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_BALLOONMAS: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Master)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_STYLE: { if (!tryParseStyleMode(in, &out.STYLE)) { outErrors.Push(lineIndex, "Unknown or invalid style mode '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_EXPLICIT: { if (!tryParse(in, &out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_EXPLICIT: { if (!ASCII::TryParse(in, out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_NOTESDESIGNER0: { out.NOTESDESIGNER = in; } break;
 					case Key::Course_NOTESDESIGNER1: { out.NOTESDESIGNER = in; } break;
 					case Key::Course_NOTESDESIGNER2: { out.NOTESDESIGNER = in; } break;
@@ -555,9 +552,9 @@ namespace TJA
 					case Key::Course_EXAM7: { out.EXAM7 = in; } break;
 					case Key::Course_GAUGEINCR: { if (!tryParseGaugeIncrementMethod(in, &out.GAUGEINCR)) { outErrors.Push(lineIndex, "Unknown gauge increment method '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_TOTAL: { out.TOTAL; } break;
-					case Key::Course_HIDDENBRANCH: { if (!tryParse(in, &out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_LIFE: { if (!tryParse(in, &out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_HIDDENBRANCH: { if (!ASCII::TryParse(in, out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_LIFE: { if (!ASCII::TryParse(in, out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid SIDE '%.*s'", FmtStrViewArgs(in)); } } break;
 					default: { assert(!"Unhandled Key::Course_ switch case despite (Key::Course_First to Key::Course_Last) range check"); } break;
 					}
 				}
@@ -623,39 +620,39 @@ namespace TJA
 					case Key::Chart_MEASURE:
 					{
 						if (currentlyInBetweenMeasure)
-						{
-							outErrors.Push(lineIndex, "Cannot change time signature in the middle of a measure");
-						}
-						else
-						{
-							if (!tryParseTimeSignature(in, &pushChartCommand(ParsedChartCommandType::ChangeTimeSignature).Param.ChangeTimeSignature.Value) || in.empty())
-								outErrors.Push(lineIndex, "Invalid time signature '%.*s'", FmtStrViewArgs(in));
+							outErrors.Push(lineIndex, "Time signature changes in the middle of a measure takes effects at unspecified measure");
+						if (TimeSignature sig; !tryParseTimeSignature(in, &sig)) {
+							outErrors.Push(lineIndex, "Invalid time signature '%.*s'", FmtStrViewArgs(in));
+						} else {
+							pushChartCommand(ParsedChartCommandType::ChangeTimeSignature).Param.ChangeTimeSignature.Value = sig;
 
 							// NOTE: Just a limitation of the fixed point Beat implementation, arguably not a problem with the file itself..?
-							if (!IsTimeSignatureSupported(getCurrentCourse()->ChartCommands.back().Param.ChangeTimeSignature.Value))
+							if (!IsTimeSignatureSupported(sig))
 								outErrors.Push(lineIndex, "Unsupported time signature denominator '%.*s'", FmtStrViewArgs(in));
 						}
 					} break;
 					case Key::Chart_BPMCHANGE:
 					{
-						if (!tryParseTempo(in, &pushChartCommand(ParsedChartCommandType::ChangeTempo).Param.ChangeTempo.Value) || in.empty())
+						if (!tryParseTempo(in, &pushChartCommand(ParsedChartCommandType::ChangeTempo).Param.ChangeTempo.Value))
 							outErrors.Push(lineIndex, "Invalid tempo '%.*s'", FmtStrViewArgs(in));
 					} break;
 					case Key::Chart_DELAY:
 					{
-						if (!tryParseTime(in, &pushChartCommand(ParsedChartCommandType::ChangeDelay).Param.ChangeDelay.Value) || in.empty())
+						if (!tryParseTime(in, &pushChartCommand(ParsedChartCommandType::ChangeDelay).Param.ChangeDelay.Value))
 							outErrors.Push(lineIndex, "Invalid delay '%.*s'", FmtStrViewArgs(in));
 					} break;
 					case Key::Chart_SCROLL:
 					{
-						if (!tryParse(in, &cachedScrollSpeed) || in.empty())
+						if (!ASCII::TryParse(in, cachedScrollSpeed))
 							outErrors.Push(lineIndex, "Invalid scroll speed '%.*s'", FmtStrViewArgs(in));
 						pushChartCommand(ParsedChartCommandType::ChangeScrollSpeed).Param.ChangeScrollSpeed.Value = cachedScrollSpeed;
 					} break;
 					case Key::Chart_GOGOSTART:
 					{
-						if (currentlyBetweenGoGoStartAndEnd)
-							outErrors.Push(lineIndex, "Missing #GOGOEND command");
+						if (currentlyBetweenGoGoStartAndEnd) {
+							outErrors.Push(lineIndex, "Missing #GOGOEND command; inserting one");
+							pushChartCommand(ParsedChartCommandType::GoGoEnd);
+						}
 
 						pushChartCommand(ParsedChartCommandType::GoGoStart);
 						currentlyBetweenGoGoStartAndEnd = true;
@@ -663,9 +660,9 @@ namespace TJA
 					case Key::Chart_GOGOEND:
 					{
 						if (!currentlyBetweenGoGoStartAndEnd)
-							outErrors.Push(lineIndex, "Missing #GOGOSTART command");
-
-						pushChartCommand(ParsedChartCommandType::GoGoEnd);
+							outErrors.Push(lineIndex, "Missing #GOGOSTART command; ignored");
+						else
+							pushChartCommand(ParsedChartCommandType::GoGoEnd);
 						currentlyBetweenGoGoStartAndEnd = false;
 					} break;
 					case Key::Chart_BARLINEOFF:
@@ -679,14 +676,28 @@ namespace TJA
 					case Key::Chart_BRANCHSTART:
 					{
 						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::BranchStart);
-						ASCII::ForEachInCommaSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						auto& param = newCommand.Param.BranchStart;
+						param = { BranchCondition::Precise, 101, 101 };
+						i32 valueIndex = 0;
+						ASCII::ForEachInCommaSeparatedList(in, [&](std::string_view value)
 						{
 							value = ASCII::Trim(value);
-							if (valueIndex == 0) tryParseBranchCondition(value, &newCommand.Param.BranchStart.Condition);
-							if (valueIndex == 1) tryParse(value, &newCommand.Param.BranchStart.RequirementExpert);
-							if (valueIndex == 2) tryParse(value, &newCommand.Param.BranchStart.RequirementMaster);
+							if (valueIndex == 0) {
+								if (!tryParseBranchCondition(value, &param.Condition))
+									outErrors.Push(lineIndex, "Invalid branch condition '%.*s'", FmtStrViewArgs(value));
+							} else if (valueIndex == 1) {
+								if (!ASCII::TryParse(value, param.RequirementExpert))
+									outErrors.Push(lineIndex, "Invalid branch requirement '%.*s'", FmtStrViewArgs(value));
+							} else if (valueIndex == 2) {
+								if (!ASCII::TryParse(value, param.RequirementMaster))
+									outErrors.Push(lineIndex, "Invalid branch requirement '%.*s'", FmtStrViewArgs(value));
+							} else {
+								outErrors.Push(lineIndex, "Exceeded 3 arguments");
+							}
 							valueIndex++;
 						});
+						if (valueIndex < 3)
+							outErrors.Push(lineIndex, "Less than 3 required arguments");
 					} break;
 					case Key::Chart_N:
 					{
@@ -711,100 +722,130 @@ namespace TJA
 					case Key::Chart_BMSCROLL: { pushChartCommand(ParsedChartCommandType::BMScroll); } break;
 					case Key::Chart_HBSCROLL: { pushChartCommand(ParsedChartCommandType::HBScroll); } break;
 					case Key::Chart_NMSCROLL: { pushChartCommand(ParsedChartCommandType::NMScroll); } break;
-					case Key::Chart_SENOTECHANGE: { tryParse(in, &pushChartCommand(ParsedChartCommandType::SENoteChange).Param.SENoteChange.Type); } break;
+					case Key::Chart_SENOTECHANGE:
+						if (i32 v; !ASCII::TryParse(in, v))
+							outErrors.Push(lineIndex, "Invalid SENote type integer '%.*s'", FmtStrViewArgs(in));
+						else
+							pushChartCommand(ParsedChartCommandType::SENoteChange).Param.SENoteChange.Type = v;
+						break;
 					case Key::Chart_NEXTSONG: { pushChartCommand(ParsedChartCommandType::SetNextSong).Param.SetNextSong.CommaSeparatedList = in; } break;
 					case Key::Chart_DIRECTION: 
 					{
 						f32 scrollspeed = cachedScrollSpeed.GetRealPart();
-
-						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::ChangeScrollSpeed);
-						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						auto tryParseDirection = [&](std::string_view in, Complex* out)
+						{
+							i32 direction = 0;
+							if (!ASCII::TryParse(in, direction))
+								return false;
+							switch (direction)
 							{
-								value = ASCII::Trim(value);
-								if (valueIndex == 0) 
-								{
-									i32 direction = 0;
-									tryParse(value, &direction);
-									switch (direction)
-									{
-									case 1:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(0.f, -scrollspeed);
-										break;
-									case 2:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(0.f, scrollspeed);
-										break;
-									case 3:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(scrollspeed, -scrollspeed);
-										break;
-									case 4:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(scrollspeed, scrollspeed);
-										break;
-									case 5:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(-scrollspeed, 0.f);
-										break;
-									case 6:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(-scrollspeed, -scrollspeed);
-										break;
-									case 7:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(-scrollspeed, scrollspeed);
-										break;
-									case 0:
-									default:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(scrollspeed, 0.f);
-										break;
-									}
-								}
-
-								valueIndex++;
-							});
+							case 0: *out = Complex(scrollspeed, 0.f); return true;
+							case 1: *out = Complex(0.f, -scrollspeed); return true;
+							case 2: *out = Complex(0.f, scrollspeed); return true;
+							case 3: *out = Complex(scrollspeed, -scrollspeed); return true;
+							case 4: *out = Complex(scrollspeed, scrollspeed); return true;
+							case 5: *out = Complex(-scrollspeed, 0.f); return true;
+							case 6: *out = Complex(-scrollspeed, -scrollspeed); return true;
+							case 7: *out = Complex(-scrollspeed, scrollspeed); return true;
+							default: return false;
+							}
+						};
+						if (Complex v; !tryParseDirection(in, &v))
+							outErrors.Push(lineIndex, "Invalid direction integer '%.*s'", FmtStrViewArgs(in));
+						else
+							pushChartCommand(ParsedChartCommandType::ChangeScrollSpeed).Param.ChangeScrollSpeed.Value = v;
 					} break;
 					case Key::Chart_SUDDEN:
 					{
-						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::SetSudden);
-						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						decltype(ParsedChartCommand::ParamData::SetSudden) param = { Time::Zero(), Time::Zero() };
+						i32 valueIndex = 0;
+						b8 valid = true;
+
+						ASCII::ForEachInSpaceSeparatedList(in, [&](std::string_view value)
 						{
 							value = ASCII::Trim(value);
-							if (valueIndex == 0) tryParseTime(value, &newCommand.Param.SetSudden.AppearanceOffset);
-							if (valueIndex == 1) tryParseTime(value, &newCommand.Param.SetSudden.MovementWaitDelay);
+							if (value.empty())
+								return;
+							if (valueIndex == 0) {
+								if (!tryParseTime(value, &param.AppearanceOffset)) {
+									valid = false;
+									outErrors.Push(lineIndex, "Invalid appearance offset number '%.*s'", FmtStrViewArgs(value));
+								}
+							} else if (valueIndex == 1) {
+								if (!tryParseTime(value, &param.MovementWaitDelay)) {
+									valid = false;
+									outErrors.Push(lineIndex, "Invalid movement offset number '%.*s'", FmtStrViewArgs(value));
+								}
+							} else {
+								outErrors.Push(lineIndex, "Exceeded 2 arguments");
+							}
 							valueIndex++;
 						});
+						if (valueIndex < 2) {
+							outErrors.Push(lineIndex, "Invalid lacking of 2 required arguments");
+							valid = false;
+						}
+						if (valid)
+							pushChartCommand(ParsedChartCommandType::SetSudden).Param.SetSudden = param;
 					} break;
 					case Key::Chart_JPOSSCROLL:
 					{
-						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::SetJPOSScroll);
+						decltype(ParsedChartCommand::ParamData::ChangeJPOSScroll) param = { Time::Zero(), Complex(0, 0) };
+						i32 valueIndex = 0;
+						b8 valid = true;
 						i32 direction = 0;
 						b8 splitComplex = true;
 						// 3-arg form: `#JPOSSCROLL 0.017 3+2i 0`
 						// 4-arg form (splitComplex; TJAP3 1.6.x): `#JPOSSCROLL 3 100 100i 0`
-						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						ASCII::ForEachInSpaceSeparatedList(in, [&](std::string_view value)
 						{
 							value = ASCII::Trim(value);
-							if (valueIndex == 0) tryParseTime(value, &newCommand.Param.ChangeJPOSScroll.Duration);
-							if (valueIndex == 1) {
-								tryParse(value, &newCommand.Param.ChangeJPOSScroll.Move);
-								if (ASCII::ToLowerCase(value.back()) == 'i') {
-									splitComplex = false;
+							if (value.empty())
+								return;
+							if (valueIndex == 0) {
+								if (!tryParseTime(value, &param.Duration)) {
+									outErrors.Push(lineIndex, "Invalid duration time '%.*s'", FmtStrViewArgs(value));
+									valid = false;
 								}
+							} else if (valueIndex == 1) {
+								if (!ASCII::TryParse(value, param.Move)) {
+									outErrors.Push(lineIndex, "Invalid complex number '%.*s'", FmtStrViewArgs(value));
+									valid = false;
+								}
+								if (ASCII::ToLowerCase(value.back()) == 'i')
+									splitComplex = false;
 							}
-							if (valueIndex == 2) {
+							else if (valueIndex == 2) {
 								if (ASCII::ToLowerCase(value.back()) == 'i') {
 									// arg 2 is move y
-									if (f32 val; splitComplex && tryParse(value.substr(0, value.length() - 1), &val)) {
-										newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(val);
-									} else {
-										outErrors.Push(lineIndex, "Invalid split complex number in '%.*s'", FmtStrViewArgs(token.KeyString));
-									}
+									if (Complex val; splitComplex && std::regex_match(begin(value), end(value), Complex::PatPureImaginary) && ASCII::TryParse(value, val))
+										param.Move.SetImaginaryPart(val.cpx.imag());
+									else
+										outErrors.Push(lineIndex, "Invalid split complex number in '%.*s'", FmtStrViewArgs(token.ValueString));
 								} else {
 									++valueIndex; // arg 2 is direction
 								}
 							}
-							if (valueIndex == 3) tryParse(value, &direction);
+							if (valueIndex == 3) {
+								if (!ASCII::TryParse(value, direction)) {
+									outErrors.Push(lineIndex, "Invalid direction integer '%.*s'", FmtStrViewArgs(value));
+									valid = false;
+								}
+							} else if (valueIndex > 3) {
+								outErrors.Push(lineIndex, "Exceeded 3 arguments");
+							}
 							valueIndex++;
 						});
 						if (direction == 0) {
-							newCommand.Param.ChangeJPOSScroll.Move.SetRealPart(-newCommand.Param.ChangeJPOSScroll.Move.GetRealPart());
-							newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(-newCommand.Param.ChangeJPOSScroll.Move.GetImaginaryPart());
+							param.Move.SetRealPart(-param.Move.GetRealPart());
+							param.Move.SetImaginaryPart(-param.Move.GetImaginaryPart());
 						}
+						if (valueIndex < 2) {
+							outErrors.Push(lineIndex, "Invalid lacking of 2 required arguments");
+							valid = false;
+						}
+						if (valid)
+							pushChartCommand(ParsedChartCommandType::SetJPOSScroll).Param.ChangeJPOSScroll = param;
 					} break;
 					default: { assert(!"Unhandled Key::Chart_ switch case despite (Key::Chart_First to Key::Chart_Last) range check"); } break;
 					}
