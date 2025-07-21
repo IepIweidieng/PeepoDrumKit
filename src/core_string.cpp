@@ -104,7 +104,7 @@ namespace ShiftJIS
 namespace ASCII
 {
 	template <typename T>
-	static inline b8 TryParsePrimitiveTypeT(std::string_view string, T& out)
+	constexpr b8 TryParsePrimitive(std::string_view string, T& out)
 	{
 		const std::from_chars_result result = std::from_chars(string.data(), string.data() + string.size(), out);
 		const b8 hasNoError = (result.ec == std::errc {});
@@ -113,13 +113,13 @@ namespace ASCII
 		return hasNoError && parsedFully;
 	}
 
-	b8 TryParseU32(std::string_view string, u32& out) { return TryParsePrimitiveTypeT(string, out); }
-	b8 TryParseI32(std::string_view string, i32& out) { return TryParsePrimitiveTypeT(string, out); }
-	b8 TryParseU64(std::string_view string, u64& out) { return TryParsePrimitiveTypeT(string, out); }
-	b8 TryParseI64(std::string_view string, i64& out) { return TryParsePrimitiveTypeT(string, out); }
-	b8 TryParseF32(std::string_view string, f32& out) { return TryParsePrimitiveTypeT(string, out); }
-	b8 TryParseF64(std::string_view string, f64& out) { return TryParsePrimitiveTypeT(string, out); }
-	b8 TryParseCPX(std::string_view string, Complex& out) {
+	b8 TryParse(std::string_view string, u32& out) { return TryParsePrimitive(string, out); }
+	b8 TryParse(std::string_view string, i32& out) { return TryParsePrimitive(string, out); }
+	b8 TryParse(std::string_view string, u64& out) { return TryParsePrimitive(string, out); }
+	b8 TryParse(std::string_view string, i64& out) { return TryParsePrimitive(string, out); }
+	b8 TryParse(std::string_view string, f32& out) { return TryParsePrimitive(string, out); }
+	b8 TryParse(std::string_view string, f64& out) { return TryParsePrimitive(string, out); }
+	b8 TryParse(std::string_view string, Complex& out) {
 		std::istringstream in(std::string{string});
 		in >> out;
 		return static_cast<bool>(in); // allow eof, reject fail & bad
