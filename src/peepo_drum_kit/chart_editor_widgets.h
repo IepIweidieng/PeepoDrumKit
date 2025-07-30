@@ -149,13 +149,17 @@ namespace PeepoDrumKit
 		constexpr vec2 WorldToScreenScale(vec2 worldScale) const { return worldScale * WorldToScreenScaleFactor; }
 		constexpr vec2 WorldToScreenSpace(vec2 worldSpace) const { return ScreenSpaceViewportRect.TL + (worldSpace * WorldToScreenScaleFactor); }
 
-		vec2 GetHitCircleCoordinates(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
+		constexpr vec2 JPOSScrollToLaneSpace(const vec2& jPosCoord) const
+		{
+			constexpr f32 jposMoveCoordHeight = 720.0f;
+			f32 coordRatio = GameWorldStandardHeight / jposMoveCoordHeight;
+			return jPosCoord * coordRatio;
+		}
+
+		vec2 GetHitCircleCoordinatesJPOSScroll(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
 		{
 			f32 x = 0;
 			f32 y = 0;
-
-			constexpr f32 jposMoveCoordHeight = 720.0f;
-			f32 coordRatio = GameWorldStandardHeight / jposMoveCoordHeight;
 			f32 currentTimeStampSeconds = timeStamp.ToSec_F32();
 
 			for (size_t i = 0; i < jposScrollChanges.size(); i++) 
@@ -166,8 +170,8 @@ namespace PeepoDrumKit
 				f32 jposTimeStampSeconds = accelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(jposChange.BeatTime).ToSec_F32();
 				f32 jposDurationSeconds = jposChange.Duration;
 
-				f32 xMove = coordRatio * jposMove.GetRealPart();
-				f32 yMove = coordRatio * jposMove.GetImaginaryPart();
+				f32 xMove = jposMove.GetRealPart();
+				f32 yMove = jposMove.GetImaginaryPart();
 				
 				// JPOSScroll already complete
 				if (currentTimeStampSeconds > jposTimeStampSeconds + jposDurationSeconds) {
@@ -202,7 +206,13 @@ namespace PeepoDrumKit
 			return vec2(x, y);
 		}
 
-		vec2 GetAbsoluteNoteCoordinates(
+		vec2 GetHitCircleCoordinatesLane(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
+		{
+			return JPOSScrollToLaneSpace(GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, timeStamp, accelerationStructure));
+		}
+
+		vec2 GetNoteCoordinatesLane(
+			vec2 originLane,
 			Time cursorTime,
 			f64 cursorHBScrollBeatTick,
 			Time noteTime,
@@ -214,19 +224,17 @@ namespace PeepoDrumKit
 			const SortedJPOSScrollChangesList& jposScrollChanges
 		)
 		{
-			vec2 origin = GetHitCircleCoordinates(jposScrollChanges, cursorTime, accelerationStructure);
 			Complex readaptedScrollSpeed = (scrollType == ScrollMethod::BMSCROLL) ? Complex(1.f, 0.f) : scrollSpeed;
 
 			return vec2(
-				origin.x + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, accelerationStructure),
-				origin.y + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, accelerationStructure)
+				originLane.x + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, accelerationStructure),
+				originLane.y + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, accelerationStructure)
 			);
 		}
-		
-		vec2 GetHitCircleAbsoluteCoordinates(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
+
+		vec2 GetHitCircleCoordinatesScreen(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
 		{
-			vec2 origin = GetHitCircleCoordinates(jposScrollChanges, timeStamp, accelerationStructure);
-			return WorldToScreenSpace(LaneToWorldSpace(origin.x, origin.y));
+			return LaneToScreenSpace(GetHitCircleCoordinatesLane(jposScrollChanges, timeStamp, accelerationStructure));
 		}
 
 		// NOTE: Same scale as world space but with (0,0) starting at the hit-circle center point
@@ -255,8 +263,9 @@ namespace PeepoDrumKit
 				}
 			}
 		}
-		constexpr vec2 LaneXToWorldSpace(f32 laneX) { return (LaneRect.TL + GameHitCircle.Center + vec2(laneX, 0.0f)); }
-		constexpr vec2 LaneToWorldSpace(f32 laneX, f32 laneY) { return (LaneRect.TL + GameHitCircle.Center + vec2(laneX, laneY)); }
+		constexpr vec2 LaneXToWorldSpace(f32 laneX) const { return (LaneRect.TL + GameHitCircle.Center + vec2(laneX, 0.0f)); }
+		constexpr vec2 LaneToWorldSpace(f32 laneX, f32 laneY) const { return (LaneRect.TL + GameHitCircle.Center + vec2(laneX, laneY)); }
+		constexpr vec2 LaneToScreenSpace(const vec2& laneCoord) const { return WorldToScreenSpace(LaneToWorldSpace(laneCoord.x, laneCoord.y)); }
 
 		constexpr b8 IsPointVisibleOnLane(f32 laneX, f32 threshold = 280.0f) const { return (laneX >= -threshold) && (laneX <= (LaneWidth() + threshold)); }
 		constexpr b8 IsRangeVisibleOnLane(f32 laneHeadX, f32 laneTailX, f32 threshold = 280.0f) const { return (laneTailX >= -threshold) && (laneHeadX <= (LaneWidth() + threshold)); }

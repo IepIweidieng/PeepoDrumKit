@@ -464,7 +464,9 @@ namespace PeepoDrumKit
 
 
 			// NOTE: Hit indicator circle
-			const vec2 hitCirclePos = Camera.GetHitCircleAbsoluteCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
+			const vec2 hitCirclePosJPos = Camera.GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
+			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos);
+			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
 			drawList->AddCircleFilled(
 				hitCirclePos,
 				Camera.WorldToScreenScale(GameHitCircle.InnerFillRadius), GameLaneHitCircleInnerFillColor);
@@ -477,7 +479,7 @@ namespace PeepoDrumKit
 
 			ForEachBarOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
 			{
-				const vec2 lane = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				const f32 laneX = lane.x, laneY = lane.y;
 
 				if (Camera.IsPointVisibleOnLane(laneX))
@@ -514,10 +516,8 @@ namespace PeepoDrumKit
 
 			ForEachNoteOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
-				const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
-				const vec2 laneOriginTail = Camera.GetHitCircleCoordinates(jposScrollChanges, it.Tail.Time, tempoChanges);
-				vec2 laneHead = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				vec2 laneTail = Camera.GetAbsoluteNoteCoordinates(cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneHead = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTail = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
 
 				b8 isVisible = true;
 
@@ -525,7 +525,7 @@ namespace PeepoDrumKit
 				const Time timeSinceTailHit = TimeSinceNoteHit(it.Tail.Time, cursorTimeOrAnimated);
 				if (IsRegularNote(it.OriginalNote->Type)) {
 					if (timeSinceHeadHit >= Time::Zero())
-						laneHead = laneTail = laneOriginTail;
+						laneHead = laneTail = hitCirclePosLane;
 					if (timeSinceHeadHit > GameNoteHitAnimationDuration)
 						isVisible = false;
 				}
@@ -535,7 +535,7 @@ namespace PeepoDrumKit
 						isVisible = false;
 					}
 					else if (timeSinceHeadHit >= Time::Zero())
-						laneHead = laneOrigin;
+						laneHead = hitCirclePosLane;
 				}
 				else { // is bar roll note
 					// flying notes in screen?
@@ -594,7 +594,7 @@ namespace PeepoDrumKit
 								{
 									// TODO: Scale duration, animation speed and path by extended lane width
 									const auto hitAnimation = GetNoteHitPathAnimation(timeSinceSubHit, Camera.ExtendedLaneWidthFactor());
-									const vec2 laneOrigin = Camera.GetHitCircleCoordinates(jposScrollChanges, subHitTime, tempoChanges);
+									const vec2 laneOrigin = Camera.GetHitCircleCoordinatesLane(jposScrollChanges, subHitTime, tempoChanges);
 									const vec2 noteCenter = Camera.LaneToWorldSpace(laneOrigin.x, laneOrigin.y) + hitAnimation.PositionOffset;
 
 									if (hitAnimation.AlphaFadeOut >= 1.0f)
