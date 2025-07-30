@@ -477,6 +477,12 @@ namespace PeepoDrumKit
 				hitCirclePos,
 				Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius), GameLaneHitCircleOuterOutlineColor, 0, Camera.WorldToScreenScale(GameHitCircle.OuterOutlineThickness));
 
+			if (hitCirclePosJPos != vec2{ 0, 0 }) {
+				std::string str = Complex(hitCirclePosJPos.x, hitCirclePosJPos.y).toStringCompat();
+				vec2 posTxtJPos = hitCirclePos + vec2{ -1, -1 } * Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius);
+				drawList->AddText(posTxtJPos, 0xFFFFFFFF, str.c_str(), str.c_str() + str.length());
+			}
+
 			ForEachBarOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
 			{
 				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
