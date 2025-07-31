@@ -98,6 +98,7 @@ namespace PeepoDrumKit
 				{ "Timeline Song Demo Start Marker Fill", &TimelineSongDemoStartMarkerColorFill },
 				{ "Timeline Song Demo Start Marker Border", &TimelineSongDemoStartMarkerColorBorder },
 				NamedColorU32Pointer {},
+				{ "Game Lane Outline Focused", &GameLaneOutlineFocusedColor },
 				{ "Game Lane Border", &GameLaneBorderColor },
 				{ "Game Lane Bar Line", &GameLaneBarLineColor },
 				{ "Game Lane Content Background", &GameLaneContentBackgroundColor },

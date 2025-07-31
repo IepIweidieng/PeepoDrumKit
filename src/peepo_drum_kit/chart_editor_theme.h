@@ -111,6 +111,8 @@ namespace PeepoDrumKit
 	inline u32 TimelineSongDemoStartMarkerColorFill = 0x3B75AD85;
 	inline u32 TimelineSongDemoStartMarkerColorBorder = 0xB375AD85;
 
+	inline u32 GameLaneOutlineFocusedColor = 0xFF2E8F5E;
+	inline u32 GameLaneBorderFocusedColor = 0xFF293730;
 	inline u32 GameLaneBorderColor = 0xFF000000;
 	inline u32 GameLaneBarLineColor = 0xBFDADADA;
 	inline u32 GameLaneContentBackgroundColor = 0xFF282828;
