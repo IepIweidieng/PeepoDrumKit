@@ -57,7 +57,7 @@ namespace PeepoDrumKit
 		f32 AlphaFadeOut = 1.0f;
 	};
 
-	static NoteHitPathAnimationData GetNoteHitPathAnimation(Time timeSinceHit, f32 extendedLaneWidthFactor)
+	static NoteHitPathAnimationData GetNoteHitPathAnimation(Time timeSinceHit, f32 extendedLaneWidthFactor, i32 nLanes, i32 iLane)
 	{
 		NoteHitPathAnimationData out {};
 		if (timeSinceHit >= Time::Zero())
@@ -69,6 +69,10 @@ namespace PeepoDrumKit
 			out.WhiteFadeIn = SampleBezierFCurve(NoteHitFadeIn, animationTime);
 			out.AlphaFadeOut = SampleBezierFCurve(NoteHitFadeOut, animationTime);
 #endif
+			if (nLanes > 2)
+				out.AlphaFadeOut = 0;
+			else if (iLane == 1)
+				out.PositionOffset.y *= -1;
 		}
 		return out;
 	}
@@ -262,7 +266,7 @@ namespace PeepoDrumKit
 	};
 
 	template <typename Func>
-	static void ForEachBarOnNoteLane(ChartCourse& course, BranchType branch, Beat maxBeatDuration, Func perBarFunc)
+	static void ForEachBarOnNoteLane(const ChartCourse& course, BranchType branch, Beat maxBeatDuration, Func perBarFunc)
 	{
 		BeatSortedForwardIterator<TempoChange> tempoChangeIt {};
 		BeatSortedForwardIterator<ScrollChange> scrollChangeIt {};
@@ -310,7 +314,7 @@ namespace PeepoDrumKit
 	};
 
 	template <typename Func>
-	static void ForEachNoteOnNoteLane(ChartCourse& course, BranchType branch, Func perNoteFunc)
+	static void ForEachNoteOnNoteLane(const ChartCourse& course, BranchType branch, Func perNoteFunc)
 	{
 		BeatSortedForwardIterator<TempoChange> tempoChangeIt {};
 		BeatSortedForwardIterator<ScrollChange> scrollChangeIt {};
@@ -340,6 +344,7 @@ namespace PeepoDrumKit
 	void ChartGamePreview::DrawGui(ChartContext& context, Time animatedCursorTime)
 	{
 #if 1 // HACK: Note text detection
+		static constexpr auto assignSeNotes = [](ChartContext& context, const ChartCourse* course)
 		{
 			// TODO: Implement properly
 			static constexpr auto isLastNoteInGroup = [](const SortedNotesList& notes, i32 index) -> b8
@@ -355,10 +360,10 @@ namespace PeepoDrumKit
 				return false;
 			};
 
-			SortedNotesList& notes = context.ChartSelectedCourse->GetNotes(context.ChartSelectedBranch);
+			const SortedNotesList& notes = course->GetNotes(context.ChartSelectedBranch);
 			for (i32 i = 0; i < static_cast<i32>(notes.size()); i++)
 			{
-				switch (Note& it = notes[i]; it.Type)
+				switch (const Note& it = notes[i]; it.Type)
 				{
 				case NoteType::Don: { it.TempSEType = isLastNoteInGroup(notes, i) ? NoteSEType::Don : NoteSEType::Do; } break;
 				case NoteType::DonBig: { it.TempSEType = NoteSEType::DonBig; } break;
@@ -371,11 +376,13 @@ namespace PeepoDrumKit
 				default: { it.TempSEType = NoteSEType::Count; } break;
 				}
 			}
-		}
+		};
 #endif
 
+		const i32 nLanes = size(context.ChartsCompared);
+
 		static constexpr vec2 buttonMargin = vec2(8.0f);
-		static constexpr vec2 minContentRectSize = vec2(128.0f, 72.0f);
+		vec2 minContentRectSize = vec2(128.0f, nLanes * 72.0f);
 		Gui::BeginDisabled();
 		Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, 0.25f));
 		Gui::Button("##GamePreview", ClampBot(vec2(Gui::GetContentRegionAvail()), minContentRectSize));
@@ -393,22 +400,23 @@ namespace PeepoDrumKit
 				Camera.ScreenSpaceViewportRect = FitInsideFixedAspectRatio(Camera.ScreenSpaceViewportRect, newAspectRatio);
 		}
 
-		const vec2 standardSize = vec2(GameLaneStandardWidth + GameLanePaddingL + GameLanePaddingR, GameLaneSlice.TotalHeight() + GameLanePaddingTop + GameLanePaddingBot);
+		Rect laneRectBase;
+		const vec2 standardSize = vec2(GameLaneStandardWidth + GameLanePaddingL + GameLanePaddingR, nLanes * GameLaneSlice.TotalHeight() + GameLanePaddingTop + GameLanePaddingBot);
 		const f32 standardAspectRatio = GetAspectRatio(standardSize);
 		const f32 viewportAspectRatio = GetAspectRatio(Camera.ScreenSpaceViewportRect);
 		if (viewportAspectRatio <= standardAspectRatio) // NOTE: Standard case of (<= 16:9) with a fixed sized lane being centered
 		{
 			Camera.WorldSpaceSize = vec2(standardSize.x, standardSize.x / viewportAspectRatio);
 			Camera.WorldToScreenScaleFactor = Camera.ScreenSpaceViewportRect.GetWidth() / standardSize.x;
-			Camera.LaneRect = Rect::FromTLSize(vec2(GameLanePaddingL, GameLanePaddingTop), vec2(GameLaneStandardWidth, GameLaneSlice.TotalHeight()));
-			Camera.LaneRect += vec2(0.0f, (Camera.WorldSpaceSize.y * 0.5f) - (standardSize.y * 0.5f));
+			laneRectBase = Rect::FromTLSize(vec2(GameLanePaddingL, GameLanePaddingTop), vec2(GameLaneStandardWidth, GameLaneSlice.TotalHeight()));
+			laneRectBase += vec2(0.0f, (Camera.WorldSpaceSize.y * 0.5f) - (standardSize.y * 0.5f));
 		}
 		else // NOTE: Ultra wide case of (> 16:9) with the lane being extended further to the right
 		{
 			const f32 extendedLaneWidth = (standardSize.x * (viewportAspectRatio / standardAspectRatio)) - GameLanePaddingL - GameLanePaddingR;
 			Camera.WorldSpaceSize = vec2(extendedLaneWidth, standardSize.y);
 			Camera.WorldToScreenScaleFactor = Camera.ScreenSpaceViewportRect.GetHeight() / Camera.WorldSpaceSize.y;
-			Camera.LaneRect = Rect::FromTLSize(vec2(GameLanePaddingL, GameLanePaddingTop), vec2(extendedLaneWidth, GameLaneSlice.TotalHeight()));
+			laneRectBase = Rect::FromTLSize(vec2(GameLanePaddingL, GameLanePaddingTop), vec2(extendedLaneWidth, GameLaneSlice.TotalHeight()));
 		}
 
 #if 0 // DEBUG: ...
@@ -426,10 +434,23 @@ namespace PeepoDrumKit
 
 		ImDrawList* drawList = Gui::GetWindowDrawList();
 		drawList->PushClipRect(Camera.ScreenSpaceViewportRect.TL, Camera.ScreenSpaceViewportRect.BR, true);
-		{
-			TempoMapAccelerationStructure& tempoChanges = context.ChartSelectedCourse->TempoMap.AccelerationStructure;
-			SortedJPOSScrollChangesList& jposScrollChanges = context.ChartSelectedCourse->JPOSScrollChanges;
-			const std::vector<TempoChange>& tempos = context.ChartSelectedCourse->TempoMap.Tempo.Sorted;
+
+		i32 iLane = -1;
+		for (auto it = cbegin(context.Chart.Courses); it != cend(context.Chart.Courses); ++it) {
+			const auto* course = it->get();
+			auto branch = BranchType::Normal;
+			if (!context.IsChartCompared(course, branch))
+				continue;
+			const b8 isFocusedLane = (context.CompareMode && course == context.ChartSelectedCourse && branch == context.ChartSelectedBranch);
+			++iLane;
+
+			assignSeNotes(context, course);
+
+			Camera.LaneRect = laneRectBase + vec2{ 0, iLane * GameLaneSlice.TotalHeight() };
+
+			const TempoMapAccelerationStructure& tempoChanges = course->TempoMap.AccelerationStructure;
+			const SortedJPOSScrollChangesList& jposScrollChanges = course->JPOSScrollChanges;
+			const std::vector<TempoChange>& tempos = course->TempoMap.Tempo.Sorted;
 
 			const b8 isPlayback = context.GetIsPlayback();
 			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime(true);
@@ -438,13 +459,19 @@ namespace PeepoDrumKit
 			const f64 cursorHBScrollBeatOrAnimated = context.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimatedTrunc, cursorTimeOrAnimated);
 			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
 
-
+			auto laneBorderColor = isFocusedLane ? GameLaneBorderFocusedColor : GameLaneBorderColor;
 			// NOTE: Lane background and borders
 			{
 				drawList->AddRectFilled( // NOTE: Top, middle and bottom border
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL),
 					Camera.WorldToScreenSpace(Camera.LaneRect.BR),
-					GameLaneBorderColor);
+					laneBorderColor);
+				if (isFocusedLane) {
+					drawList->AddRectFilled( // NOTE: Keep middle border color unfocused
+						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder + GameLaneSlice.Content)),
+						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content + GameLaneSlice.MidBorder + GameLaneSlice.Footer)),
+						GameLaneBorderColor);
+				}
 				drawList->AddRectFilled( // NOTE: Content
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder)),
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content)),
@@ -458,8 +485,14 @@ namespace PeepoDrumKit
 			// NOTE: Lane left / right foreground borders
 			defer
 			{
-				drawList->AddRectFilled(Camera.WorldToScreenSpace(Camera.LaneRect.GetTL()), Camera.WorldToScreenSpace(Camera.LaneRect.GetBL() - vec2(GameLanePaddingL, 0.0f)), GameLaneBorderColor);
-				drawList->AddRectFilled(Camera.WorldToScreenSpace(Camera.LaneRect.GetTR()), Camera.WorldToScreenSpace(Camera.LaneRect.GetBR() + vec2(GameLanePaddingR, 0.0f)), GameLaneBorderColor);
+				drawList->AddRectFilled(Camera.WorldToScreenSpace(Camera.LaneRect.GetTL()), Camera.WorldToScreenSpace(Camera.LaneRect.GetBL() - vec2(GameLanePaddingL, 0.0f)), laneBorderColor);
+				drawList->AddRectFilled(Camera.WorldToScreenSpace(Camera.LaneRect.GetTR()), Camera.WorldToScreenSpace(Camera.LaneRect.GetBR() + vec2(GameLanePaddingR, 0.0f)), laneBorderColor);
+				if (isFocusedLane) {
+					drawList->AddRect( // NOTE: all-side outline
+						Camera.WorldToScreenSpace(Camera.LaneRect.TL - vec2(GameLanePaddingL, 0.0f)),
+						Camera.WorldToScreenSpace(Camera.LaneRect.BR + vec2(GameLanePaddingR, 0.0f)),
+						GameLaneOutlineFocusedColor);
+				}
 			};
 
 
@@ -481,7 +514,7 @@ namespace PeepoDrumKit
 			vec2 posTxtJPos = hitCirclePos + vec2{ -1, -1 } * Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius);
 			drawList->AddText(posTxtJPos, 0xFFFFFFFF, str.c_str(), str.c_str() + str.length());
 
-			ForEachBarOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
+			ForEachBarOnNoteLane(*course, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
 			{
 				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				const f32 laneX = lane.x, laneY = lane.y;
@@ -518,7 +551,7 @@ namespace PeepoDrumKit
 			Gui::End();
 #endif
 
-			ForEachNoteOnNoteLane(*context.ChartSelectedCourse, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
+			ForEachNoteOnNoteLane(*course, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
 				vec2 laneHead = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				vec2 laneTail = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
@@ -597,7 +630,7 @@ namespace PeepoDrumKit
 								if (timeSinceSubHit > Time::Zero() && timeSinceSubHit <= GameNoteHitAnimationDuration)
 								{
 									// TODO: Scale duration, animation speed and path by extended lane width
-									const auto hitAnimation = GetNoteHitPathAnimation(timeSinceSubHit, Camera.ExtendedLaneWidthFactor());
+									const auto hitAnimation = GetNoteHitPathAnimation(timeSinceSubHit, Camera.ExtendedLaneWidthFactor(), nLanes, iLane);
 									const vec2 laneOrigin = Camera.GetHitCircleCoordinatesLane(jposScrollChanges, subHitTime, tempoChanges);
 									const vec2 noteCenter = Camera.LaneToWorldSpace(laneOrigin.x, laneOrigin.y) + hitAnimation.PositionOffset;
 
@@ -611,7 +644,7 @@ namespace PeepoDrumKit
 				else
 				{
 					// TODO: Instead of offseting the lane x position just draw as HitCenter + PositionOffset directly (?)
-					const auto hitAnimation = GetNoteHitPathAnimation(timeSinceHit, Camera.ExtendedLaneWidthFactor());
+					auto hitAnimation = GetNoteHitPathAnimation(timeSinceHit, Camera.ExtendedLaneWidthFactor(), nLanes, iLane);
 					const vec2 noteCenter = Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY) + hitAnimation.PositionOffset;
 
 					if (hitAnimation.AlphaFadeOut >= 1.0f)
