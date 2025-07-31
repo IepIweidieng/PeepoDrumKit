@@ -900,33 +900,47 @@ namespace PeepoDrumKit
 				}
 			};
 
-			for (const Note& note : context.ChartSelectedCourse->GetNotes(context.ChartSelectedBranch))
+			auto handleNotePlayback = [&](const ChartCourse* course, BranchType branch, const Note& note, i32 nLanes, i32 iLane)
 			{
 				if (note.BeatDuration > Beat::Zero())
 				{
 					if (IsBalloonNote(note.Type))
 					{
-						checkAndPlayNoteSound(context.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type);
+						checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type);
 
 						const Beat balloonBeatInterval = (note.BalloonPopCount > 0) ? (note.BeatDuration / note.BalloonPopCount) : Beat::Zero();
 						if (balloonBeatInterval > Beat::Zero())
 						{
 							i32 remainingPops = note.BalloonPopCount;
 							for (Beat subBeat = balloonBeatInterval; (subBeat < note.BeatDuration) && (--remainingPops > 0); subBeat += balloonBeatInterval)
-								checkAndPlayNoteSound(context.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type);
+								checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type);
 						}
 					}
 					else
 					{
 						const Beat drummrollBeatInterval = GetGridBeatSnap(*Settings.General.DrumrollAutoHitBarDivision);
 						for (Beat subBeat = Beat::Zero(); subBeat <= note.BeatDuration; subBeat += drummrollBeatInterval)
-							checkAndPlayNoteSound(context.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type);
+							checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type);
 					}
 				}
 				else
 				{
-					checkAndPlayNoteSound(context.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type);
+					checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type);
 				}
+			};
+
+			const i32 nLanes = size(context.ChartsCompared);
+			i32 iLane = -1;
+			for (auto it = cbegin(context.Chart.Courses); it != cend(context.Chart.Courses); ++it) {
+				const auto* course = it->get();
+				auto branch = BranchType::Normal;
+				if (!context.IsChartCompared(course, branch))
+					continue;
+				const b8 isFocusedLane = (context.CompareMode && course == context.ChartSelectedCourse && branch == context.ChartSelectedBranch);
+				++iLane;
+
+				for (const Note& note : course->GetNotes(branch))
+					handleNotePlayback(course, branch, note, nLanes, iLane);
 			}
 		}
 
