@@ -460,18 +460,18 @@ namespace PeepoDrumKit
 			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
 
 			auto laneBorderColor = isFocusedLane ? GameLaneBorderFocusedColor : GameLaneBorderColor;
+
+			Rect stdLaneRectBR = { Camera.LaneRect.TL, vec2{ Camera.LaneRect.TL.x + GameLaneStandardWidth, Camera.LaneRect.BR.y } };
 			// NOTE: Lane background and borders
 			{
-				drawList->AddRectFilled( // NOTE: Top, middle and bottom border
-					Camera.WorldToScreenSpace(Camera.LaneRect.TL),
-					Camera.WorldToScreenSpace(Camera.LaneRect.BR),
+				drawList->AddRectFilled( // NOTE: Top, middle and bottom border, truncated at standard lane width
+					Camera.WorldToScreenSpace(stdLaneRectBR.TL),
+					Camera.WorldToScreenSpace(stdLaneRectBR.BR),
 					laneBorderColor);
-				if (isFocusedLane) {
-					drawList->AddRectFilled( // NOTE: Keep middle border color unfocused
-						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder + GameLaneSlice.Content)),
-						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content + GameLaneSlice.MidBorder + GameLaneSlice.Footer)),
-						GameLaneBorderColor);
-				}
+				drawList->AddRectFilled( // NOTE: Keep middle border color unfocused and untruncated
+					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder + GameLaneSlice.Content)),
+					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content + GameLaneSlice.MidBorder + GameLaneSlice.Footer)),
+					GameLaneBorderColor);
 				drawList->AddRectFilled( // NOTE: Content
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder)),
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content)),
@@ -482,15 +482,15 @@ namespace PeepoDrumKit
 					GameLaneFooterBackgroundColor);
 			}
 
-			// NOTE: Lane left / right foreground borders
+			// NOTE: Lane left / right foreground borders, showing the standard lane size
 			defer
 			{
-				drawList->AddRectFilled(Camera.WorldToScreenSpace(Camera.LaneRect.GetTL()), Camera.WorldToScreenSpace(Camera.LaneRect.GetBL() - vec2(GameLanePaddingL, 0.0f)), laneBorderColor);
-				drawList->AddRectFilled(Camera.WorldToScreenSpace(Camera.LaneRect.GetTR()), Camera.WorldToScreenSpace(Camera.LaneRect.GetBR() + vec2(GameLanePaddingR, 0.0f)), laneBorderColor);
+				drawList->AddRectFilled(Camera.WorldToScreenSpace(stdLaneRectBR.GetTL()), Camera.WorldToScreenSpace(stdLaneRectBR.GetBL() - vec2(GameLanePaddingL, 0.0f)), laneBorderColor);
+				drawList->AddRectFilled(Camera.WorldToScreenSpace(stdLaneRectBR.GetTR()), Camera.WorldToScreenSpace(stdLaneRectBR.GetBR() + vec2(GameLanePaddingR, 0.0f)), laneBorderColor);
 				if (isFocusedLane) {
 					drawList->AddRect( // NOTE: all-side outline
-						Camera.WorldToScreenSpace(Camera.LaneRect.TL - vec2(GameLanePaddingL, 0.0f)),
-						Camera.WorldToScreenSpace(Camera.LaneRect.BR + vec2(GameLanePaddingR, 0.0f)),
+						Camera.WorldToScreenSpace(stdLaneRectBR.TL - vec2(GameLanePaddingL, 0.0f)),
+						Camera.WorldToScreenSpace(stdLaneRectBR.BR + vec2(GameLanePaddingR, 0.0f)),
 						GameLaneOutlineFocusedColor);
 				}
 			};
