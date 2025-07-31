@@ -141,6 +141,15 @@ X("BUILD_CONFIGURATION_UNKNOWN",					"Unknown") \
 /* difficulty menu */ \
 X("MENU_COURSES",									"Courses") \
 X("ACT_COURSES_ADD_NEW",							"Add New") \
+X("ACT_COURSES_COMPARE_GROUP",						"Compare") \
+X("ACT_COURSES_COMPARE_ALL",						"Compare All") \
+X("ACT_COURSES_COMPARE_NONE",						"Clear Comparison") \
+X("ACT_COURSES_COMPARE_ACROSS_DIFFICULTIES",		"Across Difficulties") \
+X("ACT_COURSES_COMPARE_ACROSS_PLAYERCOUNTS",		"Across Player Counts") \
+X("ACT_COURSES_COMPARE_ACROSS_PLAYERSIDES",			"Across Player Sides") \
+X("ACT_COURSES_COMPARE_ACROSS_BRANCHES",			"Across Branches") \
+X("ACT_COURSES_COMPARE_MODE",						"Comparison Mode") \
+X("ACT_COURSES_COMPARE_THIS",						"Compare This") \
 X("ACT_COURSES_EDIT",								"Edit...") \
 /* audio menu */ \
 X("ACT_AUDIO_OPEN_DEVICE",							"Open Audio Device") \
