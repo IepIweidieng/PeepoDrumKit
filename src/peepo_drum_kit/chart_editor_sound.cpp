@@ -74,7 +74,7 @@ namespace PeepoDrumKit
 		}
 	}
 
-	void SoundEffectsVoicePool::PlaySound(SoundEffectType type, Time startTime, std::optional<Time> externalClock)
+	void SoundEffectsVoicePool::PlaySound(SoundEffectType type, Time startTime, std::optional<Time> externalClock, f32 pan)
 	{
 		Audio::Engine.EnsureStreamRunning();
 
@@ -113,6 +113,7 @@ namespace PeepoDrumKit
 			voice.SetSource(TryGetSourceForType(type));
 			voice.SetPosition(startTime);
 			voice.SetVolume(voiceVolume);
+			voice.SetPan(pan);
 			voice.SetIsPlaying(true);
 
 			VoicePoolRingIndex++;

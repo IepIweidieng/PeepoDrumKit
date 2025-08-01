@@ -36,7 +36,7 @@ namespace PeepoDrumKit
 		void UpdateAsyncLoading();
 		void UnloadAllSourcesAndVoices();
 
-		void PlaySound(SoundEffectType type, Time startTime = Time::Zero(), std::optional<Time> externalClock = {});
+		void PlaySound(SoundEffectType type, Time startTime = Time::Zero(), std::optional<Time> externalClock = {}, f32 pan = 0);
 		void PauseAllFutureVoices();
 		Audio::SourceHandle TryGetSourceForType(SoundEffectType type) const;
 

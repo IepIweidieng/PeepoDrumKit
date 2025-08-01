@@ -56,7 +56,7 @@ namespace PeepoDrumKit
 	ChartEditor::ChartEditor()
 	{
 		context.Gfx.StartAsyncLoading();
-		context.SongVoice = Audio::Engine.AddVoice(Audio::SourceHandle::Invalid, "ChartEditor SongVoice", false, 1.0f, true);
+		context.SongVoice = Audio::Engine.AddVoice(Audio::SourceHandle::Invalid, "ChartEditor SongVoice", false, 1.0f, 0, true);
 		context.SfxVoicePool.StartAsyncLoadingAndAddVoices();
 
 		context.ResetChartsCompared();
