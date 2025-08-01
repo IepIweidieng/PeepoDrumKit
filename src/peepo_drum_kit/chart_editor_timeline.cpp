@@ -886,7 +886,7 @@ namespace PeepoDrumKit
 
 		if (playbackSoundsEnabled)
 		{
-			auto checkAndPlayNoteSound = [&](Time noteTime, NoteType noteType)
+			auto checkAndPlayNoteSound = [&](Time noteTime, NoteType noteType, f32 pan)
 			{
 				const Time offsetNoteTime = noteTime - futureOffset;
 				if (offsetNoteTime >= nonSmoothCursorLastFrame && offsetNoteTime < nonSmoothCursorThisFrame)
@@ -896,36 +896,37 @@ namespace PeepoDrumKit
 					const Time startTime = Min((nonSmoothCursorThisFrame - noteTime), Time::Zero());
 					const Time externalClock = noteTime;
 
-					context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteType), startTime, externalClock);
+					context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteType), startTime, externalClock, pan);
 				}
 			};
 
 			auto handleNotePlayback = [&](const ChartCourse* course, BranchType branch, const Note& note, i32 nLanes, i32 iLane)
 			{
+				f32 pan = (nLanes <= 1) ? 0 : 2.0 * iLane / (nLanes - 1) - 1;
 				if (note.BeatDuration > Beat::Zero())
 				{
 					if (IsBalloonNote(note.Type))
 					{
-						checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type);
+						checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type, pan);
 
 						const Beat balloonBeatInterval = (note.BalloonPopCount > 0) ? (note.BeatDuration / note.BalloonPopCount) : Beat::Zero();
 						if (balloonBeatInterval > Beat::Zero())
 						{
 							i32 remainingPops = note.BalloonPopCount;
 							for (Beat subBeat = balloonBeatInterval; (subBeat < note.BeatDuration) && (--remainingPops > 0); subBeat += balloonBeatInterval)
-								checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type);
+								checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type, pan);
 						}
 					}
 					else
 					{
 						const Beat drummrollBeatInterval = GetGridBeatSnap(*Settings.General.DrumrollAutoHitBarDivision);
 						for (Beat subBeat = Beat::Zero(); subBeat <= note.BeatDuration; subBeat += drummrollBeatInterval)
-							checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type);
+							checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type, pan);
 					}
 				}
 				else
 				{
-					checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type);
+					checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type, pan);
 				}
 			};
 
