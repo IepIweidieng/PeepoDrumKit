@@ -45,6 +45,7 @@ namespace Audio
 		std::atomic<VoiceFlags> Flags;
 		std::atomic<SourceHandle> Source;
 		std::atomic<f32> Volume;
+		std::atomic<f32> Pan;
 		std::atomic<i64> FramePosition;
 
 		std::atomic<f32> PlaybackSpeed;
@@ -196,10 +197,17 @@ namespace Audio
 			const f32 startVolume = voiceData.VolumeMap.StartVolume;
 			const f32 endVolume = voiceData.VolumeMap.EndVolume;
 
+			// NOTE: currently pan as L/R balance rather than true stereo pan for simplicity
+			const b8 doPan = (OutputChannelCount >= 2) && !ApproxmiatelySame(voiceData.Pan, 0);
+			const auto panGain = doPan ? GetPanGain(voiceData.Pan, PanLaw) : std::array{ 1.0f, 1.0f };
+			auto channelGain = [&](u32 iCh, f32 vol) { return (doPan && iCh < 2) ? vol * panGain[iCh] : vol; };
+
 			if (startVolume == endVolume)
 			{
-				for (i64 i = 0; i < (frameCount * OutputChannelCount); i++)
-					outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], voiceVolume));
+				for (i64 i = 0, n = (frameCount * OutputChannelCount); i < n;) {
+					for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
+						outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], channelGain(c, voiceVolume)));
+				}
 			}
 			else
 			{
@@ -212,30 +220,23 @@ namespace Audio
 					const Time bufferDuration = Time::FromSec(frameDuration.ToSec() * frameCount);
 					const Time voiceStartTime = Time::FromSec(voiceData.TimePositionSec) - bufferDuration;
 
-					for (i64 f = 0; f < frameCount; f++)
+					for (i64 f = 0, i = 0; f < frameCount; ++f)
 					{
 						const Time frameTime = Time::FromSec(voiceStartTime.ToSec() + (f * frameDuration.ToSec()));
 						const f32 frameVolume = SampleVolumeMapAt(volumeMapStartFrame, volumeMapEndFrame, startVolume, endVolume, TimeToFrames(frameTime, sampleRate)) * voiceVolume;
-
-						for (u32 c = 0; c < OutputChannelCount; c++)
-						{
-							const i64 sampleIndex = (f * OutputChannelCount) + c;
-							outputBuffer[sampleIndex] = MixSamplesI16_Clamped(outputBuffer[sampleIndex], ScaleSampleI16Linear_AsI32(TempOutputBuffer[sampleIndex], frameVolume));
-						}
+						for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
+							outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], channelGain(c, frameVolume)));
 					}
 				}
 				else
 				{
 					const i64 voiceStartFrame = (voiceData.FramePosition - frameCount);
 
-					for (i64 f = 0; f < frameCount; f++)
+					for (i64 f = 0, i = 0; f < frameCount; ++f)
 					{
 						const f32 frameVolume = SampleVolumeMapAt(volumeMapStartFrame, volumeMapEndFrame, startVolume, endVolume, voiceStartFrame + f) * voiceVolume;
-						for (u32 c = 0; c < OutputChannelCount; c++)
-						{
-							const i64 sampleIndex = (f * OutputChannelCount) + c;
-							outputBuffer[sampleIndex] = MixSamplesI16_Clamped(outputBuffer[sampleIndex], ScaleSampleI16Linear_AsI32(TempOutputBuffer[sampleIndex], frameVolume));
-						}
+						for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
+							outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], channelGain(c, frameVolume)));
 					}
 				}
 			}
@@ -614,7 +615,7 @@ namespace Audio
 		return impl->SetSourceName(source, newName);
 	}
 
-	VoiceHandle AudioEngine::AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume, b8 playPastEnd)
+	VoiceHandle AudioEngine::AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume, f32 pan, b8 playPastEnd)
 	{
 		const auto lock = std::scoped_lock(impl->VoiceRenderMutex);
 
@@ -630,6 +631,7 @@ namespace Audio
 
 			voiceToUpdate.Source = source;
 			voiceToUpdate.Volume = volume;
+			voiceToUpdate.Pan = pan;
 			voiceToUpdate.FramePosition = 0;
 			voiceToUpdate.VolumeMap.StartVolume = 0.0f;
 			voiceToUpdate.VolumeMap.EndVolume = 0.0f;
@@ -658,7 +660,7 @@ namespace Audio
 			voiceData->Flags = VoiceFlags_Dead;
 	}
 
-	void AudioEngine::PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume)
+	void AudioEngine::PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume, f32 pan)
 	{
 		if (source == SourceHandle::Invalid)
 			return;
@@ -673,6 +675,7 @@ namespace Audio
 			voiceToUpdate.Flags = VoiceFlags_Alive | VoiceFlags_Playing | VoiceFlags_RemoveOnEnd;
 			voiceToUpdate.Source = source;
 			voiceToUpdate.Volume = volume;
+			voiceToUpdate.Pan = pan;
 			voiceToUpdate.FramePosition = 0;
 			voiceToUpdate.VolumeMap.StartVolume = 0.0f;
 			voiceToUpdate.VolumeMap.EndVolume = 0.0f;
@@ -840,6 +843,23 @@ namespace Audio
 
 		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
 			voice->Volume = value;
+	}
+
+	f32 Voice::GetPan() const
+	{
+		auto& impl = Engine.impl;
+
+		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
+			return voice->Pan;
+		return 0.0f;
+	}
+
+	void Voice::SetPan(f32 value)
+	{
+		auto& impl = Engine.impl;
+
+		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
+			voice->Pan = value;
 	}
 
 	f32 Voice::GetPlaybackSpeed() const

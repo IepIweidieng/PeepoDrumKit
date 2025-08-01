@@ -145,7 +145,7 @@ namespace PeepoDrumKit
 
 	void AudioTestWindow::ActiveVoicesTabContent()
 	{
-		static constexpr cstr voiceTableFields[] = { "Name", "Position", "Smooth", "Duration", "Volume", "Speed", "Voice", "Source", "Flags", };
+		static constexpr cstr voiceTableFields[] = { "Name", "Position", "Smooth", "Duration", "Volume", "Pan", "Speed", "Voice", "Source", "Flags",};
 		if (Gui::BeginTable("VoicesTable", ArrayCountI32(voiceTableFields), ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, Gui::GetContentRegionAvail()))
 		{
 			Gui::TableSetupScrollFreeze(0, 1);
@@ -166,6 +166,7 @@ namespace PeepoDrumKit
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPositionSmooth().ToString().Data);
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetSourceDuration().ToString().Data);
 				Gui::TableNextColumn(); Gui::Text("%.0f%%", ToPercent(voiceIt.GetVolume()));
+				Gui::TableNextColumn(); Gui::Text("%.0f%%", ToPercent(voiceIt.GetPan()));
 				Gui::TableNextColumn(); Gui::Text("%.0f%%", ToPercent(voiceIt.GetPlaybackSpeed()));
 				Gui::TableNextColumn(); Gui::Text("0x%04X", static_cast<Audio::HandleBaseType>(voiceIt.Handle));
 				Gui::TableNextColumn(); Gui::Text("0x%04X", static_cast<Audio::HandleBaseType>(voiceIt.GetSource()));
@@ -269,7 +270,7 @@ namespace PeepoDrumKit
 		if (!sourcePreviewVoiceHasBeenAdded)
 		{
 			sourcePreviewVoiceHasBeenAdded = true;
-			sourcePreviewVoice = Audio::Engine.AddVoice(Audio::SourceHandle::Invalid, "AudioTestWindow SourcePreview", false, 1.0f, false);
+			sourcePreviewVoice = Audio::Engine.AddVoice(Audio::SourceHandle::Invalid, "AudioTestWindow SourcePreview", false, 1.0f, 0, false);
 			sourcePreviewVoice.SetPauseOnEnd(true);
 		}
 
