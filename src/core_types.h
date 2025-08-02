@@ -163,6 +163,20 @@ struct make_enum_sequence_helper<EnumType, std::integer_sequence<UnderlyingType,
 template <typename EnumType>
 using make_enum_sequence = typename make_enum_sequence_helper<EnumType, std::make_integer_sequence<std::underlying_type_t<EnumType>, static_cast<std::underlying_type_t<EnumType>>(EnumType::Count)>>::type;
 
+// NOTE: Shorthand of repeated initialize arguments, required when the element type has no default constructor
+//		 Example: InitializedArray<i32, 3>(42), equivalent to std::array{42, 42, 42}
+template <typename T, typename... Ts, size_t... Is>
+static constexpr std::array<T, sizeof...(Is)> InitializedArrayHelper(std::index_sequence<Is...>, Ts&&... initArgs)
+{
+	return { (Is, void{}, T(initArgs...))... };
+}
+
+template <typename T, size_t Size, typename... Ts>
+static constexpr std::array<T, Size> InitializedArray(Ts&&... initArgs)
+{
+	return InitializedArrayHelper<T>(std::make_index_sequence<Size>{}, std::forward<Ts>(initArgs)...);
+}
+
 // NOTE: Example: ArrayCount("example_string_literal")
 template <typename ArrayType>
 constexpr __forceinline size_t ArrayCount(const ArrayType& cStyleArray)

@@ -886,7 +886,7 @@ namespace PeepoDrumKit
 		// NOTE: Apply volume
 		{
 			context.SongVoice.SetVolume(context.Chart.SongVolume);
-			context.SfxVoicePool.BaseVolumeSfx = context.Chart.SoundEffectVolume;
+			context.SfxVoicePool.SetSoundGroupVolume(SoundGroup::SoundEffects, context.Chart.SoundEffectVolume);
 		}
 
 		// NOTE: Drag and drop handling
