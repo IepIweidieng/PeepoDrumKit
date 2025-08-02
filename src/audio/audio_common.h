@@ -20,12 +20,18 @@ namespace Audio
 	inline f32 LinearVolumeToSquare(f32 linear) { return ::sqrtf(linear); }
 	inline f32 SquareToLinearVolume(f32 power) { return (power * power); }
 
-	constexpr i16 ClampSampleI16(i32 v) { return static_cast<i16>(Clamp<i32>(v, static_cast<i32>(I16Min + 1), static_cast<i32>(I16Max - 1))); }
-	constexpr i16 MixSamplesI16_Clamped(i32 a, i32 b) { return ClampSampleI16(a + b); }
+	template <typename T, typename S> // Target, Source
+	constexpr T ClampSampleI(S v)
+	{
+		static_assert(std::is_integral_v<T>, "Only supports integral types for correct sample value range");
+		return static_cast<T>(Clamp<S>(v, S{ std::numeric_limits<T>::min() }, S{ std::numeric_limits<T>::max() }));
+	}
+	template <typename T, typename S> // Target, Source
+	constexpr T MixSamplesI_Clamped(S a, S b) { return ClampSampleI<T>(a + b); }
 
-	// TODO: Should probably do all of the scaling as i32s directly without float conversions but oh well...
-	constexpr i32 ScaleSampleI16Linear_AsI32(i32 v, f32 linear) { return static_cast<i32>(static_cast<f32>(v) * linear); }
-	constexpr i16 ScaleSampleI16Linear_Clamped(i32 v, f32 linear) { return ClampSampleI16(ScaleSampleI16Linear_AsI32(v, linear)); }
+	// TODO: Should probably do all of the scaling as Ts directly without float conversions but oh well...
+	template <typename T, typename S> // Target, Source
+	constexpr T ScaleSampleILinear_Clamped(S v, f32 linear) { return ClampSampleI<T>(v * linear); }
 
 	struct PCMSampleBuffer
 	{
@@ -127,8 +133,8 @@ namespace Audio
 			{
 				for (i64 i = 0; i < framesRead * TargetChannels;)
 				{
-					bufferToFill[i++] = MixSamplesI16_Clamped(mixBuffer[swapBufferIndex + 0], mixBuffer[swapBufferIndex + 2]);
-					bufferToFill[i++] = MixSamplesI16_Clamped(mixBuffer[swapBufferIndex + 1], mixBuffer[swapBufferIndex + 3]);
+					bufferToFill[i++] = MixSamplesI_Clamped<i16, i32>(mixBuffer[swapBufferIndex + 0], mixBuffer[swapBufferIndex + 2]);
+					bufferToFill[i++] = MixSamplesI_Clamped<i16, i32>(mixBuffer[swapBufferIndex + 1], mixBuffer[swapBufferIndex + 3]);
 					swapBufferIndex += sourceChannels;
 				}
 				break;
@@ -218,4 +224,123 @@ namespace Audio
 		Audio::LinearlyResampleBuffer(inOutSamples, inOutFrameCountSizeT, inOutSampleRate, inChannelCount, targetSampleRate);
 		inOutFrameCount = static_cast<i64>(inOutFrameCountSizeT);
 	}
+
+	template <typename T>
+	constexpr T NextRingBufferIndex(T index, size_t size) {
+		auto res = (index + 1 >= size) ? index + 1 - static_cast<T>(size) : index + 1;
+		assert(res >= 0 && res < size);
+		return res;
+	}
+	template <typename T>
+	constexpr T PrevRingBufferIndex(T index, size_t size) {
+		auto res = (index <= 0) ? index + static_cast<T>(size) - 1 : index - 1;
+		assert(res >= 0 && res < size);
+		return res;
+	}
+	template <typename T>
+	constexpr T AdvanceRingBufferIndex(T index, T diff, size_t size) {
+		auto res = (index + diff + static_cast<T>(size)) % static_cast<T>(size);
+		assert(res >= 0 && res < size);
+		return res;
+	}
+
+	// <https://signalsmith-audio.co.uk/writing/2022/constant-time-peak-hold/#constant-time-peak-hold>
+	template <typename SampleType>
+	struct PeakHoldFX
+	{
+		static constexpr SampleType InitValue = std::numeric_limits<SampleType>::lowest();
+
+		// [front (collect original) | mid (begin-fixed partial summing) | back (begin-fixed partial sums)]
+		std::vector<SampleType> RingBuf;
+		i32 IdxHead = 0, IdxMidBegin = 0, IdxMidMax = 0, IdxBackBegin;
+		SampleType FrontMax = InitValue;
+		SampleType MidMax = InitValue;
+
+		PeakHoldFX(i64 framesWindowLen) : RingBuf(framesWindowLen / 2 * 2, InitValue), IdxBackBegin(framesWindowLen / 2)
+		{
+			assert((framesWindowLen % 2 == 0) && "Only framesWindowLen being a multiple of 2 is supported");
+		}
+
+		SampleType GetGain(SampleType v)
+		{
+			if (IdxMidMax == IdxBackBegin) { // front completes collecting, mid completes summing, and back is exhaused
+				IdxBackBegin = IdxMidBegin;
+				IdxMidMax = IdxMidBegin = IdxHead;
+				MidMax = FrontMax;
+				FrontMax = InitValue;
+			}
+			if (IdxMidMax != IdxMidBegin)
+				RingBuf[IdxMidMax] = std::max(RingBuf[IdxMidMax], RingBuf[PrevRingBufferIndex(IdxMidMax, size(RingBuf))]);
+			IdxMidMax = NextRingBufferIndex(IdxMidMax, size(RingBuf));
+			RingBuf[IdxHead = PrevRingBufferIndex(IdxHead, size(RingBuf))] = v;
+			FrontMax = std::max(FrontMax, v);
+			return std::max({ FrontMax, MidMax, RingBuf.back() });
+		}
+	};
+
+	// <https://signalsmith-audio.co.uk/writing/2021/box-sum-cumulative/>
+	template <typename SampleType>
+	struct StackedBoxFilterFX
+	{
+		std::vector<SampleType> RingBuf;
+		i32 IdxHead = 0;
+		i32 NPasses, FramesDivLen, SumHeadCount = 0;
+		std::vector<std::common_type_t<SampleType, f32>> Sum, SumHead;
+
+		StackedBoxFilterFX(i64 framesWindowLen, i32 nPasses, SampleType init = {})
+			: RingBuf(framesWindowLen / nPasses * nPasses, init), NPasses{ nPasses }, FramesDivLen(framesWindowLen / nPasses),
+				Sum(nPasses, init * FramesDivLen), SumHead(nPasses, init * FramesDivLen)
+		{
+			assert((framesWindowLen % nPasses == 0) && "framesWindowLen must be a multiple of nPasses");
+		}
+
+		SampleType GetGain(SampleType v)
+		{
+			SampleType vOld = RingBuf.back(); // [v0, ..., vN, vOld | ..., vOld | v0, ..., vN, vOld ]
+			RingBuf[IdxHead = PrevRingBufferIndex(IdxHead, size(RingBuf))] = v; // [vNew, v0, ..., vN, vOld | ..., vOld | v0, ..., vN ]
+			if (SumHeadCount == 0) {
+				std::swap(Sum, SumHead);
+				std::fill(begin(SumHead), end(SumHead), 0);
+			}
+			auto idxNew = IdxHead;
+			for (i32 d = 0; d < NPasses; ++d) {
+				auto idxNewNext = AdvanceRingBufferIndex(idxNew, FramesDivLen, size(RingBuf));
+				auto* ptrOld = (d + 1 == NPasses) ? &vOld : &RingBuf[idxNewNext];
+				Sum[d] += RingBuf[idxNew];
+				Sum[d] -= *ptrOld;
+				SumHead[d] += v;
+				*ptrOld = static_cast<SampleType>(Sum[d] / FramesDivLen);
+				idxNew = idxNewNext;
+			} // [vNew, v1, ..., vN | vNew, ...  | vNew, v1, ..., vN ]
+			if (++SumHeadCount > FramesDivLen)
+				SumHeadCount = 0;
+			return Sum.back() / FramesDivLen;
+		}
+	};
+
+	// <https://signalsmith-audio.co.uk/writing/2022/limiter/>
+	template <typename SampleType>
+	struct VolumeLimiterFX
+	{
+		Time AttackDuration = Time::FromMS(30);
+
+		PeakHoldFX<f32> GainPeakHold;
+		StackedBoxFilterFX<f32> GainFilter;
+
+		VolumeLimiterFX(u32 sampleRate) :
+			GainPeakHold{ (TimeToFrames(AttackDuration, sampleRate) + 1) / 2 * 2 },
+			GainFilter{ (TimeToFrames(AttackDuration, sampleRate) + 1) / 2 * 2, 4 }
+		{
+		}
+
+		template <typename T>
+		f32 GetGain(T v, SampleType limitLower, SampleType limitUpper)
+		{
+			f32 maxGain = (v > limitUpper) ? std::abs(f32{ limitUpper } / v)
+				: (v < limitLower) ? std::abs(f32{ limitLower } / v)
+				: 1;
+			f32 gain = -GainPeakHold.GetGain(-maxGain);
+			return std::min(gain, GainFilter.GetGain(gain));
+		}
+	};
 }
