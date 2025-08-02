@@ -38,6 +38,20 @@ namespace PeepoDrumKit
 					Audio::Engine.SetMasterVolume(FromPercent(v));
 			});
 
+			for (i32 group = 1; group < Audio::AudioEngine::MaxSoundGroups; ++group) {
+				voiceFlagsBuffer = "Sound Group "; voiceFlagsBuffer += std::to_string(group); voiceFlagsBuffer += " Volume";
+				Gui::Property::PropertyTextValueFunc(voiceFlagsBuffer, [&]
+				{
+					Gui::SetNextItemWidth(-1.0f);
+					f32 v = ToPercent(Audio::Engine.GetSoundGroupVolume(group));
+					voiceFlagsBuffer = "##GroupVolumeSlider"; voiceFlagsBuffer += std::to_string(group);
+					if (Gui::SliderFloat(voiceFlagsBuffer.c_str(), &v, ToPercent(Audio::Engine.MinVolume), ToPercent(Audio::Engine.MaxVolume), "%.0f%%", ImGuiSliderFlags_AlwaysClamp))
+						Audio::Engine.SetSoundGroupVolume(group, FromPercent(v));
+					voiceFlagsBuffer.clear();
+				});
+				voiceFlagsBuffer.clear();
+			}
+
 			Gui::Property::PropertyTextValueFunc("Device Control", [&]
 			{
 				if (Gui::Button("Open Start Stream", vec2(Gui::GetContentRegionAvail().x, 0.0f)))
@@ -145,7 +159,7 @@ namespace PeepoDrumKit
 
 	void AudioTestWindow::ActiveVoicesTabContent()
 	{
-		static constexpr cstr voiceTableFields[] = { "Name", "Position", "Smooth", "Duration", "Volume", "Pan", "Speed", "Voice", "Source", "Flags",};
+		static constexpr cstr voiceTableFields[] = { "Name", "Group", "Position", "Smooth", "Duration", "Volume", "Pan", "Speed", "Voice", "Source", "Flags",};
 		if (Gui::BeginTable("VoicesTable", ArrayCountI32(voiceTableFields), ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, Gui::GetContentRegionAvail()))
 		{
 			Gui::TableSetupScrollFreeze(0, 1);
@@ -162,6 +176,7 @@ namespace PeepoDrumKit
 
 				Gui::TableNextRow();
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetName());
+				Gui::TableNextColumn(); Gui::Text("%d", voiceIt.GetSoundGroup());
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPosition().ToString().Data);
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPositionSmooth().ToString().Data);
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetSourceDuration().ToString().Data);

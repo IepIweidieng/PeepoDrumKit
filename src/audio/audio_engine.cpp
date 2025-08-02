@@ -44,6 +44,7 @@ namespace Audio
 		// NOTE: Automatically resets to SourceHandle::Invalid when the source is unloaded
 		std::atomic<VoiceFlags> Flags;
 		std::atomic<SourceHandle> Source;
+		std::atomic<i32> SoundGroup;
 		std::atomic<f32> Volume;
 		std::atomic<f32> Pan;
 		std::atomic<i64> FramePosition;
@@ -84,7 +85,7 @@ namespace Audio
 	{
 	public:
 		b8 IsStreamOpenRunning = false;
-		std::atomic<f32> MasterVolume = AudioEngine::MaxVolume;
+		std::array<std::atomic<f32>, MaxSoundGroups> SoundGroupVolume = InitializedArray<std::atomic<f32>, MaxSoundGroups>(AudioEngine::MaxVolume);
 
 	public:
 		ChannelMixer ChannelMixer = {};
@@ -102,9 +103,10 @@ namespace Audio
 	public:
 		std::array<i16, (MaxBufferFrameCount * OutputChannelCount)> TempOutputBuffer = {};
 		std::array<f32, (MaxBufferFrameCount* OutputChannelCount)> MasterBuffer = {};
+		std::array<f32, (MaxBufferFrameCount* OutputChannelCount)> SoundGroupBuffer = {};
 		u32 CurrentBufferFrameSize = DefaultBufferFrameCount;
 
-		VolumeLimiterFX<f32> Limiter = { OutputSampleRate };
+		std::array<VolumeLimiterFX<f32>, MaxSoundGroups> Limiter = InitializedArray<VolumeLimiterFX<f32>, MaxSoundGroups>(OutputSampleRate);
 
 		// TODO: Rename "CallbackDuration" to "RenderDuration" (?)
 		// NOTE: For measuring performance
@@ -175,10 +177,10 @@ namespace Audio
 				CopyStringViewIntoFixedBuffer(sourceData->Name, newName);
 		}
 
-		void CallbackClearOutPreviousCallBuffer(i16* outputBuffer, f32* masterBuffer, const size_t sampleCount)
+		template <typename T>
+		void CallbackClearOutBuffer(T* outputBuffer, const size_t sampleCount)
 		{
 			std::fill(outputBuffer, outputBuffer + sampleCount, 0);
-			std::fill(masterBuffer, masterBuffer + sampleCount, 0);
 		}
 
 		f32 SampleVolumeMapAt(const i64 startFrame, const i64 endFrame, const f32 startVolume, const f32 endVolume, const i64 frame)
@@ -246,13 +248,15 @@ namespace Audio
 			}
 		}
 
-		void CallbackProcessVoices(f32* outputBuffer, const u32 bufferFrameCount, const u32 bufferSampleCount)
+		void CallbackProcessVoices(f32* outputBuffer, const u32 bufferFrameCount, const u32 bufferSampleCount, i32 soundGroup)
 		{
 			const auto lock = std::scoped_lock(VoiceRenderMutex);
 
 			for (size_t voiceIndex = 0; voiceIndex < VoicePool.size(); voiceIndex++)
 			{
 				VoiceData& voiceData = VoicePool[voiceIndex];
+				if (i32 group = voiceData.SoundGroup; !(group == soundGroup || ((soundGroup == 0) && !(group >= 0 && group < MaxSoundGroups))))
+					continue;
 				if (!(voiceData.Flags & VoiceFlags_Alive))
 					continue;
 
@@ -299,7 +303,8 @@ namespace Audio
 				}
 			}
 
-			TotalRenderedFrames += bufferFrameCount;
+			if (soundGroup == 0)
+				TotalRenderedFrames += bufferFrameCount;
 		}
 
 		void CallbackProcessNormalSpeedVoiceSamples(f32* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
@@ -375,22 +380,28 @@ namespace Audio
 			CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(outputBuffer, framesRead, voiceData, sampleRate);
 		}
 
-		void CallbackAdjustBufferMasterVolume(i16* outputBuffer, f32* mixedBuffer, const size_t frameCount, const size_t sampleCount)
+		template <typename T>
+		void CallbackAdjustVolumeAndMix(T* outputBuffer, f32* mixedBuffer, const size_t frameCount, f32 preGain, f32 postGain, i32 soundGroup)
 		{
-			const f32 masterVolume = MasterVolume.load();
+			const f32 limitMin = (std::is_integral_v<T> || soundGroup == 0) ? I16Min : SoundGroupVolumeLimit * I16Min;
+			const f32 limitMax = (std::is_integral_v<T> || soundGroup == 0) ? I16Max : SoundGroupVolumeLimit * I16Max;
 			std::array<f32, OutputChannelCount> frame;
 			for (size_t f = 0, i = 0; f < frameCount; ++f) {
 				// get gain for all channels first
 				f32 frameMaxValue = 0;
 				for (i32 c = 0; c < OutputChannelCount; ++c) {
-					frame[c] = mixedBuffer[i + c] * masterVolume;
+					frame[c] = mixedBuffer[i + c] * preGain;
 					if (std::abs(frame[c]) > std::abs(frameMaxValue))
 						frameMaxValue = frame[c];
 				}
-				auto gain = Limiter.GetGain(frameMaxValue, I16Min, I16Max);
+				auto gain = Limiter[soundGroup].GetGain(frameMaxValue, limitMin, limitMax);
 				// apply gain
-				for (i32 c = 0; c < OutputChannelCount; ++c, ++i)
-					outputBuffer[i] = ClampSampleI<i16>(frame[c] * gain);
+				for (i32 c = 0; c < OutputChannelCount; ++c, ++i) {
+					if constexpr (std::is_integral_v<T>)
+						outputBuffer[i] += ClampSampleI<T>(frame[c] * gain * postGain);
+					else
+						outputBuffer[i] += frame[c] * gain * postGain;
+				}
 			}
 		}
 
@@ -445,9 +456,19 @@ namespace Audio
 			CallbackFrequency = (CallbackStreamTime - LastCallbackStreamTime);
 			LastCallbackStreamTime = CallbackStreamTime;
 
-			CallbackClearOutPreviousCallBuffer(outputBuffer, MasterBuffer.data(), bufferSampleCount);
-			CallbackProcessVoices(MasterBuffer.data(), bufferFrameCount, bufferSampleCount);
-			CallbackAdjustBufferMasterVolume(outputBuffer, MasterBuffer.data(), bufferFrameCount, bufferSampleCount);
+			CallbackClearOutBuffer(outputBuffer, bufferSampleCount);
+			CallbackClearOutBuffer(MasterBuffer.data(), bufferSampleCount);
+
+			// render each sound group separately, adjust volume, and then to master (except group 0)
+			for (i32 g = 1; g < MaxSoundGroups; ++g) {
+				CallbackClearOutBuffer(SoundGroupBuffer.data(), bufferSampleCount);
+				CallbackProcessVoices(SoundGroupBuffer.data(), bufferFrameCount, bufferSampleCount, g);
+				CallbackAdjustVolumeAndMix(MasterBuffer.data(), SoundGroupBuffer.data(), bufferFrameCount, 1, SoundGroupVolume[g], g);
+			}
+
+			// sound group 0 (or any invalid group) renders directly to master
+			CallbackProcessVoices(MasterBuffer.data(), bufferFrameCount, bufferSampleCount, 0);
+			CallbackAdjustVolumeAndMix(outputBuffer, MasterBuffer.data(), bufferFrameCount, SoundGroupVolume[0], 1, 0);
 			CallbackUpdateLastPlayedSamplesRingBuffer(outputBuffer, bufferFrameCount);
 			CallbackUpdateCallbackDurationRingBuffer(stopwatch.Stop());
 		}
@@ -631,7 +652,7 @@ namespace Audio
 		return impl->SetSourceName(source, newName);
 	}
 
-	VoiceHandle AudioEngine::AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume, f32 pan, b8 playPastEnd)
+	VoiceHandle AudioEngine::AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume, f32 pan, b8 playPastEnd, i32 soundGroup)
 	{
 		const auto lock = std::scoped_lock(impl->VoiceRenderMutex);
 
@@ -646,6 +667,7 @@ namespace Audio
 			if (playPastEnd) voiceToUpdate.Flags |= VoiceFlags_PlayPastEnd;
 
 			voiceToUpdate.Source = source;
+			voiceToUpdate.SoundGroup = soundGroup;
 			voiceToUpdate.Volume = volume;
 			voiceToUpdate.Pan = pan;
 			voiceToUpdate.FramePosition = 0;
@@ -676,7 +698,7 @@ namespace Audio
 			voiceData->Flags = VoiceFlags_Dead;
 	}
 
-	void AudioEngine::PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume, f32 pan)
+	void AudioEngine::PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume, f32 pan, i32 soundGroup)
 	{
 		if (source == SourceHandle::Invalid)
 			return;
@@ -690,6 +712,7 @@ namespace Audio
 
 			voiceToUpdate.Flags = VoiceFlags_Alive | VoiceFlags_Playing | VoiceFlags_RemoveOnEnd;
 			voiceToUpdate.Source = source;
+			voiceToUpdate.SoundGroup = soundGroup;
 			voiceToUpdate.Volume = volume;
 			voiceToUpdate.Pan = pan;
 			voiceToUpdate.FramePosition = 0;
@@ -743,15 +766,11 @@ namespace Audio
 		return true;
 	}
 
-	f32 AudioEngine::GetMasterVolume() const
-	{
-		return impl->MasterVolume;
-	}
+	f32 AudioEngine::GetSoundGroupVolume(i32 g) const { return impl->SoundGroupVolume[g]; }
+	void AudioEngine::SetSoundGroupVolume(i32 g, f32 value) { impl->SoundGroupVolume[g] = value; }
 
-	void AudioEngine::SetMasterVolume(f32 value)
-	{
-		impl->MasterVolume = value;
-	}
+	f32 AudioEngine::GetMasterVolume() const { return GetSoundGroupVolume(0); }
+	void AudioEngine::SetMasterVolume(f32 value) { SetSoundGroupVolume(0, value); }
 
 	u32 AudioEngine::GetBufferFrameSize() const
 	{
@@ -858,6 +877,9 @@ namespace Audio
 		if (VoiceData* voice = impl->TryGetVoiceData(self.Handle); voice != nullptr)
 			voice->*Memb = value;
 	}
+
+	i32 Voice::GetSoundGroup() const { return GetVoiceDataGeneric<i32, &VoiceData::SoundGroup>(*this, Engine.impl, 0); }
+	void Voice::SetSoundGroup(i32 value) { return SetVoiceDataGeneric<&VoiceData::SoundGroup>(*this, Engine.impl, value); }
 
 	f32 Voice::GetVolume() const { return GetVoiceDataGeneric<f32, &VoiceData::Volume>(*this, Engine.impl, 0.0f); }
 	void Voice::SetVolume(f32 value) { SetVoiceDataGeneric<&VoiceData::Volume>(*this, Engine.impl, value); }

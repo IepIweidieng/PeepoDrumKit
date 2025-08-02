@@ -78,19 +78,15 @@ namespace PeepoDrumKit
 	{
 		Audio::Engine.EnsureStreamRunning();
 		const b8 isMetronome = (type >= SoundEffectType::MetronomeBar);
-
-		// TODO: Handle external clock differently so that there isn't any problem with preview sounds / the metronome clashing with manual inputs
-		f32 voiceVolume = 1.0f;
-
-		voiceVolume = isMetronome ? (voiceVolume * BaseVolumeMetronome) : (voiceVolume * BaseVolumeSfx);
-		voiceVolume *= BaseVolumeMaster;
-
-		if (voiceVolume > 0.0f)
+		const SoundGroup soundGroup = isMetronome ? SoundGroup::Metronome : SoundGroup::SoundEffects;
+		const b8 audible = (GetSoundGroupVolume(soundGroup) != 0) && (GetSoundGroupVolume(SoundGroup::Master) != 0);
+		if (audible)
 		{
 			Audio::Voice voice = VoicePool[VoicePoolRingIndex];
 			voice.SetSource(TryGetSourceForType(type));
+			voice.SetSoundGroup(EnumToIndex(soundGroup));
 			voice.SetPosition(startTime);
-			voice.SetVolume(voiceVolume);
+			voice.SetVolume(1.0);
 			voice.SetPan(pan);
 			voice.SetIsPlaying(true);
 
