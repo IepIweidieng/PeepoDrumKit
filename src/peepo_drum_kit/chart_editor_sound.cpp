@@ -77,38 +77,16 @@ namespace PeepoDrumKit
 	void SoundEffectsVoicePool::PlaySound(SoundEffectType type, Time startTime, std::optional<Time> externalClock, f32 pan)
 	{
 		Audio::Engine.EnsureStreamRunning();
-
-		// TODO: Maybe handle metronome in a different way entirely (separate voice pool?)
-		const b8 isMetronome = (type == SoundEffectType::MetronomeBar || type == SoundEffectType::MetronomeBeat);
+		const b8 isMetronome = (type >= SoundEffectType::MetronomeBar);
 
 		// TODO: Handle external clock differently so that there isn't any problem with preview sounds / the metronome clashing with manual inputs
 		f32 voiceVolume = 1.0f;
-
-		const Time timeSinceLastVoice = LastPlayedVoiceStopwatch.GetElapsed();
-		if (!isMetronome && LastPlayedVoiceStopwatch.IsRunning)
-		{
-			static constexpr Time silenceThreshold = Time::FromFrames(2.0, 60.0);
-			static constexpr Time fadeOutThreshold = Time::FromFrames(3.0, 60.0);
-
-			if (timeSinceLastVoice < silenceThreshold)
-			{
-				voiceVolume = 0.0f;
-			}
-			else if (timeSinceLastVoice <= fadeOutThreshold)
-			{
-				voiceVolume = ConvertRangeClampInput(0.0f, fadeOutThreshold.ToSec_F32(), 1.0f, 0.0f, timeSinceLastVoice.ToSec_F32());
-				if (voiceVolume != 0.0f) voiceVolume /= voiceVolume;
-			}
-		}
 
 		voiceVolume = isMetronome ? (voiceVolume * BaseVolumeMetronome) : (voiceVolume * BaseVolumeSfx);
 		voiceVolume *= BaseVolumeMaster;
 
 		if (voiceVolume > 0.0f)
 		{
-			if (!isMetronome)
-				LastPlayedVoiceStopwatch.Restart();
-
 			Audio::Voice voice = VoicePool[VoicePoolRingIndex];
 			voice.SetSource(TryGetSourceForType(type));
 			voice.SetPosition(startTime);
