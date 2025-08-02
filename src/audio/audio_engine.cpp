@@ -844,39 +844,26 @@ namespace Audio
 		return (impl->TryGetVoiceData(Handle) != nullptr);
 	}
 
-	f32 Voice::GetVolume() const
+	template <typename T, auto VoiceData::* Memb, typename Impl>
+	T GetVoiceDataGeneric(const Audio::Voice& self, Impl&& impl, T&& dflt)
 	{
-		auto& impl = Engine.impl;
-
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			return voice->Volume;
-		return 0.0f;
+		if (VoiceData* voice = impl->TryGetVoiceData(self.Handle); voice != nullptr)
+			return voice->*Memb;
+		return dflt;
 	}
 
-	void Voice::SetVolume(f32 value)
+	template <auto VoiceData::* Memb, typename T, typename Impl>
+	void SetVoiceDataGeneric(Audio::Voice& self, Impl&& impl, T&& value)
 	{
-		auto& impl = Engine.impl;
-
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			voice->Volume = value;
+		if (VoiceData* voice = impl->TryGetVoiceData(self.Handle); voice != nullptr)
+			voice->*Memb = value;
 	}
 
-	f32 Voice::GetPan() const
-	{
-		auto& impl = Engine.impl;
+	f32 Voice::GetVolume() const { return GetVoiceDataGeneric<f32, &VoiceData::Volume>(*this, Engine.impl, 0.0f); }
+	void Voice::SetVolume(f32 value) { SetVoiceDataGeneric<&VoiceData::Volume>(*this, Engine.impl, value); }
 
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			return voice->Pan;
-		return 0.0f;
-	}
-
-	void Voice::SetPan(f32 value)
-	{
-		auto& impl = Engine.impl;
-
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			voice->Pan = value;
-	}
+	f32 Voice::GetPan() const { return GetVoiceDataGeneric<f32, &VoiceData::Pan>(*this, Engine.impl, 0.0f); }
+	void Voice::SetPan(f32 value) { SetVoiceDataGeneric<&VoiceData::Pan>(*this, Engine.impl, value); }
 
 	f32 Voice::GetPlaybackSpeed() const
 	{
@@ -977,22 +964,8 @@ namespace Audio
 		}
 	}
 
-	SourceHandle Voice::GetSource() const
-	{
-		auto& impl = Engine.impl;
-
-		if (const VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			return voice->Source;
-		return SourceHandle::Invalid;
-	}
-
-	void Voice::SetSource(SourceHandle value)
-	{
-		auto& impl = Engine.impl;
-
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			voice->Source = value;
-	}
+	SourceHandle Voice::GetSource() const { return GetVoiceDataGeneric<SourceHandle, &VoiceData::Source>(*this, Engine.impl, SourceHandle::Invalid); }
+	void Voice::SetSource(SourceHandle value) { SetVoiceDataGeneric<&VoiceData::Source>(*this, Engine.impl, value); }
 
 	Time Voice::GetSourceDuration() const
 	{
