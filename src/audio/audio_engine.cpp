@@ -101,7 +101,10 @@ namespace Audio
 
 	public:
 		std::array<i16, (MaxBufferFrameCount * OutputChannelCount)> TempOutputBuffer = {};
+		std::array<f32, (MaxBufferFrameCount* OutputChannelCount)> MasterBuffer = {};
 		u32 CurrentBufferFrameSize = DefaultBufferFrameCount;
+
+		VolumeLimiterFX<f32> Limiter = { OutputSampleRate };
 
 		// TODO: Rename "CallbackDuration" to "RenderDuration" (?)
 		// NOTE: For measuring performance
@@ -172,9 +175,10 @@ namespace Audio
 				CopyStringViewIntoFixedBuffer(sourceData->Name, newName);
 		}
 
-		void CallbackClearOutPreviousCallBuffer(i16* outputBuffer, const size_t sampleCount)
+		void CallbackClearOutPreviousCallBuffer(i16* outputBuffer, f32* masterBuffer, const size_t sampleCount)
 		{
 			std::fill(outputBuffer, outputBuffer + sampleCount, 0);
+			std::fill(masterBuffer, masterBuffer + sampleCount, 0);
 		}
 
 		f32 SampleVolumeMapAt(const i64 startFrame, const i64 endFrame, const f32 startVolume, const f32 endVolume, const i64 frame)
@@ -191,7 +195,7 @@ namespace Audio
 			return lerpVolume;
 		}
 
-		void CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(i16* outputBuffer, const i64 frameCount, const VoiceData& voiceData, const u32 sampleRate)
+		void CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(f32* outputBuffer, const i64 frameCount, const VoiceData& voiceData, const u32 sampleRate)
 		{
 			const f32 voiceVolume = voiceData.Volume * GetSourceBaseVolume(voiceData.Source);
 			const f32 startVolume = voiceData.VolumeMap.StartVolume;
@@ -206,7 +210,7 @@ namespace Audio
 			{
 				for (i64 i = 0, n = (frameCount * OutputChannelCount); i < n;) {
 					for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
-						outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], channelGain(c, voiceVolume)));
+						outputBuffer[i] += TempOutputBuffer[i] * channelGain(c, voiceVolume);
 				}
 			}
 			else
@@ -225,7 +229,7 @@ namespace Audio
 						const Time frameTime = Time::FromSec(voiceStartTime.ToSec() + (f * frameDuration.ToSec()));
 						const f32 frameVolume = SampleVolumeMapAt(volumeMapStartFrame, volumeMapEndFrame, startVolume, endVolume, TimeToFrames(frameTime, sampleRate)) * voiceVolume;
 						for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
-							outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], channelGain(c, frameVolume)));
+							outputBuffer[i] += TempOutputBuffer[i] * channelGain(c, frameVolume);
 					}
 				}
 				else
@@ -236,13 +240,13 @@ namespace Audio
 					{
 						const f32 frameVolume = SampleVolumeMapAt(volumeMapStartFrame, volumeMapEndFrame, startVolume, endVolume, voiceStartFrame + f) * voiceVolume;
 						for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
-							outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], channelGain(c, frameVolume)));
+							outputBuffer[i] += TempOutputBuffer[i] * channelGain(c, frameVolume);
 					}
 				}
 			}
 		}
 
-		void CallbackProcessVoices(i16* outputBuffer, const u32 bufferFrameCount, const u32 bufferSampleCount)
+		void CallbackProcessVoices(f32* outputBuffer, const u32 bufferFrameCount, const u32 bufferSampleCount)
 		{
 			const auto lock = std::scoped_lock(VoiceRenderMutex);
 
@@ -298,7 +302,7 @@ namespace Audio
 			TotalRenderedFrames += bufferFrameCount;
 		}
 
-		void CallbackProcessNormalSpeedVoiceSamples(i16* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
+		void CallbackProcessNormalSpeedVoiceSamples(f32* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
 		{
 			if (sourceData == nullptr)
 			{
@@ -319,7 +323,7 @@ namespace Audio
 			CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(outputBuffer, framesRead, voiceData, sourceData->Buffer.SampleRate);
 		}
 
-		void CallbackProcessVariableSpeedVoiceSamples(i16* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
+		void CallbackProcessVariableSpeedVoiceSamples(f32* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
 		{
 			const u32 sampleRate = (sourceData != nullptr) ? sourceData->Buffer.SampleRate : OutputSampleRate;
 			const f64 bufferDurationSec = (FramesToTime(bufferFrameCount, sampleRate).ToSec() * voiceData.PlaybackSpeed);
@@ -371,11 +375,23 @@ namespace Audio
 			CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(outputBuffer, framesRead, voiceData, sampleRate);
 		}
 
-		void CallbackAdjustBufferMasterVolume(i16* outputBuffer, const size_t sampleCount)
+		void CallbackAdjustBufferMasterVolume(i16* outputBuffer, f32* mixedBuffer, const size_t frameCount, const size_t sampleCount)
 		{
 			const f32 masterVolume = MasterVolume.load();
-			for (size_t i = 0; i < sampleCount; i++)
-				outputBuffer[i] = ScaleSampleI16Linear_Clamped(outputBuffer[i], masterVolume);
+			std::array<f32, OutputChannelCount> frame;
+			for (size_t f = 0, i = 0; f < frameCount; ++f) {
+				// get gain for all channels first
+				f32 frameMaxValue = 0;
+				for (i32 c = 0; c < OutputChannelCount; ++c) {
+					frame[c] = mixedBuffer[i + c] * masterVolume;
+					if (std::abs(frame[c]) > std::abs(frameMaxValue))
+						frameMaxValue = frame[c];
+				}
+				auto gain = Limiter.GetGain(frameMaxValue, I16Min, I16Max);
+				// apply gain
+				for (i32 c = 0; c < OutputChannelCount; ++c, ++i)
+					outputBuffer[i] = ClampSampleI<i16>(frame[c] * gain);
+			}
 		}
 
 		void CallbackUpdateLastPlayedSamplesRingBuffer(i16* outputBuffer, const size_t frameCount)
@@ -429,9 +445,9 @@ namespace Audio
 			CallbackFrequency = (CallbackStreamTime - LastCallbackStreamTime);
 			LastCallbackStreamTime = CallbackStreamTime;
 
-			CallbackClearOutPreviousCallBuffer(outputBuffer, bufferSampleCount);
-			CallbackProcessVoices(outputBuffer, bufferFrameCount, bufferSampleCount);
-			CallbackAdjustBufferMasterVolume(outputBuffer, bufferSampleCount);
+			CallbackClearOutPreviousCallBuffer(outputBuffer, MasterBuffer.data(), bufferSampleCount);
+			CallbackProcessVoices(MasterBuffer.data(), bufferFrameCount, bufferSampleCount);
+			CallbackAdjustBufferMasterVolume(outputBuffer, MasterBuffer.data(), bufferFrameCount, bufferSampleCount);
 			CallbackUpdateLastPlayedSamplesRingBuffer(outputBuffer, bufferFrameCount);
 			CallbackUpdateCallbackDurationRingBuffer(stopwatch.Stop());
 		}
