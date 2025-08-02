@@ -162,6 +162,7 @@ namespace PeepoDrumKit
 
 				Gui::TableNextRow();
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetName());
+				Gui::TableNextColumn(); Gui::Text("%d", voiceIt.GetSoundGroup());
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPosition().ToString().Data);
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPositionSmooth().ToString().Data);
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetSourceDuration().ToString().Data);

@@ -34,6 +34,9 @@ namespace Audio
 	public:
 		b8 IsValid() const;
 
+		i32 GetSoundGroup() const;
+		void SetSoundGroup(i32 value);
+
 		f32 GetVolume() const;
 		void SetVolume(f32 value);
 
@@ -124,6 +127,7 @@ namespace Audio
 		static constexpr f32 MinVolume = 0.0f, MaxVolume = 1.0f;
 		static constexpr f32 MinPan = -1, MaxPan = 1;
 		static constexpr PanLaw PanLaw = PanLaw::db3;
+		static constexpr size_t MaxSoundGroups = 3;
 		static constexpr size_t MaxSimultaneousVoices = 128;
 		static constexpr size_t MaxLoadedSources = 256;
 
@@ -167,11 +171,11 @@ namespace Audio
 		void SetSourceName(SourceHandle source, std::string_view newName);
 
 		// NOTE: Add a voice and keep a handle to it
-		VoiceHandle AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume = MaxVolume, f32 pan = 0, b8 playPastEnd = false);
+		VoiceHandle AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume = MaxVolume, f32 pan = 0, b8 playPastEnd = false, i32 soundGroup = 0);
 		void RemoveVoice(VoiceHandle voice);
 
 		// NOTE: Add a voice, play it once then discard
-		void PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume = MaxVolume, f32 pan = 0);
+		void PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume = MaxVolume, f32 pan = 0, i32 soundGroup = 0);
 
 	public:
 		Backend GetBackend() const;

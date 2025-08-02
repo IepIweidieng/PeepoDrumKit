@@ -89,6 +89,7 @@ namespace PeepoDrumKit
 		{
 			Audio::Voice voice = VoicePool[VoicePoolRingIndex];
 			voice.SetSource(TryGetSourceForType(type));
+			voice.SetSoundGroup(isMetronome ? 1 : 2);
 			voice.SetPosition(startTime);
 			voice.SetVolume(voiceVolume);
 			voice.SetPan(pan);
