@@ -46,8 +46,6 @@ namespace PeepoDrumKit
 		i32 VoicePoolRingIndex = 0;
 		static constexpr size_t VoicePoolSize = 32;
 		Audio::Voice VoicePool[VoicePoolSize] = {};
-		CPUStopwatch LastPlayedVoiceStopwatch = {};
-		Time LastPlayedVoiceExternalClockTime = {};
 
 		Audio::SourceHandle LoadedSources[EnumCount<SoundEffectType>] = {};
 		std::future<AsyncLoadSoundEffectsResult> LoadSoundEffectFuture = {};
