@@ -1106,8 +1106,8 @@ namespace PeepoDrumKit
 				if (Gui::Begin(UI_WindowName("TAB_AUDIO_TEST"), &PersistentApp.LastSession.ShowWindow_AudioTest, ImGuiWindowFlags_None))
 				{
 					audioTestWindow.DrawGui();
-					Gui::End();
 				}
+				Gui::End();
 			}
 
 			// DEBUG: LIVE PREVIEW PagMan
