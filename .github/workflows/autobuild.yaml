@@ -198,7 +198,7 @@ jobs:
 
       - name: Build for Windows x64
         run: |
-          msbuild --% PeepoDrumKitGui.vcxproj -maxCpuCount -target:rebuild -property:Configuration=Release;Platform=x64
+          msbuild --% PeepoDrumKitGui.vcxproj -maxCpuCount -target:rebuild -property:Configuration=Release;Platform=x64 -property:WindowsTargetPlatformVersion=10.0.26100.0
 
       - name: Create Archive (Win x64)
         shell: cmd
