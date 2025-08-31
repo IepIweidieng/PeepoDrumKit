@@ -323,9 +323,12 @@ namespace PeepoDrumKit
 	static constexpr f32 NoteHitAnimationScaleStart = 1.35f, NoteHitAnimationScaleEnd = 1.0f;
 	static constexpr f32 NoteDeleteAnimationDuration = 0.04f;
 
-	static constexpr SoundEffectType SoundEffectTypeForNoteType(NoteType noteType)
+	static constexpr void PlaySoundEffectTypeForNoteType(ChartContext& context, NoteType noteType, Time startTime = Time::Zero(), std::optional<Time> externalClock = {}, f32 pan = 0)
 	{
-		return IsKaNote(noteType) ? SoundEffectType::TaikoKa : SoundEffectType::TaikoDon;
+		if (!IsKaNote(noteType))
+			context.SfxVoicePool.PlaySound(SoundEffectType::TaikoDon, startTime, externalClock, pan);
+		if (IsKaNote(noteType) || IsKaDonNote(noteType))
+			context.SfxVoicePool.PlaySound(SoundEffectType::TaikoKa, startTime, externalClock, pan);
 	}
 
 	static b8 IsTimelineCursorVisibleOnScreen(const TimelineCamera& camera, const TimelineRegions& regions, const Time cursorTime, const f32 edgePixelThreshold = 0.0f)
@@ -896,7 +899,7 @@ namespace PeepoDrumKit
 					const Time startTime = Min((nonSmoothCursorThisFrame - noteTime), Time::Zero());
 					const Time externalClock = noteTime;
 
-					context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteType), startTime, externalClock, pan);
+					PlaySoundEffectTypeForNoteType(context, noteType, startTime, externalClock, pan);
 				}
 			};
 
@@ -1191,7 +1194,7 @@ namespace PeepoDrumKit
 			if (note.BeatTime == cursorBeat)
 			{
 				note.ClickAnimationTimeRemaining = note.ClickAnimationTimeDuration = NoteHitAnimationDuration;
-				if (!soundHasBeenPlayed) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(note.Type)); soundHasBeenPlayed = true; }
+				if (!soundHasBeenPlayed) { PlaySoundEffectTypeForNoteType(context, note.Type); soundHasBeenPlayed = true; }
 			}
 		}
 	}
@@ -1489,7 +1492,7 @@ namespace PeepoDrumKit
 
 					b8 isFirstNote = true;
 					for (const auto& item : clipboardItems)
-						if (isFirstNote && IsNotesList(item.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(item.Value.POD.Note.Type)); isFirstNote = false; }
+						if (isFirstNote && IsNotesList(item.List)) { PlaySoundEffectTypeForNoteType(context, item.Value.POD.Note.Type); isFirstNote = false; }
 
 					context.Undo.Execute<Commands::AddMultipleGenericItems_Paste>(&course, std::move(clipboardItems));
 				}
@@ -1887,7 +1890,7 @@ namespace PeepoDrumKit
 					}
 				}
 
-				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewValue));
+				PlaySoundEffectTypeForNoteType(context, noteTypesToChange[0].NewValue);
 				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_FlipTypes>(&notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
@@ -1916,7 +1919,7 @@ namespace PeepoDrumKit
 					}
 				}
 
-				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypesToChange[0].NewValue));
+				PlaySoundEffectTypeForNoteType(context, noteTypesToChange[0].NewValue);
 				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_ToggleSizes>(&notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
@@ -1997,7 +2000,7 @@ namespace PeepoDrumKit
 			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
 			if (!itemsToRemove.empty() || !itemsToAdd.empty())
 			{
-				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }
+				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { PlaySoundEffectTypeForNoteType(context, it.Value.POD.Note.Type); break; }
 
 				if (minBeatBefore != minBeatAfter) { // realign region to originally earliest item
 					for (auto& it : itemsToAdd)
@@ -2194,7 +2197,7 @@ namespace PeepoDrumKit
 			// BUG: Resolve item duration intersections (only *add* notes if they don't interect another non-selected long item (?))
 			if (!itemsToRemove.empty() || !itemsToAdd.empty())
 			{
-				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(it.Value.POD.Note.Type)); break; }
+				for (auto& it : itemsToAdd) if (IsNotesList(it.List)) { PlaySoundEffectTypeForNoteType(context, it.Value.POD.Note.Type); break; }
 
 				if (firstBeat != minBeatAfter) { // realign region to earliest item
 					maxBeatAfter += firstBeat - minBeatAfter;
@@ -2856,7 +2859,7 @@ namespace PeepoDrumKit
 						if (!newNotesToAdd.empty())
 						{
 							SetNotesWaveAnimationTimes(newNotesToAdd, (RangeSelection.Start < RangeSelection.End) ? +1 : -1);
-							context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(newNotesToAdd.front().Type));
+							PlaySoundEffectTypeForNoteType(context, newNotesToAdd.front().Type);
 							context.Undo.Execute<Commands::AddMultipleNotes>(&notes, std::move(newNotesToAdd));
 						}
 					}
@@ -2885,7 +2888,7 @@ namespace PeepoDrumKit
 									}
 								}
 							}
-							context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(existingNoteAtCursor->Type));
+							PlaySoundEffectTypeForNoteType(context, existingNoteAtCursor->Type);
 						}
 						else if (cursorBeat >= Beat::Zero())
 						{
@@ -2894,7 +2897,7 @@ namespace PeepoDrumKit
 							newNote.Type = noteTypeToInsert;
 							newNote.ClickAnimationTimeRemaining = newNote.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 							context.Undo.Execute<Commands::AddSingleNote>(&notes, newNote);
-							context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(noteTypeToInsert));
+							PlaySoundEffectTypeForNoteType(context, noteTypeToInsert);
 						}
 					}
 				}
@@ -2917,7 +2920,7 @@ namespace PeepoDrumKit
 					{
 						LongNotePlacement.IsActive = true;
 						LongNotePlacement.CursorBeatHead = cursorBeat;
-						context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(LongNotePlacement.NoteType));
+						PlaySoundEffectTypeForNoteType(context, LongNotePlacement.NoteType);
 					}
 					LongNotePlacement.CursorBeatTail = cursorBeat;
 				}
@@ -2948,7 +2951,7 @@ namespace PeepoDrumKit
 				newLongNote.ClickAnimationTimeRemaining = newLongNote.ClickAnimationTimeDuration = NoteHitAnimationDuration;
 				context.Undo.Execute<Commands::AddSingleLongNote>(&notes, newLongNote, std::move(notesToRemove));
 
-				context.SfxVoicePool.PlaySound(SoundEffectTypeForNoteType(longNoteType));
+				PlaySoundEffectTypeForNoteType(context, longNoteType);
 			};
 
 			const b8 activeFocusedAndHasLength = HasKeyboardFocus() && LongNotePlacement.IsActive && (LongNotePlacement.CursorBeatHead != LongNotePlacement.CursorBeatTail);
