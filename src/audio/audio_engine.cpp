@@ -789,6 +789,7 @@ namespace Audio
 		if (GetIsStreamOpenRunning())
 		{
 			StopCloseStream();
+			impl->CurrentBufferFrameSize = bufferFrameCount; // set again in case the audio thread has overridden it
 			OpenStartStream();
 		}
 	}
