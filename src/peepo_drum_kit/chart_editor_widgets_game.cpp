@@ -203,7 +203,7 @@ namespace PeepoDrumKit
 	{
 		// TODO: Make more generic by taking in an array of glyph rects as lookup table (?)
 		static constexpr std::string_view sprFontNumericalCharSet = "0123456789+-./%";
-		static constexpr f32 advanceX = 11.0f;
+		static constexpr f32 advanceX = 13.0f;
 		const SprInfo sprInfo = gfx.GetInfo(SprID::Game_Font_Numerical);
 		const vec2 perCharSprSize = vec2(sprInfo.SourceSize.x, sprInfo.SourceSize.y / static_cast<f32>(sprFontNumericalCharSet.size()));
 
@@ -227,7 +227,8 @@ namespace PeepoDrumKit
 			pivotOffset = (totalSize * baseTransform.Pivot);
 		}
 
-		vec2 writeHead = vec2(0.0f);
+		// offset the output to pivot the advance box within the character sprite box
+		vec2 writeHead = vec2((advanceX - sprInfo.SourceSize.x) * (sprInfo.SourceSize.x / advanceX) * baseTransform.Pivot.x, 0);
 		for (const char c : text)
 		{
 			i32 charIndex = -1;
@@ -243,8 +244,9 @@ namespace PeepoDrumKit
 				vec2(0.0f, static_cast<f32>(charIndex + 0) * perCharSprSize.y / sprInfo.SourceSize.y),
 				vec2(1.0f, static_cast<f32>(charIndex + 1) * perCharSprSize.y / sprInfo.SourceSize.y));
 
-			charTransform.Pivot.x = (-writeHead.x) / sprInfo.SourceSize.x;
-			charTransform.Pivot += (pivotOffset / sprInfo.SourceSize);
+			// calculate character box's pivot point from advance box's pivot point
+			charTransform.Pivot.x += ((pivotOffset.x - writeHead.x) * (advanceX / sprInfo.SourceSize.x) / sprInfo.SourceSize.x);
+			charTransform.Pivot.y += (pivotOffset.y / sprInfo.SourceSize.y);
 
 			charTransform.Scale *= baseTransform.Scale;
 			charTransform.Scale.y /= static_cast<f32>(sprFontNumericalCharSet.size());
