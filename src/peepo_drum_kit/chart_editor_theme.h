@@ -116,10 +116,14 @@ namespace PeepoDrumKit
 	inline u32 GameLaneBorderColor = 0xFF000000;
 	inline u32 GameLaneBarLineColor = 0xBFDADADA;
 	inline u32 GameLaneContentBackgroundColor = 0xFF282828;
+	inline u32 GameLaneContentBackgroundColorGogo = 0x3C3838FF;
 	inline u32 GameLaneFooterBackgroundColor = 0xFF848484;
 	inline u32 GameLaneHitCircleInnerFillColor = 0xFF525252;
 	inline u32 GameLaneHitCircleInnerOutlineColor = 0xFF888888;
 	inline u32 GameLaneHitCircleOuterOutlineColor = 0xFF646464;
+	inline u32 GameLaneHitCircleInnerFillColorGogo = 0xFF00BAFF;
+	inline u32 GameLaneHitCircleInnerOutlineColorGogo = 0xFF00F0FF;
+	inline u32 GameLaneHitCircleOuterOutlineColorGogo = 0xFF00CCFF;
 
 	inline u32 NoteColorRed = 0xFF2B41F3;
 	inline u32 NoteColorBlue = 0xFFC2C351;

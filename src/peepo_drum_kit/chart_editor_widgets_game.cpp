@@ -77,6 +77,23 @@ namespace PeepoDrumKit
 		return out;
 	}
 
+	// fire, lane
+	static std::pair<f32, f32> getGogoZoomAmount(b8 isGogo, Time timeSinceGogo, Time timeAfterGogo)
+	{
+		static constexpr auto tAttLane = Time::FromSec(0.10);
+		f32 laneAmount = !isGogo ? 0 : timeSinceGogo >= tAttLane ? 1 : (timeSinceGogo / tAttLane);
+		static constexpr auto tAtt = Time::FromSec(0.05); // attack
+		static constexpr auto tDec = Time::FromSec(0.20); // decay
+		static constexpr auto tRel = Time::FromSec(0.10); // release
+		Time fireTime = isGogo ? std::min(timeSinceGogo, tAtt + tDec) : std::min(timeSinceGogo, tAtt + tDec) + timeAfterGogo;
+		f32 fireAmount = (fireTime > tAtt + tDec + tRel) ? 0
+			: (fireTime > tAtt + tDec) ? std::max(0.0, 1 - pow(((fireTime - (tAtt + tDec)) / tRel), 2))
+			: (fireTime >= tAtt + tDec) ? 1
+			: (fireTime >= tAtt) ? 2 - (1 - pow(1 - (fireTime - tAtt) / tDec, 2))
+			: 2 * (fireTime / tAtt);
+		return { fireAmount, laneAmount };
+	}
+
 	static constexpr Time TimeSinceNoteHit(Time noteTime, Time cursorTime) { return (cursorTime - noteTime); }
 
 	static u32 InterpolateDrumrollHitColor(NoteType noteType, f32 hitPercentage)
@@ -531,6 +548,7 @@ namespace PeepoDrumKit
 			const TempoMapAccelerationStructure& tempoChanges = course->TempoMap.AccelerationStructure;
 			const SortedJPOSScrollChangesList& jposScrollChanges = course->JPOSScrollChanges;
 			const std::vector<TempoChange>& tempos = course->TempoMap.Tempo.Sorted;
+			const SortedGoGoRangesList& gogoRanges = course->GoGoRanges;
 
 			const b8 isPlayback = context.GetIsPlayback();
 			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime(true);
@@ -538,6 +556,14 @@ namespace PeepoDrumKit
 			const Beat cursorBeatOrAnimatedTrunc = isPlayback ? exactCursorBeatAndTime.Beat : context.TimeToBeat(animatedCursorTime, true);
 			const f64 cursorHBScrollBeatOrAnimated = context.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimatedTrunc, cursorTimeOrAnimated);
 			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
+
+			const auto* lastGogo = gogoRanges.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
+			const b8 isGogo = (lastGogo != nullptr && cursorBeatOrAnimatedTrunc < lastGogo->GetEnd());
+			const Time timeSinceGogo = (lastGogo == nullptr) ? Time::FromSec(F64Max)
+				: TimeSinceNoteHit(context.BeatToTime(lastGogo->BeatTime), cursorTimeOrAnimated);
+			const Time timeAfterGogo = (lastGogo == nullptr) ? Time::FromSec(F64Max)
+				: TimeSinceNoteHit(context.BeatToTime(lastGogo->GetEnd()), cursorTimeOrAnimated);
+			const auto [gogoFireZoomAmount, gogoLaneZoomAmount] = getGogoZoomAmount(isGogo, timeSinceGogo, timeAfterGogo);
 
 			auto laneBorderColor = isFocusedLane ? GameLaneBorderFocusedColor : GameLaneBorderColor;
 
@@ -557,6 +583,13 @@ namespace PeepoDrumKit
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder)),
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content)),
 					GameLaneContentBackgroundColor);
+				if (gogoLaneZoomAmount > 0) {
+					f32 worldHeightZoomOffset = GameLaneSlice.Content / 2 * (1 - gogoLaneZoomAmount);
+					drawList->AddRectFilled( // NOTE: Gogo layer
+						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder + worldHeightZoomOffset)),
+						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content - worldHeightZoomOffset)),
+						GameLaneContentBackgroundColorGogo);
+				}
 				drawList->AddRectFilled( // NOTE: Footer
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder + GameLaneSlice.Content + GameLaneSlice.MidBorder)),
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content + GameLaneSlice.MidBorder + GameLaneSlice.Footer)),
@@ -583,15 +616,20 @@ namespace PeepoDrumKit
 			const vec2 hitCirclePosJPos = Camera.GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
 			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos);
 			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
+			if (gogoFireZoomAmount > 0) {
+				context.Gfx.DrawSprite(drawList, SprID::Game_Lane_GogoFire, SprTransform::FromCenter(
+					hitCirclePos,
+					vec2(Camera.WorldToScreenScale(gogoFireZoomAmount), Camera.WorldToScreenScale(gogoFireZoomAmount))));
+			}
 			drawList->AddCircleFilled(
 				hitCirclePos,
-				Camera.WorldToScreenScale(GameHitCircle.InnerFillRadius), GameLaneHitCircleInnerFillColor);
+				Camera.WorldToScreenScale(GameHitCircle.InnerFillRadius), isGogo ? GameLaneHitCircleInnerFillColorGogo : GameLaneHitCircleInnerFillColor);
 			drawList->AddCircle(
 				hitCirclePos,
-				Camera.WorldToScreenScale(GameHitCircle.InnerOutlineRadius), GameLaneHitCircleInnerOutlineColor, 0, Camera.WorldToScreenScale(GameHitCircle.InnerOutlineThickness));
+				Camera.WorldToScreenScale(GameHitCircle.InnerOutlineRadius), isGogo ? GameLaneHitCircleInnerOutlineColorGogo : GameLaneHitCircleInnerOutlineColor, 0, Camera.WorldToScreenScale(GameHitCircle.InnerOutlineThickness));
 			drawList->AddCircle(
 				hitCirclePos,
-				Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius), GameLaneHitCircleOuterOutlineColor, 0, Camera.WorldToScreenScale(GameHitCircle.OuterOutlineThickness));
+				Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius), isGogo ? GameLaneHitCircleOuterOutlineColorGogo : GameLaneHitCircleOuterOutlineColor, 0, Camera.WorldToScreenScale(GameHitCircle.OuterOutlineThickness));
 
 			if (hitCirclePosJPos != vec2{ 0, 0 }) {
 				std::string str = Complex(hitCirclePosJPos.x, hitCirclePosJPos.y).toStringCompat();

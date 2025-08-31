@@ -59,6 +59,7 @@ namespace PeepoDrumKit
 		Game_NoteTxt_DrumrollBig,
 		Game_NoteTxt_Balloon,
 		Game_NoteTxt_BalloonSpecial,
+		Game_Lane_GogoFire,
 		
 		// TODO: Split into individual sprites to correctly handle padding (?)
 		Game_Font_Numerical,
@@ -115,6 +116,7 @@ namespace PeepoDrumKit
 		{ SprID::Game_NoteTxt_DrumrollBig,			SprGroup::Game, u8"assets/graphics/game_note_txt_renda_big.svg" },
 		{ SprID::Game_NoteTxt_Balloon,				SprGroup::Game, u8"assets/graphics/game_note_txt_fuusen.svg" },
 		{ SprID::Game_NoteTxt_BalloonSpecial,		SprGroup::Game, u8"assets/graphics/game_note_txt_fuusen_big.svg" },
+		{ SprID::Game_Lane_GogoFire,				SprGroup::Game, u8"assets/graphics/game_lane_gogo_fire.svg" },
 		// TODO: ...
 		{ SprID::Game_Font_Numerical,				SprGroup::Game, u8"assets/graphics/game_font_numerical.svg", 0.5f },
 	};
