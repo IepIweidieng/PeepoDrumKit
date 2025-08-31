@@ -31,8 +31,7 @@ namespace PeepoDrumKit
 
 	enum class NoteSEType : u8
 	{
-		Do, Don, DonBig,
-		// TODO: Ko,
+		Do, Ko, Don, DonBig,
 		Ka, Katsu, KatsuBig,
 		Drumroll, DrumrollBig,
 		Balloon, BalloonSpecial,

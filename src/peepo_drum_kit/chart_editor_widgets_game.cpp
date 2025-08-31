@@ -162,6 +162,7 @@ namespace PeepoDrumKit
 		switch (seType)
 		{
 		case NoteSEType::Do: { spr = SprID::Game_NoteTxt_Do; } break;
+		case NoteSEType::Ko: { spr = SprID::Game_NoteTxt_Ko; } break;
 		case NoteSEType::Don: { spr = SprID::Game_NoteTxt_Don; } break;
 		case NoteSEType::DonBig: { spr = SprID::Game_NoteTxt_DonBig; } break;
 		case NoteSEType::Ka: { spr = SprID::Game_NoteTxt_Ka; } break;
@@ -345,28 +346,91 @@ namespace PeepoDrumKit
 
 	void ChartCourse::RecalculateSENotes(BranchType branch) const
 	{
-		// TODO: Implement properly
-		static constexpr auto isLastNoteInGroup = [](const SortedNotesList& notes, i32 index) -> b8
-		{
-			const Note& thisNote = notes[index];
-			const Note* nextNote = IndexOrNull(index + 1, notes);
-			if (nextNote == nullptr)
-				return true;
+		enum class SEFormType { Long, Short, Alternate, Final };
 
-			const Beat beatDistanceToNext = (nextNote->BeatTime - thisNote.BeatTime);
-			if (beatDistanceToNext >= (Beat::FromBars(1) / 4))
-				return true;
-			return false;
+		// prev, curr, next, n(ext)2nd
+		ForEachNoteLaneData noteDataRingBuffer[4] = {};
+		i32 noteDataRingOffset = 0;
+		auto getNoteData = [&](i32 idx) -> decltype(auto) { return noteDataRingBuffer[(noteDataRingOffset + idx) & 3]; };
+
+		// distance when curr is on the judgement mark
+		// other is NMScroll: visual beat distance = sec_time * visual_beat_per_second_other
+		// other is HBScroll: visual beat distance = scroll_other * beat_distance
+		auto getVisualBeat = [&](const auto& curr, const auto& other, f32 scrollOther, f32 vbpsOther, Time timeDistance)
+		{
+			return (other.OriginalNote == nullptr) ? F32Max
+				: (other.ScrollType == ScrollMethod::NMSCROLL) ? vbpsOther * timeDistance.Seconds
+				: (other.ScrollType == ScrollMethod::HBSCROLL) ? scrollOther * abs(curr.Beat - other.Beat).Ticks / Beat::TicksPerBeat
+				: /* (prev.ScrollType == ScrollMethod::BMSCROLL) ? */ abs(curr.Beat - other.Beat).Ticks / Beat::TicksPerBeat;
+		};
+
+		auto getNoteDistance = [&]()
+		{
+			const auto& prev = getNoteData(0);
+			const auto& curr = getNoteData(1);
+			const auto& next = getNoteData(2);
+			const auto& n2nd = getNoteData(3);
+			const f32 scrollPrev = abs(prev.ScrollSpeed.cpx);
+			const f32 scrollNextCapped = std::min(1.0f, abs(next.ScrollSpeed.cpx));
+			// visual beat per second
+			const f32 vbpsPrev = scrollPrev * prev.Tempo.BPM / 60;
+			const f32 vbpsNextCapped = scrollNextCapped * next.Tempo.BPM / 60;
+			// time distance
+			const Time tdToPrev = (prev.OriginalNote == nullptr) ? Time::FromSec(F32Max) : (curr.Time - prev.Time);
+			const Time tdToNext = (next.OriginalNote == nullptr) ? Time::FromSec(F32Max) : (next.Time - curr.Time);
+			const Time tdToN2nd = (n2nd.OriginalNote == nullptr) ? Time::FromSec(F32Max) : (n2nd.Time - next.Time);
+			const f32 vbdToPrev = getVisualBeat(curr, prev, scrollPrev, vbpsPrev, tdToPrev);
+			const f32 vbdToNextCapped = getVisualBeat(curr, next, scrollNextCapped, vbpsNextCapped, tdToNext);
+			return std::tuple{ tdToPrev, vbdToPrev, tdToNext, vbdToNextCapped, tdToN2nd };
 		};
 
 		const SortedNotesList& notes = GetNotes(branch);
-		for (i32 i = 0; i < static_cast<i32>(notes.size()); i++)
+		std::vector<const Note*> alterChain;
+		b8 isAlterChain = true;
+		Time timeIntervalAlter = Time::Zero();
+		Time timeStartAlter = Time::Zero();
+
+		auto assignSingleNote = [&]()
 		{
-			switch (const Note& it = notes[i]; it.Type)
+			auto& curr = getNoteData(1);
+			const Note& it = *getNoteData(1).OriginalNote;
+			auto [tdToPrev, vbdToPrev, tdToNext, vbdToNextCapped, tdToN2nd] = getNoteDistance();
+			const Time timeEpsilon = Time::FromMS(1e-3);
+			const b8 denseToSparse = (tdToNext >= tdToPrev + timeEpsilon);
+			const b8 sparseToDense = (tdToN2nd <= tdToNext - timeEpsilon);
+			const f32 beatsEpsilon = 4 / 192.0;
+			const b8 isLongAvoided = (vbdToPrev <= 4 / 16.0 - beatsEpsilon
+				|| vbdToNextCapped <= 4 / 12.0 - beatsEpsilon); // avoid text from overlapping or extending under next note
+			const b8 isPrePause = (vbdToNextCapped >= 4 / 8.0 + beatsEpsilon);
+			auto se = (!isLongAvoided && (denseToSparse || sparseToDense || isPrePause)) ? SEFormType::Long : SEFormType::Short;
+			if (isAlterChain) {
+				if (it.Type == NoteType::Don && alterChain.empty()) {
+					timeIntervalAlter = tdToNext;
+					timeStartAlter = curr.Time;
+					alterChain.push_back(&it);
+				} else if (it.Type == NoteType::Don && abs(tdToPrev - timeIntervalAlter) < timeEpsilon && abs(timeStartAlter - curr.Time) < Time::FromSec(0.5) + timeEpsilon) {
+					alterChain.push_back(&it);
+				} else {
+					isAlterChain = false;
+					alterChain.clear();
+				}
+			}
+			if (denseToSparse || sparseToDense) {
+				if (denseToSparse && isAlterChain && !isLongAvoided && size(alterChain) % 2 != 0 && abs(timeStartAlter - curr.Time) < Time::FromSec(0.5) + timeEpsilon) {
+					for (i32 ia = 0; ia < size(alterChain); ++ia) {
+						if (ia % 2 == 1)
+							alterChain[ia]->TempSEType = NoteSEType::Ko;
+					}
+				}
+				alterChain.clear();
+				isAlterChain = sparseToDense;
+			}
+
+			switch (it.Type)
 			{
-			case NoteType::Don: { it.TempSEType = isLastNoteInGroup(notes, i) ? NoteSEType::Don : NoteSEType::Do; } break;
+			case NoteType::Don: { it.TempSEType = (se == SEFormType::Long) ? NoteSEType::Don : NoteSEType::Do; } break;
 			case NoteType::DonBig: { it.TempSEType = NoteSEType::DonBig; } break;
-			case NoteType::Ka: { it.TempSEType = isLastNoteInGroup(notes, i) ? NoteSEType::Katsu : NoteSEType::Ka; } break;
+			case NoteType::Ka: { it.TempSEType = (se == SEFormType::Long) ? NoteSEType::Katsu : NoteSEType::Ka; } break;
 			case NoteType::KaBig: { it.TempSEType = NoteSEType::KatsuBig; } break;
 			case NoteType::Drumroll: { it.TempSEType = NoteSEType::Drumroll; } break;
 			case NoteType::DrumrollBig: { it.TempSEType = NoteSEType::DrumrollBig; } break;
@@ -374,6 +438,23 @@ namespace PeepoDrumKit
 			case NoteType::BalloonSpecial: { it.TempSEType = NoteSEType::BalloonSpecial; } break;
 			default: { it.TempSEType = NoteSEType::Count; } break;
 			}
+		};
+
+		// fetch 2nd next note, update current note
+		i32 lastFilled = 0;
+		ForEachNoteOnNoteLane(*this, branch, [&](const ForEachNoteLaneData& dataIt)
+		{
+			if (getNoteData(1).OriginalNote != nullptr)
+				assignSingleNote();
+			noteDataRingOffset = (noteDataRingOffset + 1) & 3;
+			getNoteData(3) = dataIt;
+			lastFilled = 3;
+		});
+		for (; lastFilled >= 1; --lastFilled) {
+			if (getNoteData(1).OriginalNote != nullptr)
+				assignSingleNote();
+			noteDataRingOffset = (noteDataRingOffset + 1) & 3;
+			getNoteData(3).OriginalNote = nullptr;
 		}
 	}
 
