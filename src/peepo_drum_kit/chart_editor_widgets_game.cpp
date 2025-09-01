@@ -435,6 +435,7 @@ namespace PeepoDrumKit
 			context.Gfx.Rasterize(SprGroup::Game, Camera.WorldToScreenScaleFactor);
 
 		ImDrawList* drawList = Gui::GetWindowDrawList();
+		drawList->ChannelsSplit(4); // 0: lane, 1: judgement mark, 2: bar lines, 3: notes
 		drawList->PushClipRect(Camera.ScreenSpaceViewportRect.TL, Camera.ScreenSpaceViewportRect.BR, true);
 
 		i32 iLane = -1;
@@ -465,6 +466,7 @@ namespace PeepoDrumKit
 
 			Rect stdLaneRectBR = { Camera.LaneRect.TL, vec2{ Camera.LaneRect.TL.x + GameLaneStandardWidth, Camera.LaneRect.BR.y } };
 			// NOTE: Lane background and borders
+			drawList->ChannelsSetCurrent(0);
 			{
 				drawList->AddRectFilled( // NOTE: Top, middle and bottom border, truncated at standard lane width
 					Camera.WorldToScreenSpace(stdLaneRectBR.TL),
@@ -487,6 +489,7 @@ namespace PeepoDrumKit
 			// NOTE: Lane left / right foreground borders, showing the standard lane size
 			defer
 			{
+				drawList->ChannelsSetCurrent(3);
 				drawList->AddRectFilled(Camera.WorldToScreenSpace(stdLaneRectBR.GetTL()), Camera.WorldToScreenSpace(stdLaneRectBR.GetBL() - vec2(GameLanePaddingL, 0.0f)), laneBorderColor);
 				drawList->AddRectFilled(Camera.WorldToScreenSpace(stdLaneRectBR.GetTR()), Camera.WorldToScreenSpace(stdLaneRectBR.GetBR() + vec2(GameLanePaddingR, 0.0f)), laneBorderColor);
 				if (isFocusedLane) {
@@ -499,6 +502,7 @@ namespace PeepoDrumKit
 
 
 			// NOTE: Hit indicator circle
+			drawList->ChannelsSetCurrent(1);
 			const vec2 hitCirclePosJPos = Camera.GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
 			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos);
 			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
@@ -518,6 +522,7 @@ namespace PeepoDrumKit
 				drawList->AddText(posTxtJPos, 0xFFFFFFFF, str.c_str(), str.c_str() + str.length());
 			}
 
+			drawList->ChannelsSetCurrent(2);
 			ForEachBarOnNoteLane(*course, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
 			{
 				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
@@ -555,6 +560,7 @@ namespace PeepoDrumKit
 			Gui::End();
 #endif
 
+			drawList->ChannelsSetCurrent(3);
 			ForEachNoteOnNoteLane(*course, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
 			{
 				vec2 laneHead = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
