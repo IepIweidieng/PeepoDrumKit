@@ -2146,9 +2146,9 @@ namespace PeepoDrumKit
 				auto insertOrUpdateCursorTempoChange = [&](Tempo newTempo)
 				{
 					if (tempoChangeAtCursor == nullptr || tempoChangeAtCursor->Beat != cursorBeat)
-						context.Undo.Execute<Commands::AddTempoChange>(&course.TempoMap, TempoChange(cursorBeat, newTempo));
+						context.Undo.Execute<Commands::AddTempoChange>(&course, &course.TempoMap, TempoChange(cursorBeat, newTempo));
 					else
-						context.Undo.Execute<Commands::UpdateTempoChange>(&course.TempoMap, TempoChange(cursorBeat, newTempo));
+						context.Undo.Execute<Commands::UpdateTempoChange>(&course, &course.TempoMap, TempoChange(cursorBeat, newTempo));
 				};
 
 				Gui::Property::Property([&]
@@ -2170,7 +2170,7 @@ namespace PeepoDrumKit
 					if (!disallowRemoveButton && tempoChangeAtCursor != nullptr && tempoChangeAtCursor->Beat == cursorBeat)
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
-							context.Undo.Execute<Commands::RemoveTempoChange>(&course.TempoMap, cursorBeat);
+							context.Undo.Execute<Commands::RemoveTempoChange>(&course, &course.TempoMap, cursorBeat);
 					}
 					else
 					{
@@ -2196,9 +2196,9 @@ namespace PeepoDrumKit
 					{
 						// TODO: Also floor cursor beat to next whole bar (?)
 						if (signatureChangeAtCursor == nullptr || signatureChangeAtCursor->Beat != cursorBeat)
-							context.Undo.Execute<Commands::AddTimeSignatureChange>(&course.TempoMap, TimeSignatureChange(cursorBeat, newSignature));
+							context.Undo.Execute<Commands::AddTimeSignatureChange>(&course, &course.TempoMap, TimeSignatureChange(cursorBeat, newSignature));
 						else
-							context.Undo.Execute<Commands::UpdateTimeSignatureChange>(&course.TempoMap, TimeSignatureChange(cursorBeat, newSignature));
+							context.Undo.Execute<Commands::UpdateTimeSignatureChange>(&course, &course.TempoMap, TimeSignatureChange(cursorBeat, newSignature));
 					};
 
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
@@ -2211,7 +2211,7 @@ namespace PeepoDrumKit
 					if (!disallowRemoveButton && signatureChangeAtCursor != nullptr && signatureChangeAtCursor->Beat == cursorBeat)
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
-							context.Undo.Execute<Commands::RemoveTimeSignatureChange>(&course.TempoMap, cursorBeat);
+							context.Undo.Execute<Commands::RemoveTimeSignatureChange>(&course, &course.TempoMap, cursorBeat);
 					}
 					else
 					{
@@ -2234,9 +2234,9 @@ namespace PeepoDrumKit
 				auto insertOrUpdateCursorScrollSpeedChange = [&](Complex newScrollSpeed)
 				{
 					if (scrollChangeChangeAtCursor == nullptr || scrollChangeChangeAtCursor->BeatTime != cursorBeat)
-						context.Undo.Execute<Commands::AddScrollChange>(&course.ScrollChanges, ScrollChange { cursorBeat, newScrollSpeed });
+						context.Undo.Execute<Commands::AddScrollChange>(&course, &course.ScrollChanges, ScrollChange { cursorBeat, newScrollSpeed });
 					else
-						context.Undo.Execute<Commands::UpdateScrollChange>(&course.ScrollChanges, ScrollChange { cursorBeat, newScrollSpeed });
+						context.Undo.Execute<Commands::UpdateScrollChange>(&course, &course.ScrollChanges, ScrollChange { cursorBeat, newScrollSpeed });
 				};
 
 				Gui::Property::Property([&]
@@ -2277,7 +2277,7 @@ namespace PeepoDrumKit
 					if (!disallowRemoveButton && scrollChangeChangeAtCursor != nullptr && scrollChangeChangeAtCursor->BeatTime == cursorBeat)
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
-							context.Undo.Execute<Commands::RemoveScrollChange>(&course.ScrollChanges, cursorBeat);
+							context.Undo.Execute<Commands::RemoveScrollChange>(&course, &course.ScrollChanges, cursorBeat);
 					}
 					else
 					{
@@ -2301,9 +2301,9 @@ namespace PeepoDrumKit
 					auto insertOrUpdateCursorBarLineChange = [&](i8 newVisibility)
 					{
 						if (barLineChangeAtCursor == nullptr || barLineChangeAtCursor->BeatTime != cursorBeat)
-							context.Undo.Execute<Commands::AddBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newVisibility == 0 });
+							context.Undo.Execute<Commands::AddBarLineChange>(&course, &course.BarLineChanges, BarLineChange { cursorBeat, newVisibility == 0 });
 						else
-							context.Undo.Execute<Commands::UpdateBarLineChange>(&course.BarLineChanges, BarLineChange { cursorBeat, newVisibility == 0 });
+							context.Undo.Execute<Commands::UpdateBarLineChange>(&course, &course.BarLineChanges, BarLineChange { cursorBeat, newVisibility == 0 });
 					};
 
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
@@ -2316,7 +2316,7 @@ namespace PeepoDrumKit
 					if (!disallowRemoveButton && barLineChangeAtCursor != nullptr && barLineChangeAtCursor->BeatTime == cursorBeat)
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
-							context.Undo.Execute<Commands::RemoveBarLineChange>(&course.BarLineChanges, cursorBeat);
+							context.Undo.Execute<Commands::RemoveBarLineChange>(&course, &course.BarLineChanges, cursorBeat);
 					}
 					else
 					{
@@ -2340,9 +2340,9 @@ namespace PeepoDrumKit
 						auto insertOrUpdateCursorScrollType = [&](ScrollMethod newMethod)
 						{
 							if (ScrollTypeAtCursor == nullptr || ScrollTypeAtCursor->BeatTime != cursorBeat)
-								context.Undo.Execute<Commands::AddScrollType>(&course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
+								context.Undo.Execute<Commands::AddScrollType>(&course, &course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
 							else
-								context.Undo.Execute<Commands::UpdateScrollType>(&course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
+								context.Undo.Execute<Commands::UpdateScrollType>(&course, &course.ScrollTypes, ScrollType{ cursorBeat, newMethod });
 						};
 
 						Gui::BeginDisabled(disableEditingAtPlayCursor);
@@ -2354,7 +2354,7 @@ namespace PeepoDrumKit
 						if (!disallowRemoveButton && ScrollTypeAtCursor != nullptr && ScrollTypeAtCursor->BeatTime == cursorBeat)
 						{
 							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
-								context.Undo.Execute<Commands::RemoveScrollType>(&course.ScrollTypes, cursorBeat);
+								context.Undo.Execute<Commands::RemoveScrollType>(&course, &course.ScrollTypes, cursorBeat);
 						}
 						else
 						{
@@ -2378,9 +2378,9 @@ namespace PeepoDrumKit
 				auto insertOrUpdateCursorJPOSScrollChange = [&](Complex newMove, f32 newDuration)
 				{
 					if (JPOSScrollChangeAtCursor == nullptr || JPOSScrollChangeAtCursor->BeatTime != cursorBeat)
-						context.Undo.Execute<Commands::AddJPOSScroll>(&course.JPOSScrollChanges, JPOSScrollChange{ cursorBeat, newMove, newDuration });
+						context.Undo.Execute<Commands::AddJPOSScroll>(&course, &course.JPOSScrollChanges, JPOSScrollChange{ cursorBeat, newMove, newDuration });
 					else
-						context.Undo.Execute<Commands::UpdateJPOSScroll>(&course.JPOSScrollChanges, JPOSScrollChange{ cursorBeat, newMove, newDuration });
+						context.Undo.Execute<Commands::UpdateJPOSScroll>(&course, &course.JPOSScrollChanges, JPOSScrollChange{ cursorBeat, newMove, newDuration });
 				};
 
 				Gui::Property::Property([&]
@@ -2427,7 +2427,7 @@ namespace PeepoDrumKit
 						if (!disallowRemoveButton && JPOSScrollChangeAtCursor != nullptr && JPOSScrollChangeAtCursor->BeatTime == cursorBeat)
 						{
 							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
-								context.Undo.Execute<Commands::RemoveJPOSScroll>(&course.JPOSScrollChanges, cursorBeat);
+								context.Undo.Execute<Commands::RemoveJPOSScroll>(&course, &course.JPOSScrollChanges, cursorBeat);
 						}
 						else
 						{
@@ -2466,7 +2466,7 @@ namespace PeepoDrumKit
 						erase_remove_if(newGoGoRanges.Sorted, gogoIntersectsSelection);
 						newGoGoRanges.InsertOrUpdate(GoGoRange { rangeSelectionMin, (rangeSelectionMax - rangeSelectionMin) });
 
-						context.Undo.Execute<Commands::AddGoGoRange>(&course.GoGoRanges, std::move(newGoGoRanges));
+						context.Undo.Execute<Commands::AddGoGoRange>(&course, &course.GoGoRanges, std::move(newGoGoRanges));
 					}
 					Gui::EndDisabled();
 
@@ -2480,7 +2480,7 @@ namespace PeepoDrumKit
 					if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 					{
 						if (gogoRangeAtCursor != nullptr)
-							context.Undo.Execute<Commands::RemoveGoGoRange>(&course.GoGoRanges, gogoRangeAtCursor->BeatTime);
+							context.Undo.Execute<Commands::RemoveGoGoRange>(&course, &course.GoGoRanges, gogoRangeAtCursor->BeatTime);
 					}
 					Gui::EndDisabled();
 
@@ -2560,7 +2560,7 @@ namespace PeepoDrumKit
 				SortedLyricsList newLyrics;
 				ConvertAllLyricsFromString(timeSpace, chart.SongOffset, context.ChartSelectedCourse->TempoMap, AllLyricsBuffer, newLyrics);
 				// HACK: Full conversion every time a letter is typed, not great but seeing as lyrics is relatively rare and typically small in size this might be fine
-				context.Undo.Execute<Commands::ReplaceAllLyricChanges>(&context.ChartSelectedCourse->Lyrics, std::move(newLyrics));
+				context.Undo.Execute<Commands::ReplaceAllLyricChanges>(&course, &context.ChartSelectedCourse->Lyrics, std::move(newLyrics));
 			}
 
 			IsAllLyricsInputActiveLastFrame = IsAllLyricsInputActiveThisFrame;
@@ -2604,9 +2604,9 @@ namespace PeepoDrumKit
 				ConvertToEscapeSequences(LyricInputBuffer, newLyricLine, EscapeSequenceFlags::NewLines);
 
 				if (lyricChangeAtCursor == nullptr || lyricChangeAtCursor->BeatTime != cursorBeat)
-					context.Undo.Execute<Commands::AddLyricChange>(&course.Lyrics, LyricChange { cursorBeat, std::move(newLyricLine) });
+					context.Undo.Execute<Commands::AddLyricChange>(&course, &course.Lyrics, LyricChange { cursorBeat, std::move(newLyricLine) });
 				else
-					context.Undo.Execute<Commands::UpdateLyricChange>(&course.Lyrics, LyricChange { cursorBeat, std::move(newLyricLine) });
+					context.Undo.Execute<Commands::UpdateLyricChange>(&course, &course.Lyrics, LyricChange { cursorBeat, std::move(newLyricLine) });
 			}
 
 			// HACK: Workaround for ImGuiInputTextFlags_AutoSelectAll being ignored for multiline text inputs
@@ -2626,14 +2626,14 @@ namespace PeepoDrumKit
 				if (clicked == 0)
 				{
 					if (lyricChangeAtCursor == nullptr || lyricChangeAtCursor->BeatTime != cursorBeat)
-						context.Undo.Execute<Commands::AddLyricChange>(&course.Lyrics, LyricChange { cursorBeat, "" });
+						context.Undo.Execute<Commands::AddLyricChange>(&course, &course.Lyrics, LyricChange { cursorBeat, "" });
 					else
-						context.Undo.Execute<Commands::UpdateLyricChange>(&course.Lyrics, LyricChange { cursorBeat, "" });
+						context.Undo.Execute<Commands::UpdateLyricChange>(&course, &course.Lyrics, LyricChange { cursorBeat, "" });
 				}
 				else if (clicked == 1)
 				{
 					if (lyricChangeAtCursor != nullptr && lyricChangeAtCursor->BeatTime == cursorBeat)
-						context.Undo.Execute<Commands::RemoveLyricChange>(&course.Lyrics, cursorBeat);
+						context.Undo.Execute<Commands::RemoveLyricChange>(&course, &course.Lyrics, cursorBeat);
 				}
 			}
 			Gui::EndDisabled();

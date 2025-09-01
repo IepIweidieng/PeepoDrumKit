@@ -343,44 +343,42 @@ namespace PeepoDrumKit
 		}
 	}
 
+	void ChartCourse::RecalculateSENotes(BranchType branch) const
+	{
+		// TODO: Implement properly
+		static constexpr auto isLastNoteInGroup = [](const SortedNotesList& notes, i32 index) -> b8
+		{
+			const Note& thisNote = notes[index];
+			const Note* nextNote = IndexOrNull(index + 1, notes);
+			if (nextNote == nullptr)
+				return true;
+
+			const Beat beatDistanceToNext = (nextNote->BeatTime - thisNote.BeatTime);
+			if (beatDistanceToNext >= (Beat::FromBars(1) / 4))
+				return true;
+			return false;
+		};
+
+		const SortedNotesList& notes = GetNotes(branch);
+		for (i32 i = 0; i < static_cast<i32>(notes.size()); i++)
+		{
+			switch (const Note& it = notes[i]; it.Type)
+			{
+			case NoteType::Don: { it.TempSEType = isLastNoteInGroup(notes, i) ? NoteSEType::Don : NoteSEType::Do; } break;
+			case NoteType::DonBig: { it.TempSEType = NoteSEType::DonBig; } break;
+			case NoteType::Ka: { it.TempSEType = isLastNoteInGroup(notes, i) ? NoteSEType::Katsu : NoteSEType::Ka; } break;
+			case NoteType::KaBig: { it.TempSEType = NoteSEType::KatsuBig; } break;
+			case NoteType::Drumroll: { it.TempSEType = NoteSEType::Drumroll; } break;
+			case NoteType::DrumrollBig: { it.TempSEType = NoteSEType::DrumrollBig; } break;
+			case NoteType::Balloon: { it.TempSEType = NoteSEType::Balloon; } break;
+			case NoteType::BalloonSpecial: { it.TempSEType = NoteSEType::BalloonSpecial; } break;
+			default: { it.TempSEType = NoteSEType::Count; } break;
+			}
+		}
+	}
+
 	void ChartGamePreview::DrawGui(ChartContext& context, Time animatedCursorTime)
 	{
-#if 1 // HACK: Note text detection
-		static constexpr auto assignSeNotes = [](ChartContext& context, const ChartCourse* course)
-		{
-			// TODO: Implement properly
-			static constexpr auto isLastNoteInGroup = [](const SortedNotesList& notes, i32 index) -> b8
-			{
-				const Note& thisNote = notes[index];
-				const Note* nextNote = IndexOrNull(index + 1, notes);
-				if (nextNote == nullptr)
-					return true;
-
-				const Beat beatDistanceToNext = (nextNote->BeatTime - thisNote.BeatTime);
-				if (beatDistanceToNext >= (Beat::FromBars(1) / 4))
-					return true;
-				return false;
-			};
-
-			const SortedNotesList& notes = course->GetNotes(context.ChartSelectedBranch);
-			for (i32 i = 0; i < static_cast<i32>(notes.size()); i++)
-			{
-				switch (const Note& it = notes[i]; it.Type)
-				{
-				case NoteType::Don: { it.TempSEType = isLastNoteInGroup(notes, i) ? NoteSEType::Don : NoteSEType::Do; } break;
-				case NoteType::DonBig: { it.TempSEType = NoteSEType::DonBig; } break;
-				case NoteType::Ka: { it.TempSEType = isLastNoteInGroup(notes, i) ? NoteSEType::Katsu : NoteSEType::Ka; } break;
-				case NoteType::KaBig: { it.TempSEType = NoteSEType::KatsuBig; } break;
-				case NoteType::Drumroll: { it.TempSEType = NoteSEType::Drumroll; } break;
-				case NoteType::DrumrollBig: { it.TempSEType = NoteSEType::DrumrollBig; } break;
-				case NoteType::Balloon: { it.TempSEType = NoteSEType::Balloon; } break;
-				case NoteType::BalloonSpecial: { it.TempSEType = NoteSEType::BalloonSpecial; } break;
-				default: { it.TempSEType = NoteSEType::Count; } break;
-				}
-			}
-		};
-#endif
-
 		const i32 nLanes = size(context.ChartsCompared);
 
 		static constexpr vec2 buttonMargin = vec2(8.0f);
@@ -446,8 +444,6 @@ namespace PeepoDrumKit
 				continue;
 			const b8 isFocusedLane = (context.CompareMode && course == context.ChartSelectedCourse && branch == context.ChartSelectedBranch);
 			++iLane;
-
-			assignSeNotes(context, course);
 
 			Camera.LaneRect = laneRectBase + vec2{ 0, iLane * GameLaneSlice.TotalHeight() };
 

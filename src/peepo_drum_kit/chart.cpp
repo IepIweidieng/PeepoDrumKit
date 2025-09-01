@@ -261,6 +261,7 @@ namespace PeepoDrumKit
 			outCourse.ScoreDiff = inCourse.CourseMetadata.SCOREDIFF;
 
 			outCourse.TempoMap.RebuildAccelerationStructure();
+			outCourse.RecalculateSENotes();
 
 			if (!inCourse.Measures.empty())
 				out.ChartDuration = Max(out.ChartDuration, outCourse.TempoMap.BeatToTime(inCourse.Measures.back().StartTime /*+ inCourse.Measures.back().TimeSignature.GetDurationPerBar()*/));

@@ -1891,7 +1891,7 @@ namespace PeepoDrumKit
 				}
 
 				PlaySoundEffectTypeForNoteType(context, noteTypesToChange[0].NewValue);
-				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_FlipTypes>(&notes, std::move(noteTypesToChange));
+				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_FlipTypes>(&course, &notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
 		} break;
@@ -1920,7 +1920,7 @@ namespace PeepoDrumKit
 				}
 
 				PlaySoundEffectTypeForNoteType(context, noteTypesToChange[0].NewValue);
-				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_ToggleSizes>(&notes, std::move(noteTypesToChange));
+				context.Undo.Execute<Commands::ChangeMultipleNoteTypes_ToggleSizes>(&course, &notes, std::move(noteTypesToChange));
 				context.Undo.DisallowMergeForLastCommand();
 			}
 		} break;
@@ -2524,9 +2524,9 @@ namespace PeepoDrumKit
 										data.NewValue = ((isTail ? note.BeatDuration : note.BeatTime) + dragBeatIncrement);
 									}
 								if (isTail)
-									context.Undo.Execute<Commands::ChangeMultipleNoteBeatDurations_AdjustRollNoteDurations>(&notes, std::move(noteBeatsToChange));
+									context.Undo.Execute<Commands::ChangeMultipleNoteBeatDurations_AdjustRollNoteDurations>(&selectedCourse, &notes, std::move(noteBeatsToChange));
 								else
-									context.Undo.Execute<Commands::ChangeMultipleNoteBeats_MoveNotes>(&notes, std::move(noteBeatsToChange));
+									context.Undo.Execute<Commands::ChangeMultipleNoteBeats_MoveNotes>(&selectedCourse, &notes, std::move(noteBeatsToChange));
 							}
 							else
 							{
@@ -2833,7 +2833,8 @@ namespace PeepoDrumKit
 			{
 				if (Gui::IsAnyPressed(inputBinding, false, InputModifierBehavior::Relaxed))
 				{
-					SortedNotesList& notes = context.ChartSelectedCourse->GetNotes(context.ChartSelectedBranch);
+					ChartCourse& course = *context.ChartSelectedCourse;
+					SortedNotesList& notes = course.GetNotes(context.ChartSelectedBranch);
 
 					if (Gui::GetIO().KeyShift && RangeSelection.IsActiveAndHasEnd())
 					{
@@ -2860,7 +2861,7 @@ namespace PeepoDrumKit
 						{
 							SetNotesWaveAnimationTimes(newNotesToAdd, (RangeSelection.Start < RangeSelection.End) ? +1 : -1);
 							PlaySoundEffectTypeForNoteType(context, newNotesToAdd.front().Type);
-							context.Undo.Execute<Commands::AddMultipleNotes>(&notes, std::move(newNotesToAdd));
+							context.Undo.Execute<Commands::AddMultipleNotes>(&course, &notes, std::move(newNotesToAdd));
 						}
 					}
 					else
@@ -2879,11 +2880,11 @@ namespace PeepoDrumKit
 									if (ToSmallNote(existingNoteAtCursor->Type) == ToSmallNote(noteTypeToInsert) || (existingNoteAtCursor->BeatDuration > Beat::Zero()))
 									{
 										TempDeletedNoteAnimationsBuffer.push_back(DeletedNoteAnimation { *existingNoteAtCursor, context.ChartSelectedBranch, 0.0f });
-										context.Undo.Execute<Commands::RemoveSingleNote>(&notes, *existingNoteAtCursor);
+										context.Undo.Execute<Commands::RemoveSingleNote>(&course, &notes, *existingNoteAtCursor);
 									}
 									else
 									{
-										context.Undo.Execute<Commands::ChangeSingleNoteType>(&notes, Commands::ChangeSingleNoteType::Data { ArrayItToIndex(existingNoteAtCursor, &notes[0]), noteTypeToInsert });
+										context.Undo.Execute<Commands::ChangeSingleNoteType>(&course, &notes, Commands::ChangeSingleNoteType::Data { ArrayItToIndex(existingNoteAtCursor, &notes[0]), noteTypeToInsert });
 										context.Undo.DisallowMergeForLastCommand();
 									}
 								}
@@ -2896,7 +2897,7 @@ namespace PeepoDrumKit
 							newNote.BeatTime = cursorBeat;
 							newNote.Type = noteTypeToInsert;
 							newNote.ClickAnimationTimeRemaining = newNote.ClickAnimationTimeDuration = NoteHitAnimationDuration;
-							context.Undo.Execute<Commands::AddSingleNote>(&notes, newNote);
+							context.Undo.Execute<Commands::AddSingleNote>(&course, &notes, newNote);
 							PlaySoundEffectTypeForNoteType(context, noteTypeToInsert);
 						}
 					}
@@ -2932,7 +2933,8 @@ namespace PeepoDrumKit
 
 			auto placeLongNoteOnBindingRelease = [this, &context](NoteType longNoteType)
 			{
-				SortedNotesList& notes = context.ChartSelectedCourse->GetNotes(context.ChartSelectedBranch);
+				ChartCourse& course = *context.ChartSelectedCourse;
+				SortedNotesList& notes = course.GetNotes(context.ChartSelectedBranch);
 				const Beat minBeatAfter = LongNotePlacement.GetMin();
 				const Beat maxBeat = LongNotePlacement.GetMax();
 
@@ -2949,7 +2951,7 @@ namespace PeepoDrumKit
 				newLongNote.BalloonPopCount = IsBalloonNote(longNoteType) ? DefaultBalloonPopCount(newLongNote.BeatDuration, CurrentGridBarDivision) : 0;
 				newLongNote.Type = longNoteType;
 				newLongNote.ClickAnimationTimeRemaining = newLongNote.ClickAnimationTimeDuration = NoteHitAnimationDuration;
-				context.Undo.Execute<Commands::AddSingleLongNote>(&notes, newLongNote, std::move(notesToRemove));
+				context.Undo.Execute<Commands::AddSingleLongNote>(&course, &notes, newLongNote, std::move(notesToRemove));
 
 				PlaySoundEffectTypeForNoteType(context, longNoteType);
 			};

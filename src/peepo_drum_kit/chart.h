@@ -386,6 +386,14 @@ namespace PeepoDrumKit
 
 		inline auto& GetNotes(BranchType branch) { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
 		inline auto& GetNotes(BranchType branch) const { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
+
+		void RecalculateSENotes() const
+		{
+			for (BranchType branch = BranchType::Normal; branch < BranchType::Count; IncrementEnum(branch))
+				RecalculateSENotes(branch);
+		}
+
+		void RecalculateSENotes(BranchType branch) const; // implemented in chart_editor_widgets_game.cpp
 	};
 
 	// NOTE: Internal representation of a chart. Can then be imported / exported as .tja (and maybe as the native fumen binary format too eventually?)
