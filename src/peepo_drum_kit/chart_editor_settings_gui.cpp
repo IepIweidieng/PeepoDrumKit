@@ -136,7 +136,12 @@ namespace PeepoDrumKit
 		template <> constexpr DataType TemplateToDataType<f32>() { return DataType::F32; }
 		template <> constexpr DataType TemplateToDataType<std::string>() { return DataType::StdString; }
 
-		enum class WidgetType : u32 { Default, B8_ChartSongSpaceComboBox, B8_ExclusiveAudioComboBox, I32_BarDivisionComboBox, F32_TimelineScrollSensitivity, F32_ExponentialSpeed, };
+		enum class WidgetType : u32 {
+			Default,
+			B8_ChartSongSpaceComboBox, B8_ExclusiveAudioComboBox, I32_BarDivisionComboBox,
+			F32_TimelineScrollSensitivity, F32_ExponentialSpeed,
+			I32_AudioBufferFrameSize,
+		};
 
 		struct SettingsEntry
 		{
@@ -222,6 +227,20 @@ namespace PeepoDrumKit
 							}
 							Gui::EndCombo();
 						}
+					}
+					else if (in.Widget == WidgetType::I32_AudioBufferFrameSize)
+					{
+						// see AudioTestWindow::AudioEngineTabContent()
+						Gui::BeginDisabled();
+						u32 currentBufferFrameCount = Audio::Engine.GetBufferFrameSize();
+						Gui::SetNextItemWidth(-1.0f);
+						Gui::InputScalar("##CurrentBufferSize", ImGuiDataType_U32, &currentBufferFrameCount, PtrArg<u32>(8), PtrArg<u32>(64), "%u Frames (Current)");
+						Gui::EndDisabled();
+
+						Gui::SetNextItemWidth(-1.0f);
+						changesWereMade |= Gui::InputScalar("##NewBufferSize", ImGuiDataType_U32, &inOutI32->Value, PtrArg<u32>(8), PtrArg<u32>(64), "%u Frames (Request)");
+						if (changesWereMade)
+							inOutI32->Value = std::clamp(inOutI32->Value, 0, i32{ Audio::Engine.MaxBufferFrameCount });
 					}
 					else
 					{
@@ -877,6 +896,13 @@ namespace PeepoDrumKit
 							"Reduce audio latency by requesting exlusive device access.\n"
 							"This will prevent all *other* applications from playing back or recording audio.",
 							SettingsGui::WidgetType::B8_ExclusiveAudioComboBox),
+
+						SettingsGui::SettingsEntry(
+							settings.Audio.BufferFrameSize,
+							"Buffer Frame Size",
+							"Prevent audio distortion by requesting sufficient buffer size (adding audio latency).\n"
+							"The minimum resulting size is the minimum possible size reported by the device.",
+							SettingsGui::WidgetType::I32_AudioBufferFrameSize),
 					};
 
 					changesWereMade |= SettingsGui::DrawEntriesListTableGui(settingsEntriesAudio, ArrayCount(settingsEntriesAudio), nullptr, lastActiveGroup);

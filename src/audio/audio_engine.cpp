@@ -105,6 +105,7 @@ namespace Audio
 		std::array<f32, (MaxBufferFrameCount* OutputChannelCount)> MasterBuffer = {};
 		std::array<f32, (MaxBufferFrameCount* OutputChannelCount)> SoundGroupBuffer = {};
 		u32 CurrentBufferFrameSize = DefaultBufferFrameCount;
+		u32 TargetBufferFrameSize = DefaultBufferFrameCount;
 
 		std::array<VolumeLimiterFX<f32>, MaxSoundGroups> Limiter = InitializedArray<VolumeLimiterFX<f32>, MaxSoundGroups>(OutputSampleRate);
 
@@ -511,7 +512,7 @@ namespace Audio
 		BackendStreamParam streamParam = {};
 		streamParam.SampleRate = OutputSampleRate;
 		streamParam.ChannelCount = OutputChannelCount;
-		streamParam.DesiredFrameCount = impl->CurrentBufferFrameSize;
+		streamParam.DesiredFrameCount = impl->TargetBufferFrameSize;
 		streamParam.ShareMode = (impl->CurrentBackendType == Backend::WASAPI_Exclusive) ? StreamShareMode::Exclusive : StreamShareMode::Shared;
 
 		if (impl->CurrentBackend == nullptr)
@@ -779,7 +780,7 @@ namespace Audio
 
 	void AudioEngine::SetBufferFrameSize(u32 bufferFrameCount)
 	{
-		bufferFrameCount = Clamp(bufferFrameCount, MinBufferFrameCount, MaxBufferFrameCount);
+		impl->TargetBufferFrameSize = bufferFrameCount = Clamp(bufferFrameCount, MinBufferFrameCount, MaxBufferFrameCount);
 
 		if (bufferFrameCount == impl->CurrentBufferFrameSize)
 			return;

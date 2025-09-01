@@ -475,6 +475,7 @@ namespace PeepoDrumKit
 			X(Audio.OpenDeviceOnStartup, "open_device_on_startup");
 			X(Audio.CloseDeviceOnIdleFocusLoss, "close_device_on_idle_focus_loss");
 			X(Audio.RequestExclusiveDeviceAccess, "request_exclusive_device_access");
+			X(Audio.BufferFrameSize, "buffer_frame_size");
 
 			SECTION("animation");
 			X(Animation.EnableGuiScaleAnimation, "enable_gui_scale_animation");

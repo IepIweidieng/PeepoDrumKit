@@ -52,6 +52,7 @@ namespace PeepoDrumKit
 	}
 
 	static b8 GlobalLastSetRequestExclusiveDeviceAccessAudioSetting = {};
+	static i32 GlobalLastSetAudioBufferFrameSize = {};
 
 	ChartEditor::ChartEditor()
 	{
@@ -65,6 +66,7 @@ namespace PeepoDrumKit
 
 		GlobalLastSetRequestExclusiveDeviceAccessAudioSetting = *Settings.Audio.RequestExclusiveDeviceAccess;
 		Audio::Engine.SetBackend(*Settings.Audio.RequestExclusiveDeviceAccess ? Audio::Backend::WASAPI_Exclusive : Audio::Backend::WASAPI_Shared);
+		Audio::Engine.SetBufferFrameSize(*Settings.Audio.BufferFrameSize);
 		Audio::Engine.SetMasterVolume(0.75f);
 		if (*Settings.Audio.OpenDeviceOnStartup)
 			Audio::Engine.OpenStartStream();
@@ -865,6 +867,11 @@ namespace PeepoDrumKit
 		{
 			Audio::Engine.SetBackend(*Settings.Audio.RequestExclusiveDeviceAccess ? Audio::Backend::WASAPI_Exclusive : Audio::Backend::WASAPI_Shared);
 			GlobalLastSetRequestExclusiveDeviceAccessAudioSetting = *Settings.Audio.RequestExclusiveDeviceAccess;
+		}
+		if (GlobalLastSetAudioBufferFrameSize != *Settings.Audio.BufferFrameSize)
+		{
+			Audio::Engine.SetBufferFrameSize(*Settings.Audio.BufferFrameSize);
+			GlobalLastSetAudioBufferFrameSize = *Settings.Audio.BufferFrameSize;
 		}
 		EnableGuiScaleAnimation = *Settings.Animation.EnableGuiScaleAnimation;
 
