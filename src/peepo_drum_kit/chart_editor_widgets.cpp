@@ -576,10 +576,10 @@ namespace PeepoDrumKit
 
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenBright);
 				Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
-				Gui::Text("%s", chart.ChartTitle.Base().c_str());
+				Gui::Text("%s", chart.ChartTitle.c_str());
 				Gui::PopFont();
 				Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
-				Gui::Text("%s", trimPrefix(chart.ChartSubtitle.Base()).c_str());
+				Gui::Text("%s", trimPrefix(chart.ChartSubtitle).c_str());
 				Gui::Text("Charter: %s", course.CourseCreator.c_str());
 				Gui::Text("%s Lv.%d %s", UI_StrRuntime(DifficultyTypeNames[(int)course.Type]), course.Level, GetStyleName(course.Style, course.PlayerSide).c_str());
 				Gui::Separator();
@@ -1793,6 +1793,94 @@ namespace PeepoDrumKit
 		}
 	}
 
+
+	// ImGui #3565
+	static f32 TableFullRowBegin()
+	{
+		ImGuiTable* table = Gui::GetCurrentTable();
+		Gui::TableSetColumnIndex((table->LeftMostEnabledColumn >= 0) ? table->LeftMostEnabledColumn : 0);
+		ImRect* workRect = &Gui::GetCurrentWindow()->WorkRect;
+		f32 restore_x = workRect->Max.x;
+		ImRect bgClipRect = table->BgClipRect;
+		Gui::PushClipRect(bgClipRect.Min, bgClipRect.Max, false);
+		workRect->Max.x = bgClipRect.Max.x;
+		return restore_x;
+	}
+
+	static void TableFullRowEnd(f32 restore_x)
+	{
+		Gui::GetCurrentWindow()->WorkRect.Max.x = restore_x;
+		Gui::PopClipRect();
+	}
+
+	static float getInsertButtonWidth()
+	{
+		return std::max(1.0f, ImGui::GetContentRegionAvail().x - 1 - Gui::GetStyle().ItemInnerSpacing.x - Gui::GetFrameHeight());
+	}
+
+	static void LocalizedPropertyCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& propertyLocalized)
+	{
+		ImGuiTable* table = Gui::GetCurrentTable();
+		Gui::TableNextRow();
+		f32 restoreX = TableFullRowBegin();
+		if (Gui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner)) {
+				const std::string* localeToRemove = nullptr;
+				for (auto&& [locale, val] : propertyLocalized) {
+					Gui::Property::PropertyTextValueFunc(locale, [&]
+					{
+						Gui::SetNextItemWidth(getInsertButtonWidth());
+						if (Gui::InputTextWithHint(("##" + locale).c_str(), "n/a", &val))
+							context.Undo.NotifyChangesWereMade();
+						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+						if (Gui::Button(("-##" + locale).c_str(), {Gui::GetFrameHeight(), Gui::GetFrameHeight()}))
+							localeToRemove = &locale;
+						Gui::SetItemTooltip(UI_Str("ACT_EVENT_REMOVE"));
+					});
+				}
+				if (localeToRemove != nullptr) {
+					propertyLocalized.erase(*localeToRemove);
+					context.Undo.NotifyChangesWereMade();
+				}
+				// add new locale
+				Gui::Property::PropertyTextValueFunc(UI_Str("ACT_ADD_NEW_LOCALE"), [&]
+				{
+					static constexpr auto filter = [](ImGuiInputTextCallbackData* data) -> int
+					{
+						data->EventChar = ASCII::IETFLangTagToTJALangTag(data->EventChar);
+						return 0;
+					};
+
+					static std::string newLocale = "";
+					static b8 isValid = true;
+
+					Gui::SetNextItemWidth(getInsertButtonWidth());
+					Gui::PushStyleColor(ImGuiCol_Text, isValid ? Gui::GetColorU32(ImGuiCol_Text) : InputTextWarningTextColor);
+					b8 shouldAdd = Gui::InputTextWithHint("##new_locale", SelectedGuiLanguageTJA.c_str(), &newLocale, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCharFilter, filter);
+					if (Gui::IsItemEdited())
+						isValid = std::regex_match(!newLocale.empty() ? newLocale : SelectedGuiLanguageTJA, ASCII::PatIETFLangTagForTJA);
+					Gui::PopStyleColor();
+
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					Gui::BeginDisabled(!isValid);
+					if ((Gui::Button("+", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }) || shouldAdd) && isValid) {
+						if (!newLocale.empty()) {
+							propertyLocalized.try_emplace(std::move(newLocale), "");
+							newLocale = "";
+						}
+						else if (!SelectedGuiLanguageTJA.empty())
+							propertyLocalized.try_emplace(SelectedGuiLanguageTJA, "");
+						context.Undo.NotifyChangesWereMade();
+					}
+					Gui::SetItemTooltip(UI_Str("ACT_EVENT_ADD"));
+					Gui::EndDisabled();
+				});
+				Gui::EndTable();
+			}
+		}
+		TableFullRowEnd(restoreX);
+	}
+
 	void ChartPropertiesWindow::DrawGui(ChartContext& context, const ChartPropertiesWindowIn& in, ChartPropertiesWindowOut& out)
 	{
 		Gui::UpdateSmoothScrollWindow();
@@ -1805,18 +1893,21 @@ namespace PeepoDrumKit
 		{
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 			{
+
 				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_TITLE"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (Gui::InputTextWithHint("##ChartTitle", "n/a", &chart.ChartTitle.Base()))
+					if (Gui::InputTextWithHint("##ChartTitle", "n/a", &chart.ChartTitle))
 						context.Undo.NotifyChangesWereMade();
 				});
+				LocalizedPropertyCollapsingHeader(context, UI_Str("DETAILS_CHART_PROP_TITLE_LOCALIZED"), chart.ChartTitleLocalized);
 				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_SUBTITLE"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (Gui::InputTextWithHint("##ChartSubtitle", "n/a", &chart.ChartSubtitle.Base()))
+					if (Gui::InputTextWithHint("##ChartSubtitle", "n/a", &chart.ChartSubtitle))
 						context.Undo.NotifyChangesWereMade();
 				});
+				LocalizedPropertyCollapsingHeader(context, UI_Str("DETAILS_CHART_PROP_SUBTITLE_LOCALIZED"), chart.ChartSubtitleLocalized);
 				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_CREATOR"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
@@ -2027,11 +2118,6 @@ namespace PeepoDrumKit
 			ImGui::SetTooltip(tooltip_key);
 		}
 		return res;
-	}
-
-	static float getInsertButtonWidth()
-	{
-		return std::max(1.0f, ImGui::GetContentRegionAvail().x - 1 - Gui::GetStyle().ItemInnerSpacing.x - Gui::GetFrameHeight());
 	}
 
 	void ChartTempoWindow::DrawGui(ChartContext& context, ChartTimeline& timeline)

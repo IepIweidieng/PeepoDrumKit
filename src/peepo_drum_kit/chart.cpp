@@ -138,18 +138,10 @@ namespace PeepoDrumKit
 	b8 CreateChartProjectFromTJA(const TJA::ParsedTJA& inTJA, ChartProject& out)
 	{
 		out.ChartDuration = Time::Zero();
-		out.ChartTitle[Language::Base] = inTJA.Metadata.TITLE;
-		out.ChartTitle[Language::JA] = inTJA.Metadata.TITLE_JA;
-		out.ChartTitle[Language::EN] = inTJA.Metadata.TITLE_EN;
-		out.ChartTitle[Language::CN] = inTJA.Metadata.TITLE_CN;
-		out.ChartTitle[Language::TW] = inTJA.Metadata.TITLE_TW;
-		out.ChartTitle[Language::KO] = inTJA.Metadata.TITLE_KO;
-		out.ChartSubtitle[Language::Base] = inTJA.Metadata.SUBTITLE;
-		out.ChartSubtitle[Language::JA] = inTJA.Metadata.SUBTITLE_JA;
-		out.ChartSubtitle[Language::EN] = inTJA.Metadata.SUBTITLE_EN;
-		out.ChartSubtitle[Language::CN] = inTJA.Metadata.SUBTITLE_CN;
-		out.ChartSubtitle[Language::TW] = inTJA.Metadata.SUBTITLE_TW;
-		out.ChartSubtitle[Language::KO] = inTJA.Metadata.SUBTITLE_KO;
+		out.ChartTitle = inTJA.Metadata.TITLE;
+		out.ChartTitleLocalized = inTJA.Metadata.TITLE_localized;
+		out.ChartSubtitle = inTJA.Metadata.SUBTITLE;
+		out.ChartSubtitleLocalized = inTJA.Metadata.SUBTITLE_localized;
 		out.ChartCreator = inTJA.Metadata.MAKER;
 		out.ChartGenre = inTJA.Metadata.GENRE;
 		out.ChartLyricsFileName = inTJA.Metadata.LYRICS;
@@ -276,18 +268,10 @@ namespace PeepoDrumKit
 	b8 ConvertChartProjectToTJA(const ChartProject& in, TJA::ParsedTJA& out, b8 includePeepoDrumKitComment)
 	{
 		static constexpr cstr FallbackTJAChartTitle = "Untitled Chart";
-		out.Metadata.TITLE = !in.ChartTitle[Language::Base].empty() ? in.ChartTitle[Language::Base] : FallbackTJAChartTitle;
-		out.Metadata.TITLE_JA = in.ChartTitle[Language::JA];
-		out.Metadata.TITLE_EN = in.ChartTitle[Language::EN];
-		out.Metadata.TITLE_CN = in.ChartTitle[Language::CN];
-		out.Metadata.TITLE_TW = in.ChartTitle[Language::TW];
-		out.Metadata.TITLE_KO = in.ChartTitle[Language::KO];
-		out.Metadata.SUBTITLE = in.ChartSubtitle[Language::Base];
-		out.Metadata.SUBTITLE_JA = in.ChartSubtitle[Language::JA];
-		out.Metadata.SUBTITLE_EN = in.ChartSubtitle[Language::EN];
-		out.Metadata.SUBTITLE_CN = in.ChartSubtitle[Language::CN];
-		out.Metadata.SUBTITLE_TW = in.ChartSubtitle[Language::TW];
-		out.Metadata.SUBTITLE_KO = in.ChartSubtitle[Language::KO];
+		out.Metadata.TITLE = !in.ChartTitle.empty() ? in.ChartTitle : FallbackTJAChartTitle;
+		out.Metadata.TITLE_localized = in.ChartTitleLocalized;
+		out.Metadata.SUBTITLE = in.ChartSubtitle;
+		out.Metadata.SUBTITLE_localized = in.ChartSubtitleLocalized;
 		out.Metadata.MAKER = in.ChartCreator;
 		out.Metadata.GENRE = in.ChartGenre;
 		out.Metadata.LYRICS = in.ChartLyricsFileName;

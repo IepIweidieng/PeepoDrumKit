@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "core_string.h"
 #include "core_types.h"
 #include "imgui/imgui_include.h"
 
@@ -197,7 +198,10 @@ X("ACT_EVENT_SET_FROM_RANGE_SELECTION",				"Set from Range Selection") \
 /* chart properties tab */ \
 X("DETAILS_CHART_PROPERTIES_CHART",					"Chart") \
 X("CHART_PROP_TITLE",								"Chart Title") \
+X("DETAILS_CHART_PROP_TITLE_LOCALIZED",				"Chart Title Localized") \
 X("CHART_PROP_SUBTITLE",							"Chart Subtitle") \
+X("DETAILS_CHART_PROP_SUBTITLE_LOCALIZED",			"Chart Subtitle Localized") \
+X("ACT_ADD_NEW_LOCALE",								"Add New Locale:") \
 X("CHART_PROP_CREATOR",								"Chart Creator") \
 X("CHART_PROP_SONG_FILE_NAME",						"Song File Name") \
 X("CHART_PROP_JACKET_FILE_NAME",					"Jacket File Name") \
@@ -297,6 +301,7 @@ X("ACT_LANGUAGE_LOAD_FULL_CJKV_GLYPHS",				"Load Full CJKV Glyphs (slow)") \
 namespace PeepoDrumKit
 {
 	inline std::string SelectedGuiLanguage = std::string("en");
+	inline std::string SelectedGuiLanguageTJA = ASCII::IETFLangTagToTJALangTag(SelectedGuiLanguage);
 }
 
 namespace PeepoDrumKit::i18n

@@ -5,6 +5,7 @@
 #include "core_beat.h"
 #include <vector>
 #include <cstdarg>
+#include <map>
 
 // NOTE: "Token" -> smallest atomic piece of data.
 //		 A list of tokens basically losslessly represents a TJA file and exists to make parsing easier.
@@ -49,17 +50,9 @@ namespace TJA
 
 		// NOTE: Once per file
 		Main_TITLE,
-		Main_TITLEJA,
-		Main_TITLEEN,
-		Main_TITLECN,
-		Main_TITLETW,
-		Main_TITLEKO,
+		Main_TITLE_localized,
 		Main_SUBTITLE,
-		Main_SUBTITLEJA,
-		Main_SUBTITLEEN,
-		Main_SUBTITLECN,
-		Main_SUBTITLETW,
-		Main_SUBTITLEKO,
+		Main_SUBTITLE_localized,
 		Main_BPM,
 		Main_WAVE,
 		Main_PREIMAGE,
@@ -301,17 +294,9 @@ namespace TJA
 	struct ParsedMainMetadata
 	{
 		std::string TITLE;
-		std::string TITLE_JA;
-		std::string TITLE_EN;
-		std::string TITLE_CN;
-		std::string TITLE_TW;
-		std::string TITLE_KO;
+		std::map<std::string, std::string> TITLE_localized;
 		std::string SUBTITLE;
-		std::string SUBTITLE_JA;
-		std::string SUBTITLE_EN;
-		std::string SUBTITLE_CN;
-		std::string SUBTITLE_TW;
-		std::string SUBTITLE_KO;
+		std::map<std::string, std::string> SUBTITLE_localized;
 		std::string WAVE;
 		std::string PREIMAGE;
 		std::string BGIMAGE;

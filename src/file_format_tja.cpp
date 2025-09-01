@@ -14,17 +14,9 @@ namespace TJA
 
 		// NOTE: Main_
 		"TITLE",
-		"TITLEJA",
-		"TITLEEN",
-		"TITLECN",
-		"TITLETW",
-		"TITLEKO",
+		"TITLE", // prefix
 		"SUBTITLE",
-		"SUBTITLEJA",
-		"SUBTITLEEN",
-		"SUBTITLECN",
-		"SUBTITLETW",
-		"SUBTITLEKO",
+		"SUBTITLE", // prefix
 		"BPM",
 		"WAVE",
 		"PREIMAGE",
@@ -105,6 +97,20 @@ namespace TJA
 
 	static_assert(ArrayCount(KeyStrings) == EnumCount<Key>);
 
+	static const std::regex PatTJAHeader = std::regex("^\\.?[A-Z][A-Z0-9_]*$");
+	static const std::regex PatTJACommand = std::regex("^[A-Z]+$");
+
+	static bool MatchKeyString(Key key, std::string_view str)
+	{
+		switch (key) {
+		case Key::Main_TITLE_localized:
+		case Key::Main_SUBTITLE_localized:
+			return ASCII::StartsWith(str, KeyStrings[EnumToIndex(key)]);
+		default:
+			return (str == KeyStrings[EnumToIndex(key)]);
+		}
+	}
+
 	struct LinePrefixCommentSuffixSplit { std::string_view LinePrefix, CommentSuffix; };
 
 	static constexpr LinePrefixCommentSuffixSplit SplitLineIntoPrefixAndCommentSuffix(std::string_view line)
@@ -179,8 +185,10 @@ namespace TJA
 							newToken.ValueString = {};
 						}
 
-						for (size_t i = EnumToIndex(Key::HashCommand_First); i <= EnumToIndex(Key::HashCommand_Last); i++)
-							if (newToken.KeyString == KeyStrings[i]) { newToken.Key = static_cast<Key>(i); break; }
+						if (std::regex_match(begin(newToken.KeyString), end(newToken.KeyString), PatTJACommand)) {
+							for (Key i = Key::HashCommand_First; i <= Key::HashCommand_Last; IncrementEnum(i))
+								if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
+						}
 
 						if (newToken.Key == Key::Chart_START)
 							currentlyBetweenChartStartAndEnd = true;
@@ -193,8 +201,10 @@ namespace TJA
 						newToken.KeyString = lineTrimmed.substr(0, colonSeparator);
 						newToken.ValueString = lineTrimmed.substr(colonSeparator + sizeof(':'));
 
-						for (size_t i = EnumToIndex(Key::KeyColonValue_First); i <= EnumToIndex(Key::KeyColonValue_Last); i++)
-							if (newToken.KeyString == KeyStrings[i]) { newToken.Key = static_cast<Key>(i); break; }
+						if (std::regex_match(begin(newToken.KeyString), end(newToken.KeyString), PatTJAHeader)) {
+							for (Key i = Key::KeyColonValue_First; i <= Key::KeyColonValue_Last; IncrementEnum(i))
+								if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
+						}
 					}
 					else
 					{
@@ -362,6 +372,11 @@ namespace TJA
 			if (ASCII::MatchesInsensitive(in, "CEILING")) { *out = GaugeIncrementMethod::Ceiling; return true; }
 			return false;
 		};
+		static constexpr auto tryParseLocaleSuffix = [](std::string_view in, std::string_view prefix, std::string_view* out) -> b8
+		{
+			*out = ASCII::TrimPrefix(in, prefix);
+			return std::regex_match(begin(*out), end(*out), ASCII::PatIETFLangTagForTJA);
+		};
 
 		static constexpr auto validateEndOfMeasureNoteCount = [](i32 noteCountAtEndOfMeasure, i32 lineIndex, ErrorList& outErrors)
 		{
@@ -480,17 +495,21 @@ namespace TJA
 					switch (token.Key)
 					{
 					case Key::Main_TITLE: { out.TITLE = in; } break;
-					case Key::Main_TITLEJA: { out.TITLE_JA = in; } break;
-					case Key::Main_TITLEEN: { out.TITLE_EN = in; } break;
-					case Key::Main_TITLECN: { out.TITLE_CN = in; } break;
-					case Key::Main_TITLETW: { out.TITLE_TW = in; } break;
-					case Key::Main_TITLEKO: { out.TITLE_KO = in; } break;
+					case Key::Main_TITLE_localized:
+					{
+						std::string_view key;
+						if (!tryParseLocaleSuffix(token.KeyString, "TITLE", &key)) { outErrors.Push(lineIndex, "Invalid language tag '%.*s'", FmtStrViewArgs(key)); }
+						out.TITLE_localized.insert_or_assign(std::string{ key }, in);
+					}
+					break;
 					case Key::Main_SUBTITLE: { out.SUBTITLE = in; } break;
-					case Key::Main_SUBTITLEJA: { out.SUBTITLE_JA = in; } break;
-					case Key::Main_SUBTITLEEN: { out.SUBTITLE_EN = in; } break;
-					case Key::Main_SUBTITLECN: { out.SUBTITLE_CN = in; } break;
-					case Key::Main_SUBTITLETW: { out.SUBTITLE_TW = in; } break;
-					case Key::Main_SUBTITLEKO: { out.SUBTITLE_KO = in; } break;
+					case Key::Main_SUBTITLE_localized:
+					{
+						std::string_view key;
+						if (!tryParseLocaleSuffix(token.KeyString, "SUBTITLE", &key)) { outErrors.Push(lineIndex, "Invalid language tag '%.*s'", FmtStrViewArgs(key)); }
+						out.SUBTITLE_localized.insert_or_assign(std::string{ key }, in);
+					}
+					break;
 					case Key::Main_BPM: { if (!tryParseTempo(in, &out.BPM)) { outErrors.Push(lineIndex, "Invalid tempo '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_WAVE: { out.WAVE = in; } break;
 					case Key::Main_PREIMAGE: { out.PREIMAGE = in; } break;
@@ -968,6 +987,8 @@ namespace TJA
 
 		static constexpr auto appendLine = [](std::string& out, std::string_view line) { out += line; out += '\n'; };
 		static constexpr auto appendProperyLine = [](std::string& out, Key key, std::string_view value) { out += KeyStrings[EnumToIndex(key)]; out += ':'; out += value; out += '\n'; };
+		static constexpr auto appendSuffixedPropertyLine = [](std::string& out, Key key, std::string_view suffix, std::string_view value)
+		{ out += KeyStrings[EnumToIndex(key)]; out += suffix; out += ':'; out += value; out += '\n'; };
 		static constexpr auto appendCommandLine = [](std::string& out, Key key, std::string_view value) { out += '#'; out += KeyStrings[EnumToIndex(key)]; if (!value.empty()) { out += ' '; out += value; }out += '\n'; };
 		static constexpr auto appendBalloonProperyLine = [](std::string& out, Key key, const std::vector<i32>& popCounts)
 		{
@@ -1056,21 +1077,15 @@ namespace TJA
 		};
 
 		appendProperyLine(out, Key::Main_TITLE, inContent.Metadata.TITLE); // Required for TaikoJiro
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::TITLE_JA, &ParsedMainMetadata::TITLE_EN, &ParsedMainMetadata::TITLE_CN, &ParsedMainMetadata::TITLE_TW, &ParsedMainMetadata::TITLE_KO)) {
-			appendProperyLine(out, Key::Main_TITLEJA, inContent.Metadata.TITLE_JA);
-			appendProperyLine(out, Key::Main_TITLEEN, inContent.Metadata.TITLE_EN);
-			appendProperyLine(out, Key::Main_TITLECN, inContent.Metadata.TITLE_CN);
-			appendProperyLine(out, Key::Main_TITLETW, inContent.Metadata.TITLE_TW);
-			appendProperyLine(out, Key::Main_TITLEKO, inContent.Metadata.TITLE_KO);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::TITLE_localized)) {
+			for (const auto& [locale, val] : inContent.Metadata.TITLE_localized)
+				appendSuffixedPropertyLine(out, Key::Main_TITLE_localized, locale, val);
 		}
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE, &ParsedMainMetadata::SUBTITLE_JA, &ParsedMainMetadata::SUBTITLE_EN, &ParsedMainMetadata::SUBTITLE_CN, &ParsedMainMetadata::SUBTITLE_TW, &ParsedMainMetadata::SUBTITLE_KO))
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE, &ParsedMainMetadata::SUBTITLE_localized))
 			appendProperyLine(out, Key::Main_SUBTITLE, inContent.Metadata.SUBTITLE); // Better to be explicit if localized
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE_JA, &ParsedMainMetadata::SUBTITLE_EN, &ParsedMainMetadata::SUBTITLE_CN, &ParsedMainMetadata::SUBTITLE_TW, &ParsedMainMetadata::SUBTITLE_KO)) {
-			appendProperyLine(out, Key::Main_SUBTITLEJA, inContent.Metadata.SUBTITLE_JA);
-			appendProperyLine(out, Key::Main_SUBTITLEEN, inContent.Metadata.SUBTITLE_EN);
-			appendProperyLine(out, Key::Main_SUBTITLECN, inContent.Metadata.SUBTITLE_CN);
-			appendProperyLine(out, Key::Main_SUBTITLETW, inContent.Metadata.SUBTITLE_TW);
-			appendProperyLine(out, Key::Main_SUBTITLEKO, inContent.Metadata.SUBTITLE_KO);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE_localized)) {
+			for (const auto& [locale, val] : inContent.Metadata.SUBTITLE_localized)
+				appendSuffixedPropertyLine(out, Key::Main_SUBTITLE_localized, locale, val);
 		}
 		appendProperyLine(out, Key::Main_BPM, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.BPM.BPM))); // Better to be explicit
 		if (shouldEmitMainMetadata(&ParsedMainMetadata::WAVE))

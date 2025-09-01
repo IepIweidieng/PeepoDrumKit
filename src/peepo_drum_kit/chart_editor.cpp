@@ -98,6 +98,7 @@ namespace PeepoDrumKit
 				if (nextLanguageToSelect != SelectedGuiLanguage)
 				{
 					SelectedGuiLanguage = nextLanguageToSelect;
+					SelectedGuiLanguageTJA = ASCII::IETFLangTagToTJALangTag(SelectedGuiLanguage);
 					i18n::ReloadLocaleFile(SelectedGuiLanguage.c_str());
 				}
 			};
@@ -1427,7 +1428,7 @@ namespace PeepoDrumKit
 		static constexpr auto getChartFileNameWithoutExtensionOrDefault = [](const ChartContext& context) -> std::string_view
 		{
 			if (!context.ChartFilePath.empty()) return Path::GetFileName(context.ChartFilePath, false);
-			if (!context.Chart.ChartTitle.Base().empty()) return context.Chart.ChartTitle.Base();
+			if (!context.Chart.ChartTitle.empty()) return context.Chart.ChartTitle;
 			return Path::TrimExtension(UntitledChartFileName);
 		};
 
@@ -1700,8 +1701,8 @@ namespace PeepoDrumKit
 			context.SongWaveformFadeAnimationTarget = context.SongWaveformL.IsEmpty() ? 0.0f : 1.0f;
 
 			// TODO: Maybe handle this differently...
-			if (context.Chart.ChartTitle.Base().empty() && !context.SongSourceFilePath.empty())
-				context.Chart.ChartTitle.Base() = Path::GetFileName(context.SongSourceFilePath, false);
+			if (context.Chart.ChartTitle.empty() && !context.SongSourceFilePath.empty())
+				context.Chart.ChartTitle = Path::GetFileName(context.SongSourceFilePath, false);
 
 			if (context.Chart.ChartDuration.Seconds <= 0.0 && loadResult.SampleBuffer.SampleRate > 0)
 				context.Chart.ChartDuration = Audio::FramesToTime(loadResult.SampleBuffer.FrameCount, loadResult.SampleBuffer.SampleRate);

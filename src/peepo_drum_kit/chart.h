@@ -335,21 +335,6 @@ namespace PeepoDrumKit
 	constexpr Complex ScrollOrDefault(const ScrollChange* v) { return (v == nullptr) ? Complex(1.0f, 0.0f) : v->ScrollSpeed; }
 	constexpr Tempo TempoOrDefault(const TempoChange* v) { return (v == nullptr) ? FallbackTempo : v->Tempo; }
 
-	enum class Language : u8 { Base, JA, EN, CN, TW, KO, Count };
-	struct PerLanguageString
-	{
-		std::string Slots[EnumCount<Language>];
-
-		inline auto& Base() { return Slots[EnumToIndex(Language::Base)]; }
-		inline auto& Base() const { return Slots[EnumToIndex(Language::Base)]; }
-		inline auto* begin() { return &Slots[0]; }
-		inline auto* end() { return &Slots[0] + ArrayCount(Slots); }
-		inline auto* begin() const { return &Slots[0]; }
-		inline auto* end() const { return &Slots[0] + ArrayCount(Slots); }
-		inline auto& operator[](Language v) { return Slots[EnumToIndex(v)]; }
-		inline auto& operator[](Language v) const { return Slots[EnumToIndex(v)]; }
-	};
-
 	struct ChartCourse
 	{
 		DifficultyType Type = DifficultyType::Oni;
@@ -401,8 +386,10 @@ namespace PeepoDrumKit
 		std::vector<std::unique_ptr<ChartCourse>> Courses;
 
 		Time ChartDuration = {};
-		PerLanguageString ChartTitle;
-		PerLanguageString ChartSubtitle;
+		std::string ChartTitle;
+		std::map<std::string, std::string> ChartTitleLocalized; // (alphabetically) ordered
+		std::string ChartSubtitle;
+		std::map<std::string, std::string> ChartSubtitleLocalized;
 		std::string ChartCreator;
 		std::string ChartGenre;
 		std::string ChartLyricsFileName;
@@ -428,7 +415,9 @@ namespace PeepoDrumKit
 
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartDuration> = "Chart Duration";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartTitle> = "Chart Title";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartTitleLocalized> = "Chart Title Localized";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartSubtitle> = "Chart Subtitle";
+	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartSubtitleLocalized> = "Chart Subtitle Localized";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartCreator> = "Chart Creator";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartGenre> = "Chart Genre";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartLyricsFileName> = "Chart Lyrics File";

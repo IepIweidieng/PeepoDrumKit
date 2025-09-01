@@ -278,17 +278,11 @@ namespace PeepoDrumKit
 
 					char b[256];
 					row("Title", metadata.TITLE);
-					if (!metadata.TITLE_JA.empty()) row("Title (JA)", metadata.TITLE_JA);
-					if (!metadata.TITLE_EN.empty()) row("Title (EN)", metadata.TITLE_EN);
-					if (!metadata.TITLE_CN.empty()) row("Title (CN)", metadata.TITLE_CN);
-					if (!metadata.TITLE_TW.empty()) row("Title (TW)", metadata.TITLE_TW);
-					if (!metadata.TITLE_KO.empty()) row("Title (KO)", metadata.TITLE_KO);
+					for (const auto& [locale, val] : metadata.TITLE_localized)
+						row("Title (" + locale + ")", val);
 					row("Subtitle", metadata.SUBTITLE);
-					if (!metadata.SUBTITLE_JA.empty()) row("Subtitle (JA)", metadata.SUBTITLE_JA);
-					if (!metadata.SUBTITLE_EN.empty()) row("Subtitle (EN)", metadata.SUBTITLE_EN);
-					if (!metadata.SUBTITLE_CN.empty()) row("Subtitle (CN)", metadata.SUBTITLE_CN);
-					if (!metadata.SUBTITLE_TW.empty()) row("Subtitle (TW)", metadata.SUBTITLE_TW);
-					if (!metadata.SUBTITLE_KO.empty()) row("Subtitle (KO)", metadata.SUBTITLE_KO);
+					for (const auto& [locale, val] : metadata.SUBTITLE_localized)
+						row("Subtitle (" + locale + ")", val);
 					row("Song File Name", metadata.WAVE);
 					if (!metadata.BGIMAGE.empty()) row("Background Image File Name", metadata.BGIMAGE);
 					if (!metadata.BGMOVIE.empty()) row("Background Movie File Name", metadata.BGMOVIE);

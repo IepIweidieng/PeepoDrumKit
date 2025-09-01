@@ -177,4 +177,34 @@ namespace ASCII
 	b8 TryParse(std::string_view string, f32& out);
 	b8 TryParse(std::string_view string, f64& out);
 	b8 TryParse(std::string_view string, Complex& out);
+
+	// https://stackoverflow.com/questions/7035825/regular-expression-for-a-language-tag-as-defined-by-bcp47
+#define IETF_ "_" // delim
+#define IETF_REGULAR "(art" IETF_ "lojban|cel" IETF_ "gaulish|no" IETF_ "bok|no" IETF_ "nyn|zh" IETF_ "guoyu|zh" IETF_ "hakka|zh" IETF_ "min|zh" IETF_ "min" IETF_ "nan|zh" IETF_ "xiang)"
+#define IETF_IRREGULAR "(en" IETF_ "GB" IETF_ "oed|i" IETF_ "ami|i" IETF_ "bnn|i" IETF_ "default|i" IETF_ "enochian|i" IETF_ "hak|i" IETF_ "klingon|i" IETF_ "lux|i" IETF_ "mingo|i" IETF_ "navajo|i" IETF_ "pwn|i" IETF_ "tao|i" IETF_ "tay|i" IETF_ "tsu|sgn" IETF_ "BE" IETF_ "FR|sgn" IETF_ "BE" IETF_ "NL|sgn" IETF_ "CH" IETF_ "DE)"
+#define IETF_GRANDFATHERED "(?:" IETF_IRREGULAR "|" IETF_REGULAR ")"
+#define IETF_PRIVATEUSE "(?:[xX](" IETF_ "[A-Za-z0-9]{1,8})+)"
+#define IETF_SINGLETON "[0-9A-WY-Za-wy-z]"
+#define IETF_EXTENSION "(?:" IETF_SINGLETON "(" IETF_ "[A-Za-z0-9]{2,8})+)"
+#define IETF_VARIANT "(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3})"
+#define IETF_REGION "(?:[A-Za-z]{2}|[0-9]{3})"
+#define IETF_SCRIPT "(?:[A-Za-z]{4})"
+#define IETF_EXTLANG "(?:[A-Za-z]{3}(" IETF_ "[A-Za-z]{3}){0,2})"
+#define IETF_LANGUAGE "(?:([A-Za-z]{2,3}(" IETF_ IETF_EXTLANG ")?)|[A-Za-z]{4}|[A-Za-z]{5,8})"
+#define IETF_LANGTAG "(" IETF_LANGUAGE "(" IETF_ IETF_SCRIPT ")?" "(" IETF_ IETF_REGION ")?" "(" IETF_ IETF_VARIANT ")*" "(" IETF_ IETF_EXTENSION ")*" "(" IETF_ IETF_PRIVATEUSE ")?" ")"
+#define IETF_LANGUAGETAG "^(" IETF_GRANDFATHERED "|" IETF_LANGTAG "|" IETF_PRIVATEUSE ")$"
+	static const std::regex PatIETFLangTagForTJA = std::regex(IETF_LANGUAGETAG, std::regex::icase);
+
+	constexpr char IETFLangTagToTJALangTag(char c) { return ASCII::IsWhitespace(c) ? '\0' : (c == '-') ? '_' : ASCII::ToUpperCase(c); }
+	static inline std::string IETFLangTagToTJALangTag(std::string&& lang)
+	{
+		char* pc = &lang[0];
+		for (char& c : lang) {
+			if (char nc = IETFLangTagToTJALangTag(c); nc != '\0')
+				*pc++ = nc;
+		}
+		lang.resize(pc - &lang[0]);
+		return lang;
+	}
+	static inline std::string IETFLangTagToTJALangTag(std::string_view lang) { return IETFLangTagToTJALangTag(std::string{ lang }); }
 }
