@@ -403,11 +403,13 @@ namespace TJA
 				if (auto idx = idxLastCourses[EnumToIndex(courseScope)]; idx >= 0) {
 					currentCourse = &outTJA.Courses.emplace_back();
 					currentCourse->Metadata = outTJA.Courses[idx].Metadata; // inherit last (need to explicitly copy)
+					currentCourse->HasChart = false;
 					idxLastCourses[EnumToIndex(currentCourseScope)] = outTJA.Courses.size() - 1;
 					return;
 				}
 			}
 			currentCourse = &outTJA.Courses.emplace_back(); // create from scratch;
+			currentCourse->HasChart = false;
 			idxLastCourses[EnumToIndex(currentCourseScope)] = outTJA.Courses.size() - 1;
 		};
 		auto getCurrentCourse = [&]()
@@ -608,7 +610,8 @@ namespace TJA
 						if (currentlyBetweenChartStartAndEnd)
 							outErrors.Push(lineIndex, "Missing #END command");
 
-						ParsedCourseMetadata& out = getCurrentCourse()->Metadata;
+						ParsedCourse* course = getCurrentCourse();
+						ParsedCourseMetadata& out = course->Metadata;
 						if (!tryParsePlayerSide(in, &out.START_PLAYERSIDE) || out.START_PLAYERSIDE < 0)
 							outErrors.Push(lineIndex, "Invalid player side '%.*s', expected '' or 'Pn' ('P1', 'P2', ...)", FmtStrViewArgs(in));
 						else if (out.START_PLAYERSIDE == 0 && out.STYLE > 1)
@@ -618,6 +621,7 @@ namespace TJA
 						else if (out.START_PLAYERSIDE > out.STYLE)
 							outErrors.Push(lineIndex, "The player side '%.*s' is invalid in %d-player mode", FmtStrViewArgs(in), out.STYLE);
 
+						course->HasChart = true;
 						currentlyBetweenChartStartAndEnd = true;
 					} break;
 					case Key::Chart_END:

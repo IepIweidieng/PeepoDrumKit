@@ -164,6 +164,9 @@ namespace PeepoDrumKit
 		out.MovieOffset = inTJA.Metadata.MOVIEOFFSET;
 		for (size_t i = 0; i < inTJA.Courses.size(); i++)
 		{
+			if (!inTJA.Courses[i].HasChart) // metadata-only TJA section
+				continue;
+
 			const TJA::ConvertedCourse& inCourse = TJA::ConvertParsedToConvertedCourse(inTJA, inTJA.Courses[i]);
 			ChartCourse& outCourse = *out.Courses.emplace_back(std::make_unique<ChartCourse>());
 

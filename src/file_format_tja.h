@@ -427,6 +427,7 @@ namespace TJA
 	{
 		ParsedCourseMetadata Metadata;
 		std::vector<ParsedChartCommand> ChartCommands;
+		b8 HasChart;
 	};
 
 	struct ParsedTJA
