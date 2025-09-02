@@ -1571,7 +1571,7 @@ namespace PeepoDrumKit
 						case GenericMember::NoteType_V:
 						{
 							b8 isAnyRegularNoteSelected = false, isAnyDrumrollNoteSelected = false, isAnyBalloonNoteSelected = false;
-							b8 areAllSelectedNotesSmall = true, areAllSelectedNotesBig = true;
+							b8 areAllSelectedNotesSmall = true, areAllSelectedNotesBig = true, areAllSelectedNotesHand = true;
 							b8 perNoteTypeHasAtLeastOneSelected[EnumCount<NoteType>] = {};
 							for (const auto& selectedItem : SelectedItems)
 							{
@@ -1581,12 +1581,17 @@ namespace PeepoDrumKit
 								isAnyBalloonNoteSelected |= IsBalloonNote(noteType);
 								areAllSelectedNotesSmall &= IsSmallNote(noteType);
 								areAllSelectedNotesBig &= IsBigNote(noteType);
+								areAllSelectedNotesHand &= IsHandNote(noteType);
 								perNoteTypeHasAtLeastOneSelected[EnumToIndex(noteType)] = true;
 							}
 
 							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_PROP_NOTE_TYPE"), [&]
 							{
-								const cstr noteTypeNames[] = { UI_Str("NOTE_TYPE_DON"), UI_Str("NOTE_TYPE_DON_BIG"), UI_Str("NOTE_TYPE_KA"), UI_Str("NOTE_TYPE_KA_BIG"), UI_Str("NOTE_TYPE_DRUMROLL"), UI_Str("NOTE_TYPE_DRUMROLL_BIG"), UI_Str("NOTE_TYPE_BALLOON"), UI_Str("NOTE_TYPE_BALLOON_EX"), UI_Str("NOTE_TYPE_KADON"), UI_Str("NOTE_TYPE_BOMB"), UI_Str("NOTE_TYPE_ADLIB"), UI_Str("NOTE_TYPE_FUSEROLL") };
+								const cstr noteTypeNames[] = { UI_Str("NOTE_TYPE_DON"), UI_Str("NOTE_TYPE_DON_BIG"), UI_Str("NOTE_TYPE_KA"), UI_Str("NOTE_TYPE_KA_BIG"),
+									UI_Str("NOTE_TYPE_DRUMROLL"), UI_Str("NOTE_TYPE_DRUMROLL_BIG"), UI_Str("NOTE_TYPE_BALLOON"), UI_Str("NOTE_TYPE_BALLOON_EX"),
+									UI_Str("NOTE_TYPE_DON_HAND"), UI_Str("NOTE_TYPE_KA_HAND"),
+									UI_Str("NOTE_TYPE_KADON"), UI_Str("NOTE_TYPE_BOMB"), UI_Str("NOTE_TYPE_ADLIB"), UI_Str("NOTE_TYPE_FUSEROLL"),
+								};
 
 								static_assert(ArrayCount(noteTypeNames) == EnumCount<NoteType>);
 
@@ -1632,9 +1637,12 @@ namespace PeepoDrumKit
 
 							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_PROP_NOTE_TYPE_SIZE"), [&]
 							{
-								enum class NoteSizeType { Small, Big, Count };
-								const cstr noteSizeTypeNames[] = { UI_Str("NOTE_TYPE_SIZE_SMALL"), UI_Str("NOTE_TYPE_SIZE_BIG"), };
-								auto v = (!areAllSelectedNotesSmall && !areAllSelectedNotesBig) ? NoteSizeType::Count : IsBigNote(sharedValues.NoteType()) ? NoteSizeType::Big : NoteSizeType::Small;
+								enum class NoteSizeType { Small, Big, Hand, Count };
+								const cstr noteSizeTypeNames[] = { UI_Str("NOTE_TYPE_SIZE_SMALL"), UI_Str("NOTE_TYPE_SIZE_BIG"), UI_Str("NOTE_TYPE_SIZE_HAND"), };
+								auto v = !(areAllSelectedNotesSmall || areAllSelectedNotesBig || areAllSelectedNotesHand) ? NoteSizeType::Count
+									: IsHandNote(sharedValues.NoteType()) ? NoteSizeType::Hand
+									: IsBigNote(sharedValues.NoteType()) ? NoteSizeType::Big
+									: NoteSizeType::Small;
 
 								Gui::PushItemWidth(-1.0f);
 								if (Gui::ComboEnum("##NoteTypeIsBig", &v, noteSizeTypeNames, ImGuiComboFlags_None))
@@ -1642,7 +1650,10 @@ namespace PeepoDrumKit
 									for (auto& selectedItem : SelectedItems)
 									{
 										auto& inOutNoteType = selectedItem.MemberValues.NoteType();
-										inOutNoteType = (v == NoteSizeType::Big) ? ToBigNote(inOutNoteType) : (v == NoteSizeType::Small) ? ToSmallNote(inOutNoteType) : inOutNoteType;
+										inOutNoteType = (v == NoteSizeType::Hand) ? ToHandNote(inOutNoteType)
+											: (v == NoteSizeType::Big) ? ToBigNote(inOutNoteType)
+											: (v == NoteSizeType::Small) ? ToSmallNote(inOutNoteType)
+											: inOutNoteType;
 									}
 									valueWasChanged = true;
 									disableChangePropertiesCommandMerge = true;

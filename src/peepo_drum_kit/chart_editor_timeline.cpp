@@ -409,12 +409,16 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: { spr = SprID::Timeline_Note_DrumrollBig; } break;
 		case NoteType::Balloon: { spr = SprID::Timeline_Note_Balloon; } break;
 		case NoteType::BalloonSpecial: { spr = SprID::Timeline_Note_BalloonSpecial; } break;
+		case NoteType::DonBigHand: { spr = SprID::Timeline_Note_DonHand; } break;
+		case NoteType::KaBigHand: { spr = SprID::Timeline_Note_KaHand; } break;
 		case NoteType::KaDon: { spr = SprID::Timeline_Note_KaDon; } break;
 		case NoteType::Adlib: { spr = SprID::Timeline_Note_Adlib; } break;
 		case NoteType::Fuse: { spr = SprID::Timeline_Note_Fuse; } break;
 		case NoteType::Bomb: { spr = SprID::Timeline_Note_Bomb; } break;
 		}
 
+		if (IsHandNote(noteType))
+			gfx.DrawSprite(drawList, SprID::Timeline_Note_Arms, SprTransform::FromCenter(center, vec2(scale * GuiScaleFactorCurrent)), ImColor(1.0f, 1.0f, 1.0f, alpha));
 		gfx.DrawSprite(drawList, spr, SprTransform::FromCenter(center, vec2(scale * GuiScaleFactorCurrent)), ImColor(1.0f, 1.0f, 1.0f, alpha));
 	}
 
@@ -431,6 +435,8 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: { spr = SprID::Timeline_Note_DrumrollLongBig; } break;
 		case NoteType::Balloon: { spr = SprID::Timeline_Note_BalloonLong; } break;
 		case NoteType::BalloonSpecial: { spr = SprID::Timeline_Note_BalloonLongSpecial; } break;
+		case NoteType::DonBigHand: { spr = SprID::Timeline_Note_DrumrollLongBig; } break;
+		case NoteType::KaBigHand: { spr = SprID::Timeline_Note_DrumrollLongBig; } break;
 		case NoteType::KaDon: { spr = SprID::Timeline_Note_DrumrollLongBig; } break;
 		case NoteType::Adlib: { spr = SprID::Timeline_Note_DrumrollLong; } break;
 		case NoteType::Fuse: { spr = SprID::Timeline_Note_FuseLong; } break;

@@ -248,8 +248,11 @@ X("NOTE_TYPE_DRUMROLL",								"Drumroll") \
 X("NOTE_TYPE_DRUMROLL_BIG",							"DRUMROLL") \
 X("NOTE_TYPE_BALLOON",								"Balloon") \
 X("NOTE_TYPE_BALLOON_EX",							"BALLOON") \
+X("NOTE_TYPE_DON_HAND",								"DON (Hand)") \
+X("NOTE_TYPE_KA_HAND",								"KA (Hand)") \
 X("NOTE_TYPE_SIZE_SMALL",							"Small") \
 X("NOTE_TYPE_SIZE_BIG",								"Big") \
+X("NOTE_TYPE_SIZE_HAND",							"Hand") \
 /* difficulty menu (contd) */ \
 X("DIFFICULTY_TYPE_EASY",							"Easy") \
 X("DIFFICULTY_TYPE_NORMAL",							"Normal") \

@@ -90,8 +90,8 @@ namespace PeepoDrumKit
 		case TJA::NoteType::Start_Balloon: return NoteType::Balloon;
 		case TJA::NoteType::End_BalloonOrDrumroll: return NoteType::Count;
 		case TJA::NoteType::Start_BaloonSpecial: return NoteType::BalloonSpecial;
-		case TJA::NoteType::DonBigBoth: return NoteType::Count;
-		case TJA::NoteType::KaBigBoth: return NoteType::Count;
+		case TJA::NoteType::DonBigBoth: return NoteType::DonBigHand;
+		case TJA::NoteType::KaBigBoth: return NoteType::KaBigHand;
 		case TJA::NoteType::Hidden: return NoteType::Adlib;
 		case TJA::NoteType::Bomb: return NoteType::Bomb;
 		case TJA::NoteType::KaDon: return NoteType::KaDon;
@@ -112,6 +112,8 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: return TJA::NoteType::Start_DrumrollBig;
 		case NoteType::Balloon: return TJA::NoteType::Start_Balloon;
 		case NoteType::BalloonSpecial: return TJA::NoteType::Start_BaloonSpecial;
+		case NoteType::DonBigHand: return TJA::NoteType::DonBigBoth;
+		case NoteType::KaBigHand: return TJA::NoteType::KaBigBoth;
 		case NoteType::KaDon: return TJA::NoteType::KaDon;
 		case NoteType::Adlib: return TJA::NoteType::Hidden;
 		case NoteType::Fuse: return TJA::NoteType::Fuse;

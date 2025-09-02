@@ -145,6 +145,8 @@ namespace PeepoDrumKit
 		&NoteColorYellow,	// Start_DrumrollBig
 		&NoteColorOrange,	// Start_Balloon
 		&NoteColorOrange,	// Start_SpecialBaloon
+		&NoteColorRed,		// DonBigHand
+		&NoteColorBlue,		// KaBigHand
 		&NoteColorPurple,	// KaDon
 		&NoteColorBlack,	// Bomb
 		&NoteColorWhite,	// Adlib

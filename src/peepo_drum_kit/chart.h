@@ -20,10 +20,13 @@ namespace PeepoDrumKit
 		DrumrollBig,
 		Balloon,
 		BalloonSpecial,
+		// NOTE: TJAP2fPC
+		DonBigHand,
+		KaBigHand,
 		// NOTE: OpenTaiko notes
 		KaDon,
 		Bomb,
-		Adlib,
+		Adlib, // from TJAP2fPC
 		Fuse,
 		// ...
 		Count
@@ -31,20 +34,21 @@ namespace PeepoDrumKit
 
 	enum class NoteSEType : u8
 	{
-		Do, Ko, Don, DonBig,
-		Ka, Katsu, KatsuBig,
+		Do, Ko, Don, DonBig, DonHand,
+		Ka, Katsu, KatsuBig, KatsuHand,
 		Drumroll, DrumrollBig,
 		Balloon, BalloonSpecial,
 		Count
 	};
 
-	constexpr b8 IsDonNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::DonBig); }
-	constexpr b8 IsKaNote(NoteType v) { return (v == NoteType::Ka) || (v == NoteType::KaBig); }
+	constexpr b8 IsDonNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::DonBig) || (v == NoteType::DonBigHand); }
+	constexpr b8 IsKaNote(NoteType v) { return (v == NoteType::Ka) || (v == NoteType::KaBig) || (v == NoteType::KaBigHand); }
 	constexpr b8 IsKaDonNote(NoteType v) { return (v == NoteType::KaDon); }
 	constexpr b8 IsAdlibNote(NoteType v) { return (v == NoteType::Adlib); }
 	constexpr b8 IsBombNote(NoteType v) { return (v == NoteType::Bomb); }
 	constexpr b8 IsSmallNote(NoteType v) { return (v == NoteType::Don) || (v == NoteType::Ka) || (v == NoteType::Drumroll) || (v == NoteType::Balloon) || (v == NoteType::Fuse); }
 	constexpr b8 IsBigNote(NoteType v) { return !IsSmallNote(v); }
+	constexpr b8 IsHandNote(NoteType v) { return (v == NoteType::DonBigHand) || (v == NoteType::KaBigHand); }
 	constexpr b8 IsDrumrollNote(NoteType v) { return (v == NoteType::Drumroll) || (v == NoteType::DrumrollBig); }
 	constexpr b8 IsBalloonNote(NoteType v) { return (v == NoteType::Balloon) || (v == NoteType::BalloonSpecial) || (v == NoteType::Fuse); }
 	constexpr b8 IsLongNote(NoteType v) { return IsDrumrollNote(v) || IsBalloonNote(v); }
@@ -62,6 +66,8 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: return NoteType::Drumroll;
 		case NoteType::Balloon: return NoteType::Balloon;
 		case NoteType::BalloonSpecial: return NoteType::Balloon;
+		case NoteType::DonBigHand: return NoteType::Don;
+		case NoteType::KaBigHand: return NoteType::Ka;
 		case NoteType::KaDon: return NoteType::KaDon;
 		case NoteType::Bomb: return NoteType::Bomb;
 		case NoteType::Adlib: return NoteType::Adlib;
@@ -81,6 +87,8 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: return NoteType::DrumrollBig;
 		case NoteType::Balloon: return NoteType::BalloonSpecial;
 		case NoteType::BalloonSpecial: return NoteType::BalloonSpecial;
+		case NoteType::DonBigHand: return NoteType::DonBigHand;
+		case NoteType::KaBigHand: return NoteType::KaBigHand;
 		case NoteType::KaDon: return NoteType::KaDon;
 		case NoteType::Bomb: return NoteType::Bomb;
 		case NoteType::Adlib: return NoteType::Adlib;
@@ -88,17 +96,33 @@ namespace PeepoDrumKit
 		default: return v;
 		}
 	}
+	constexpr NoteType ToHandNote(NoteType v)
+	{
+		switch (v)
+		{
+		case NoteType::Don: return NoteType::DonBigHand;
+		case NoteType::DonBig: return NoteType::DonBigHand;
+		case NoteType::Ka: return NoteType::KaBigHand;
+		case NoteType::KaBig: return NoteType::KaBigHand;
+		case NoteType::DonBigHand: return NoteType::DonBigHand;
+		case NoteType::KaBigHand: return NoteType::KaBigHand;
+		default: return v;
+		}
+	}
 	constexpr NoteType ToggleNoteSize(NoteType v) { return IsSmallNote(v) ? ToBigNote(v) : ToSmallNote(v); }
 	constexpr NoteType ToSmallNoteIf(NoteType v, b8 condition) { return condition ? ToSmallNote(v) : v; }
 	constexpr NoteType ToBigNoteIf(NoteType v, b8 condition) { return condition ? ToBigNote(v) : v; }
+	constexpr NoteType ToHandNoteIf(NoteType v, b8 condition) { return condition ? ToHandNote(v) : v; }
 	constexpr NoteType FlipNote(NoteType v)
 	{
 		switch (v)
 		{
 		case NoteType::Don: return NoteType::Ka;
 		case NoteType::DonBig: return NoteType::KaBig;
+		case NoteType::DonBigHand: return NoteType::KaBigHand;
 		case NoteType::Ka: return NoteType::Don;
 		case NoteType::KaBig: return NoteType::DonBig;
+		case NoteType::KaBigHand: return NoteType::DonBigHand;
 		default: return v;
 		}
 	}
