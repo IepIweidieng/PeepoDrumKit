@@ -556,12 +556,9 @@ namespace PeepoDrumKit
 
 						for (const auto& dt : difficulties)
 						{
-
 							char labelBuffer[128];
 							sprintf_s(labelBuffer, "%s", dt.CurrentName);
-
-							b8 isDiffExist = std::any_of(begin(context.Chart.Courses), end(context.Chart.Courses), [&](const auto& obj) { return obj->Type == dt.dType; });
-							if (Gui::MenuItem(labelBuffer, " ", false, !isDiffExist)) {
+							if (Gui::MenuItem(labelBuffer, " ", false)) {
 								CreateNewDifficulty(context, dt.dType);
 								context.Undo.NotifyChangesWereMade();
 							}
