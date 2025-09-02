@@ -49,6 +49,7 @@ namespace TJA
 		Unknown,
 
 		// NOTE: Once per file
+		Main_Invalid,
 		Main_TITLE,
 		Main_TITLE_localized,
 		Main_SUBTITLE,
@@ -70,8 +71,10 @@ namespace TJA
 		Main_BGMOVIE,
 		Main_MOVIEOFFSET,
 		Main_TAIKOWEBSKIN,
+		Main_Unknown,
 
 		// NOTE: Once per difficulty course
+		Course_Invalid,
 		Course_COURSE,
 		Course_LEVEL,
 		Course_BALLOON,
@@ -99,8 +102,10 @@ namespace TJA
 		Course_HIDDENBRANCH,
 		Course_LIFE,
 		Course_SIDE,
+		Course_Unknown,
 
 		// NOTE: Chart song notation
+		Chart_Invalid,
 		Chart_START,
 		Chart_END,
 		Chart_MEASURE,
@@ -129,14 +134,15 @@ namespace TJA
 		Chart_DIRECTION,
 		Chart_SUDDEN,
 		Chart_JPOSSCROLL,
+		Chart_Unknown,
 		Count,
 
-		Main_First = Main_TITLE,
-		Main_Last = Main_TAIKOWEBSKIN,
-		Course_First = Course_COURSE,
-		Course_Last = Course_SIDE,
-		Chart_First = Chart_START,
-		Chart_Last = Chart_JPOSSCROLL,
+		Main_First = Main_Invalid,
+		Main_Last = Main_Unknown,
+		Course_First = Course_Invalid,
+		Course_Last = Course_Unknown,
+		Chart_First = Chart_Invalid,
+		Chart_Last = Chart_Unknown,
 
 		KeyColonValue_First = Main_First,
 		KeyColonValue_Last = Course_Last,

@@ -13,6 +13,7 @@ namespace TJA
 		"",
 
 		// NOTE: Main_
+		"",
 		"TITLE",
 		"TITLE", // prefix
 		"SUBTITLE",
@@ -34,8 +35,10 @@ namespace TJA
 		"BGMOVIE",
 		"MOVIEOFFSET",
 		"TAIKOWEBSKIN",
+		"",
 
 		// NOTE: Course_
+		"",
 		"COURSE",
 		"LEVEL",
 		"BALLOON",
@@ -63,8 +66,10 @@ namespace TJA
 		"HIDDENBRANCH",
 		"LIFE",
 		"SIDE",
+		"",
 
 		// NOTE: Chart_
+		"",
 		"START",
 		"END",
 		"MEASURE",
@@ -93,6 +98,7 @@ namespace TJA
 		"DIRECTION",
 		"SUDDEN",
 		"JPOSSCROLL",
+		"",
 	};
 
 	static_assert(ArrayCount(KeyStrings) == EnumCount<Key>);
@@ -103,9 +109,24 @@ namespace TJA
 	static bool MatchKeyString(Key key, std::string_view str)
 	{
 		switch (key) {
+		case Key::Main_Invalid:
+		case Key::Course_Invalid:
+			return !std::regex_match(begin(str), end(str), PatTJAHeader);
+		case Key::Chart_Invalid:
+			return !std::regex_match(begin(str), end(str), PatTJACommand);
+
 		case Key::Main_TITLE_localized:
 		case Key::Main_SUBTITLE_localized:
 			return ASCII::StartsWith(str, KeyStrings[EnumToIndex(key)]);
+
+		case Key::Unknown:
+		case Key::Course_Unknown: // ambiguous between Main and Course scope, reassigned later
+		case Key::Chart_Unknown:
+			return true;
+
+		case Key::Main_Unknown:
+			return false; // ambiguous between Main and Course scope, assigned separately
+
 		default:
 			return (str == KeyStrings[EnumToIndex(key)]);
 		}
@@ -145,6 +166,7 @@ namespace TJA
 		outTokens.reserve(lines.size());
 
 		b8 currentlyBetweenChartStartAndEnd = false;
+		b8 currentlyAfterFirstCourse = false;
 
 		for (size_t lineIndex = 0; lineIndex < lines.size(); lineIndex++)
 		{
@@ -185,10 +207,8 @@ namespace TJA
 							newToken.ValueString = {};
 						}
 
-						if (std::regex_match(begin(newToken.KeyString), end(newToken.KeyString), PatTJACommand)) {
-							for (Key i = Key::HashCommand_First; i <= Key::HashCommand_Last; IncrementEnum(i))
-								if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
-						}
+						for (Key i = Key::HashCommand_First; i <= Key::HashCommand_Last; IncrementEnum(i))
+							if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
 
 						if (newToken.Key == Key::Chart_START)
 							currentlyBetweenChartStartAndEnd = true;
@@ -201,9 +221,19 @@ namespace TJA
 						newToken.KeyString = lineTrimmed.substr(0, colonSeparator);
 						newToken.ValueString = lineTrimmed.substr(colonSeparator + sizeof(':'));
 
-						if (std::regex_match(begin(newToken.KeyString), end(newToken.KeyString), PatTJAHeader)) {
-							for (Key i = Key::KeyColonValue_First; i <= Key::KeyColonValue_Last; IncrementEnum(i))
-								if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
+						for (Key i = Key::KeyColonValue_First; i <= Key::KeyColonValue_Last; IncrementEnum(i))
+							if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
+
+						if (newToken.Key == Key::Course_COURSE) {
+							currentlyAfterFirstCourse = true;
+						} else if (currentlyAfterFirstCourse) {
+							// treat unknown headers after first COURSE: as course-scope header
+							if (newToken.Key == Key::Main_Invalid)
+								newToken.Key = Key::Course_Invalid;
+						} else {
+							// treat unknown headers before first COURSE: as file-scope header
+							if (newToken.Key == Key::Course_Unknown)
+								newToken.Key = Key::Main_Unknown;
 						}
 					}
 					else
@@ -528,6 +558,8 @@ namespace TJA
 					case Key::Main_BGMOVIE: { out.BGMOVIE = in; } break;
 					case Key::Main_MOVIEOFFSET: { if (!tryParseTime(in, &out.MOVIEOFFSET)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_TAIKOWEBSKIN: { out.TAIKOWEBSKIN = in; } break;
+					case Key::Main_Unknown: { outErrors.Push(lineIndex, "Unknown file-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Main_Invalid: { outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Main_ switch case despite (Key::Main_First to Key::Main_Last) range check"); } break;
 					}
 				}
@@ -595,6 +627,8 @@ namespace TJA
 					case Key::Course_HIDDENBRANCH: { if (!ASCII::TryParse(in, out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_LIFE: { if (!ASCII::TryParse(in, out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid SIDE '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_Unknown: { outErrors.Push(lineIndex, "Unknown course-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Course_Invalid: { outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Course_ switch case despite (Key::Course_First to Key::Course_Last) range check"); } break;
 					}
 				}
@@ -907,6 +941,8 @@ namespace TJA
 						if (valid)
 							pushChartCommand(ParsedChartCommandType::SetJPOSScroll).Param.ChangeJPOSScroll = param;
 					} break;
+					case Key::Chart_Unknown: { outErrors.Push(lineIndex, "Unknown command '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Chart_Invalid: { outErrors.Push(lineIndex, "Invalid command '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Chart_ switch case despite (Key::Chart_First to Key::Chart_Last) range check"); } break;
 					}
 				}
