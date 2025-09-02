@@ -158,49 +158,31 @@ namespace PeepoDrumKit
 
 		vec2 GetHitCircleCoordinatesJPOSScroll(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
 		{
+			if (jposScrollChanges.empty())
+				return { 0, 0 };
+
 			f32 x = 0;
 			f32 y = 0;
-			f32 currentTimeStampSeconds = timeStamp.ToSec_F32();
-
-			for (size_t i = 0; i < jposScrollChanges.size(); i++) 
-			{
+			Time jposTimeStamp = accelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(jposScrollChanges[0].BeatTime);
+			Time nextJposTimeStamp;
+			for (size_t i = 0; i < jposScrollChanges.size() && timeStamp >= jposTimeStamp; i++) {
 				JPOSScrollChange jposChange = jposScrollChanges[i];
+				nextJposTimeStamp = !(i + 1 < jposScrollChanges.size()) ? Time::FromSec(F32Max)
+					: accelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(jposScrollChanges[i + 1].BeatTime);
 
 				Complex jposMove = jposChange.Move;
-				f32 jposTimeStampSeconds = accelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(jposChange.BeatTime).ToSec_F32();
-				f32 jposDurationSeconds = jposChange.Duration;
+				Time jposDuration = Time::FromSec(jposChange.Duration);
+				Time jposDurationMax = nextJposTimeStamp - jposTimeStamp;
 
 				f32 xMove = jposMove.GetRealPart();
 				f32 yMove = jposMove.GetImaginaryPart();
-				
-				// JPOSScroll already complete
-				if (currentTimeStampSeconds > jposTimeStampSeconds + jposDurationSeconds) {
-					x += xMove;
-					y += yMove;
-				}
-				// JPOSScroll is upcoming
-				else if (currentTimeStampSeconds < jposTimeStampSeconds) {
-					break;
-				}
-				// JPOSScroll is processing
-				else {
-					if (i < jposScrollChanges.size() - 1) {
-						JPOSScrollChange nextJposChange = jposScrollChanges[i + 1];
-						f32 nextJposTimeStampSeconds = accelerationStructure.ConvertBeatToTimeUsingLookupTableIndexing(nextJposChange.BeatTime).ToSec_F32();
-						// Next jposscroll started
-						if (currentTimeStampSeconds >= nextJposTimeStampSeconds) {
-							x += xMove;
-							y += yMove;
-							continue;
-						}
-					}
-					// Next jposscroll didn't started, or there is no next jposscroll
-					f32 timeSinceJpos = currentTimeStampSeconds - jposTimeStampSeconds;
-					f32 timeRatio = (jposDurationSeconds == 0.f) ? 1.f : timeSinceJpos / jposDurationSeconds;
-					x += xMove * timeRatio;
-					y += yMove * timeRatio;
-					break;
-				}
+
+				Time timeSinceJpos = timeStamp - jposTimeStamp;
+				f32 timeRatio = (jposDuration <= Time::Zero()) ? 1.f
+					: (std::min({ jposDurationMax, jposDuration, timeSinceJpos }) / jposDuration);
+				x += xMove * timeRatio;
+				y += yMove * timeRatio;
+				jposTimeStamp = nextJposTimeStamp;
 			}
 
 			return vec2(x, y);
