@@ -491,6 +491,72 @@ namespace PeepoDrumKit
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
+				// v1.2
+				{
+					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
+					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
+					Gui::TextUnformatted("v1.2");
+					Gui::PopFont();
+
+					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
+					Gui::TextUnformatted(u8"- Add the possibility to reorder difficulties by dragging difficulty tabs");
+					Gui::TextUnformatted(u8"- Add support for STYLE: and #START P<n>");
+					Gui::TextUnformatted(u8"- Add comparison mode to compare difficulties side-by-side");
+					Gui::TextUnformatted(u8"- Add current #JPOSSCROLL position display on the judge mark");
+					Gui::TextUnformatted(u8"- The gameplay lane border now show the visible region in simulators when in wide view");
+					Gui::TextUnformatted(u8"- Add sound volume limiter and remove sound effects' play frequency limits");
+					Gui::TextUnformatted(u8"- AdLibs are now shown semi-transparent instead of hidden");
+					Gui::TextUnformatted(u8"- KaDon are now played with Don + Ka sounds instead of just Don");
+					Gui::TextUnformatted(u8"- Balloon-type notes' pop count is now shown when they are being popped");
+					Gui::TextUnformatted(u8"- Add “Buffer Frame Size” option for manually fixing audio distortion due to insufficient buffer size (in Settings → Audio Settings)");
+					Gui::TextUnformatted(u8"- Add proper SENote assignment and the コ (Ko) SENote");
+					Gui::TextUnformatted(u8"- Add Go-go time effect");
+					Gui::TextUnformatted(u8"- Add support for editing any localized TITLE: and SUBTITLE: with custom locales");
+					Gui::TextUnformatted(u8"- Fix #JPOSSCROLL's overlapping behavior (was not stopped by next #JPOSSCROLL as in simulators)");
+					Gui::TextUnformatted(u8"- Add support for the Handed Don (A) and Handed Katsu (B) notes");
+					Gui::TextUnformatted(u8"- Remove restriction of creating existing difficulties, for creating multiplayer charts and using comparison mode");
+					Gui::TextUnformatted(u8"- Fix inaccurate time interval of balloon-type note popping sound");
+					Gui::TextUnformatted(u8"- Add support for editing any unknown TJA headers");
+					Gui::TextUnformatted(u8"- Add support for number-less NOTESDESIGNER: and file-scope usage of numbered NOTESDESIGNER headers");
+					Gui::TextUnformatted(u8"- Fix notes in negative BPM were wrongly flipped horizontally and SENotes in positive BPM were wrongly rotated 180 degree");
+					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
+					Gui::TextUnformatted("");
+					Gui::PopFont();
+					Gui::PopStyleColor();
+				}
+
+				// v1.1.1
+				{
+					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
+					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
+					Gui::TextUnformatted("v1.1.1");
+					Gui::PopFont();
+
+					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
+					Gui::TextUnformatted(u8"- Fix notes' and bar lines' position in #HBSCROLL and #BMSCROLL (when past judgement or around #BPMCHANGEs)");
+					Gui::TextUnformatted(u8"- Fix #JPOSSCROLL distance (was 720px/lane instead of simulators' 948px/lane), direction 0 mode (failed to flip vertically)");
+					Gui::TextUnformatted(u8"- Fix could not set #JPOSSCROLL duration in Chart Inspector");
+					Gui::TextUnformatted(u8"- Improve compatibility and performance of chart importing and exporting");
+					Gui::TextUnformatted(u8"- Widen allowed BPM's and time signature's input and effective range (negative allowed)");
+					Gui::TextUnformatted(u8"- Add .ini localization; add zh-CN and zh-TW localizations");
+					Gui::TextUnformatted(u8"- Fix displayed position of balloons and flying notes with non-positive #SCROLL");
+					Gui::TextUnformatted(u8"- Add TaikoJiro2-like note display supporting complex-valued #SCROLL and stretching rolls with bar");
+					Gui::TextUnformatted(u8"- Add the possibility to edit notes' and long events' end position by dragging their end when selected");
+					Gui::TextUnformatted(u8"- #JPOSSCROLL is now visualized and editable as long event");
+					Gui::TextUnformatted(u8"- Widen playback speed range to 10%–200%");
+					Gui::TextUnformatted(u8"- Add Chart Stats tab");
+					Gui::TextUnformatted(u8"- Tweak difficulty number display and remove star view");
+					Gui::TextUnformatted(u8"- Add support of editing Tower charts and view Dan charts");
+					Gui::TextUnformatted(u8"- Add “Insert at Selected Items”, the successor of “Selection to Scroll Changes” which applies to all chart events");
+					Gui::TextUnformatted(u8"- Migrate to Dear ImGui 1.92.0-docking and solve missing font glyph issues");
+					Gui::TextUnformatted(u8"- Add “Select to End of Chart”");
+					Gui::TextUnformatted(u8"- Add advanced chart scale options, fix “missing notes after undo” problem when scaling");
+					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
+					Gui::TextUnformatted("");
+					Gui::PopFont();
+					Gui::PopStyleColor();
+				}
+
 				// v1.1
 				{
 					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
