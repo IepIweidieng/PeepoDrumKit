@@ -2030,9 +2030,9 @@ namespace PeepoDrumKit
 					
 					Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_TOWER_SIDE"), [&]
 						{
-							cstr sideNames[ArrayCount(SideNames)];
-							for (size_t i = 0; i < ArrayCount(SideNames); i++)
-								sideNames[i] = UI_StrRuntime(SideNames[i]);
+							cstr sideNames[ArrayCount(TowerSideNames)];
+							for (size_t i = 0; i < ArrayCount(TowerSideNames); i++)
+								sideNames[i] = UI_StrRuntime(TowerSideNames[i]);
 
 							Gui::SetNextItemWidth(-1.0f);
 							if (Gui::ComboEnum("##TowerSide", &course.Side, sideNames))

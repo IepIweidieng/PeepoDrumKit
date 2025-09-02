@@ -320,15 +320,16 @@ namespace TJA
 		};
 		static constexpr auto tryParseScoreMode = [](std::string_view in, ScoreMode* out) -> b8
 		{
-			if (in == "0") { *out = ScoreMode::AC1_To_AC7; return true; }
-			if (in == "1") { *out = ScoreMode::AC8_To_AC14; return true; }
-			if (in == "2") { *out = ScoreMode::AC0; return true; }
+			if (in == "0") { *out = ScoreMode::AC2_To_AC7_Oni; return true; }
+			if (in == "1") { *out = ScoreMode::AC1_To_AC14; return true; }
+			if (in == "2") { *out = ScoreMode::AC15; return true; }
 			return false;
 		};
 		static constexpr auto tryParseSongSelectSide = [](std::string_view in, SongSelectSide* out) -> b8
 		{
 			if (ASCII::MatchesInsensitive(in, "Normal") || in == "1") { *out = SongSelectSide::Normal; return true; }
 			if (ASCII::MatchesInsensitive(in, "Ex") || in == "2") { *out = SongSelectSide::Ex; return true; }
+			if (ASCII::MatchesInsensitive(in, "Both") || in == "3") { *out = SongSelectSide::Both; return true; }
 			return false;
 		};
 		static constexpr auto tryParseGameType = [](std::string_view in, GameType* out) -> b8
@@ -1052,6 +1053,7 @@ namespace TJA
 			{
 			case SongSelectSide::Normal: return "Normal";
 			case SongSelectSide::Ex: return "Ex";
+			case SongSelectSide::Both: return "Both";
 			default: return "";
 			}
 		};

@@ -269,11 +269,11 @@ namespace TJA
 	enum class ScoreMode : u8
 	{
 		// NOTE: ドンだフル配点（AC7以前）
-		AC1_To_AC7,
+		AC2_To_AC7_Oni,
 		// NOTE: 旧配点（AC14以前）
-		AC8_To_AC14,
+		AC1_To_AC14,
 		// NOTE: 新配点
-		AC0,
+		AC15,
 		Count
 	};
 
@@ -281,6 +281,7 @@ namespace TJA
 	{
 		Normal,
 		Ex,
+		Both,
 		Count
 	};
 
@@ -310,7 +311,7 @@ namespace TJA
 		Time DEMOSTART = Time::Zero();
 		f32 SONGVOL = 1.0f;
 		f32 SEVOL = 1.0f;
-		ScoreMode SCOREMODE = ScoreMode::AC1_To_AC7;
+		ScoreMode SCOREMODE = ScoreMode::AC1_To_AC14;
 		std::string GENRE;
 		GameType GAME = GameType::Taiko;
 		std::string TAIKOWEBSKIN;
@@ -331,7 +332,7 @@ namespace TJA
 		i32 SCOREDIFF = 0;
 		i32 EXPLICIT = 0;
 		i32 LIFE = 5;
-		SongSelectSide SIDE = SongSelectSide::Normal;
+		SongSelectSide SIDE = SongSelectSide::Both;
 		std::string NOTESDESIGNER;
 		std::string EXAM1;
 		std::string EXAM2;

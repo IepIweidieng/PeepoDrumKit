@@ -122,6 +122,7 @@ namespace PeepoDrumKit
 	{
 		Normal,
 		Ex,
+		Both,
 		Count
 	};
 
@@ -148,10 +149,11 @@ namespace PeepoDrumKit
 		return res;
 	}
 
-	constexpr cstr SideNames[EnumCount<Side>] =
+	constexpr cstr TowerSideNames[EnumCount<Side>] =
 	{
-		"SIDE_NORMAL",
-		"SIDE_EX"
+		"TOWER_SIDE_NORMAL",
+		"TOWER_SIDE_EX",
+		"TOWER_SIDE_BOTH",
 	};
 
 	enum class DifficultyLevel : u8

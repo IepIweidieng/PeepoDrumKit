@@ -8,13 +8,13 @@ namespace PeepoDrumKit
 	static constexpr cstr TJADifficultyTypeNames[] = { "Easy", "Normal", "Hard", "Oni", "Oni (Ura)", "Tower", "Dan", };
 	static_assert(ArrayCount(TJADifficultyTypeNames) == EnumCount<TJA::DifficultyType>);
 
-	static constexpr cstr TJAScoreModeNames[] = { "AC1 - AC7", "AC8 - AC14", "AC0", };
+	static constexpr cstr TJAScoreModeNames[] = { "AC2 - AC7 (Oni)", "AC1 - AC14", "AC15", };
 	static_assert(ArrayCount(TJAScoreModeNames) == EnumCount<TJA::ScoreMode>);
 
-	static constexpr cstr TJASongSelectSideNames[] = { "Normal", "Ex", };
+	static constexpr cstr TJASongSelectSideNames[] = { "Normal", "Ex", "Both",};
 	static_assert(ArrayCount(TJASongSelectSideNames) == EnumCount<TJA::SongSelectSide>);
 
-	static constexpr cstr TJAGameTypeNames[] = { "Taiko", "Jubeat", };
+	static constexpr cstr TJAGameTypeNames[] = { "Taiko", "Konga", };
 	static_assert(ArrayCount(TJAGameTypeNames) == EnumCount<TJA::GameType>);
 
 	static constexpr cstr TJAStyleModeNames[] = { "Single", "Double", };

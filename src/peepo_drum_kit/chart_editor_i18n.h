@@ -262,8 +262,9 @@ X("PLAYER_SIDE_STYLE_SINGLE",						"Single") \
 X("PLAYER_SIDE_STYLE_DOUBLE",						"Double") \
 X("PLAYER_SIDE_STYLE_FMT_%d_STYLE",					"%d-players") \
 X("PLAYER_SIDE_PLAYER_FMT_%d_PLAYER",				"P%d") \
-X("SIDE_NORMAL",									"Sweet (Normal)") \
-X("SIDE_EX",										"Spicy (Ex)") \
+X("TOWER_SIDE_NORMAL",								"Sweet (Normal)") \
+X("TOWER_SIDE_EX",									"Spicy (Ex)") \
+X("TOWER_SIDE_BOTH",								"Unspecified (Both)") \
 /* undo history tab */ \
 X("UNDO_HISTORY_DESCRIPTION",						"Description") \
 X("UNDO_HISTORY_TIME",								"Time") \
