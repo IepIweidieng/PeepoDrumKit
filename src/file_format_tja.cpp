@@ -285,7 +285,10 @@ namespace TJA
 		};
 		static constexpr auto tryParseDifficultyType = [](std::string_view in, DifficultyType* out) -> b8
 		{
-			if (i32 v; ASCII::TryParse(in, v)) { *out = static_cast<DifficultyType>(v); return true; }
+			if (i32 v; ASCII::TryParse(in, v)) {
+				if (v >= 0 && v < EnumCount<DifficultyType>) { *out = DifficultyType(v); return true; }
+				return false;
+			}
 			if (ASCII::MatchesInsensitive(in, "easy")) { *out = DifficultyType::Easy; return true; }
 			if (ASCII::MatchesInsensitive(in, "normal")) { *out = DifficultyType::Normal; return true; }
 			if (ASCII::MatchesInsensitive(in, "hard")) { *out = DifficultyType::Hard; return true; }
