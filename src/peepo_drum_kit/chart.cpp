@@ -156,6 +156,7 @@ namespace PeepoDrumKit
 		out.BackgroundImageFileName = inTJA.Metadata.BGIMAGE;
 		out.BackgroundMovieFileName = inTJA.Metadata.BGMOVIE;
 		out.MovieOffset = inTJA.Metadata.MOVIEOFFSET;
+		out.OtherMetadata = inTJA.Metadata.Others;
 		for (size_t i = 0; i < inTJA.Courses.size(); i++)
 		{
 			if (!inTJA.Courses[i].HasChart) // metadata-only TJA section
@@ -257,6 +258,8 @@ namespace PeepoDrumKit
 			outCourse.ScoreInit = inCourse.CourseMetadata.SCOREINIT;
 			outCourse.ScoreDiff = inCourse.CourseMetadata.SCOREDIFF;
 
+			outCourse.OtherMetadata = inCourse.CourseMetadata.Others;
+
 			outCourse.TempoMap.RebuildAccelerationStructure();
 			outCourse.RecalculateSENotes();
 
@@ -286,6 +289,7 @@ namespace PeepoDrumKit
 		out.Metadata.BGIMAGE = in.BackgroundImageFileName;
 		out.Metadata.BGMOVIE = in.BackgroundMovieFileName;
 		out.Metadata.MOVIEOFFSET = in.MovieOffset;
+		out.Metadata.Others = in.OtherMetadata;
 
 		if (includePeepoDrumKitComment)
 		{
@@ -321,6 +325,8 @@ namespace PeepoDrumKit
 
 			outCourse.Metadata.LIFE = static_cast<i32>(inCourse.Life);
 			outCourse.Metadata.SIDE = static_cast<TJA::SongSelectSide>(inCourse.Side);
+
+			outCourse.Metadata.Others = inCourse.OtherMetadata;
 
 			// TODO: Is this implemented correctly..? Need to have enough measures to cover every note/command and pad with empty measures up to the chart duration
 			// BUG: NOPE! "07 ゲームミュージック/003D. MagiCatz/MagiCatz.tja" for example still gets rounded up and then increased by a measure each time it gets saved

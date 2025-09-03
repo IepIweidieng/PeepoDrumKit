@@ -34,7 +34,6 @@ namespace TJA
 		"BGIMAGE",
 		"BGMOVIE",
 		"MOVIEOFFSET",
-		"TAIKOWEBSKIN",
 		"",
 
 		// NOTE: Course_
@@ -132,6 +131,20 @@ namespace TJA
 		}
 	}
 
+	Key GetKeyColonValueTokenKey(std::string_view str)
+	{
+		for (Key i = Key::KeyColonValue_First; i <= Key::KeyColonValue_Last; IncrementEnum(i))
+			if (MatchKeyString(i, str)) { return i; }
+		return Key::Course_Unknown; // already matched; should never be reached
+	}
+
+	Key GetHashCommandTokenKey(std::string_view str)
+	{
+		for (Key i = Key::HashCommand_First; i <= Key::HashCommand_Last; IncrementEnum(i))
+			if (MatchKeyString(i, str)) { return i; }
+		return Key::Chart_Unknown; // already matched; should never be reached
+	}
+
 	struct LinePrefixCommentSuffixSplit { std::string_view LinePrefix, CommentSuffix; };
 
 	static constexpr LinePrefixCommentSuffixSplit SplitLineIntoPrefixAndCommentSuffix(std::string_view line)
@@ -207,9 +220,7 @@ namespace TJA
 							newToken.ValueString = {};
 						}
 
-						for (Key i = Key::HashCommand_First; i <= Key::HashCommand_Last; IncrementEnum(i))
-							if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
-
+						newToken.Key = GetHashCommandTokenKey(newToken.KeyString);
 						if (newToken.Key == Key::Chart_START)
 							currentlyBetweenChartStartAndEnd = true;
 						else if (newToken.Key == Key::Chart_END)
@@ -221,9 +232,7 @@ namespace TJA
 						newToken.KeyString = lineTrimmed.substr(0, colonSeparator);
 						newToken.ValueString = lineTrimmed.substr(colonSeparator + sizeof(':'));
 
-						for (Key i = Key::KeyColonValue_First; i <= Key::KeyColonValue_Last; IncrementEnum(i))
-							if (MatchKeyString(i, newToken.KeyString)) { newToken.Key = i; break; }
-
+						newToken.Key = GetKeyColonValueTokenKey(newToken.KeyString);
 						if (newToken.Key == Key::Course_COURSE) {
 							currentlyAfterFirstCourse = true;
 						} else if (currentlyAfterFirstCourse) {
@@ -557,9 +566,8 @@ namespace TJA
 					case Key::Main_BGIMAGE: { out.BGIMAGE = in; } break;
 					case Key::Main_BGMOVIE: { out.BGMOVIE = in; } break;
 					case Key::Main_MOVIEOFFSET: { if (!tryParseTime(in, &out.MOVIEOFFSET)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_TAIKOWEBSKIN: { out.TAIKOWEBSKIN = in; } break;
-					case Key::Main_Unknown: { outErrors.Push(lineIndex, "Unknown file-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
-					case Key::Main_Invalid: { outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Main_Unknown: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Unknown file-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Main_Invalid: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Main_ switch case despite (Key::Main_First to Key::Main_Last) range check"); } break;
 					}
 				}
@@ -627,8 +635,8 @@ namespace TJA
 					case Key::Course_HIDDENBRANCH: { if (!ASCII::TryParse(in, out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_LIFE: { if (!ASCII::TryParse(in, out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid SIDE '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_Unknown: { outErrors.Push(lineIndex, "Unknown course-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
-					case Key::Course_Invalid: { outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Course_Unknown: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Unknown course-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Course_Invalid: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Course_ switch case despite (Key::Course_First to Key::Course_Last) range check"); } break;
 					}
 				}
@@ -1156,8 +1164,12 @@ namespace TJA
 			appendProperyLine(out, Key::Main_BGMOVIE, inContent.Metadata.BGMOVIE);
 		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE, &ParsedMainMetadata::BGMOVIE, &ParsedMainMetadata::MOVIEOFFSET)) // Better to be explicit if bg is given
 			appendProperyLine(out, Key::Main_MOVIEOFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.MOVIEOFFSET.Seconds)));
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::TAIKOWEBSKIN))
-			appendProperyLine(out, Key::Main_TAIKOWEBSKIN, inContent.Metadata.TAIKOWEBSKIN);
+
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::Others)) {
+			for (const auto& [header, val] : inContent.Metadata.Others)
+				appendSuffixedPropertyLine(out, Key::Main_Unknown, header, val);
+		}
+
 		appendLine(out, "");
 
 		// group difficulties by course scope
@@ -1261,6 +1273,12 @@ namespace TJA
 			// TODO: Key::Course_GAUGEINCR;
 			// TODO: Key::Course_TOTAL;
 			// TODO: Key::Course_HIDDENBRANCH;
+
+			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::Others)) {
+				for (const auto& [header, val] : course.Metadata.Others)
+					appendSuffixedPropertyLine(out, Key::Course_Unknown, header, val);
+			}
+
 			appendLine(out, "");
 
 			if (course.Metadata.STYLE <= 1)

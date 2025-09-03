@@ -207,6 +207,7 @@ X("CHART_PROP_SONG_FILE_NAME",						"Song File Name") \
 X("CHART_PROP_JACKET_FILE_NAME",					"Jacket File Name") \
 X("CHART_PROP_SONG_VOLUME",							"Song Volume") \
 X("CHART_PROP_SOUND_EFFECT_VOLUME",					"Sound Effect Volume") \
+X("DETAILS_CHART_PROP_OTHER_METADATA",				"Other Chart Metadata") \
 X("DETAILS_CHART_PROPERTIES_COURSE",				"Selected Course") \
 X("COURSE_PROP_DIFFICULTY_TYPE",					"Difficulty Type") \
 X("COURSE_PROP_DIFFICULTY_LEVEL",					"Difficulty Level") \
@@ -215,6 +216,8 @@ X("COURSE_PROP_PLAYER_SIDE_COUNT",					"Player Side/Count") \
 X("COURSE_PROP_TOWER_LIFE",							"Lives") \
 X("COURSE_PROP_TOWER_SIDE",							"Side") \
 X("COURSE_PROP_CREATOR",							"Course Creator") \
+X("DETAILS_COURSE_PROP_OTHER_METADATA",				"Other Course Metadata") \
+X("ACT_ADD_NEW_METADATA",							"Add New Metadata:") \
 /* inspector tab / timeline tab (contd.) */ \
 X("DETAILS_INSPECTOR_SELECTED_ITEMS",				"Selected Items") \
 X("INFO_INSPECTOR_NOTHING_SELECTED",				"( Nothing Selected )") \

@@ -1829,7 +1829,9 @@ namespace PeepoDrumKit
 		return std::max(1.0f, ImGui::GetContentRegionAvail().x - 1 - Gui::GetStyle().ItemInnerSpacing.x - Gui::GetFrameHeight());
 	}
 
-	static void LocalizedPropertyCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& propertyLocalized, std::string* pNewLocale)
+	template <typename FCharFilter, typename FKeyFilter>
+	static void PropertyMapCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& properties,
+		const char* labelAdd, std::string* pNewKey, FCharFilter&& charFilter, FKeyFilter&& keyFilter, const std::string& newDefault)
 	{
 		ImGuiTable* table = Gui::GetCurrentTable();
 		Gui::TableNextRow();
@@ -1837,48 +1839,43 @@ namespace PeepoDrumKit
 		if (Gui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)) {
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner)) {
 				const std::string* localeToRemove = nullptr;
-				for (auto&& [locale, val] : propertyLocalized) {
-					Gui::Property::PropertyTextValueFunc(locale, [&]
+				for (auto&& [key, val] : properties) {
+					Gui::Property::PropertyTextValueFunc(key, [&]
 					{
 						Gui::SetNextItemWidth(getInsertButtonWidth());
-						if (Gui::InputTextWithHint(("##" + locale).c_str(), "n/a", &val))
+						if (Gui::InputTextWithHint(("##" + key).c_str(), "n/a", &val))
 							context.Undo.NotifyChangesWereMade();
 						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
-						if (Gui::Button(("-##" + locale).c_str(), {Gui::GetFrameHeight(), Gui::GetFrameHeight()}))
-							localeToRemove = &locale;
+						if (Gui::Button(("-##" + key).c_str(), {Gui::GetFrameHeight(), Gui::GetFrameHeight()}))
+							localeToRemove = &key;
 						Gui::SetItemTooltip(UI_Str("ACT_EVENT_REMOVE"));
 					});
 				}
 				if (localeToRemove != nullptr) {
-					propertyLocalized.erase(*localeToRemove);
+					properties.erase(*localeToRemove);
 					context.Undo.NotifyChangesWereMade();
 				}
-				// add new locale
-				Gui::Property::PropertyTextValueFunc(UI_Str("ACT_ADD_NEW_LOCALE"), [&]
+				// add new entry
+				Gui::Property::PropertyTextValueFunc(labelAdd, [&]
 				{
-					static constexpr auto filter = [](ImGuiInputTextCallbackData* data) -> int
-					{
-						data->EventChar = ASCII::IETFLangTagToTJALangTag(data->EventChar);
-						return 0;
-					};
-					b8* pIsValid = Gui::GetStateStorage()->GetBoolRef(reinterpret_cast<ImGuiID>(pNewLocale), true);
+					b8* pIsValid = Gui::GetStateStorage()->GetBoolRef(reinterpret_cast<ImGuiID>(pNewKey), keyFilter(newDefault));
 
 					Gui::SetNextItemWidth(getInsertButtonWidth());
 					Gui::PushStyleColor(ImGuiCol_Text, *pIsValid ? Gui::GetColorU32(ImGuiCol_Text) : InputTextWarningTextColor);
-					b8 shouldAdd = Gui::InputTextWithHint("##new_locale", SelectedGuiLanguageTJA.c_str(), pNewLocale, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCharFilter, filter);
+					b8 shouldAdd = Gui::InputTextWithHint("##new", newDefault.c_str(), pNewKey, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCharFilter, charFilter);
 					if (Gui::IsItemEdited())
-						*pIsValid = std::regex_match(!pNewLocale->empty() ? *pNewLocale : SelectedGuiLanguageTJA, ASCII::PatIETFLangTagForTJA);
+						*pIsValid = keyFilter(!pNewKey->empty() ? *pNewKey : newDefault);
 					Gui::PopStyleColor();
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!*pIsValid);
 					if ((Gui::Button("+", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }) || shouldAdd) && *pIsValid) {
-						if (!pNewLocale->empty()) {
-							propertyLocalized.try_emplace(std::move(*pNewLocale), "");
-							*pNewLocale = "";
+						if (!pNewKey->empty()) {
+							properties.try_emplace(std::move(*pNewKey), "");
+							*pNewKey = "";
 						}
-						else if (!SelectedGuiLanguageTJA.empty())
-							propertyLocalized.try_emplace(SelectedGuiLanguageTJA, "");
+						else if (!newDefault.empty())
+							properties.try_emplace(newDefault, "");
 						context.Undo.NotifyChangesWereMade();
 					}
 					Gui::SetItemTooltip(UI_Str("ACT_EVENT_ADD"));
@@ -1888,6 +1885,28 @@ namespace PeepoDrumKit
 			}
 		}
 		TableFullRowEnd(restoreX);
+	}
+
+	static void LocalizedPropertyCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& propertyLocalized, std::string* pNewLocale)
+	{
+		static constexpr auto charFilter = [](ImGuiInputTextCallbackData* data) -> int
+		{
+			data->EventChar = ASCII::IETFLangTagToTJALangTag(data->EventChar);
+			return 0;
+		};
+		static constexpr auto keyFilter = [](std::string_view in) { return std::regex_match(std::begin(in), std::end(in), ASCII::PatIETFLangTagForTJA); };
+		PropertyMapCollapsingHeader(context, label, propertyLocalized, UI_Str("ACT_ADD_NEW_LOCALE"), pNewLocale, charFilter, keyFilter, SelectedGuiLanguageTJA);
+	}
+
+	static void OtherMetadataCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& otherMetadata, std::string* pNewMetadataKey)
+	{
+		static constexpr auto charFilter = [](ImGuiInputTextCallbackData* data) -> int
+		{
+			data->EventChar = ASCII::IETFLangTagToTJALangTag(data->EventChar); // TJA-ize
+			return 0;
+		};
+		static constexpr auto keyFilter = [](std::string_view in) { return !in.empty() && (TJA::GetKeyColonValueTokenKey(in) == TJA::Key::Course_Unknown); };
+		PropertyMapCollapsingHeader(context, label, otherMetadata, UI_Str("ACT_ADD_NEW_METADATA"), pNewMetadataKey, charFilter, keyFilter, "");
 	}
 
 	void ChartPropertiesWindow::DrawGui(ChartContext& context, const ChartPropertiesWindowIn& in, ChartPropertiesWindowOut& out)
@@ -1986,6 +2005,8 @@ namespace PeepoDrumKit
 						context.Undo.NotifyChangesWereMade();
 					}
 				});
+				static std::string newChartMetadataKey = "";
+				OtherMetadataCollapsingHeader(context, UI_Str("DETAILS_CHART_PROP_OTHER_METADATA"), chart.OtherMetadata, &newChartMetadataKey);
 				Gui::Property::EndTable();
 			}
 		}
@@ -2062,6 +2083,10 @@ namespace PeepoDrumKit
 					if (Gui::InputTextWithHint("##CourseCreator", hint, &course.CourseCreator))
 						context.Undo.NotifyChangesWereMade();
 				});
+
+				static std::string newCourseMetadataKey = "";
+				OtherMetadataCollapsingHeader(context, UI_Str("DETAILS_COURSE_PROP_OTHER_METADATA"), course.OtherMetadata, &newCourseMetadataKey);
+
 				Gui::Property::EndTable();
 			}
 		}

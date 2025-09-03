@@ -70,7 +70,6 @@ namespace TJA
 		Main_BGIMAGE,
 		Main_BGMOVIE,
 		Main_MOVIEOFFSET,
-		Main_TAIKOWEBSKIN,
 		Main_Unknown,
 
 		// NOTE: Once per difficulty course
@@ -149,6 +148,9 @@ namespace TJA
 		HashCommand_First = Chart_First,
 		HashCommand_Last = Chart_Last,
 	};
+
+	Key GetKeyColonValueTokenKey(std::string_view str);
+	Key GetHashCommandTokenKey(std::string_view str);
 
 	struct Token
 	{
@@ -320,7 +322,7 @@ namespace TJA
 		ScoreMode SCOREMODE = ScoreMode::AC1_To_AC14;
 		std::string GENRE;
 		GameType GAME = GameType::Taiko;
-		std::string TAIKOWEBSKIN;
+		std::map<std::string, std::string> Others;
 	};
 
 	struct ParsedCourseMetadata
@@ -350,6 +352,7 @@ namespace TJA
 		GaugeIncrementMethod GAUGEINCR = GaugeIncrementMethod::Normal;
 		i32 TOTAL = 0;
 		i32 HIDDENBRANCH = 0;
+		std::map<std::string, std::string> Others;
 	};
 
 	enum class ParsedChartCommandType : u8

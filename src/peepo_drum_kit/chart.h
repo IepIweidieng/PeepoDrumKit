@@ -393,6 +393,7 @@ namespace PeepoDrumKit
 		TowerLives Life = TowerLives{ 5 };
 		Side Side = Side::Normal;
 
+		std::map<std::string, std::string> OtherMetadata;
 
 		inline auto& GetNotes(BranchType branch) { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
 		inline auto& GetNotes(BranchType branch) const { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
@@ -431,6 +432,8 @@ namespace PeepoDrumKit
 		std::string BackgroundImageFileName;
 		std::string BackgroundMovieFileName;
 		Time MovieOffset = {};
+
+		std::map<std::string, std::string> OtherMetadata;
 
 		// TODO: Maybe change to GetDurationOr(Time defaultDuration) and always pass in context.SongDuration (?)
 		inline Time GetDurationOrDefault() const { return (ChartDuration.Seconds <= 0.0) ? Time::FromMin(1.0) : ChartDuration; }

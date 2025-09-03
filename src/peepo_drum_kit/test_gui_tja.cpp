@@ -300,7 +300,8 @@ namespace PeepoDrumKit
 					//row("Life", (metadata.LIFE == 0) ? "" : std::string_view(b, sprintf_s(b, "%d", metadata.LIFE)));
 					row("Genre", metadata.GENRE);
 					row("Game", TJAGameTypeNames[EnumToIndex(metadata.GAME)]);
-					if (!metadata.TAIKOWEBSKIN.empty()) row("Taiko Web Skin", metadata.TAIKOWEBSKIN);
+					for (const auto& [header, value] : metadata.Others)
+						row(header.c_str(), value.c_str());
 				}
 				Gui::EndTable();
 			}
@@ -371,6 +372,9 @@ namespace PeepoDrumKit
 							rowBalloonPops("Balloon Pop Counts (Normal)", metadata.BALLOON_Normal);
 							rowBalloonPops("Balloon Pop Counts (Expert)", metadata.BALLOON_Expert);
 							rowBalloonPops("Balloon Pop Counts (Master)", metadata.BALLOON_Master);
+
+							for (const auto& [header, value] : metadata.Others)
+								row(header.c_str(), value.c_str());
 						}
 						Gui::EndTable();
 					}
