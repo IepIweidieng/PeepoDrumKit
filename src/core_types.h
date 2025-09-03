@@ -560,20 +560,20 @@ template <typename T> constexpr T Clamp(T value, T min, T max) { return Min<T>(M
 template <typename T> constexpr T ClampBot(T value, T min) { return Max<T>(value, min); }
 template <typename T> constexpr T ClampTop(T value, T max) { return Min<T>(value, max); }
 
-template <typename T>
-constexpr T Lerp(T start, T end, f32 t) { return start * (1.0f - t) + (end * t); }
+template <typename T, typename F>
+constexpr T Lerp(T start, T end, F t) { return start * (1.0f - t) + (end * t); }
 
-template <typename T>
-constexpr T LerpClamped(T start, T end, f32 t) { return Lerp<T>(start, end, Clamp(t, 0.0f, 1.0f)); }
+template <typename T, typename F> // float, target
+constexpr T LerpClamped(T start, T end, F t) { return Lerp<T>(start, end, Clamp(t, 0.0f, 1.0f)); }
 
-template <typename T>
-constexpr T ConvertRange(T oldStart, T oldEnd, T newStart, T newEnd, T value) { return (newStart + ((value - oldStart) * (newEnd - newStart) / (oldEnd - oldStart))); }
+template <typename T, typename S> // source, target
+constexpr T ConvertRange(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return (newStart + ((value - oldStart) * (newEnd - newStart) / (oldEnd - oldStart))); }
 
 // NOTE: It's easy to accidentally misuse these in cases where (end < start) resulting in "incorrect" clamps
-template <typename T>
-constexpr T ConvertRangeClampInput(T oldStart, T oldEnd, T newStart, T newEnd, T value) { return ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, Clamp<T>(value, oldStart, oldEnd)); }
-template <typename T>
-constexpr T ConvertRangeClampOutput(T oldStart, T oldEnd, T newStart, T newEnd, T value) { return Clamp<T>(ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, value), newStart, newEnd); }
+template <typename T, typename S>
+constexpr T ConvertRangeClampInput(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, Clamp<S>(value, oldStart, oldEnd)); }
+template <typename T, typename S>
+constexpr T ConvertRangeClampOutput(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return Clamp<T>(ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, value), newStart, newEnd); }
 
 constexpr void AnimateExponentialF32(f32* inOutCurrent, f32 target, f32 animationSpeed, f32 deltaTime)
 {

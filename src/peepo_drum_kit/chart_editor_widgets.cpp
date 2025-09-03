@@ -1829,7 +1829,7 @@ namespace PeepoDrumKit
 		return std::max(1.0f, ImGui::GetContentRegionAvail().x - 1 - Gui::GetStyle().ItemInnerSpacing.x - Gui::GetFrameHeight());
 	}
 
-	static void LocalizedPropertyCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& propertyLocalized)
+	static void LocalizedPropertyCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& propertyLocalized, std::string* pNewLocale)
 	{
 		ImGuiTable* table = Gui::GetCurrentTable();
 		Gui::TableNextRow();
@@ -1861,23 +1861,21 @@ namespace PeepoDrumKit
 						data->EventChar = ASCII::IETFLangTagToTJALangTag(data->EventChar);
 						return 0;
 					};
-
-					static std::string newLocale = "";
-					static b8 isValid = true;
+					b8* pIsValid = Gui::GetStateStorage()->GetBoolRef(reinterpret_cast<ImGuiID>(pNewLocale), true);
 
 					Gui::SetNextItemWidth(getInsertButtonWidth());
-					Gui::PushStyleColor(ImGuiCol_Text, isValid ? Gui::GetColorU32(ImGuiCol_Text) : InputTextWarningTextColor);
-					b8 shouldAdd = Gui::InputTextWithHint("##new_locale", SelectedGuiLanguageTJA.c_str(), &newLocale, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCharFilter, filter);
+					Gui::PushStyleColor(ImGuiCol_Text, *pIsValid ? Gui::GetColorU32(ImGuiCol_Text) : InputTextWarningTextColor);
+					b8 shouldAdd = Gui::InputTextWithHint("##new_locale", SelectedGuiLanguageTJA.c_str(), pNewLocale, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCharFilter, filter);
 					if (Gui::IsItemEdited())
-						isValid = std::regex_match(!newLocale.empty() ? newLocale : SelectedGuiLanguageTJA, ASCII::PatIETFLangTagForTJA);
+						*pIsValid = std::regex_match(!pNewLocale->empty() ? *pNewLocale : SelectedGuiLanguageTJA, ASCII::PatIETFLangTagForTJA);
 					Gui::PopStyleColor();
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
-					Gui::BeginDisabled(!isValid);
-					if ((Gui::Button("+", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }) || shouldAdd) && isValid) {
-						if (!newLocale.empty()) {
-							propertyLocalized.try_emplace(std::move(newLocale), "");
-							newLocale = "";
+					Gui::BeginDisabled(!*pIsValid);
+					if ((Gui::Button("+", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }) || shouldAdd) && *pIsValid) {
+						if (!pNewLocale->empty()) {
+							propertyLocalized.try_emplace(std::move(*pNewLocale), "");
+							*pNewLocale = "";
 						}
 						else if (!SelectedGuiLanguageTJA.empty())
 							propertyLocalized.try_emplace(SelectedGuiLanguageTJA, "");
@@ -1911,14 +1909,16 @@ namespace PeepoDrumKit
 					if (Gui::InputTextWithHint("##ChartTitle", "n/a", &chart.ChartTitle))
 						context.Undo.NotifyChangesWereMade();
 				});
-				LocalizedPropertyCollapsingHeader(context, UI_Str("DETAILS_CHART_PROP_TITLE_LOCALIZED"), chart.ChartTitleLocalized);
+				static std::string newTitleLocale = "";
+				LocalizedPropertyCollapsingHeader(context, UI_Str("DETAILS_CHART_PROP_TITLE_LOCALIZED"), chart.ChartTitleLocalized, &newTitleLocale);
 				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_SUBTITLE"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
 					if (Gui::InputTextWithHint("##ChartSubtitle", "n/a", &chart.ChartSubtitle))
 						context.Undo.NotifyChangesWereMade();
 				});
-				LocalizedPropertyCollapsingHeader(context, UI_Str("DETAILS_CHART_PROP_SUBTITLE_LOCALIZED"), chart.ChartSubtitleLocalized);
+				static std::string newSubtitleLocale = "";
+				LocalizedPropertyCollapsingHeader(context, UI_Str("DETAILS_CHART_PROP_SUBTITLE_LOCALIZED"), chart.ChartSubtitleLocalized, &newSubtitleLocale);
 				Gui::Property::PropertyTextValueFunc(UI_Str("CHART_PROP_CREATOR"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);

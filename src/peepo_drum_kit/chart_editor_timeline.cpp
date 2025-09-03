@@ -920,15 +920,8 @@ namespace PeepoDrumKit
 				{
 					if (IsBalloonNote(note.Type))
 					{
-						checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime) + note.TimeOffset, note.Type, pan);
-
-						const Beat balloonBeatInterval = (note.BalloonPopCount > 0) ? (note.BeatDuration / note.BalloonPopCount) : Beat::Zero();
-						if (balloonBeatInterval > Beat::Zero())
-						{
-							i32 remainingPops = note.BalloonPopCount;
-							for (Beat subBeat = balloonBeatInterval; (subBeat < note.BeatDuration) && (--remainingPops > 0); subBeat += balloonBeatInterval)
-								checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type, pan);
-						}
+						for (i32 iPop = 0; iPop < note.BalloonPopCount; ++iPop)
+							checkAndPlayNoteSound(course->TempoMap.BeatToTime(ConvertRange(0, i32{ note.BalloonPopCount }, note.BeatTime, note.GetEnd(), iPop)) + note.TimeOffset, note.Type, pan);
 					}
 					else
 					{
