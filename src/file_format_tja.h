@@ -84,18 +84,8 @@ namespace TJA
 		Course_BALLOONMAS,
 		Course_STYLE,
 		Course_EXPLICIT,
-		Course_NOTESDESIGNER0,
-		Course_NOTESDESIGNER1,
-		Course_NOTESDESIGNER2,
-		Course_NOTESDESIGNER3,
-		Course_NOTESDESIGNER4,
-		Course_EXAM1,
-		Course_EXAM2,
-		Course_EXAM3,
-		Course_EXAM4,
-		Course_EXAM5,
-		Course_EXAM6,
-		Course_EXAM7,
+		Course_NOTESDESIGNERs,
+		Course_EXAMs,
 		Course_GAUGEINCR,
 		Course_TOTAL,
 		Course_HIDDENBRANCH,
@@ -342,13 +332,7 @@ namespace TJA
 		i32 LIFE = 5;
 		SongSelectSide SIDE = SongSelectSide::Both;
 		std::string NOTESDESIGNER;
-		std::string EXAM1;
-		std::string EXAM2;
-		std::string EXAM3;
-		std::string EXAM4;
-		std::string EXAM5;
-		std::string EXAM6;
-		std::string EXAM7;
+		std::map<i32, std::string> EXAMs; // 0: EXAMGAUGE
 		GaugeIncrementMethod GAUGEINCR = GaugeIncrementMethod::Normal;
 		i32 TOTAL = 0;
 		i32 HIDDENBRANCH = 0;

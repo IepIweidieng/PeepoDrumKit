@@ -48,18 +48,8 @@ namespace TJA
 		"BALLOONMAS",
 		"STYLE",
 		"EXPLICIT",
-		"NOTESDESIGNER0",
-		"NOTESDESIGNER1",
-		"NOTESDESIGNER2",
-		"NOTESDESIGNER3",
-		"NOTESDESIGNER4",
-		"EXAM1",
-		"EXAM2",
-		"EXAM3",
-		"EXAM4",
-		"EXAM5",
-		"EXAM6",
-		"EXAM7",
+		"NOTESDESIGNER", // prefix
+		"EXAM", // prefix
 		"GAUGEINCR",
 		"TOTAL",
 		"HIDDENBRANCH",
@@ -116,6 +106,8 @@ namespace TJA
 
 		case Key::Main_TITLE_localized:
 		case Key::Main_SUBTITLE_localized:
+		case Key::Course_NOTESDESIGNERs:
+		case Key::Course_EXAMs:
 			return ASCII::StartsWith(str, KeyStrings[EnumToIndex(key)]);
 
 		case Key::Unknown:
@@ -417,6 +409,20 @@ namespace TJA
 			*out = ASCII::TrimPrefix(in, prefix);
 			return std::regex_match(begin(*out), end(*out), ASCII::PatIETFLangTagForTJA);
 		};
+		static constexpr auto tryParseNotesDesignerSuffix = [](std::string_view in, std::string_view prefix, std::string* outString, DifficultyType* out) -> b8
+		{
+			*outString = ASCII::TrimPrefix(in, prefix);
+			if (outString->empty()) { *out = DifficultyType::Count; return true; }
+			if (i32 v; ASCII::TryParse(*outString, v)) { *out = static_cast<DifficultyType>(v); return (*out >= DifficultyType{ 0 } && *out < DifficultyType::Count); }
+			return false;
+		};
+		static constexpr auto tryParseExamSuffix = [](std::string_view in, std::string_view prefix, std::string* outString, i32* out) -> b8
+		{
+			*outString = ASCII::TrimPrefix(in, prefix);
+			if (i32 v; ASCII::TryParse(*outString, v) && v > 0) { *out = v; return true; }
+			if (*outString == "GAUGE") { *out = 0; return true; }
+			return false;
+		};
 
 		static constexpr auto validateEndOfMeasureNoteCount = [](i32 noteCountAtEndOfMeasure, i32 lineIndex, ErrorList& outErrors)
 		{
@@ -449,6 +455,7 @@ namespace TJA
 		// chart scope handler
 		DifficultyType currentCourseScope = DifficultyType::Count; // default course scope
 		auto idxLastCourses = InitializedArray<i32, EnumCount<DifficultyType> + 1>(-1);
+		std::string notesDesigners[EnumCount<DifficultyType>] = {};
 
 		ParsedCourse* currentCourse = nullptr;
 
@@ -458,14 +465,15 @@ namespace TJA
 				if (auto idx = idxLastCourses[EnumToIndex(courseScope)]; idx >= 0) {
 					currentCourse = &outTJA.Courses.emplace_back();
 					currentCourse->Metadata = outTJA.Courses[idx].Metadata; // inherit last (need to explicitly copy)
-					currentCourse->HasChart = false;
-					idxLastCourses[EnumToIndex(currentCourseScope)] = outTJA.Courses.size() - 1;
-					return;
+					goto set_up_course;
 				}
 			}
 			currentCourse = &outTJA.Courses.emplace_back(); // create from scratch;
+		set_up_course:
 			currentCourse->HasChart = false;
+			b8 fromScratch = (idxLastCourses[EnumToIndex(currentCourseScope)] == -1);
 			idxLastCourses[EnumToIndex(currentCourseScope)] = outTJA.Courses.size() - 1;
+			return fromScratch;
 		};
 		auto getCurrentCourse = [&]()
 		{
@@ -518,7 +526,7 @@ namespace TJA
 
 			case TokenType::KeyColonValue:
 			{
-				if (currentlyBetweenFirstCommandAndEnd && !(token.Key >= Key::Course_EXAM1 && token.Key <= Key::Course_EXAM7)) {
+				if (currentlyBetweenFirstCommandAndEnd && token.Key != Key::Course_EXAMs) {
 					if (currentlyBetweenChartStartAndEnd)
 						outErrors.Push(lineIndex, "This property should not be placed between #START and #END");
 					else
@@ -577,8 +585,11 @@ namespace TJA
 						outErrors.Push(lineIndex, "Invalid difficulty '%.*s'", FmtStrViewArgs(in));
 					} else { // change course scope
 						currentCourseScope = course;
-						initCurrentCourse();
-						getCurrentCourse()->Metadata.COURSE = course;
+						b8 fromScratch = initCurrentCourse();
+						auto& metadata = getCurrentCourse()->Metadata;
+						metadata.COURSE = course;
+						if (fromScratch)
+							metadata.NOTESDESIGNER = notesDesigners[EnumToIndex(course)];
 					}
 				}
 				else if (token.Key >= Key::Course_First && token.Key <= Key::Course_Last)
@@ -618,18 +629,31 @@ namespace TJA
 					case Key::Course_BALLOONMAS: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Master)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_STYLE: { if (!tryParseStyleMode(in, &out.STYLE)) { outErrors.Push(lineIndex, "Unknown or invalid style mode '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_EXPLICIT: { if (!ASCII::TryParse(in, out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_NOTESDESIGNER0: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER1: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER2: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER3: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER4: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_EXAM1: { out.EXAM1 = in; } break;
-					case Key::Course_EXAM2: { out.EXAM2 = in; } break;
-					case Key::Course_EXAM3: { out.EXAM3 = in; } break;
-					case Key::Course_EXAM4: { out.EXAM4 = in; } break;
-					case Key::Course_EXAM5: { out.EXAM5 = in; } break;
-					case Key::Course_EXAM6: { out.EXAM6 = in; } break;
-					case Key::Course_EXAM7: { out.EXAM7 = in; } break;
+					case Key::Course_NOTESDESIGNERs:
+					{
+						DifficultyType diff;
+						if (std::string key; !tryParseNotesDesignerSuffix(token.KeyString, KeyStrings[EnumToIndex(token.Key)], &key, &diff))
+							outErrors.Push(lineIndex, "Invalid difficulty number '%.*s', expected '0' to '%d' or (empty)", FmtStrViewArgs(key), EnumCountI32<DifficultyType> - 1);
+						else if (currentCourseScope == DifficultyType::Count) { // before first `COURSE:` -> as file-scope header -> apply to specified difficulty
+							if (diff == DifficultyType::Count)
+								outErrors.Push(lineIndex, "Empty difficulty number is invalid for file-scope usage");
+							else
+								notesDesigners[EnumToIndex(diff)] = in;
+						} else { // otherwise -> as course-scope header -> ignore suffix
+							if (diff != DifficultyType::Count && diff != currentCourse->Metadata.COURSE)
+								outErrors.Push(lineIndex, "Difficulty number '%.*s' does not match current difficulty's number %d", FmtStrViewArgs(key), EnumToIndex(currentCourse->Metadata.COURSE));
+							out.NOTESDESIGNER = in;
+						}
+					}
+					break;
+					case Key::Course_EXAMs:
+					{
+						i32 index;
+						if (std::string key; !tryParseExamSuffix(token.KeyString, KeyStrings[EnumToIndex(token.Key)], &key, &index))
+							outErrors.Push(lineIndex, "Invalid exam key '%.*s', expected 'n' ('1', '2', ...) or 'GAUGE'", FmtStrViewArgs(key));
+						out.EXAMs.insert_or_assign(index, in);
+					}
+					break;
 					case Key::Course_GAUGEINCR: { if (!tryParseGaugeIncrementMethod(in, &out.GAUGEINCR)) { outErrors.Push(lineIndex, "Unknown gauge increment method '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_TOTAL: { out.TOTAL; } break;
 					case Key::Course_HIDDENBRANCH: { if (!ASCII::TryParse(in, out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
@@ -1257,16 +1281,8 @@ namespace TJA
 			}
 
 			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::NOTESDESIGNER))
-			{
-				switch (course.Metadata.COURSE)
-				{
-				case DifficultyType::Easy: { appendProperyLine(out, Key::Course_NOTESDESIGNER0, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::Normal: { appendProperyLine(out, Key::Course_NOTESDESIGNER1, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::Hard: { appendProperyLine(out, Key::Course_NOTESDESIGNER2, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::Oni: { appendProperyLine(out, Key::Course_NOTESDESIGNER3, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::OniUra: { appendProperyLine(out, Key::Course_NOTESDESIGNER4, course.Metadata.NOTESDESIGNER); } break;
-				}
-			}
+				appendSuffixedPropertyLine(out, Key::Course_NOTESDESIGNERs, std::to_string(EnumToIndex(course.Metadata.COURSE)), course.Metadata.NOTESDESIGNER);
+
 			// TODO: Key::Course_EXAM1;
 			// TODO: Key::Course_EXAM2;
 			// TODO: Key::Course_EXAM3;
