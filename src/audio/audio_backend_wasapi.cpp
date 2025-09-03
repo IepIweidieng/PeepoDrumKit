@@ -94,8 +94,12 @@ namespace Audio
 			const AUDCLNT_SHAREMODE shareMode = (streamParam.ShareMode == StreamShareMode::Shared) ? AUDCLNT_SHAREMODE_SHARED : AUDCLNT_SHAREMODE_EXCLUSIVE;
 			const DWORD streamFlags = (streamParam.ShareMode == StreamShareMode::Shared) ? sharedStreamFlags : exclusiveStreamFlags;
 
-			// TODO: Account for user requested frame buffer size (?)
-			error = audioClient->GetDevicePeriod(nullptr, &bufferTimeDuration);
+			// Account for user requested frame buffer size
+			bufferTimeDuration = static_cast<::REFERENCE_TIME>((10000.0 * 1000 / waveformat.nSamplesPerSec * streamParam.DesiredFrameCount) + 0.5);
+
+			REFERENCE_TIME bufferTimeDurationMin;
+			error = audioClient->GetDevicePeriod(nullptr, &bufferTimeDurationMin);
+			bufferTimeDuration = (std::max)(bufferTimeDuration, bufferTimeDurationMin); // prevent expanding macro max()
 
 			deviceTimePeriod = (streamParam.ShareMode == StreamShareMode::Shared) ? 0 : bufferTimeDuration;
 			if (FAILED(error))

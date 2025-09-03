@@ -44,7 +44,9 @@ namespace Audio
 		// NOTE: Automatically resets to SourceHandle::Invalid when the source is unloaded
 		std::atomic<VoiceFlags> Flags;
 		std::atomic<SourceHandle> Source;
+		std::atomic<i32> SoundGroup;
 		std::atomic<f32> Volume;
+		std::atomic<f32> Pan;
 		std::atomic<i64> FramePosition;
 
 		std::atomic<f32> PlaybackSpeed;
@@ -83,7 +85,7 @@ namespace Audio
 	{
 	public:
 		b8 IsStreamOpenRunning = false;
-		std::atomic<f32> MasterVolume = AudioEngine::MaxVolume;
+		std::array<std::atomic<f32>, MaxSoundGroups> SoundGroupVolume = InitializedArray<std::atomic<f32>, MaxSoundGroups>(AudioEngine::MaxVolume);
 
 	public:
 		ChannelMixer ChannelMixer = {};
@@ -100,7 +102,12 @@ namespace Audio
 
 	public:
 		std::array<i16, (MaxBufferFrameCount * OutputChannelCount)> TempOutputBuffer = {};
+		std::array<f32, (MaxBufferFrameCount* OutputChannelCount)> MasterBuffer = {};
+		std::array<f32, (MaxBufferFrameCount* OutputChannelCount)> SoundGroupBuffer = {};
 		u32 CurrentBufferFrameSize = DefaultBufferFrameCount;
+		u32 TargetBufferFrameSize = DefaultBufferFrameCount;
+
+		std::array<VolumeLimiterFX<f32>, MaxSoundGroups> Limiter = InitializedArray<VolumeLimiterFX<f32>, MaxSoundGroups>(OutputSampleRate);
 
 		// TODO: Rename "CallbackDuration" to "RenderDuration" (?)
 		// NOTE: For measuring performance
@@ -171,7 +178,8 @@ namespace Audio
 				CopyStringViewIntoFixedBuffer(sourceData->Name, newName);
 		}
 
-		void CallbackClearOutPreviousCallBuffer(i16* outputBuffer, const size_t sampleCount)
+		template <typename T>
+		void CallbackClearOutBuffer(T* outputBuffer, const size_t sampleCount)
 		{
 			std::fill(outputBuffer, outputBuffer + sampleCount, 0);
 		}
@@ -190,16 +198,23 @@ namespace Audio
 			return lerpVolume;
 		}
 
-		void CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(i16* outputBuffer, const i64 frameCount, const VoiceData& voiceData, const u32 sampleRate)
+		void CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(f32* outputBuffer, const i64 frameCount, const VoiceData& voiceData, const u32 sampleRate)
 		{
 			const f32 voiceVolume = voiceData.Volume * GetSourceBaseVolume(voiceData.Source);
 			const f32 startVolume = voiceData.VolumeMap.StartVolume;
 			const f32 endVolume = voiceData.VolumeMap.EndVolume;
 
+			// NOTE: currently pan as L/R balance rather than true stereo pan for simplicity
+			const b8 doPan = (OutputChannelCount >= 2) && !ApproxmiatelySame(voiceData.Pan, 0);
+			const auto panGain = doPan ? GetPanGain(voiceData.Pan, PanLaw) : std::array{ 1.0f, 1.0f };
+			auto channelGain = [&](u32 iCh, f32 vol) { return (doPan && iCh < 2) ? vol * panGain[iCh] : vol; };
+
 			if (startVolume == endVolume)
 			{
-				for (i64 i = 0; i < (frameCount * OutputChannelCount); i++)
-					outputBuffer[i] = MixSamplesI16_Clamped(outputBuffer[i], ScaleSampleI16Linear_AsI32(TempOutputBuffer[i], voiceVolume));
+				for (i64 i = 0, n = (frameCount * OutputChannelCount); i < n;) {
+					for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
+						outputBuffer[i] += TempOutputBuffer[i] * channelGain(c, voiceVolume);
+				}
 			}
 			else
 			{
@@ -212,42 +227,37 @@ namespace Audio
 					const Time bufferDuration = Time::FromSec(frameDuration.ToSec() * frameCount);
 					const Time voiceStartTime = Time::FromSec(voiceData.TimePositionSec) - bufferDuration;
 
-					for (i64 f = 0; f < frameCount; f++)
+					for (i64 f = 0, i = 0; f < frameCount; ++f)
 					{
 						const Time frameTime = Time::FromSec(voiceStartTime.ToSec() + (f * frameDuration.ToSec()));
 						const f32 frameVolume = SampleVolumeMapAt(volumeMapStartFrame, volumeMapEndFrame, startVolume, endVolume, TimeToFrames(frameTime, sampleRate)) * voiceVolume;
-
-						for (u32 c = 0; c < OutputChannelCount; c++)
-						{
-							const i64 sampleIndex = (f * OutputChannelCount) + c;
-							outputBuffer[sampleIndex] = MixSamplesI16_Clamped(outputBuffer[sampleIndex], ScaleSampleI16Linear_AsI32(TempOutputBuffer[sampleIndex], frameVolume));
-						}
+						for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
+							outputBuffer[i] += TempOutputBuffer[i] * channelGain(c, frameVolume);
 					}
 				}
 				else
 				{
 					const i64 voiceStartFrame = (voiceData.FramePosition - frameCount);
 
-					for (i64 f = 0; f < frameCount; f++)
+					for (i64 f = 0, i = 0; f < frameCount; ++f)
 					{
 						const f32 frameVolume = SampleVolumeMapAt(volumeMapStartFrame, volumeMapEndFrame, startVolume, endVolume, voiceStartFrame + f) * voiceVolume;
-						for (u32 c = 0; c < OutputChannelCount; c++)
-						{
-							const i64 sampleIndex = (f * OutputChannelCount) + c;
-							outputBuffer[sampleIndex] = MixSamplesI16_Clamped(outputBuffer[sampleIndex], ScaleSampleI16Linear_AsI32(TempOutputBuffer[sampleIndex], frameVolume));
-						}
+						for (u32 c = 0; c < OutputChannelCount; ++c, ++i)
+							outputBuffer[i] += TempOutputBuffer[i] * channelGain(c, frameVolume);
 					}
 				}
 			}
 		}
 
-		void CallbackProcessVoices(i16* outputBuffer, const u32 bufferFrameCount, const u32 bufferSampleCount)
+		void CallbackProcessVoices(f32* outputBuffer, const u32 bufferFrameCount, const u32 bufferSampleCount, i32 soundGroup)
 		{
 			const auto lock = std::scoped_lock(VoiceRenderMutex);
 
 			for (size_t voiceIndex = 0; voiceIndex < VoicePool.size(); voiceIndex++)
 			{
 				VoiceData& voiceData = VoicePool[voiceIndex];
+				if (i32 group = voiceData.SoundGroup; !(group == soundGroup || ((soundGroup == 0) && !(group >= 0 && group < MaxSoundGroups))))
+					continue;
 				if (!(voiceData.Flags & VoiceFlags_Alive))
 					continue;
 
@@ -294,10 +304,11 @@ namespace Audio
 				}
 			}
 
-			TotalRenderedFrames += bufferFrameCount;
+			if (soundGroup == 0)
+				TotalRenderedFrames += bufferFrameCount;
 		}
 
-		void CallbackProcessNormalSpeedVoiceSamples(i16* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
+		void CallbackProcessNormalSpeedVoiceSamples(f32* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
 		{
 			if (sourceData == nullptr)
 			{
@@ -318,7 +329,7 @@ namespace Audio
 			CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(outputBuffer, framesRead, voiceData, sourceData->Buffer.SampleRate);
 		}
 
-		void CallbackProcessVariableSpeedVoiceSamples(i16* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
+		void CallbackProcessVariableSpeedVoiceSamples(f32* outputBuffer, const u32 bufferFrameCount, const b8 playPastEnd, const b8 hasReachedEnd, VoiceData& voiceData, SourceData* sourceData)
 		{
 			const u32 sampleRate = (sourceData != nullptr) ? sourceData->Buffer.SampleRate : OutputSampleRate;
 			const f64 bufferDurationSec = (FramesToTime(bufferFrameCount, sampleRate).ToSec() * voiceData.PlaybackSpeed);
@@ -370,11 +381,29 @@ namespace Audio
 			CallbackApplyVoiceVolumeAndMixTempBufferIntoOutput(outputBuffer, framesRead, voiceData, sampleRate);
 		}
 
-		void CallbackAdjustBufferMasterVolume(i16* outputBuffer, const size_t sampleCount)
+		template <typename T>
+		void CallbackAdjustVolumeAndMix(T* outputBuffer, f32* mixedBuffer, const size_t frameCount, f32 preGain, f32 postGain, i32 soundGroup)
 		{
-			const f32 masterVolume = MasterVolume.load();
-			for (size_t i = 0; i < sampleCount; i++)
-				outputBuffer[i] = ScaleSampleI16Linear_Clamped(outputBuffer[i], masterVolume);
+			const f32 limitMin = (std::is_integral_v<T> || soundGroup == 0) ? I16Min : SoundGroupVolumeLimit * I16Min;
+			const f32 limitMax = (std::is_integral_v<T> || soundGroup == 0) ? I16Max : SoundGroupVolumeLimit * I16Max;
+			std::array<f32, OutputChannelCount> frame;
+			for (size_t f = 0, i = 0; f < frameCount; ++f) {
+				// get gain for all channels first
+				f32 frameMaxValue = 0;
+				for (i32 c = 0; c < OutputChannelCount; ++c) {
+					frame[c] = mixedBuffer[i + c] * preGain;
+					if (std::abs(frame[c]) > std::abs(frameMaxValue))
+						frameMaxValue = frame[c];
+				}
+				auto gain = Limiter[soundGroup].GetGain(frameMaxValue, limitMin, limitMax);
+				// apply gain
+				for (i32 c = 0; c < OutputChannelCount; ++c, ++i) {
+					if constexpr (std::is_integral_v<T>)
+						outputBuffer[i] += ClampSampleI<T>(frame[c] * gain * postGain);
+					else
+						outputBuffer[i] += frame[c] * gain * postGain;
+				}
+			}
 		}
 
 		void CallbackUpdateLastPlayedSamplesRingBuffer(i16* outputBuffer, const size_t frameCount)
@@ -428,9 +457,19 @@ namespace Audio
 			CallbackFrequency = (CallbackStreamTime - LastCallbackStreamTime);
 			LastCallbackStreamTime = CallbackStreamTime;
 
-			CallbackClearOutPreviousCallBuffer(outputBuffer, bufferSampleCount);
-			CallbackProcessVoices(outputBuffer, bufferFrameCount, bufferSampleCount);
-			CallbackAdjustBufferMasterVolume(outputBuffer, bufferSampleCount);
+			CallbackClearOutBuffer(outputBuffer, bufferSampleCount);
+			CallbackClearOutBuffer(MasterBuffer.data(), bufferSampleCount);
+
+			// render each sound group separately, adjust volume, and then to master (except group 0)
+			for (i32 g = 1; g < MaxSoundGroups; ++g) {
+				CallbackClearOutBuffer(SoundGroupBuffer.data(), bufferSampleCount);
+				CallbackProcessVoices(SoundGroupBuffer.data(), bufferFrameCount, bufferSampleCount, g);
+				CallbackAdjustVolumeAndMix(MasterBuffer.data(), SoundGroupBuffer.data(), bufferFrameCount, 1, SoundGroupVolume[g], g);
+			}
+
+			// sound group 0 (or any invalid group) renders directly to master
+			CallbackProcessVoices(MasterBuffer.data(), bufferFrameCount, bufferSampleCount, 0);
+			CallbackAdjustVolumeAndMix(outputBuffer, MasterBuffer.data(), bufferFrameCount, SoundGroupVolume[0], 1, 0);
 			CallbackUpdateLastPlayedSamplesRingBuffer(outputBuffer, bufferFrameCount);
 			CallbackUpdateCallbackDurationRingBuffer(stopwatch.Stop());
 		}
@@ -473,7 +512,7 @@ namespace Audio
 		BackendStreamParam streamParam = {};
 		streamParam.SampleRate = OutputSampleRate;
 		streamParam.ChannelCount = OutputChannelCount;
-		streamParam.DesiredFrameCount = impl->CurrentBufferFrameSize;
+		streamParam.DesiredFrameCount = impl->TargetBufferFrameSize;
 		streamParam.ShareMode = (impl->CurrentBackendType == Backend::WASAPI_Exclusive) ? StreamShareMode::Exclusive : StreamShareMode::Shared;
 
 		if (impl->CurrentBackend == nullptr)
@@ -614,7 +653,7 @@ namespace Audio
 		return impl->SetSourceName(source, newName);
 	}
 
-	VoiceHandle AudioEngine::AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume, b8 playPastEnd)
+	VoiceHandle AudioEngine::AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume, f32 pan, b8 playPastEnd, i32 soundGroup)
 	{
 		const auto lock = std::scoped_lock(impl->VoiceRenderMutex);
 
@@ -629,7 +668,9 @@ namespace Audio
 			if (playPastEnd) voiceToUpdate.Flags |= VoiceFlags_PlayPastEnd;
 
 			voiceToUpdate.Source = source;
+			voiceToUpdate.SoundGroup = soundGroup;
 			voiceToUpdate.Volume = volume;
+			voiceToUpdate.Pan = pan;
 			voiceToUpdate.FramePosition = 0;
 			voiceToUpdate.VolumeMap.StartVolume = 0.0f;
 			voiceToUpdate.VolumeMap.EndVolume = 0.0f;
@@ -658,7 +699,7 @@ namespace Audio
 			voiceData->Flags = VoiceFlags_Dead;
 	}
 
-	void AudioEngine::PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume)
+	void AudioEngine::PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume, f32 pan, i32 soundGroup)
 	{
 		if (source == SourceHandle::Invalid)
 			return;
@@ -672,7 +713,9 @@ namespace Audio
 
 			voiceToUpdate.Flags = VoiceFlags_Alive | VoiceFlags_Playing | VoiceFlags_RemoveOnEnd;
 			voiceToUpdate.Source = source;
+			voiceToUpdate.SoundGroup = soundGroup;
 			voiceToUpdate.Volume = volume;
+			voiceToUpdate.Pan = pan;
 			voiceToUpdate.FramePosition = 0;
 			voiceToUpdate.VolumeMap.StartVolume = 0.0f;
 			voiceToUpdate.VolumeMap.EndVolume = 0.0f;
@@ -724,15 +767,11 @@ namespace Audio
 		return true;
 	}
 
-	f32 AudioEngine::GetMasterVolume() const
-	{
-		return impl->MasterVolume;
-	}
+	f32 AudioEngine::GetSoundGroupVolume(i32 g) const { return impl->SoundGroupVolume[g]; }
+	void AudioEngine::SetSoundGroupVolume(i32 g, f32 value) { impl->SoundGroupVolume[g] = value; }
 
-	void AudioEngine::SetMasterVolume(f32 value)
-	{
-		impl->MasterVolume = value;
-	}
+	f32 AudioEngine::GetMasterVolume() const { return GetSoundGroupVolume(0); }
+	void AudioEngine::SetMasterVolume(f32 value) { SetSoundGroupVolume(0, value); }
 
 	u32 AudioEngine::GetBufferFrameSize() const
 	{
@@ -741,7 +780,7 @@ namespace Audio
 
 	void AudioEngine::SetBufferFrameSize(u32 bufferFrameCount)
 	{
-		bufferFrameCount = Clamp(bufferFrameCount, MinBufferFrameCount, MaxBufferFrameCount);
+		impl->TargetBufferFrameSize = bufferFrameCount = Clamp(bufferFrameCount, MinBufferFrameCount, MaxBufferFrameCount);
 
 		if (bufferFrameCount == impl->CurrentBufferFrameSize)
 			return;
@@ -751,6 +790,7 @@ namespace Audio
 		if (GetIsStreamOpenRunning())
 		{
 			StopCloseStream();
+			impl->CurrentBufferFrameSize = bufferFrameCount; // set again in case the audio thread has overridden it
 			OpenStartStream();
 		}
 	}
@@ -825,22 +865,29 @@ namespace Audio
 		return (impl->TryGetVoiceData(Handle) != nullptr);
 	}
 
-	f32 Voice::GetVolume() const
+	template <typename T, auto VoiceData::* Memb, typename Impl>
+	T GetVoiceDataGeneric(const Audio::Voice& self, Impl&& impl, T&& dflt)
 	{
-		auto& impl = Engine.impl;
-
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			return voice->Volume;
-		return 0.0f;
+		if (VoiceData* voice = impl->TryGetVoiceData(self.Handle); voice != nullptr)
+			return voice->*Memb;
+		return dflt;
 	}
 
-	void Voice::SetVolume(f32 value)
+	template <auto VoiceData::* Memb, typename T, typename Impl>
+	void SetVoiceDataGeneric(Audio::Voice& self, Impl&& impl, T&& value)
 	{
-		auto& impl = Engine.impl;
-
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			voice->Volume = value;
+		if (VoiceData* voice = impl->TryGetVoiceData(self.Handle); voice != nullptr)
+			voice->*Memb = value;
 	}
+
+	i32 Voice::GetSoundGroup() const { return GetVoiceDataGeneric<i32, &VoiceData::SoundGroup>(*this, Engine.impl, 0); }
+	void Voice::SetSoundGroup(i32 value) { return SetVoiceDataGeneric<&VoiceData::SoundGroup>(*this, Engine.impl, value); }
+
+	f32 Voice::GetVolume() const { return GetVoiceDataGeneric<f32, &VoiceData::Volume>(*this, Engine.impl, 0.0f); }
+	void Voice::SetVolume(f32 value) { SetVoiceDataGeneric<&VoiceData::Volume>(*this, Engine.impl, value); }
+
+	f32 Voice::GetPan() const { return GetVoiceDataGeneric<f32, &VoiceData::Pan>(*this, Engine.impl, 0.0f); }
+	void Voice::SetPan(f32 value) { SetVoiceDataGeneric<&VoiceData::Pan>(*this, Engine.impl, value); }
 
 	f32 Voice::GetPlaybackSpeed() const
 	{
@@ -941,22 +988,8 @@ namespace Audio
 		}
 	}
 
-	SourceHandle Voice::GetSource() const
-	{
-		auto& impl = Engine.impl;
-
-		if (const VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			return voice->Source;
-		return SourceHandle::Invalid;
-	}
-
-	void Voice::SetSource(SourceHandle value)
-	{
-		auto& impl = Engine.impl;
-
-		if (VoiceData* voice = impl->TryGetVoiceData(Handle); voice != nullptr)
-			voice->Source = value;
-	}
+	SourceHandle Voice::GetSource() const { return GetVoiceDataGeneric<SourceHandle, &VoiceData::Source>(*this, Engine.impl, SourceHandle::Invalid); }
+	void Voice::SetSource(SourceHandle value) { SetVoiceDataGeneric<&VoiceData::Source>(*this, Engine.impl, value); }
 
 	Time Voice::GetSourceDuration() const
 	{

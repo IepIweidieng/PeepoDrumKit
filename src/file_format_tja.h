@@ -5,6 +5,7 @@
 #include "core_beat.h"
 #include <vector>
 #include <cstdarg>
+#include <map>
 
 // NOTE: "Token" -> smallest atomic piece of data.
 //		 A list of tokens basically losslessly represents a TJA file and exists to make parsing easier.
@@ -48,18 +49,11 @@ namespace TJA
 		Unknown,
 
 		// NOTE: Once per file
+		Main_Invalid,
 		Main_TITLE,
-		Main_TITLEJA,
-		Main_TITLEEN,
-		Main_TITLECN,
-		Main_TITLETW,
-		Main_TITLEKO,
+		Main_TITLE_localized,
 		Main_SUBTITLE,
-		Main_SUBTITLEJA,
-		Main_SUBTITLEEN,
-		Main_SUBTITLECN,
-		Main_SUBTITLETW,
-		Main_SUBTITLEKO,
+		Main_SUBTITLE_localized,
 		Main_BPM,
 		Main_WAVE,
 		Main_PREIMAGE,
@@ -76,9 +70,10 @@ namespace TJA
 		Main_BGIMAGE,
 		Main_BGMOVIE,
 		Main_MOVIEOFFSET,
-		Main_TAIKOWEBSKIN,
+		Main_Unknown,
 
 		// NOTE: Once per difficulty course
+		Course_Invalid,
 		Course_COURSE,
 		Course_LEVEL,
 		Course_BALLOON,
@@ -89,25 +84,17 @@ namespace TJA
 		Course_BALLOONMAS,
 		Course_STYLE,
 		Course_EXPLICIT,
-		Course_NOTESDESIGNER0,
-		Course_NOTESDESIGNER1,
-		Course_NOTESDESIGNER2,
-		Course_NOTESDESIGNER3,
-		Course_NOTESDESIGNER4,
-		Course_EXAM1,
-		Course_EXAM2,
-		Course_EXAM3,
-		Course_EXAM4,
-		Course_EXAM5,
-		Course_EXAM6,
-		Course_EXAM7,
+		Course_NOTESDESIGNERs,
+		Course_EXAMs,
 		Course_GAUGEINCR,
 		Course_TOTAL,
 		Course_HIDDENBRANCH,
 		Course_LIFE,
 		Course_SIDE,
+		Course_Unknown,
 
 		// NOTE: Chart song notation
+		Chart_Invalid,
 		Chart_START,
 		Chart_END,
 		Chart_MEASURE,
@@ -136,20 +123,24 @@ namespace TJA
 		Chart_DIRECTION,
 		Chart_SUDDEN,
 		Chart_JPOSSCROLL,
+		Chart_Unknown,
 		Count,
 
-		Main_First = Main_TITLE,
-		Main_Last = Main_TAIKOWEBSKIN,
-		Course_First = Course_COURSE,
-		Course_Last = Course_SIDE,
-		Chart_First = Chart_START,
-		Chart_Last = Chart_JPOSSCROLL,
+		Main_First = Main_Invalid,
+		Main_Last = Main_Unknown,
+		Course_First = Course_Invalid,
+		Course_Last = Course_Unknown,
+		Chart_First = Chart_Invalid,
+		Chart_Last = Chart_Unknown,
 
 		KeyColonValue_First = Main_First,
 		KeyColonValue_Last = Course_Last,
 		HashCommand_First = Chart_First,
 		HashCommand_Last = Chart_Last,
 	};
+
+	Key GetKeyColonValueTokenKey(std::string_view str);
+	Key GetHashCommandTokenKey(std::string_view str);
 
 	struct Token
 	{
@@ -276,11 +267,11 @@ namespace TJA
 	enum class ScoreMode : u8
 	{
 		// NOTE: ドンだフル配点（AC7以前）
-		AC1_To_AC7,
+		AC2_To_AC7_Oni,
 		// NOTE: 旧配点（AC14以前）
-		AC8_To_AC14,
+		AC1_To_AC14,
 		// NOTE: 新配点
-		AC0,
+		AC15,
 		Count
 	};
 
@@ -288,6 +279,7 @@ namespace TJA
 	{
 		Normal,
 		Ex,
+		Both,
 		Count
 	};
 
@@ -301,17 +293,9 @@ namespace TJA
 	struct ParsedMainMetadata
 	{
 		std::string TITLE;
-		std::string TITLE_JA;
-		std::string TITLE_EN;
-		std::string TITLE_CN;
-		std::string TITLE_TW;
-		std::string TITLE_KO;
+		std::map<std::string, std::string> TITLE_localized;
 		std::string SUBTITLE;
-		std::string SUBTITLE_JA;
-		std::string SUBTITLE_EN;
-		std::string SUBTITLE_CN;
-		std::string SUBTITLE_TW;
-		std::string SUBTITLE_KO;
+		std::map<std::string, std::string> SUBTITLE_localized;
 		std::string WAVE;
 		std::string PREIMAGE;
 		std::string BGIMAGE;
@@ -325,10 +309,10 @@ namespace TJA
 		Time DEMOSTART = Time::Zero();
 		f32 SONGVOL = 1.0f;
 		f32 SEVOL = 1.0f;
-		ScoreMode SCOREMODE = ScoreMode::AC1_To_AC7;
+		ScoreMode SCOREMODE = ScoreMode::AC1_To_AC14;
 		std::string GENRE;
 		GameType GAME = GameType::Taiko;
-		std::string TAIKOWEBSKIN;
+		std::map<std::string, std::string> Others;
 	};
 
 	struct ParsedCourseMetadata
@@ -336,27 +320,23 @@ namespace TJA
 		DifficultyType COURSE = DifficultyType::Oni;
 		i32 LEVEL = 1;
 		i32 LEVEL_DECIMALTAG = -1;
+		i32 STYLE = 1;
+		i32 START_PLAYERSIDE = 0;
 		std::vector<i32> BALLOON;
 		std::vector<i32> BALLOON_Normal;
 		std::vector<i32> BALLOON_Expert;
 		std::vector<i32> BALLOON_Master;
 		i32 SCOREINIT = 0;
 		i32 SCOREDIFF = 0;
-		StyleMode STYLE = StyleMode::Single;
 		i32 EXPLICIT = 0;
 		i32 LIFE = 5;
-		SongSelectSide SIDE = SongSelectSide::Normal;
+		SongSelectSide SIDE = SongSelectSide::Both;
 		std::string NOTESDESIGNER;
-		std::string EXAM1;
-		std::string EXAM2;
-		std::string EXAM3;
-		std::string EXAM4;
-		std::string EXAM5;
-		std::string EXAM6;
-		std::string EXAM7;
+		std::map<i32, std::string> EXAMs; // 0: EXAMGAUGE
 		GaugeIncrementMethod GAUGEINCR = GaugeIncrementMethod::Normal;
 		i32 TOTAL = 0;
 		i32 HIDDENBRANCH = 0;
+		std::map<std::string, std::string> Others;
 	};
 
 	enum class ParsedChartCommandType : u8
@@ -426,6 +406,7 @@ namespace TJA
 	{
 		ParsedCourseMetadata Metadata;
 		std::vector<ParsedChartCommand> ChartCommands;
+		b8 HasChart;
 	};
 
 	struct ParsedTJA

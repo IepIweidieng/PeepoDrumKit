@@ -1,5 +1,6 @@
 #include "file_format_tja.h"
 #include <algorithm>
+#include <array>
 #include <numeric>
 
 namespace TJA
@@ -12,18 +13,11 @@ namespace TJA
 		"",
 
 		// NOTE: Main_
+		"",
 		"TITLE",
-		"TITLEJA",
-		"TITLEEN",
-		"TITLECN",
-		"TITLETW",
-		"TITLEKO",
+		"TITLE", // prefix
 		"SUBTITLE",
-		"SUBTITLEJA",
-		"SUBTITLEEN",
-		"SUBTITLECN",
-		"SUBTITLETW",
-		"SUBTITLEKO",
+		"SUBTITLE", // prefix
 		"BPM",
 		"WAVE",
 		"PREIMAGE",
@@ -40,9 +34,10 @@ namespace TJA
 		"BGIMAGE",
 		"BGMOVIE",
 		"MOVIEOFFSET",
-		"TAIKOWEBSKIN",
+		"",
 
 		// NOTE: Course_
+		"",
 		"COURSE",
 		"LEVEL",
 		"BALLOON",
@@ -53,25 +48,17 @@ namespace TJA
 		"BALLOONMAS",
 		"STYLE",
 		"EXPLICIT",
-		"NOTESDESIGNER0",
-		"NOTESDESIGNER1",
-		"NOTESDESIGNER2",
-		"NOTESDESIGNER3",
-		"NOTESDESIGNER4",
-		"EXAM1",
-		"EXAM2",
-		"EXAM3",
-		"EXAM4",
-		"EXAM5",
-		"EXAM6",
-		"EXAM7",
+		"NOTESDESIGNER", // prefix
+		"EXAM", // prefix
 		"GAUGEINCR",
 		"TOTAL",
 		"HIDDENBRANCH",
 		"LIFE",
 		"SIDE",
+		"",
 
 		// NOTE: Chart_
+		"",
 		"START",
 		"END",
 		"MEASURE",
@@ -100,9 +87,55 @@ namespace TJA
 		"DIRECTION",
 		"SUDDEN",
 		"JPOSSCROLL",
+		"",
 	};
 
 	static_assert(ArrayCount(KeyStrings) == EnumCount<Key>);
+
+	static const std::regex PatTJAHeader = std::regex("^\\.?[A-Z][A-Z0-9_]*$");
+	static const std::regex PatTJACommand = std::regex("^[A-Z]+$");
+
+	static bool MatchKeyString(Key key, std::string_view str)
+	{
+		switch (key) {
+		case Key::Main_Invalid:
+		case Key::Course_Invalid:
+			return !std::regex_match(begin(str), end(str), PatTJAHeader);
+		case Key::Chart_Invalid:
+			return !std::regex_match(begin(str), end(str), PatTJACommand);
+
+		case Key::Main_TITLE_localized:
+		case Key::Main_SUBTITLE_localized:
+		case Key::Course_NOTESDESIGNERs:
+		case Key::Course_EXAMs:
+			return ASCII::StartsWith(str, KeyStrings[EnumToIndex(key)]);
+
+		case Key::Unknown:
+		case Key::Course_Unknown: // ambiguous between Main and Course scope, reassigned later
+		case Key::Chart_Unknown:
+			return true;
+
+		case Key::Main_Unknown:
+			return false; // ambiguous between Main and Course scope, assigned separately
+
+		default:
+			return (str == KeyStrings[EnumToIndex(key)]);
+		}
+	}
+
+	Key GetKeyColonValueTokenKey(std::string_view str)
+	{
+		for (Key i = Key::KeyColonValue_First; i <= Key::KeyColonValue_Last; IncrementEnum(i))
+			if (MatchKeyString(i, str)) { return i; }
+		return Key::Course_Unknown; // already matched; should never be reached
+	}
+
+	Key GetHashCommandTokenKey(std::string_view str)
+	{
+		for (Key i = Key::HashCommand_First; i <= Key::HashCommand_Last; IncrementEnum(i))
+			if (MatchKeyString(i, str)) { return i; }
+		return Key::Chart_Unknown; // already matched; should never be reached
+	}
 
 	struct LinePrefixCommentSuffixSplit { std::string_view LinePrefix, CommentSuffix; };
 
@@ -138,6 +171,7 @@ namespace TJA
 		outTokens.reserve(lines.size());
 
 		b8 currentlyBetweenChartStartAndEnd = false;
+		b8 currentlyAfterFirstCourse = false;
 
 		for (size_t lineIndex = 0; lineIndex < lines.size(); lineIndex++)
 		{
@@ -178,9 +212,7 @@ namespace TJA
 							newToken.ValueString = {};
 						}
 
-						for (size_t i = EnumToIndex(Key::HashCommand_First); i <= EnumToIndex(Key::HashCommand_Last); i++)
-							if (newToken.KeyString == KeyStrings[i]) { newToken.Key = static_cast<Key>(i); break; }
-
+						newToken.Key = GetHashCommandTokenKey(newToken.KeyString);
 						if (newToken.Key == Key::Chart_START)
 							currentlyBetweenChartStartAndEnd = true;
 						else if (newToken.Key == Key::Chart_END)
@@ -192,8 +224,18 @@ namespace TJA
 						newToken.KeyString = lineTrimmed.substr(0, colonSeparator);
 						newToken.ValueString = lineTrimmed.substr(colonSeparator + sizeof(':'));
 
-						for (size_t i = EnumToIndex(Key::KeyColonValue_First); i <= EnumToIndex(Key::KeyColonValue_Last); i++)
-							if (newToken.KeyString == KeyStrings[i]) { newToken.Key = static_cast<Key>(i); break; }
+						newToken.Key = GetKeyColonValueTokenKey(newToken.KeyString);
+						if (newToken.Key == Key::Course_COURSE) {
+							currentlyAfterFirstCourse = true;
+						} else if (currentlyAfterFirstCourse) {
+							// treat unknown headers after first COURSE: as course-scope header
+							if (newToken.Key == Key::Main_Invalid)
+								newToken.Key = Key::Course_Invalid;
+						} else {
+							// treat unknown headers before first COURSE: as file-scope header
+							if (newToken.Key == Key::Course_Unknown)
+								newToken.Key = Key::Main_Unknown;
+						}
 					}
 					else
 					{
@@ -214,31 +256,39 @@ namespace TJA
 			}
 		}
 
+		// end-of-file token as implicit `#END`
+		if (!lines.empty())
+			outTokens.push_back({ TokenType::HashChartCommand, Key::Chart_END, static_cast<i16>(size(lines) - 1) });
+
 		return outTokens;
 	}
 
 	ParsedTJA ParseTokens(const std::vector<Token>& tokens, ErrorList& outErrors)
 	{
-		static constexpr auto tryParseI32 = [](std::string_view in, i32* out) -> b8 { if (in.empty()) { *out = 0; return true; } else { return ASCII::TryParseI32(in, *out); } };
-		static constexpr auto tryParseF32 = [](std::string_view in, f32* out) -> b8 { if (in.empty()) { *out = 0.0f; return true; } else { return ASCII::TryParseF32(in, *out); } };
-		static constexpr auto tryParseCPX = [](std::string_view in, Complex* out) -> b8 { if (in.empty()) { *out = Complex(0.0f); return true; } else { return ASCII::TryParseCPX(in, *out); } };
-		static constexpr auto tryParseCommaSeapratedI32s = [](std::string_view in, std::vector<i32>* out) -> b8
+		static constexpr auto tryParseDefaultForEmpty = [](std::string_view in, auto* out, auto dflt) -> b8 { if (in.empty()) { *out = dflt; return true; } else { return ASCII::TryParse(in, *out); } };
+		static constexpr auto tryParseCommaSeparatedValues = [](std::string_view in, auto* out) -> b8
 		{
 			i32 count = 0;
 			ASCII::ForEachInCommaSeparatedList(in, [&](std::string_view) { count++; });
-			out->reserve(count);
+			std::remove_reference_t<decltype(*out)> tmp = {};
+			tmp.reserve(count);
 			b8 allSuccessful = true;
-			ASCII::ForEachInCommaSeparatedList(in, [&](std::string_view i32String)
+			ASCII::ForEachInCommaSeparatedList(in, [&](std::string_view valueString)
 			{
 				i32 v = 0;
-				allSuccessful &= ASCII::TryParseI32(ASCII::Trim(i32String), v);
-				out->push_back(v);
+				allSuccessful &= ASCII::TryParse(ASCII::Trim(valueString), v);
+				tmp.push_back(v);
 			});
+			if (allSuccessful)
+				*out = std::move(tmp);
 			return allSuccessful;
 		};
 		static constexpr auto tryParseDifficultyType = [](std::string_view in, DifficultyType* out) -> b8
 		{
-			if (i32 v; ASCII::TryParseI32(in, v)) { *out = static_cast<DifficultyType>(v); return true; }
+			if (i32 v; ASCII::TryParse(in, v)) {
+				if (v >= 0 && v < EnumCount<DifficultyType>) { *out = DifficultyType(v); return true; }
+				return false;
+			}
 			if (ASCII::MatchesInsensitive(in, "easy")) { *out = DifficultyType::Easy; return true; }
 			if (ASCII::MatchesInsensitive(in, "normal")) { *out = DifficultyType::Normal; return true; }
 			if (ASCII::MatchesInsensitive(in, "hard")) { *out = DifficultyType::Hard; return true; }
@@ -251,20 +301,17 @@ namespace TJA
 		};
 		static constexpr auto tryParseTime = [](std::string_view in, Time* out) -> b8
 		{
-			if (in.empty()) { *out = Time::Zero(); return true; }
-			if (f32 v; ASCII::TryParseF32(in, v)) { *out = Time::FromSec(v); return true; }
+			if (f32 v; ASCII::TryParse(in, v)) { *out = Time::FromSec(v); return true; }
 			return false;
 		};
 		static constexpr auto tryParseTempo = [](std::string_view in, Tempo* out) -> b8
 		{
-			if (in.empty()) { *out = Tempo(0.0f); return true; }
-			if (f32 v; ASCII::TryParseF32(in, v)) { *out = Tempo(v); return true; }
+			if (f32 v; ASCII::TryParse(in, v)) { *out = Tempo(v); return true; }
 			return false;
 		};
 		static constexpr auto tryParsePercent = [](std::string_view in, f32* out) -> b8
 		{
-			if (in.empty()) { *out = 0.0f; return true; }
-			if (f32 v; ASCII::TryParseF32(in, v)) { *out = FromPercent(v); return true; }
+			if (f32 v; ASCII::TryParse(in, v)) { *out = FromPercent(v); return true; }
 			return false;
 		};
 		static constexpr auto tryParseTimeSignature = [](std::string_view in, TimeSignature* out) -> b8
@@ -275,13 +322,10 @@ namespace TJA
 
 			const std::string_view inNum = ASCII::Trim(in.substr(0, splitIndex));
 			const std::string_view inDen = ASCII::Trim(in.substr(splitIndex + 1));
-			if (i32 outNum, outDen; ASCII::TryParseI32(inNum, outNum) && ASCII::TryParseI32(inDen, outDen))
-			{
+			if (i32 outNum, outDen; ASCII::TryParse(inNum, outNum) && ASCII::TryParse(inDen, outDen)) {
 				*out = TimeSignature(outNum, outDen);
 				return true;
-			}
-			else
-			{
+			} else {
 				return false;
 			}
 		};
@@ -310,15 +354,16 @@ namespace TJA
 		};
 		static constexpr auto tryParseScoreMode = [](std::string_view in, ScoreMode* out) -> b8
 		{
-			if (in == "0") { *out = ScoreMode::AC1_To_AC7; return true; }
-			if (in == "1") { *out = ScoreMode::AC8_To_AC14; return true; }
-			if (in == "2") { *out = ScoreMode::AC0; return true; }
+			if (in == "0") { *out = ScoreMode::AC2_To_AC7_Oni; return true; }
+			if (in == "1") { *out = ScoreMode::AC1_To_AC14; return true; }
+			if (in == "2") { *out = ScoreMode::AC15; return true; }
 			return false;
 		};
 		static constexpr auto tryParseSongSelectSide = [](std::string_view in, SongSelectSide* out) -> b8
 		{
 			if (ASCII::MatchesInsensitive(in, "Normal") || in == "1") { *out = SongSelectSide::Normal; return true; }
 			if (ASCII::MatchesInsensitive(in, "Ex") || in == "2") { *out = SongSelectSide::Ex; return true; }
+			if (ASCII::MatchesInsensitive(in, "Both") || in == "3") { *out = SongSelectSide::Both; return true; }
 			return false;
 		};
 		static constexpr auto tryParseGameType = [](std::string_view in, GameType* out) -> b8
@@ -330,21 +375,28 @@ namespace TJA
 		};
 		static constexpr auto tryParseScrollDirection = [](std::string_view in, ScrollDirection* out) -> b8
 		{
-			if (i32 v; ASCII::TryParseI32(in, v)) { *out = static_cast<ScrollDirection>(v); return true; }
-			*out = ScrollDirection::FromRight; return false;
+			if (i32 v; ASCII::TryParse(in, v)) { *out = static_cast<ScrollDirection>(v); return true; }
+			return false;
 		};
 		static constexpr auto tryParseBranchCondition = [](std::string_view in, BranchCondition* out) -> b8
 		{
 			if (ASCII::MatchesInsensitive(in, "r")) { *out = BranchCondition::Roll; return true; }
 			if (ASCII::MatchesInsensitive(in, "p")) { *out = BranchCondition::Precise; return true; }
 			if (ASCII::MatchesInsensitive(in, "s")) { *out = BranchCondition::Score; return true; }
-			*out = BranchCondition::Precise; return false;
+			return false;
 		};
-		static constexpr auto tryParseStyleMode = [](std::string_view in, StyleMode* out) -> b8
+		static constexpr auto tryParseStyleMode = [](std::string_view in, i32* out) -> b8
 		{
-			if (ASCII::MatchesInsensitive(in, "Single") || in == "1") { *out = StyleMode::Single; return true; }
-			if (ASCII::MatchesInsensitive(in, "Double") || ASCII::MatchesInsensitive(in, "Couple") || in == "2") { *out = StyleMode::Double; return true; }
-			*out = StyleMode::Single; return false;
+			if (ASCII::MatchesInsensitive(in, "Single")) { *out = 1; return true; }
+			if (ASCII::MatchesInsensitive(in, "Double") || ASCII::MatchesInsensitive(in, "Couple")) { *out = 2; return true; }
+			if (ASCII::TryParse(in, *out) && *out > 0) { return true; }
+			return false;
+		};
+		static constexpr auto tryParsePlayerSide = [](std::string_view in, i32* out) -> b8
+		{
+			if (in.empty()) { *out = 0; return true; }
+			if (ASCII::MatchesInsensitive(in.substr(0, 1), "P") && ASCII::TryParse(in.substr(1), *out) && *out > 0) { return true; }
+			return false;
 		};
 		static constexpr auto tryParseGaugeIncrementMethod = [](std::string_view in, GaugeIncrementMethod* out) -> b8
 		{
@@ -353,7 +405,26 @@ namespace TJA
 			if (ASCII::MatchesInsensitive(in, "ROUND")) { *out = GaugeIncrementMethod::Round; return true; }
 			if (ASCII::MatchesInsensitive(in, "NOTFIX")) { *out = GaugeIncrementMethod::NotFix; return true; }
 			if (ASCII::MatchesInsensitive(in, "CEILING")) { *out = GaugeIncrementMethod::Ceiling; return true; }
-			return true;
+			return false;
+		};
+		static constexpr auto tryParseLocaleSuffix = [](std::string_view in, std::string_view prefix, std::string_view* out) -> b8
+		{
+			*out = ASCII::TrimPrefix(in, prefix);
+			return std::regex_match(begin(*out), end(*out), ASCII::PatIETFLangTagForTJA);
+		};
+		static constexpr auto tryParseNotesDesignerSuffix = [](std::string_view in, std::string_view prefix, std::string* outString, DifficultyType* out) -> b8
+		{
+			*outString = ASCII::TrimPrefix(in, prefix);
+			if (outString->empty()) { *out = DifficultyType::Count; return true; }
+			if (i32 v; ASCII::TryParse(*outString, v)) { *out = static_cast<DifficultyType>(v); return (*out >= DifficultyType{ 0 } && *out < DifficultyType::Count); }
+			return false;
+		};
+		static constexpr auto tryParseExamSuffix = [](std::string_view in, std::string_view prefix, std::string* outString, i32* out) -> b8
+		{
+			*outString = ASCII::TrimPrefix(in, prefix);
+			if (i32 v; ASCII::TryParse(*outString, v) && v > 0) { *out = v; return true; }
+			if (*outString == "GAUGE") { *out = 0; return true; }
+			return false;
 		};
 
 		static constexpr auto validateEndOfMeasureNoteCount = [](i32 noteCountAtEndOfMeasure, i32 lineIndex, ErrorList& outErrors)
@@ -376,20 +447,47 @@ namespace TJA
 		};
 
 		ParsedTJA outTJA = {};
-		ParsedCourse* currentCourse = nullptr;
 
 		i32 currentMeasureNoteCount = 0;
+		b8 currentlyBetweenFirstCommandAndEnd = false;
 		b8 currentlyBetweenChartStartAndEnd = false;
 		b8 currentlyBetweenGoGoStartAndEnd = false;
 		b8 currentlyInBetweenMeasure = false;
 		Complex cachedScrollSpeed = Complex(1.f, 0.f);
 
-		auto pushChartCommand = [&outTJA, &currentCourse](ParsedChartCommandType type) -> ParsedChartCommand&
+		// chart scope handler
+		DifficultyType currentCourseScope = DifficultyType::Count; // default course scope
+		auto idxLastCourses = InitializedArray<i32, EnumCount<DifficultyType> + 1>(-1);
+		std::string notesDesigners[EnumCount<DifficultyType>] = {};
+
+		ParsedCourse* currentCourse = nullptr;
+
+		auto initCurrentCourse = [&]()
+		{
+			for (auto courseScope : { currentCourseScope, DifficultyType::Count }) {
+				if (auto idx = idxLastCourses[EnumToIndex(courseScope)]; idx >= 0) {
+					currentCourse = &outTJA.Courses.emplace_back();
+					currentCourse->Metadata = outTJA.Courses[idx].Metadata; // inherit last (need to explicitly copy)
+					goto set_up_course;
+				}
+			}
+			currentCourse = &outTJA.Courses.emplace_back(); // create from scratch;
+		set_up_course:
+			currentCourse->HasChart = false;
+			b8 fromScratch = (idxLastCourses[EnumToIndex(currentCourseScope)] == -1);
+			idxLastCourses[EnumToIndex(currentCourseScope)] = outTJA.Courses.size() - 1;
+			return fromScratch;
+		};
+		auto getCurrentCourse = [&]()
 		{
 			if (currentCourse == nullptr)
-				currentCourse = &outTJA.Courses.emplace_back();
+				initCurrentCourse();
+			return currentCourse;
+		};
 
-			auto& newCommand = currentCourse->ChartCommands.emplace_back();
+		auto pushChartCommand = [&](ParsedChartCommandType type) -> ParsedChartCommand&
+		{
+			auto& newCommand = getCurrentCourse()->ChartCommands.emplace_back();
 			newCommand.Type = type;
 			return newCommand;
 		};
@@ -431,24 +529,38 @@ namespace TJA
 
 			case TokenType::KeyColonValue:
 			{
+				if (currentlyBetweenFirstCommandAndEnd && token.Key != Key::Course_EXAMs) {
+					if (currentlyBetweenChartStartAndEnd)
+						outErrors.Push(lineIndex, "This property should not be placed between #START and #END");
+					else
+						outErrors.Push(lineIndex, "This property should be placed before the first chart command");
+				}
+
 				if (token.Key >= Key::Main_First && token.Key <= Key::Main_Last)
 				{
+					if (currentCourseScope != DifficultyType::Count)
+						outErrors.Push(lineIndex, "This property is per-file in most simulators and should be defined before the first COURSE:");
+
 					const std::string_view in = ASCII::Trim(token.ValueString);
 					ParsedMainMetadata& out = outTJA.Metadata;
 					switch (token.Key)
 					{
 					case Key::Main_TITLE: { out.TITLE = in; } break;
-					case Key::Main_TITLEJA: { out.TITLE_JA = in; } break;
-					case Key::Main_TITLEEN: { out.TITLE_EN = in; } break;
-					case Key::Main_TITLECN: { out.TITLE_CN = in; } break;
-					case Key::Main_TITLETW: { out.TITLE_TW = in; } break;
-					case Key::Main_TITLEKO: { out.TITLE_KO = in; } break;
+					case Key::Main_TITLE_localized:
+					{
+						std::string_view key;
+						if (!tryParseLocaleSuffix(token.KeyString, "TITLE", &key)) { outErrors.Push(lineIndex, "Invalid language tag '%.*s'", FmtStrViewArgs(key)); }
+						out.TITLE_localized.insert_or_assign(std::string{ key }, in);
+					}
+					break;
 					case Key::Main_SUBTITLE: { out.SUBTITLE = in; } break;
-					case Key::Main_SUBTITLEJA: { out.SUBTITLE_JA = in; } break;
-					case Key::Main_SUBTITLEEN: { out.SUBTITLE_EN = in; } break;
-					case Key::Main_SUBTITLECN: { out.SUBTITLE_CN = in; } break;
-					case Key::Main_SUBTITLETW: { out.SUBTITLE_TW = in; } break;
-					case Key::Main_SUBTITLEKO: { out.SUBTITLE_KO = in; } break;
+					case Key::Main_SUBTITLE_localized:
+					{
+						std::string_view key;
+						if (!tryParseLocaleSuffix(token.KeyString, "SUBTITLE", &key)) { outErrors.Push(lineIndex, "Invalid language tag '%.*s'", FmtStrViewArgs(key)); }
+						out.SUBTITLE_localized.insert_or_assign(std::string{ key }, in);
+					}
+					break;
 					case Key::Main_BPM: { if (!tryParseTempo(in, &out.BPM)) { outErrors.Push(lineIndex, "Invalid tempo '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_WAVE: { out.WAVE = in; } break;
 					case Key::Main_PREIMAGE: { out.PREIMAGE = in; } break;
@@ -461,29 +573,42 @@ namespace TJA
 					case Key::Main_SONGVOL: { if (!tryParsePercent(in, &out.SONGVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_SEVOL: { if (!tryParsePercent(in, &out.SEVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_GAME: { if (!tryParseGameType(in, &out.GAME)) { outErrors.Push(lineIndex, "Unknown game type '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_HEADSCROLL: { if (!tryParseF32(in, &out.HEADSCROLL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Main_HEADSCROLL: { if (!ASCII::TryParse(in, out.HEADSCROLL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_BGIMAGE: { out.BGIMAGE = in; } break;
 					case Key::Main_BGMOVIE: { out.BGMOVIE = in; } break;
 					case Key::Main_MOVIEOFFSET: { if (!tryParseTime(in, &out.MOVIEOFFSET)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_TAIKOWEBSKIN: { out.TAIKOWEBSKIN = in; } break;
+					case Key::Main_Unknown: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Unknown file-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Main_Invalid: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Main_ switch case despite (Key::Main_First to Key::Main_Last) range check"); } break;
+					}
+				}
+				else if (token.Key == Key::Course_COURSE) { // special case of Key::Course_
+					const std::string_view in = ASCII::Trim(token.ValueString);
+					if (DifficultyType course; !tryParseDifficultyType(in, &course)) {
+						outErrors.Push(lineIndex, "Invalid difficulty '%.*s'", FmtStrViewArgs(in));
+					} else { // change course scope
+						currentCourseScope = course;
+						b8 fromScratch = initCurrentCourse();
+						auto& metadata = getCurrentCourse()->Metadata;
+						metadata.COURSE = course;
+						if (fromScratch)
+							metadata.NOTESDESIGNER = notesDesigners[EnumToIndex(course)];
 					}
 				}
 				else if (token.Key >= Key::Course_First && token.Key <= Key::Course_Last)
 				{
-					if (currentCourse == nullptr)
-						currentCourse = &outTJA.Courses.emplace_back();
+					if (currentCourseScope == DifficultyType::Count)
+						outErrors.Push(lineIndex, "This property has course scope, defining this before the first COURSE: is not supported on some simulators");
 
 					const std::string_view in = ASCII::Trim(token.ValueString);
-					ParsedCourseMetadata& out = currentCourse->Metadata;
+					ParsedCourseMetadata& out = getCurrentCourse()->Metadata;
 					switch (token.Key)
 					{
-					case Key::Course_COURSE: { if (!tryParseDifficultyType(in, &out.COURSE)) { outErrors.Push(lineIndex, "Invalid difficulty '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_LEVEL: 
 					{ 
 						f32 _level;
 						bool containsDot = (in.find('.') != std::string_view::npos);
-						if (!tryParseF32(in, &_level)) // tryParseI32(in, &out.LEVEL)
+						if (!ASCII::TryParse(in, _level))
 						{ 
 							outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in));
 							break;
@@ -491,7 +616,7 @@ namespace TJA
 						out.LEVEL = static_cast<int>(_level);
 						if (containsDot) {
 							std::string_view devpart = in.substr(in.find('.') + 1, 1);
-							if (!tryParseI32(devpart, &out.LEVEL_DECIMALTAG))
+							if (!tryParseDefaultForEmpty(devpart, &out.LEVEL_DECIMALTAG, 0))
 							{
 								outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(devpart));
 								break;
@@ -499,31 +624,46 @@ namespace TJA
 						}
 						break;
 					} 
-					case Key::Course_BALLOON: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SCOREINIT: { if (!tryParseI32(in, &out.SCOREINIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SCOREDIFF: { if (!tryParseI32(in, &out.SCOREDIFF)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_BALLOONNOR: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON_Normal)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_BALLOONEXP: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON_Expert)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_BALLOONMAS: { if (!tryParseCommaSeapratedI32s(in, &out.BALLOON_Master)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_STYLE: { if (!tryParseStyleMode(in, &out.STYLE)) { outErrors.Push(lineIndex, "Unknown style mode '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_EXPLICIT: { if (!tryParseI32(in, &out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_NOTESDESIGNER0: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER1: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER2: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER3: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_NOTESDESIGNER4: { out.NOTESDESIGNER = in; } break;
-					case Key::Course_EXAM1: { out.EXAM1 = in; } break;
-					case Key::Course_EXAM2: { out.EXAM2 = in; } break;
-					case Key::Course_EXAM3: { out.EXAM3 = in; } break;
-					case Key::Course_EXAM4: { out.EXAM4 = in; } break;
-					case Key::Course_EXAM5: { out.EXAM5 = in; } break;
-					case Key::Course_EXAM6: { out.EXAM6 = in; } break;
-					case Key::Course_EXAM7: { out.EXAM7 = in; } break;
+					case Key::Course_BALLOON: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SCOREINIT: { if (!tryParseDefaultForEmpty(in, &out.SCOREINIT, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SCOREDIFF: { if (!tryParseDefaultForEmpty(in, &out.SCOREDIFF, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_BALLOONNOR: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Normal)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_BALLOONEXP: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Expert)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_BALLOONMAS: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Master)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_STYLE: { if (!tryParseStyleMode(in, &out.STYLE)) { outErrors.Push(lineIndex, "Unknown or invalid style mode '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_EXPLICIT: { if (!ASCII::TryParse(in, out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_NOTESDESIGNERs:
+					{
+						DifficultyType diff;
+						if (std::string key; !tryParseNotesDesignerSuffix(token.KeyString, KeyStrings[EnumToIndex(token.Key)], &key, &diff))
+							outErrors.Push(lineIndex, "Invalid difficulty number '%.*s', expected '0' to '%d' or (empty)", FmtStrViewArgs(key), EnumCountI32<DifficultyType> - 1);
+						else if (currentCourseScope == DifficultyType::Count) { // before first `COURSE:` -> as file-scope header -> apply to specified difficulty
+							if (diff == DifficultyType::Count)
+								outErrors.Push(lineIndex, "Empty difficulty number is invalid for file-scope usage");
+							else
+								notesDesigners[EnumToIndex(diff)] = in;
+						} else { // otherwise -> as course-scope header -> ignore suffix
+							if (diff != DifficultyType::Count && diff != currentCourse->Metadata.COURSE)
+								outErrors.Push(lineIndex, "Difficulty number '%.*s' does not match current difficulty's number %d", FmtStrViewArgs(key), EnumToIndex(currentCourse->Metadata.COURSE));
+							out.NOTESDESIGNER = in;
+						}
+					}
+					break;
+					case Key::Course_EXAMs:
+					{
+						i32 index;
+						if (std::string key; !tryParseExamSuffix(token.KeyString, KeyStrings[EnumToIndex(token.Key)], &key, &index))
+							outErrors.Push(lineIndex, "Invalid exam key '%.*s', expected 'n' ('1', '2', ...) or 'GAUGE'", FmtStrViewArgs(key));
+						out.EXAMs.insert_or_assign(index, in);
+					}
+					break;
 					case Key::Course_GAUGEINCR: { if (!tryParseGaugeIncrementMethod(in, &out.GAUGEINCR)) { outErrors.Push(lineIndex, "Unknown gauge increment method '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_TOTAL: { out.TOTAL; } break;
-					case Key::Course_HIDDENBRANCH: { if (!tryParseI32(in, &out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_LIFE: { if (!tryParseI32(in, &out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_HIDDENBRANCH: { if (!ASCII::TryParse(in, out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_LIFE: { if (!ASCII::TryParse(in, out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid SIDE '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_Unknown: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Unknown course-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Course_Invalid: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Course_ switch case despite (Key::Course_First to Key::Course_Last) range check"); } break;
 					}
 				}
@@ -535,11 +675,22 @@ namespace TJA
 
 			case TokenType::HashChartCommand:
 			{
+				if (!currentlyBetweenFirstCommandAndEnd) {
+					if (currentCourseScope == DifficultyType::Count && !(token.Key == Key::Chart_END && token.KeyString.empty())) // exclude implicit `#END` from end-of-file
+						outErrors.Push(lineIndex, "Defining chart body before the first COURSE: is not supported on some simulators");
+					currentlyBetweenFirstCommandAndEnd = true;
+				}
+
+				if (!currentlyBetweenChartStartAndEnd) {
+					if (token.Key != Key::Chart_START && token.Key != Key::Chart_END
+						&& token.Key != Key::Chart_BMSCROLL && token.Key != Key::Chart_HBSCROLL && token.Key != Key::Chart_NMSCROLL
+						) {
+						outErrors.Push(lineIndex, "This chart command should be placed between #START and #END");
+					}
+				}
+
 				if (token.Key >= Key::Chart_First && token.Key <= Key::Chart_Last)
 				{
-					if (token.Key != Key::Chart_START && token.Key != Key::Chart_END && !currentlyBetweenChartStartAndEnd)
-						outErrors.Push(lineIndex, "Chart commands must be placed between #START and #END");
-
 					const std::string_view in = ASCII::Trim(token.ValueString);
 					switch (token.Key)
 					{
@@ -548,12 +699,28 @@ namespace TJA
 						if (currentlyBetweenChartStartAndEnd)
 							outErrors.Push(lineIndex, "Missing #END command");
 
+						ParsedCourse* course = getCurrentCourse();
+						ParsedCourseMetadata& out = course->Metadata;
+						if (!tryParsePlayerSide(in, &out.START_PLAYERSIDE) || out.START_PLAYERSIDE < 0)
+							outErrors.Push(lineIndex, "Invalid player side '%.*s', expected '' or 'Pn' ('P1', 'P2', ...)", FmtStrViewArgs(in));
+						else if (out.START_PLAYERSIDE == 0 && out.STYLE > 1)
+							outErrors.Push(lineIndex, "Empty player side '%.*s' is invalid for multi-player modes", FmtStrViewArgs(in));
+						else if (out.START_PLAYERSIDE > 0 && out.STYLE == 1)
+							outErrors.Push(lineIndex, "Player side ('%.*s') is invalid in single-player mode", FmtStrViewArgs(in));
+						else if (out.START_PLAYERSIDE > out.STYLE)
+							outErrors.Push(lineIndex, "The player side '%.*s' is invalid in %d-player mode", FmtStrViewArgs(in), out.STYLE);
+
+						course->HasChart = true;
 						currentlyBetweenChartStartAndEnd = true;
 					} break;
 					case Key::Chart_END:
 					{
-						if (!currentlyBetweenChartStartAndEnd)
+						b8 isEof = token.KeyString.empty(); // implicit `#END` from end-of-file
+						if (!currentlyBetweenChartStartAndEnd) {
+							if (isEof)
+								break;
 							outErrors.Push(lineIndex, "Missing #START command");
+						}
 
 						if (currentlyBetweenGoGoStartAndEnd)
 						{
@@ -573,46 +740,48 @@ namespace TJA
 							currentlyInBetweenMeasure = false;
 						}
 
-						currentlyBetweenChartStartAndEnd = false;
+						if (isEof && currentlyBetweenChartStartAndEnd)
+							outErrors.Push(lineIndex, "Missing #END command");
+
+						currentlyBetweenFirstCommandAndEnd = currentlyBetweenChartStartAndEnd = false;
 						currentCourse = nullptr;
 					} break;
 					case Key::Chart_MEASURE:
 					{
 						if (currentlyInBetweenMeasure)
-						{
-							outErrors.Push(lineIndex, "Cannot change time signature in the middle of a measure");
-						}
-						else
-						{
-							if (!tryParseTimeSignature(in, &pushChartCommand(ParsedChartCommandType::ChangeTimeSignature).Param.ChangeTimeSignature.Value) || in.empty())
-								outErrors.Push(lineIndex, "Invalid time signature '%.*s'", FmtStrViewArgs(in));
+							outErrors.Push(lineIndex, "Time signature changes in the middle of a measure takes effects at unspecified measure");
+						if (TimeSignature sig; !tryParseTimeSignature(in, &sig)) {
+							outErrors.Push(lineIndex, "Invalid time signature '%.*s'", FmtStrViewArgs(in));
+						} else {
+							pushChartCommand(ParsedChartCommandType::ChangeTimeSignature).Param.ChangeTimeSignature.Value = sig;
 
 							// NOTE: Just a limitation of the fixed point Beat implementation, arguably not a problem with the file itself..?
-							// if (((Beat::TicksPerBeat * 4) % currentCourse->ChartCommands.back().Param.ChangeTimeSignature.Value.Denominator) != 0)
-							if (!IsTimeSignatureSupported(currentCourse->ChartCommands.back().Param.ChangeTimeSignature.Value))
+							if (!IsTimeSignatureSupported(sig))
 								outErrors.Push(lineIndex, "Unsupported time signature denominator '%.*s'", FmtStrViewArgs(in));
 						}
 					} break;
 					case Key::Chart_BPMCHANGE:
 					{
-						if (!tryParseTempo(in, &pushChartCommand(ParsedChartCommandType::ChangeTempo).Param.ChangeTempo.Value) || in.empty())
+						if (!tryParseTempo(in, &pushChartCommand(ParsedChartCommandType::ChangeTempo).Param.ChangeTempo.Value))
 							outErrors.Push(lineIndex, "Invalid tempo '%.*s'", FmtStrViewArgs(in));
 					} break;
 					case Key::Chart_DELAY:
 					{
-						if (!tryParseTime(in, &pushChartCommand(ParsedChartCommandType::ChangeDelay).Param.ChangeDelay.Value) || in.empty())
+						if (!tryParseTime(in, &pushChartCommand(ParsedChartCommandType::ChangeDelay).Param.ChangeDelay.Value))
 							outErrors.Push(lineIndex, "Invalid delay '%.*s'", FmtStrViewArgs(in));
 					} break;
 					case Key::Chart_SCROLL:
 					{
-						if (!tryParseCPX(in, &cachedScrollSpeed) || in.empty())
+						if (!ASCII::TryParse(in, cachedScrollSpeed))
 							outErrors.Push(lineIndex, "Invalid scroll speed '%.*s'", FmtStrViewArgs(in));
 						pushChartCommand(ParsedChartCommandType::ChangeScrollSpeed).Param.ChangeScrollSpeed.Value = cachedScrollSpeed;
 					} break;
 					case Key::Chart_GOGOSTART:
 					{
-						if (currentlyBetweenGoGoStartAndEnd)
-							outErrors.Push(lineIndex, "Missing #GOGOEND command");
+						if (currentlyBetweenGoGoStartAndEnd) {
+							outErrors.Push(lineIndex, "Missing #GOGOEND command; inserting one");
+							pushChartCommand(ParsedChartCommandType::GoGoEnd);
+						}
 
 						pushChartCommand(ParsedChartCommandType::GoGoStart);
 						currentlyBetweenGoGoStartAndEnd = true;
@@ -620,9 +789,9 @@ namespace TJA
 					case Key::Chart_GOGOEND:
 					{
 						if (!currentlyBetweenGoGoStartAndEnd)
-							outErrors.Push(lineIndex, "Missing #GOGOSTART command");
-
-						pushChartCommand(ParsedChartCommandType::GoGoEnd);
+							outErrors.Push(lineIndex, "Missing #GOGOSTART command; ignored");
+						else
+							pushChartCommand(ParsedChartCommandType::GoGoEnd);
 						currentlyBetweenGoGoStartAndEnd = false;
 					} break;
 					case Key::Chart_BARLINEOFF:
@@ -636,14 +805,28 @@ namespace TJA
 					case Key::Chart_BRANCHSTART:
 					{
 						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::BranchStart);
-						ASCII::ForEachInCommaSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						auto& param = newCommand.Param.BranchStart;
+						param = { BranchCondition::Precise, 101, 101 };
+						i32 valueIndex = 0;
+						ASCII::ForEachInCommaSeparatedList(in, [&](std::string_view value)
 						{
 							value = ASCII::Trim(value);
-							if (valueIndex == 0) tryParseBranchCondition(value, &newCommand.Param.BranchStart.Condition);
-							if (valueIndex == 1) tryParseI32(value, &newCommand.Param.BranchStart.RequirementExpert);
-							if (valueIndex == 2) tryParseI32(value, &newCommand.Param.BranchStart.RequirementMaster);
+							if (valueIndex == 0) {
+								if (!tryParseBranchCondition(value, &param.Condition))
+									outErrors.Push(lineIndex, "Invalid branch condition '%.*s'", FmtStrViewArgs(value));
+							} else if (valueIndex == 1) {
+								if (!ASCII::TryParse(value, param.RequirementExpert))
+									outErrors.Push(lineIndex, "Invalid branch requirement '%.*s'", FmtStrViewArgs(value));
+							} else if (valueIndex == 2) {
+								if (!ASCII::TryParse(value, param.RequirementMaster))
+									outErrors.Push(lineIndex, "Invalid branch requirement '%.*s'", FmtStrViewArgs(value));
+							} else {
+								outErrors.Push(lineIndex, "Exceeded 3 arguments");
+							}
 							valueIndex++;
 						});
+						if (valueIndex < 3)
+							outErrors.Push(lineIndex, "Less than 3 required arguments");
 					} break;
 					case Key::Chart_N:
 					{
@@ -668,101 +851,133 @@ namespace TJA
 					case Key::Chart_BMSCROLL: { pushChartCommand(ParsedChartCommandType::BMScroll); } break;
 					case Key::Chart_HBSCROLL: { pushChartCommand(ParsedChartCommandType::HBScroll); } break;
 					case Key::Chart_NMSCROLL: { pushChartCommand(ParsedChartCommandType::NMScroll); } break;
-					case Key::Chart_SENOTECHANGE: { tryParseI32(in, &pushChartCommand(ParsedChartCommandType::SENoteChange).Param.SENoteChange.Type); } break;
+					case Key::Chart_SENOTECHANGE:
+						if (i32 v; !ASCII::TryParse(in, v))
+							outErrors.Push(lineIndex, "Invalid SENote type integer '%.*s'", FmtStrViewArgs(in));
+						else
+							pushChartCommand(ParsedChartCommandType::SENoteChange).Param.SENoteChange.Type = v;
+						break;
 					case Key::Chart_NEXTSONG: { pushChartCommand(ParsedChartCommandType::SetNextSong).Param.SetNextSong.CommaSeparatedList = in; } break;
 					case Key::Chart_DIRECTION: 
 					{
 						f32 scrollspeed = cachedScrollSpeed.GetRealPart();
-
-						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::ChangeScrollSpeed);
-						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						auto tryParseDirection = [&](std::string_view in, Complex* out)
+						{
+							i32 direction = 0;
+							if (!ASCII::TryParse(in, direction))
+								return false;
+							switch (direction)
 							{
-								value = ASCII::Trim(value);
-								if (valueIndex == 0) 
-								{
-									i32 direction = 0;
-									tryParseI32(value, &direction);
-									switch (direction)
-									{
-									case 1:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(0.f, -scrollspeed);
-										break;
-									case 2:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(0.f, scrollspeed);
-										break;
-									case 3:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(scrollspeed, -scrollspeed);
-										break;
-									case 4:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(scrollspeed, scrollspeed);
-										break;
-									case 5:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(-scrollspeed, 0.f);
-										break;
-									case 6:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(-scrollspeed, -scrollspeed);
-										break;
-									case 7:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(-scrollspeed, scrollspeed);
-										break;
-									case 0:
-									default:
-										newCommand.Param.ChangeScrollSpeed.Value = Complex(scrollspeed, 0.f);
-										break;
-									}
-								}
-
-								valueIndex++;
-							});
+							case 0: *out = Complex(scrollspeed, 0.f); return true;
+							case 1: *out = Complex(0.f, -scrollspeed); return true;
+							case 2: *out = Complex(0.f, scrollspeed); return true;
+							case 3: *out = Complex(scrollspeed, -scrollspeed); return true;
+							case 4: *out = Complex(scrollspeed, scrollspeed); return true;
+							case 5: *out = Complex(-scrollspeed, 0.f); return true;
+							case 6: *out = Complex(-scrollspeed, -scrollspeed); return true;
+							case 7: *out = Complex(-scrollspeed, scrollspeed); return true;
+							default: return false;
+							}
+						};
+						if (Complex v; !tryParseDirection(in, &v))
+							outErrors.Push(lineIndex, "Invalid direction integer '%.*s'", FmtStrViewArgs(in));
+						else
+							pushChartCommand(ParsedChartCommandType::ChangeScrollSpeed).Param.ChangeScrollSpeed.Value = v;
 					} break;
 					case Key::Chart_SUDDEN:
 					{
-						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::SetSudden);
-						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						decltype(ParsedChartCommand::ParamData::SetSudden) param = { Time::Zero(), Time::Zero() };
+						i32 valueIndex = 0;
+						b8 valid = true;
+
+						ASCII::ForEachInSpaceSeparatedList(in, [&](std::string_view value)
 						{
 							value = ASCII::Trim(value);
-							if (valueIndex == 0) tryParseTime(value, &newCommand.Param.SetSudden.AppearanceOffset);
-							if (valueIndex == 1) tryParseTime(value, &newCommand.Param.SetSudden.MovementWaitDelay);
+							if (value.empty())
+								return;
+							if (valueIndex == 0) {
+								if (!tryParseTime(value, &param.AppearanceOffset)) {
+									valid = false;
+									outErrors.Push(lineIndex, "Invalid appearance offset number '%.*s'", FmtStrViewArgs(value));
+								}
+							} else if (valueIndex == 1) {
+								if (!tryParseTime(value, &param.MovementWaitDelay)) {
+									valid = false;
+									outErrors.Push(lineIndex, "Invalid movement offset number '%.*s'", FmtStrViewArgs(value));
+								}
+							} else {
+								outErrors.Push(lineIndex, "Exceeded 2 arguments");
+							}
 							valueIndex++;
 						});
+						if (valueIndex < 2) {
+							outErrors.Push(lineIndex, "Invalid lacking of 2 required arguments");
+							valid = false;
+						}
+						if (valid)
+							pushChartCommand(ParsedChartCommandType::SetSudden).Param.SetSudden = param;
 					} break;
 					case Key::Chart_JPOSSCROLL:
 					{
-						ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::SetJPOSScroll);
+						decltype(ParsedChartCommand::ParamData::ChangeJPOSScroll) param = { Time::Zero(), Complex(0, 0) };
+						i32 valueIndex = 0;
+						b8 valid = true;
 						i32 direction = 0;
 						b8 splitComplex = true;
 						// 3-arg form: `#JPOSSCROLL 0.017 3+2i 0`
 						// 4-arg form (splitComplex; TJAP3 1.6.x): `#JPOSSCROLL 3 100 100i 0`
-						ASCII::ForEachInSpaceSeparatedList(in, [&, valueIndex = 0](std::string_view value) mutable
+						ASCII::ForEachInSpaceSeparatedList(in, [&](std::string_view value)
 						{
 							value = ASCII::Trim(value);
-							if (valueIndex == 0) tryParseTime(value, &newCommand.Param.ChangeJPOSScroll.Duration);
-							if (valueIndex == 1) {
-								tryParseCPX(value, &newCommand.Param.ChangeJPOSScroll.Move);
-								if (ASCII::ToLowerCase(value.back()) == 'i') {
-									splitComplex = false;
+							if (value.empty())
+								return;
+							if (valueIndex == 0) {
+								if (!tryParseTime(value, &param.Duration)) {
+									outErrors.Push(lineIndex, "Invalid duration time '%.*s'", FmtStrViewArgs(value));
+									valid = false;
 								}
+							} else if (valueIndex == 1) {
+								if (!ASCII::TryParse(value, param.Move)) {
+									outErrors.Push(lineIndex, "Invalid complex number '%.*s'", FmtStrViewArgs(value));
+									valid = false;
+								}
+								if (ASCII::ToLowerCase(value.back()) == 'i')
+									splitComplex = false;
 							}
-							if (valueIndex == 2) {
+							else if (valueIndex == 2) {
 								if (ASCII::ToLowerCase(value.back()) == 'i') {
 									// arg 2 is move y
-									if (f32 val; splitComplex && tryParseF32(value.substr(0, value.length() - 1), &val)) {
-										newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(val);
-									} else {
-										outErrors.Push(lineIndex, "Invalid split complex number in '%.*s'", FmtStrViewArgs(token.KeyString));
-									}
+									if (Complex val; splitComplex && std::regex_match(begin(value), end(value), Complex::PatPureImaginary) && ASCII::TryParse(value, val))
+										param.Move.SetImaginaryPart(val.cpx.imag());
+									else
+										outErrors.Push(lineIndex, "Invalid split complex number in '%.*s'", FmtStrViewArgs(token.ValueString));
 								} else {
 									++valueIndex; // arg 2 is direction
 								}
 							}
-							if (valueIndex == 3) tryParseI32(value, &direction);
+							if (valueIndex == 3) {
+								if (!ASCII::TryParse(value, direction)) {
+									outErrors.Push(lineIndex, "Invalid direction integer '%.*s'", FmtStrViewArgs(value));
+									valid = false;
+								}
+							} else if (valueIndex > 3) {
+								outErrors.Push(lineIndex, "Exceeded 3 arguments");
+							}
 							valueIndex++;
 						});
 						if (direction == 0) {
-							newCommand.Param.ChangeJPOSScroll.Move.SetRealPart(-newCommand.Param.ChangeJPOSScroll.Move.GetRealPart());
-							newCommand.Param.ChangeJPOSScroll.Move.SetImaginaryPart(-newCommand.Param.ChangeJPOSScroll.Move.GetImaginaryPart());
+							param.Move.SetRealPart(-param.Move.GetRealPart());
+							param.Move.SetImaginaryPart(-param.Move.GetImaginaryPart());
 						}
+						if (valueIndex < 2) {
+							outErrors.Push(lineIndex, "Invalid lacking of 2 required arguments");
+							valid = false;
+						}
+						if (valid)
+							pushChartCommand(ParsedChartCommandType::SetJPOSScroll).Param.ChangeJPOSScroll = param;
 					} break;
+					case Key::Chart_Unknown: { outErrors.Push(lineIndex, "Unknown command '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					case Key::Chart_Invalid: { outErrors.Push(lineIndex, "Invalid command '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					default: { assert(!"Unhandled Key::Chart_ switch case despite (Key::Chart_First to Key::Chart_Last) range check"); } break;
 					}
 				}
@@ -776,6 +991,7 @@ namespace TJA
 			{
 				if (currentlyBetweenChartStartAndEnd)
 				{
+					b8 hasSpaces = false;
 					currentlyInBetweenMeasure = true;
 
 					ParsedChartCommand& newCommand = pushChartCommand(ParsedChartCommandType::MeasureNotes);
@@ -793,22 +1009,20 @@ namespace TJA
 							currentMeasureNoteCount = 0;
 							currentlyInBetweenMeasure = false;
 							break;
-						}
-						else
-						{
+						} else if (ASCII::IsWhitespace(c)) { // Whitespaces are ignore in TaikoJiro, especially must be ignored in GAME:Jube
+							if (!hasSpaces) {
+								outErrors.Push(lineIndex, "Whitespaces in the middle of note data is not supported on some simulators");
+								hasSpaces = true;
+							}
+						} else {
 							// NOTE: Treating unknown note types as empty spaces makes the most sense because that way timing won't be messed up 
 							//		 in case it's somehow a genuine note that just happens to be unsupported by this parser (?)
 							NoteType parsedNoteTypeOrNone = NoteType::None;
 							if (!tryParseNoteTypeChar(c, &parsedNoteTypeOrNone))
 								outErrors.Push(lineIndex, "Unknown note type '%c'", c);
 
-							// NOTE: Except for whitespace I guess, those never make sense to be valid notes (?)
-							//		 The format just doesn't really describe how to handle this...
-							if (!ASCII::IsWhitespace(c))
-							{
-								newCommand.Param.MeasureNotes.Notes.push_back(parsedNoteTypeOrNone);
-								currentMeasureNoteCount++;
-							}
+							newCommand.Param.MeasureNotes.Notes.push_back(parsedNoteTypeOrNone);
+							currentMeasureNoteCount++;
 						}
 					}
 				}
@@ -825,9 +1039,6 @@ namespace TJA
 			}
 		}
 
-		if (currentlyBetweenChartStartAndEnd)
-			outErrors.Push(tokens.empty() ? 0 : tokens.back().LineIndex, "Missing #END command");
-
 #if 1 // DEBUG: Always add at least one course for now so the debug gui has something to display
 		if (outTJA.Courses.empty())
 			outTJA.Courses.emplace_back();
@@ -835,6 +1046,9 @@ namespace TJA
 
 		return outTJA;
 	}
+
+	static const ParsedMainMetadata DefaultMainMetadata = {};
+	static const ParsedCourseMetadata DefaultCourseMetadata = {};
 
 	void ConvertParsedToText(const ParsedTJA& inContent, std::string& out, Encoding encoding)
 	{
@@ -845,7 +1059,8 @@ namespace TJA
 
 		static constexpr auto appendLine = [](std::string& out, std::string_view line) { out += line; out += '\n'; };
 		static constexpr auto appendProperyLine = [](std::string& out, Key key, std::string_view value) { out += KeyStrings[EnumToIndex(key)]; out += ':'; out += value; out += '\n'; };
-		static constexpr auto appendProperyLineIfNotEmpty = [](std::string& out, Key key, std::string_view value) { if (!value.empty()) { appendProperyLine(out, key, value); } };
+		static constexpr auto appendSuffixedPropertyLine = [](std::string& out, Key key, std::string_view suffix, std::string_view value)
+		{ out += KeyStrings[EnumToIndex(key)]; out += suffix; out += ':'; out += value; out += '\n'; };
 		static constexpr auto appendCommandLine = [](std::string& out, Key key, std::string_view value) { out += '#'; out += KeyStrings[EnumToIndex(key)]; if (!value.empty()) { out += ' '; out += value; }out += '\n'; };
 		static constexpr auto appendBalloonProperyLine = [](std::string& out, Key key, const std::vector<i32>& popCounts)
 		{
@@ -894,12 +1109,22 @@ namespace TJA
 			default: return "";
 			}
 		};
+		static auto styleModeToString = [&](i32 in) -> std::string
+		{
+			switch (in)
+			{
+			case 1: return "Single";
+			case 2: return "Double";
+			default: return std::to_string(in);
+			}
+		};
 		static constexpr auto sideToString = [](SongSelectSide in) -> cstr
 		{
 			switch (in)
 			{
 			case SongSelectSide::Normal: return "Normal";
 			case SongSelectSide::Ex: return "Ex";
+			case SongSelectSide::Both: return "Both";
 			default: return "";
 			}
 		};
@@ -917,87 +1142,169 @@ namespace TJA
 			out += '\n';
 		}
 
-		appendProperyLine(out, Key::Main_TITLE, inContent.Metadata.TITLE);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLEJA, inContent.Metadata.TITLE_JA);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLEEN, inContent.Metadata.TITLE_EN);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLECN, inContent.Metadata.TITLE_CN);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLETW, inContent.Metadata.TITLE_TW);
-		appendProperyLineIfNotEmpty(out, Key::Main_TITLEKO, inContent.Metadata.TITLE_KO);
-		appendProperyLine(out, Key::Main_SUBTITLE, inContent.Metadata.SUBTITLE);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLEJA, inContent.Metadata.SUBTITLE_JA);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLEEN, inContent.Metadata.SUBTITLE_EN);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLECN, inContent.Metadata.SUBTITLE_CN);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLETW, inContent.Metadata.SUBTITLE_TW);
-		appendProperyLineIfNotEmpty(out, Key::Main_SUBTITLEKO, inContent.Metadata.SUBTITLE_KO);
-		appendProperyLine(out, Key::Main_BPM, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.BPM.BPM)));
-		appendProperyLine(out, Key::Main_WAVE, inContent.Metadata.WAVE);
-		appendProperyLineIfNotEmpty(out, Key::Main_PREIMAGE, inContent.Metadata.PREIMAGE);
-		appendProperyLine(out, Key::Main_OFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.OFFSET.Seconds)));
-		appendProperyLine(out, Key::Main_DEMOSTART, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.DEMOSTART.Seconds)));
-		appendProperyLineIfNotEmpty(out, Key::Main_GENRE, inContent.Metadata.GENRE);
-		if (inContent.Metadata.SCOREMODE != ScoreMode {}) appendProperyLine(out, Key::Main_SCOREMODE, std::string_view(buffer, sprintf_s(buffer, "%d", static_cast<i32>(inContent.Metadata.SCOREMODE))));
-		appendProperyLineIfNotEmpty(out, Key::Main_MAKER, inContent.Metadata.MAKER);
-		appendProperyLineIfNotEmpty(out, Key::Main_LYRICS, inContent.Metadata.LYRICS);
-		if (!ApproxmiatelySame(inContent.Metadata.SONGVOL, 1.0f)) appendProperyLine(out, Key::Main_SONGVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SONGVOL))));
-		if (!ApproxmiatelySame(inContent.Metadata.SEVOL, 1.0f)) appendProperyLine(out, Key::Main_SEVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SEVOL))));
+		DifficultyType currentCourseScope = DifficultyType::Count; // default course scope
+
+		auto shouldEmitMainMetadata = [&, &inContent = inContent](auto ParsedMainMetadata::*... membs) // MSVC++ bug?: cannot implicitly capture variables when used in folder expression
+		{
+			return (... || (inContent.Metadata.*membs != DefaultMainMetadata.*membs));
+		};
+
+		appendProperyLine(out, Key::Main_TITLE, inContent.Metadata.TITLE); // Required for TaikoJiro
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::TITLE_localized)) {
+			for (const auto& [locale, val] : inContent.Metadata.TITLE_localized)
+				appendSuffixedPropertyLine(out, Key::Main_TITLE_localized, locale, val);
+		}
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE, &ParsedMainMetadata::SUBTITLE_localized))
+			appendProperyLine(out, Key::Main_SUBTITLE, inContent.Metadata.SUBTITLE); // Better to be explicit if localized
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SUBTITLE_localized)) {
+			for (const auto& [locale, val] : inContent.Metadata.SUBTITLE_localized)
+				appendSuffixedPropertyLine(out, Key::Main_SUBTITLE_localized, locale, val);
+		}
+		appendProperyLine(out, Key::Main_BPM, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.BPM.BPM))); // Better to be explicit
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::WAVE))
+			appendProperyLine(out, Key::Main_WAVE, inContent.Metadata.WAVE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::PREIMAGE))
+			appendProperyLine(out, Key::Main_PREIMAGE, inContent.Metadata.PREIMAGE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::WAVE, &ParsedMainMetadata::OFFSET)) // Better to be explicit if `WAVE:` is given
+			appendProperyLine(out, Key::Main_OFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.OFFSET.Seconds)));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::DEMOSTART))
+			appendProperyLine(out, Key::Main_DEMOSTART, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.DEMOSTART.Seconds)));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::GENRE))
+			appendProperyLine(out, Key::Main_GENRE, inContent.Metadata.GENRE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SCOREMODE))
+			appendProperyLine(out, Key::Main_SCOREMODE, std::string_view(buffer, sprintf_s(buffer, "%d", static_cast<i32>(inContent.Metadata.SCOREMODE))));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::MAKER))
+			appendProperyLine(out, Key::Main_MAKER, inContent.Metadata.MAKER);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::LYRICS))
+			appendProperyLine(out, Key::Main_LYRICS, inContent.Metadata.LYRICS);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SONGVOL))
+			appendProperyLine(out, Key::Main_SONGVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SONGVOL))));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::SEVOL))
+			appendProperyLine(out, Key::Main_SEVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SEVOL))));
 		// TODO: Key::Main_SIDE;
-		//if (inContent.Metadata.LIFE != 0) appendProperyLine(out, Key::Main_LIFE, std::string_view(buffer, sprintf_s(buffer, "%d", inContent.Metadata.LIFE)));
 		// TODO: Key::Main_GAME;
-		if (inContent.Metadata.HEADSCROLL != 1.0f) appendProperyLine(out, Key::Main_HEADSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.HEADSCROLL)));
-		appendProperyLineIfNotEmpty(out, Key::Main_BGIMAGE, inContent.Metadata.BGIMAGE);
-		appendProperyLineIfNotEmpty(out, Key::Main_BGMOVIE, inContent.Metadata.BGMOVIE);
-		if (inContent.Metadata.MOVIEOFFSET != Time::Zero()) appendProperyLine(out, Key::Main_MOVIEOFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.MOVIEOFFSET.Seconds)));
-		appendProperyLineIfNotEmpty(out, Key::Main_TAIKOWEBSKIN, inContent.Metadata.TAIKOWEBSKIN);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::HEADSCROLL))
+			appendProperyLine(out, Key::Main_HEADSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.HEADSCROLL)));
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE))
+			appendProperyLine(out, Key::Main_BGIMAGE, inContent.Metadata.BGIMAGE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGMOVIE))
+			appendProperyLine(out, Key::Main_BGMOVIE, inContent.Metadata.BGMOVIE);
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE, &ParsedMainMetadata::BGMOVIE, &ParsedMainMetadata::MOVIEOFFSET)) // Better to be explicit if bg is given
+			appendProperyLine(out, Key::Main_MOVIEOFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.MOVIEOFFSET.Seconds)));
+
+		if (shouldEmitMainMetadata(&ParsedMainMetadata::Others)) {
+			for (const auto& [header, val] : inContent.Metadata.Others)
+				appendSuffixedPropertyLine(out, Key::Main_Unknown, header, val);
+		}
+
 		appendLine(out, "");
 
-		for (const ParsedCourse& course : inContent.Courses)
+		// group difficulties by course scope
+		using CourseIter = decltype(inContent.Courses)::const_iterator;
+		std::vector<std::pair<CourseIter, CourseIter>> courseScopes = {};
+
+		for (auto it = begin(inContent.Courses); it != end(inContent.Courses); ++it) {
+			const auto& course = *it;
+			if (course.Metadata.COURSE == currentCourseScope)
+				continue;
+			// change course scope
+			if (!courseScopes.empty())
+				courseScopes.back().second = it;
+			courseScopes.emplace_back(it, end(inContent.Courses));
+			currentCourseScope = course.Metadata.COURSE;
+		}
+		// revert course scope
+		currentCourseScope = DifficultyType::Count;
+
+		static constexpr auto courseMetadataDifferWithin = [](CourseIter it, CourseIter itBeg, CourseIter itEnd, auto ParsedCourseMetadata::*... membs)
 		{
+			for (CourseIter itI = itBeg; itI != itEnd; ++itI) {
+				if ((... || (it->Metadata.*membs != itI->Metadata.*membs)))
+					return true;
+			}
+			return false;
+		};
+
+		auto convertCourse = [&](CourseIter it, CourseIter itBeg, CourseIter itEnd)
+		{
+			auto shouldEmitCourseMetadata = [&, &inContent = inContent](auto ParsedCourseMetadata::*... membs) // MSVC++ bug?: cannot implicitly capture variables when used in folder expression
+			{
+				if (it == itBeg) {
+					return (... || (it->Metadata.*membs != DefaultCourseMetadata.*membs)) // group-initial, non-default
+						|| courseMetadataDifferWithin(it, begin(inContent.Courses), end(inContent.Courses), membs...); // differ globally, better to be explicit
+				}
+				return courseMetadataDifferWithin(it, itBeg, itEnd, membs...); // differ in group, better to be explicit
+			};
+
+			const ParsedCourse& course = *it;
 			if (&course != &inContent.Courses[0])
 				appendLine(out, "");
 
-			appendProperyLine(out, Key::Course_COURSE, difficultyTypeToString(course.Metadata.COURSE));
-			//(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : "-"),
-			if (course.Metadata.LEVEL_DECIMALTAG == -1)
-				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LEVEL)));
-			else
-				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%.1f", course.Metadata.LEVEL + static_cast<float>(course.Metadata.LEVEL_DECIMALTAG) / 10. )));
+			b8 firstInGroup = (it == itBeg);
+			if (firstInGroup) { // change course scope
+				appendProperyLine(out, Key::Course_COURSE, difficultyTypeToString(course.Metadata.COURSE));
+				currentCourseScope = course.Metadata.COURSE;
+			}
 
+			// scope-like, omit mid-group when possible
+			if (firstInGroup ? shouldEmitCourseMetadata(&ParsedCourseMetadata::STYLE) : course.Metadata.STYLE != (it - 1)->Metadata.STYLE) {
+				if (firstInGroup)
+					appendLine(out, "");
+				appendProperyLine(out, Key::Course_STYLE, styleModeToString(course.Metadata.STYLE));
+				appendLine(out, "");
+			}
+
+			// Unspecified default value
+			if (firstInGroup || shouldEmitCourseMetadata(&ParsedCourseMetadata::LEVEL, &ParsedCourseMetadata::LEVEL_DECIMALTAG)) {
+				if (course.Metadata.LEVEL_DECIMALTAG == -1)
+					appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LEVEL)));
+				else
+					appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%.1f", course.Metadata.LEVEL + static_cast<float>(course.Metadata.LEVEL_DECIMALTAG) / 10.)));
+			}
+
+			// Better to be explicit
 			if (course.Metadata.COURSE == DifficultyType::Tower) {
 				appendProperyLine(out, Key::Course_LIFE, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LIFE)));
 				appendProperyLine(out, Key::Course_SIDE, sideToString(course.Metadata.SIDE));
 			}
 
+			// Better to be explicit
 			if (!course.Metadata.BALLOON.empty() || !course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
-				appendBalloonProperyLine(out, Key::Course_BALLOON, course.Metadata.BALLOON);
+				appendBalloonProperyLine(out, Key::Course_BALLOON, course.Metadata.BALLOON); // necessary for branched charts as branched BALLOON headers are not handled consistently across all simulators
 			if (!course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
 			{
 				appendBalloonProperyLine(out, Key::Course_BALLOONNOR, course.Metadata.BALLOON_Normal);
 				appendBalloonProperyLine(out, Key::Course_BALLOONEXP, course.Metadata.BALLOON_Expert);
 				appendBalloonProperyLine(out, Key::Course_BALLOONMAS, course.Metadata.BALLOON_Master);
 			}
-			appendProperyLine(out, Key::Course_SCOREINIT, (course.Metadata.SCOREINIT == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREINIT)));
-			appendProperyLine(out, Key::Course_SCOREDIFF, (course.Metadata.SCOREDIFF == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREDIFF)));
-			// TODO: Key::Course_STYLE;
-			if (!course.Metadata.NOTESDESIGNER.empty())
-			{
-				switch (course.Metadata.COURSE)
-				{
-				case DifficultyType::Easy: { appendProperyLine(out, Key::Course_NOTESDESIGNER0, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::Normal: { appendProperyLine(out, Key::Course_NOTESDESIGNER1, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::Hard: { appendProperyLine(out, Key::Course_NOTESDESIGNER2, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::Oni: { appendProperyLine(out, Key::Course_NOTESDESIGNER3, course.Metadata.NOTESDESIGNER); } break;
-				case DifficultyType::OniUra: { appendProperyLine(out, Key::Course_NOTESDESIGNER4, course.Metadata.NOTESDESIGNER); } break;
-				}
+
+			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::SCOREINIT, &ParsedCourseMetadata::SCOREDIFF)) {
+				appendProperyLine(out, Key::Course_SCOREINIT, (course.Metadata.SCOREINIT == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREINIT)));
+				appendProperyLine(out, Key::Course_SCOREDIFF, (course.Metadata.SCOREDIFF == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREDIFF)));
 			}
+
+			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::NOTESDESIGNER))
+				appendSuffixedPropertyLine(out, Key::Course_NOTESDESIGNERs, std::to_string(EnumToIndex(course.Metadata.COURSE)), course.Metadata.NOTESDESIGNER);
+
 			// TODO: Key::Course_EXAM1;
 			// TODO: Key::Course_EXAM2;
 			// TODO: Key::Course_EXAM3;
 			// TODO: Key::Course_GAUGEINCR;
 			// TODO: Key::Course_TOTAL;
 			// TODO: Key::Course_HIDDENBRANCH;
+
+			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::Others)) {
+				for (const auto& [header, val] : course.Metadata.Others)
+					appendSuffixedPropertyLine(out, Key::Course_Unknown, header, val);
+			}
+
 			appendLine(out, "");
 
-			appendCommandLine(out, Key::Chart_START, "");
+			if (course.Metadata.STYLE <= 1)
+				appendCommandLine(out, Key::Chart_START, "");
+			else
+				appendCommandLine(out, Key::Chart_START, "P" + std::to_string(course.Metadata.START_PLAYERSIDE));
+
 			for (const ParsedChartCommand& command : course.ChartCommands)
 			{
 				switch (command.Type)
@@ -1111,6 +1418,11 @@ namespace TJA
 				}
 			}
 			appendCommandLine(out, Key::Chart_END, "");
+		};
+
+		for (const auto& [itBeg, itEnd] : courseScopes) {
+			for (CourseIter it = itBeg; it != itEnd; ++it)
+				convertCourse(it, itBeg, itEnd);
 		}
 	}
 

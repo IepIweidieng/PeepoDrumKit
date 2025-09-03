@@ -134,6 +134,7 @@ namespace PeepoDrumKit
 
 		GuiScaleFactorTarget = ClampRoundGuiScaleFactor(PersistentApp.LastSession.GuiScale);
 		SelectedGuiLanguage = PersistentApp.LastSession.GuiLanguage;
+		SelectedGuiLanguageTJA = ASCII::IETFLangTagToTJALangTag(SelectedGuiLanguage);
 
 		ApplicationHost::GlobalState.SwapInterval = PersistentApp.LastSession.OSWindow_SwapInterval;
 		startupParam.WindowTitle = PeepoDrumKitApplicationTitle;

@@ -34,8 +34,14 @@ namespace Audio
 	public:
 		b8 IsValid() const;
 
+		i32 GetSoundGroup() const;
+		void SetSoundGroup(i32 value);
+
 		f32 GetVolume() const;
 		void SetVolume(f32 value);
+
+		f32 GetPan() const;
+		void SetPan(f32 value);
 
 		f32 GetPlaybackSpeed() const;
 		void SetPlaybackSpeed(f32 value);
@@ -90,10 +96,39 @@ namespace Audio
 		"WASAPI (Exclusive)",
 	};
 
+	enum class PanLaw : u8
+	{
+		db6, // linear amplitude
+		db3, // constant power
+		db4_5, // compromised
+	};
+
+	constexpr std::array<f32, 2> GetPanGain(f32 pan, PanLaw law)
+	{
+		f32 theta = {};
+		switch (law) {
+		case PanLaw::db6:
+			return { 1 - pan, 1 + pan };
+		case PanLaw::db3:
+			theta = (pan + 1) * (PI / 4);
+			return { std::cos(theta) / (std::cos(PI / 4)), std::sin(theta) / (std::sin(PI / 4)) };
+		case PanLaw::db4_5:
+			theta = (pan + 1) * (PI / 4);
+			return { std::sqrt((1 - pan) * std::cos(theta) / std::cos(PI / 4)), std::sqrt((1 + pan) * std::sin(theta) / std::sin(PI / 4)) };
+		default:
+			assert(false && "Unknown PanLaw");
+			return { 1, 1 };
+		}
+	}
+
 	class AudioEngine : NonCopyable
 	{
 	public:
 		static constexpr f32 MinVolume = 0.0f, MaxVolume = 1.0f;
+		static constexpr f32 SoundGroupVolumeLimit = 2.0f;
+		static constexpr f32 MinPan = -1, MaxPan = 1;
+		static constexpr PanLaw PanLaw = PanLaw::db3;
+		static constexpr size_t MaxSoundGroups = 3;
 		static constexpr size_t MaxSimultaneousVoices = 128;
 		static constexpr size_t MaxLoadedSources = 256;
 
@@ -137,11 +172,11 @@ namespace Audio
 		void SetSourceName(SourceHandle source, std::string_view newName);
 
 		// NOTE: Add a voice and keep a handle to it
-		VoiceHandle AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume = MaxVolume, b8 playPastEnd = false);
+		VoiceHandle AddVoice(SourceHandle source, std::string_view name, b8 playing, f32 volume = MaxVolume, f32 pan = 0, b8 playPastEnd = false, i32 soundGroup = 0);
 		void RemoveVoice(VoiceHandle voice);
 
 		// NOTE: Add a voice, play it once then discard
-		void PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume = MaxVolume);
+		void PlayOneShotSound(SourceHandle source, std::string_view name, f32 volume = MaxVolume, f32 pan = 0, i32 soundGroup = 0);
 
 	public:
 		Backend GetBackend() const;
@@ -149,6 +184,9 @@ namespace Audio
 
 		b8 GetIsStreamOpenRunning() const;
 		b8 GetAllVoicesAreIdle() const;
+
+		f32 GetSoundGroupVolume(i32 soundGroup) const;
+		void SetSoundGroupVolume(i32 soundGroup, f32 value);
 
 		f32 GetMasterVolume() const;
 		void SetMasterVolume(f32 value);

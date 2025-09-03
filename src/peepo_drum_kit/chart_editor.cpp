@@ -52,18 +52,21 @@ namespace PeepoDrumKit
 	}
 
 	static b8 GlobalLastSetRequestExclusiveDeviceAccessAudioSetting = {};
+	static i32 GlobalLastSetAudioBufferFrameSize = {};
 
 	ChartEditor::ChartEditor()
 	{
 		context.Gfx.StartAsyncLoading();
-		context.SongVoice = Audio::Engine.AddVoice(Audio::SourceHandle::Invalid, "ChartEditor SongVoice", false, 1.0f, true);
+		context.SongVoice = Audio::Engine.AddVoice(Audio::SourceHandle::Invalid, "ChartEditor SongVoice", false, 1.0f, 0, true);
 		context.SfxVoicePool.StartAsyncLoadingAndAddVoices();
 
-		context.ChartSelectedCourse = context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get();
+		context.ResetChartsCompared();
+		context.SetSelectedChart(context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get(), BranchType::Normal);
 		SetChartDefaultSettingsAndCourses(context.Chart);
 
 		GlobalLastSetRequestExclusiveDeviceAccessAudioSetting = *Settings.Audio.RequestExclusiveDeviceAccess;
 		Audio::Engine.SetBackend(*Settings.Audio.RequestExclusiveDeviceAccess ? Audio::Backend::WASAPI_Exclusive : Audio::Backend::WASAPI_Shared);
+		Audio::Engine.SetBufferFrameSize(*Settings.Audio.BufferFrameSize);
 		Audio::Engine.SetMasterVolume(0.75f);
 		if (*Settings.Audio.OpenDeviceOnStartup)
 			Audio::Engine.OpenStartStream();
@@ -95,6 +98,7 @@ namespace PeepoDrumKit
 				if (nextLanguageToSelect != SelectedGuiLanguage)
 				{
 					SelectedGuiLanguage = nextLanguageToSelect;
+					SelectedGuiLanguageTJA = ASCII::IETFLangTagToTJALangTag(SelectedGuiLanguage);
 					i18n::ReloadLocaleFile(SelectedGuiLanguage.c_str());
 				}
 			};
@@ -552,18 +556,61 @@ namespace PeepoDrumKit
 
 						for (const auto& dt : difficulties)
 						{
-
 							char labelBuffer[128];
 							sprintf_s(labelBuffer, "%s", dt.CurrentName);
-
-							if (Gui::MenuItem(
-								labelBuffer, 
-								" ",
-								false,
-								!std::any_of(context.Chart.Courses.begin(), context.Chart.Courses.end(), [&dt](const std::unique_ptr<PeepoDrumKit::ChartCourse>& obj) { return obj->Type == dt.dType; })
-								))
+							if (Gui::MenuItem(labelBuffer, " ", false)) {
 								CreateNewDifficulty(context, dt.dType);
+								context.Undo.NotifyChangesWereMade();
+							}
 						}
+						Gui::EndMenu();
+					}
+
+					if (Gui::BeginMenu(UI_Str("ACT_COURSES_COMPARE_GROUP")))
+					{
+						static constexpr auto addToCompared = [](ChartContext& context, auto&& filter)
+						{
+							for (const auto& uptrCourse : context.Chart.Courses) {
+								if (const auto* course = uptrCourse.get(); filter(course))
+									context.ChartsCompared[course].insert(BranchType::Normal);
+							}
+							context.CompareMode |= (size(context.ChartsCompared) > 1);
+						};
+
+						b8 isComparingNone = (size(context.ChartsCompared) <= 1);
+						b8 isComparingAll = (size(context.ChartsCompared) == size(context.Chart.Courses));
+
+						if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_NONE"), " ", nullptr, !isComparingNone))
+							context.ResetChartsCompared();
+						if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_ALL"), " ", nullptr, !isComparingAll))
+							addToCompared(context, [](...) { return true; });
+
+						Gui::Separator();
+
+						static constexpr auto addToComparedNested = [&](ChartContext& context, auto&& filter)
+						{
+							for (const auto& [course, branch] : context.ChartsCompared)
+								addToCompared(context, [&](const auto* courseI) { return filter(course, courseI); });
+						};
+						static constexpr auto getNDiffs = [](const ChartCourse* course, const ChartCourse* courseI)
+						{
+							return (course->Type != courseI->Type) + (course->Style != courseI->Style) + (course->PlayerSide != courseI->PlayerSide);
+						};
+
+						if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_ACROSS_DIFFICULTIES"), " ", nullptr, !isComparingAll))
+							addToComparedNested(context, [](auto a, auto b) { return (getNDiffs(a, b) - (a->Type != b->Type)) == 0; });
+						if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_ACROSS_PLAYERCOUNTS"), " ", nullptr, !isComparingAll))
+							addToComparedNested(context, [](auto a, auto b) { return (getNDiffs(a, b) - (a->Style != b->Style)) == 0; });
+						if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_ACROSS_PLAYERSIDES"), " ", nullptr, !isComparingAll))
+							addToComparedNested(context, [](auto a, auto b) { return (getNDiffs(a, b) - (a->PlayerSide != b->PlayerSide)) == 0; });
+						if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_ACROSS_BRANCHES"), "(TODO)", nullptr, false))
+							/* TODO */;
+
+						Gui::Separator();
+
+						if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_MODE"), " ", &context.CompareMode) && !context.CompareMode)
+							context.ResetChartsCompared();
+
 						Gui::EndMenu();
 					}
 
@@ -573,54 +620,140 @@ namespace PeepoDrumKit
 
 				if (Gui::BeginChild("MenuBarTabsChild", vec2(-(audioMenuWidth + performanceMenuWidth + Gui::GetStyle().ItemSpacing.x), 0.0f)))
 				{
-					// NOTE: To essentially make these tab items look similar to regular menu items (the inverted Active <-> Hovered colors are not a mistake)
-					Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-					Gui::PushStyleColor(ImGuiCol_TabSelected, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-					if (Gui::BeginTabBar("MenuBarTabs", ImGuiTabBarFlags_FittingPolicyScroll))
+					auto tabBarFlags = (ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyScroll);
+					i32 nPushedStyleColor = 0;
+					if (!context.CompareMode) {
+						// NOTE: To essentially make these tab items look similar to regular menu items (the inverted Active <-> Hovered colors are not a mistake)
+						Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+						Gui::PushStyleColor(ImGuiCol_TabSelected, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+						nPushedStyleColor += 2;
+					} else {
+						tabBarFlags |= ImGuiTabBarFlags_DrawSelectedOverline;
+					}
+
+					if (Gui::BeginTabBar("MenuBarTabs", tabBarFlags))
 					{
 						// HACK: How to properly manage the imgui selected tab internal state..?
 						static const ChartCourse* lastFrameSelectedCoursePtrID = nullptr;
 						b8 isAnyCourseTabSelected = false;
 
+						// Reorder courses by querying tab bar order
+						if (ImGuiTabBar* tab_bar = Gui::GetCurrentTabBar(); tab_bar->ReorderRequestTabId != 0) {
+							// save current order
+							std::vector<ImGuiID> tabIdx = {};
+							for (const auto& tab : tab_bar->Tabs)
+								tabIdx.push_back(tab.ID);
+							// force update order
+							Gui::TabBarProcessReorder(tab_bar);
+							tab_bar->ReorderRequestTabId = 0; // cancel further reorder
+							// reorder courses into updated tab order
+							auto& courses = context.Chart.Courses;
+							std::vector<std::unique_ptr<ChartCourse>> reorderedCourses (size(courses));
+							for (size_t i = 0; i < std::size(courses); ++i) {
+								auto& course = courses[i];
+								ImGuiTabItem* tab = Gui::TabBarFindTabByID(tab_bar, tabIdx[i]);
+								assert(tab != nullptr && "failed to reorder courses; found a course without tab");
+								i32 newOrder = Gui::TabBarGetTabOrder(tab_bar, tab);
+								assert(newOrder >= 0 && newOrder < size(courses) && "failed to reorder courses; found a tab without course");
+								reorderedCourses[newOrder] = std::move(course);
+							}
+							courses = std::move(reorderedCourses);
+							context.Undo.NotifyChangesWereMade();
+						}
+
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
-							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s (%s)###Course_%p", UI_StrRuntime(
-								DifficultyTypeNames[EnumToIndex(course->Type)]), 
+							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s %s###Course_%p",
+								UI_StrRuntime(DifficultyTypeNames[EnumToIndex(course->Type)]),
 								static_cast<i32>(course->Level), 
 								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
-								UI_Str("PLAYER_SIDE_STYLE_SINGLE"), 
+								GetStyleName(course->Style, course->PlayerSide).data(),
 								course.get());
-							const b8 setSelectedThisFrame = (course.get() == context.ChartSelectedCourse && course.get() != lastFrameSelectedCoursePtrID);
+							const b8 isSelected = (course.get() == context.ChartSelectedCourse);
+							const b8 setSelectedThisFrame = (isSelected && course.get() != lastFrameSelectedCoursePtrID);
 
 							Gui::PushID(course.get());
 
-							if ((i32)course->Level >= 11)
+							i32 nPushedStyleColorI = 0;
+							if ((i32)course->Level >= 11) {
 								Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 122, 122, 255));
+								++nPushedStyleColorI;
+							}
+
+							const b8 wasCompared = (context.CompareMode && context.IsChartCompared(course.get(), BranchType::Normal));
+							if (wasCompared) { // display compared courses as hovered
+								Gui::PushStyleColor(ImGuiCol_TabHovered, Gui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+								Gui::PushStyleColor(ImGuiCol_Tab, Gui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+								nPushedStyleColorI += 2;
+							}
 
 							if (Gui::BeginTabItem(buffer, nullptr, setSelectedThisFrame ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None))
 							{
 								// TODO: Selecting a course should also be an undo command so that there isn't ever any confusion (?)
-								context.ChartSelectedCourse = course.get();
+								context.SetSelectedChart(course.get(), BranchType::Normal);
+								lastFrameSelectedCoursePtrID = context.ChartSelectedCourse;
 								isAnyCourseTabSelected = true;
 								Gui::EndTabItem();
 							}
 
-							if ((i32)course->Level >= 11)
-								Gui::PopStyleColor();
+							Gui::PopStyleColor(nPushedStyleColorI);
+
+							if (Gui::BeginPopupContextItem()) {
+								const b8 isOnlyCourse = isSelected && (size(context.ChartsCompared) <= 1);
+								if (b8 isCompared = isSelected || wasCompared; Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_THIS"), " ", &isCompared, !isOnlyCourse)) {
+									if (isCompared) { // add
+										context.ChartsCompared[course.get()].insert(BranchType::Normal);
+									} else if (!isSelected) { // remove
+										if (auto& branches = context.ChartsCompared[course.get()]; branches.size() > 1)
+											branches.erase(BranchType::Normal);
+										else
+											context.ChartsCompared.erase(course.get());
+									} else { // remove & select next chart
+										if (auto& branches = context.ChartsCompared[course.get()]; branches.size() > 1) {
+											auto it = branches.find(BranchType::Normal);
+											context.ChartSelectedBranch = (it != end(branches) && ++it != end(branches)) ? *it : *begin(branches);
+											branches.erase(BranchType::Normal);
+										} else {
+											const auto itEnd = end(context.Chart.Courses);
+											auto itL = itEnd, itNext = itEnd;
+											auto* pit = &itL;
+											for (auto it = begin(context.Chart.Courses); it != itEnd; ++it) {
+												if (it->get() == course.get()) {
+													pit = &itNext;
+												} else if (*pit == itEnd && context.ChartsCompared.find(it->get()) != cend(context.ChartsCompared)) {
+													*pit = it;
+													if (pit == &itNext)
+														break;
+												}
+											}
+											if (itNext == itEnd)
+												itNext = itL;
+											context.SetSelectedChart(itNext->get(), *begin(context.ChartsCompared[itNext->get()]));
+											context.ChartsCompared.erase(course.get());
+											// give away tab focus
+											ImGuiTabBar* tab_bar = Gui::GetCurrentTabBar();
+											Gui::TabBarQueueFocus(tab_bar, Gui::TabBarFindTabByOrder(tab_bar, itNext - begin(context.Chart.Courses)));
+										}
+									}
+								}
+								if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_MODE"), " ", &context.CompareMode) && !context.CompareMode)
+									context.ResetChartsCompared();
+
+								Gui::EndPopup();
+							}
 
 							Gui::PopID();
 						}
 
-						lastFrameSelectedCoursePtrID = context.ChartSelectedCourse;
 						if (!isAnyCourseTabSelected)
 						{
 							assert(!context.Chart.Courses.empty() && "Courses must never be empty so that the selected course always points to a valid object");
-							context.ChartSelectedCourse = context.Chart.Courses.front().get();
+							context.SetSelectedChart(context.Chart.Courses.front().get(), BranchType::Normal);
 						}
 
 						Gui::EndTabBar();
 					}
-					Gui::PopStyleColor(2);
+					Gui::PopStyleColor(nPushedStyleColor);
 				}
 				Gui::EndChild();
 			}
@@ -733,6 +866,11 @@ namespace PeepoDrumKit
 			Audio::Engine.SetBackend(*Settings.Audio.RequestExclusiveDeviceAccess ? Audio::Backend::WASAPI_Exclusive : Audio::Backend::WASAPI_Shared);
 			GlobalLastSetRequestExclusiveDeviceAccessAudioSetting = *Settings.Audio.RequestExclusiveDeviceAccess;
 		}
+		if (GlobalLastSetAudioBufferFrameSize != *Settings.Audio.BufferFrameSize)
+		{
+			Audio::Engine.SetBufferFrameSize(*Settings.Audio.BufferFrameSize);
+			GlobalLastSetAudioBufferFrameSize = *Settings.Audio.BufferFrameSize;
+		}
 		EnableGuiScaleAnimation = *Settings.Animation.EnableGuiScaleAnimation;
 
 		// NOTE: Window focus audio engine response
@@ -753,7 +891,7 @@ namespace PeepoDrumKit
 		// NOTE: Apply volume
 		{
 			context.SongVoice.SetVolume(context.Chart.SongVolume);
-			context.SfxVoicePool.BaseVolumeSfx = context.Chart.SoundEffectVolume;
+			context.SfxVoicePool.SetSoundGroupVolume(SoundGroup::SoundEffects, context.Chart.SoundEffectVolume);
 		}
 
 		// NOTE: Drag and drop handling
@@ -955,7 +1093,12 @@ namespace PeepoDrumKit
 							createBackupOfOriginalTJABeforeOverwriteSave = false;
 							context.Chart = std::move(convertedChart);
 							context.ChartFilePath = tjaTestWindow.LoadedTJAFile.FilePath;
-							context.ChartSelectedCourse = context.Chart.Courses.empty() ? context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get() : context.Chart.Courses.front().get();
+							context.ResetChartsCompared();
+							context.SetSelectedChart(
+								context.Chart.Courses.empty() ?
+									context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get()
+									: context.Chart.Courses.front().get(),
+								BranchType::Normal);
 							context.Undo.ClearAll();
 						});
 					}
@@ -968,8 +1111,8 @@ namespace PeepoDrumKit
 				if (Gui::Begin(UI_WindowName("TAB_AUDIO_TEST"), &PersistentApp.LastSession.ShowWindow_AudioTest, ImGuiWindowFlags_None))
 				{
 					audioTestWindow.DrawGui();
-					Gui::End();
 				}
+				Gui::End();
 			}
 
 			// DEBUG: LIVE PREVIEW PagMan
@@ -1212,8 +1355,12 @@ namespace PeepoDrumKit
 		createBackupOfOriginalTJABeforeOverwriteSave = false;
 		context.Chart = {};
 		context.ChartFilePath.clear();
-		context.ChartSelectedCourse = context.Chart.Courses.empty() ? context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get() : context.Chart.Courses.front().get();
-		context.ChartSelectedBranch = BranchType::Normal;
+		context.ResetChartsCompared();
+		context.SetSelectedChart(
+			context.Chart.Courses.empty() ?
+				context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get()
+				: context.Chart.Courses.front().get(),
+			BranchType::Normal);
 		SetChartDefaultSettingsAndCourses(context.Chart);
 
 		context.SetIsPlayback(false);
@@ -1238,8 +1385,7 @@ namespace PeepoDrumKit
 			break;
 		}
 
-		context.ChartSelectedCourse = context.Chart.Courses.emplace_back(std::move(ccourse)).get();
-		context.ChartSelectedBranch = BranchType::Normal;
+		context.SetSelectedChart(context.Chart.Courses.emplace_back(std::move(ccourse)).get(), BranchType::Normal);
 	}
 
 	void ChartEditor::SaveChart(ChartContext& context, std::string_view filePath)
@@ -1279,7 +1425,7 @@ namespace PeepoDrumKit
 		static constexpr auto getChartFileNameWithoutExtensionOrDefault = [](const ChartContext& context) -> std::string_view
 		{
 			if (!context.ChartFilePath.empty()) return Path::GetFileName(context.ChartFilePath, false);
-			if (!context.Chart.ChartTitle.Base().empty()) return context.Chart.ChartTitle.Base();
+			if (!context.Chart.ChartTitle.empty()) return context.Chart.ChartTitle;
 			return Path::TrimExtension(UntitledChartFileName);
 		};
 
@@ -1522,7 +1668,12 @@ namespace PeepoDrumKit
 
 			context.Chart = std::move(loadResult.Chart);
 			context.ChartFilePath = std::move(loadResult.ChartFilePath);
-			context.ChartSelectedCourse = context.Chart.Courses.empty() ? context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get() : context.Chart.Courses.front().get();
+			context.ResetChartsCompared();
+			context.SetSelectedChart(
+				context.Chart.Courses.empty() ?
+					context.Chart.Courses.emplace_back(std::make_unique<ChartCourse>()).get()
+					: context.Chart.Courses.front().get(),
+				BranchType::Normal);
 			StartAsyncLoadingSongAudioFile(Path::TryMakeAbsolute(context.Chart.SongFileName, context.ChartFilePath));
 			StartAsyncLoadingSongJacketFile(Path::TryMakeAbsolute(context.Chart.SongJacket, context.ChartFilePath));
 
@@ -1547,8 +1698,8 @@ namespace PeepoDrumKit
 			context.SongWaveformFadeAnimationTarget = context.SongWaveformL.IsEmpty() ? 0.0f : 1.0f;
 
 			// TODO: Maybe handle this differently...
-			if (context.Chart.ChartTitle.Base().empty() && !context.SongSourceFilePath.empty())
-				context.Chart.ChartTitle.Base() = Path::GetFileName(context.SongSourceFilePath, false);
+			if (context.Chart.ChartTitle.empty() && !context.SongSourceFilePath.empty())
+				context.Chart.ChartTitle = Path::GetFileName(context.SongSourceFilePath, false);
 
 			if (context.Chart.ChartDuration.Seconds <= 0.0 && loadResult.SampleBuffer.SampleRate > 0)
 				context.Chart.ChartDuration = Audio::FramesToTime(loadResult.SampleBuffer.FrameCount, loadResult.SampleBuffer.SampleRate);

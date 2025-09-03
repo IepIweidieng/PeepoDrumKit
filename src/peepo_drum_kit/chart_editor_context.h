@@ -6,6 +6,8 @@
 #include "chart_editor_graphics.h"
 #include "audio/audio_engine.h"
 #include "audio/audio_waveform.h"
+#include <set>
+#include <unordered_map>
 
 namespace PeepoDrumKit
 {
@@ -18,8 +20,12 @@ namespace PeepoDrumKit
 		std::string ChartFilePath;
 
 		// NOTE: Must **ALWAYS** point to a valid course. If "Chart.Courses.empty()" then a new one should automatically be added at the start of the frame before anything else is updated
+
 		ChartCourse* ChartSelectedCourse = nullptr;
 		BranchType ChartSelectedBranch = BranchType::Normal;
+
+		b8 CompareMode = false;
+		std::unordered_map<const ChartCourse*, std::set<BranchType>> ChartsCompared; // should always include ChartSelected
 
 		// NOTE: Specifically for accurate playback preview sound future-offset calculations
 		Time CursorNonSmoothTimeThisFrame, CursorNonSmoothTimeLastFrame;
@@ -51,6 +57,23 @@ namespace PeepoDrumKit
 		inline Beat TimeToBeat(Time time) const { return ChartSelectedCourse->TempoMap.TimeToBeat(time); }
 		inline Beat TimeToBeat(Time time, bool truncTo0) const { return ChartSelectedCourse->TempoMap.TimeToBeat(time, truncTo0); }
 		inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return ChartSelectedCourse->TempoMap.BeatAndTimeToHBScrollBeatTick(beat, time); }
+
+		void ResetChartsCompared() { ChartsCompared = { { ChartSelectedCourse, { ChartSelectedBranch } } }; CompareMode = false; }
+		b8 IsChartCompared(const ChartCourse* course, BranchType branch) const
+		{
+			auto it = ChartsCompared.find(course);
+			return (it != cend(ChartsCompared)) && (it->second.find(branch) != cend(it->second));
+		}
+
+		void SetSelectedChart(ChartCourse* course, BranchType branch)
+		{
+			ChartSelectedCourse = course;
+			ChartSelectedBranch = branch;
+			if (CompareMode)
+				ChartsCompared[course].insert(branch);
+			else if (!IsChartCompared(course, branch))
+				ResetChartsCompared();
+		}
 
 		inline f32 GetPlaybackSpeed() { return SongVoice.GetPlaybackSpeed(); }
 		inline void SetPlaybackSpeed(f32 newSpeed) { if (!ApproxmiatelySame(SongVoice.GetPlaybackSpeed(), newSpeed)) SongVoice.SetPlaybackSpeed(newSpeed); }

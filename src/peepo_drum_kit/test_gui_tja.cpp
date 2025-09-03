@@ -8,17 +8,24 @@ namespace PeepoDrumKit
 	static constexpr cstr TJADifficultyTypeNames[] = { "Easy", "Normal", "Hard", "Oni", "Oni (Ura)", "Tower", "Dan", };
 	static_assert(ArrayCount(TJADifficultyTypeNames) == EnumCount<TJA::DifficultyType>);
 
-	static constexpr cstr TJAScoreModeNames[] = { "AC1 - AC7", "AC8 - AC14", "AC0", };
+	static constexpr cstr TJAScoreModeNames[] = { "AC2 - AC7 (Oni)", "AC1 - AC14", "AC15", };
 	static_assert(ArrayCount(TJAScoreModeNames) == EnumCount<TJA::ScoreMode>);
 
-	static constexpr cstr TJASongSelectSideNames[] = { "Normal", "Ex", };
+	static constexpr cstr TJASongSelectSideNames[] = { "Normal", "Ex", "Both",};
 	static_assert(ArrayCount(TJASongSelectSideNames) == EnumCount<TJA::SongSelectSide>);
 
-	static constexpr cstr TJAGameTypeNames[] = { "Taiko", "Jubeat", };
+	static constexpr cstr TJAGameTypeNames[] = { "Taiko", "Konga", };
 	static_assert(ArrayCount(TJAGameTypeNames) == EnumCount<TJA::GameType>);
 
 	static constexpr cstr TJAStyleModeNames[] = { "Single", "Double", };
 	static_assert(ArrayCount(TJAStyleModeNames) == EnumCount<TJA::StyleMode>);
+
+	static std::string GetTJAStyleModeName(i32 style)
+	{
+		if (i32 idx = style - 1; idx >= 0 && idx < std::size(TJAStyleModeNames))
+			return TJAStyleModeNames[idx];
+		return std::to_string(style) + "-players";
+	}
 
 	static constexpr cstr TJAParsedChartCommandTypeNames[] =
 	{
@@ -109,8 +116,14 @@ namespace PeepoDrumKit
 	static void SetImGuiColorTextEditErrorMarkersFromErrorList(TextEditor& outTextEditor, const TJA::ErrorList& inErrorList)
 	{
 		TextEditor::ErrorMarkers errorMarkers;
-		for (const auto& error : inErrorList.Errors)
-			errorMarkers[error.LineIndex + 1] = error.Description;
+		for (const auto& error : inErrorList.Errors) {
+			if (auto it = errorMarkers.find(error.LineIndex + 1); it == end(errorMarkers)) {
+				errorMarkers[error.LineIndex + 1] = error.Description;
+			} else {
+				it->second += "\n";
+				it->second += error.Description;
+			}
+		}
 		outTextEditor.SetErrorMarkers(errorMarkers);
 	}
 
@@ -265,17 +278,11 @@ namespace PeepoDrumKit
 
 					char b[256];
 					row("Title", metadata.TITLE);
-					if (!metadata.TITLE_JA.empty()) row("Title (JA)", metadata.TITLE_JA);
-					if (!metadata.TITLE_EN.empty()) row("Title (EN)", metadata.TITLE_EN);
-					if (!metadata.TITLE_CN.empty()) row("Title (CN)", metadata.TITLE_CN);
-					if (!metadata.TITLE_TW.empty()) row("Title (TW)", metadata.TITLE_TW);
-					if (!metadata.TITLE_KO.empty()) row("Title (KO)", metadata.TITLE_KO);
+					for (const auto& [locale, val] : metadata.TITLE_localized)
+						row("Title (" + locale + ")", val);
 					row("Subtitle", metadata.SUBTITLE);
-					if (!metadata.SUBTITLE_JA.empty()) row("Subtitle (JA)", metadata.SUBTITLE_JA);
-					if (!metadata.SUBTITLE_EN.empty()) row("Subtitle (EN)", metadata.SUBTITLE_EN);
-					if (!metadata.SUBTITLE_CN.empty()) row("Subtitle (CN)", metadata.SUBTITLE_CN);
-					if (!metadata.SUBTITLE_TW.empty()) row("Subtitle (TW)", metadata.SUBTITLE_TW);
-					if (!metadata.SUBTITLE_KO.empty()) row("Subtitle (KO)", metadata.SUBTITLE_KO);
+					for (const auto& [locale, val] : metadata.SUBTITLE_localized)
+						row("Subtitle (" + locale + ")", val);
 					row("Song File Name", metadata.WAVE);
 					if (!metadata.BGIMAGE.empty()) row("Background Image File Name", metadata.BGIMAGE);
 					if (!metadata.BGMOVIE.empty()) row("Background Movie File Name", metadata.BGMOVIE);
@@ -293,7 +300,8 @@ namespace PeepoDrumKit
 					//row("Life", (metadata.LIFE == 0) ? "" : std::string_view(b, sprintf_s(b, "%d", metadata.LIFE)));
 					row("Genre", metadata.GENRE);
 					row("Game", TJAGameTypeNames[EnumToIndex(metadata.GAME)]);
-					if (!metadata.TAIKOWEBSKIN.empty()) row("Taiko Web Skin", metadata.TAIKOWEBSKIN);
+					for (const auto& [header, value] : metadata.Others)
+						row(header.c_str(), value.c_str());
 				}
 				Gui::EndTable();
 			}
@@ -311,7 +319,7 @@ namespace PeepoDrumKit
 					TJADifficultyTypeNames[EnumToIndex(course.Metadata.COURSE)],
 					course.Metadata.LEVEL,
 					(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : ""),
-					TJAStyleModeNames[EnumToIndex(course.Metadata.STYLE)],
+					GetTJAStyleModeName(course.Metadata.STYLE).c_str(),
 					courseIndex);
 
 				Gui::PushID(static_cast<ImGuiID>(courseIndex));
@@ -342,10 +350,11 @@ namespace PeepoDrumKit
 							char b[256];
 							row("Difficulty Type", TJADifficultyTypeNames[EnumToIndex(metadata.COURSE)]);
 							row("Difficulty Level", std::string_view(b, sprintf_s(b, "%d", metadata.LEVEL)));
+							row("Style", GetTJAStyleModeName(metadata.STYLE));
+							row("Player Side", std::string_view(b, sprintf_s(b, "%d", metadata.START_PLAYERSIDE)));
 
 							row("Score Init", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREINIT)));
 							row("Score Diff", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREDIFF)));
-							row("Style", TJAStyleModeNames[EnumToIndex(metadata.STYLE)]);
 
 							auto rowBalloonPops = [](std::string_view propertyKey, const std::vector<i32>& i32s)
 							{
@@ -363,6 +372,9 @@ namespace PeepoDrumKit
 							rowBalloonPops("Balloon Pop Counts (Normal)", metadata.BALLOON_Normal);
 							rowBalloonPops("Balloon Pop Counts (Expert)", metadata.BALLOON_Expert);
 							rowBalloonPops("Balloon Pop Counts (Master)", metadata.BALLOON_Master);
+
+							for (const auto& [header, value] : metadata.Others)
+								row(header.c_str(), value.c_str());
 						}
 						Gui::EndTable();
 					}

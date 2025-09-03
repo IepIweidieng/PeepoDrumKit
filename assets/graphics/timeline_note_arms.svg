@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 40 66" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="arm_left">
+      <rect id="Left_Limb_Outter" x="10.5" y="33" width="5.75" height="30.5" rx="3.125" ry="1.953125" style="fill:rgb(29,29,29);"/>
+      <ellipse id="Left_Palm_Outter" cx="13.375" cy="61.25" rx="4.875" ry="4.125" style="fill:rgb(29,29,29);"/>
+      <rect id="Left_Limb_Middle" x="11.625" y="34.125" width="3.5" height="28.25" rx="2" ry="1.25" style="fill:rgb(245,237,220);"/>
+      <ellipse id="Left_Palm_Middle" cx="13.375" cy="61.25" rx="3.75" ry="3" style="fill:rgb(245,237,220);"/>
+    </g>
+    <g id="arm_right">
+      <rect id="Right_Limb_Outter" x="23.75" y="33" width="5.75" height="30.5" rx="3.125" ry="1.953125" style="fill:rgb(29,29,29);"/>
+      <ellipse id="Right_Palm_Outter" cx="26.625" cy="61.25" rx="4.875" ry="4.125" style="fill:rgb(29,29,29);"/>
+      <rect id="Right_Limb_Middle" x="24.875" y="34.125" width="3.5" height="28.25" rx="2" ry="1.25" style="fill:rgb(245,237,220);"/>
+      <ellipse id="Right_Palm_Middle" cx="26.625" cy="61.25" rx="3.75" ry="3" style="fill:rgb(245,237,220);"/>
+    </g>
+</svg>

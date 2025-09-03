@@ -163,6 +163,20 @@ struct make_enum_sequence_helper<EnumType, std::integer_sequence<UnderlyingType,
 template <typename EnumType>
 using make_enum_sequence = typename make_enum_sequence_helper<EnumType, std::make_integer_sequence<std::underlying_type_t<EnumType>, static_cast<std::underlying_type_t<EnumType>>(EnumType::Count)>>::type;
 
+// NOTE: Shorthand of repeated initialize arguments, required when the element type has no default constructor
+//		 Example: InitializedArray<i32, 3>(42), equivalent to std::array{42, 42, 42}
+template <typename T, typename... Ts, size_t... Is>
+static constexpr std::array<T, sizeof...(Is)> InitializedArrayHelper(std::index_sequence<Is...>, Ts&&... initArgs)
+{
+	return { (Is, void{}, T(initArgs...))... };
+}
+
+template <typename T, size_t Size, typename... Ts>
+static constexpr std::array<T, Size> InitializedArray(Ts&&... initArgs)
+{
+	return InitializedArrayHelper<T>(std::make_index_sequence<Size>{}, std::forward<Ts>(initArgs)...);
+}
+
 // NOTE: Example: ArrayCount("example_string_literal")
 template <typename ArrayType>
 constexpr __forceinline size_t ArrayCount(const ArrayType& cStyleArray)
@@ -396,23 +410,26 @@ struct Complex {
 	constexpr Complex& operator*=(const f32 scalar) { *this = (*this * scalar); return *this; }
 	constexpr Complex& operator/=(const f32 scalar) { *this = (*this / scalar); return *this; }
 	constexpr Complex operator-() const { return { -cpx }; }
+
+#define PAT_APLUSB_RE "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d])"
+#define PAT_APLUSB_IM "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?[iI]"
+#define PAT_APLUSB_IM_UNIT "[+-]?[iI]"
+	static inline const std::regex PatPureImaginary = std::regex("^(?=[iI.\\d+-])(?:(" PAT_APLUSB_IM ")|(" PAT_APLUSB_IM_UNIT "))?$");
+	static inline const std::regex PatComplex = std::regex("^(?=[iI.\\d+-])(" PAT_APLUSB_RE ")?\\s*(?:(" PAT_APLUSB_IM ")|(" PAT_APLUSB_IM_UNIT "))?$");
+#undef PAT_APLUSB_RE
+#undef PAT_APLUSB_IM
+#undef PAT_APLUSB_IM_UNIT
+
 	friend std::istream& operator>>(std::istream& in, Complex& value)
 	{
 		f32 real = 0.0f;
 		f32 imag = 0.0f;
-#define PAT_APLUSB_RE "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?![iI.\\d])"
-#define PAT_APLUSB_IM "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?[iI]"
-#define PAT_APLUSB_IM_UNIT "[+-]?[iI]"
-		std::regex aplusb("^(?=[iI.\\d+-])(" PAT_APLUSB_RE ")?\\s*(?:(" PAT_APLUSB_IM ")|(" PAT_APLUSB_IM_UNIT "))?$");
-#undef PAT_APLUSB_RE
-#undef PAT_APLUSB_IM
-#undef PAT_APLUSB_IM_UNIT
 		std::string input;
 		in >> input;
 
 		std::smatch matches;
 
-		if (std::regex_match(input, matches, aplusb)) {
+		if (std::regex_match(input, matches, PatComplex)) {
 			if (matches[1].length() > 0) {
 				real = std::stof(matches[1]);
 			}
@@ -543,20 +560,20 @@ template <typename T> constexpr T Clamp(T value, T min, T max) { return Min<T>(M
 template <typename T> constexpr T ClampBot(T value, T min) { return Max<T>(value, min); }
 template <typename T> constexpr T ClampTop(T value, T max) { return Min<T>(value, max); }
 
-template <typename T>
-constexpr T Lerp(T start, T end, f32 t) { return start * (1.0f - t) + (end * t); }
+template <typename T, typename F>
+constexpr T Lerp(T start, T end, F t) { return start * (1.0f - t) + (end * t); }
 
-template <typename T>
-constexpr T LerpClamped(T start, T end, f32 t) { return Lerp<T>(start, end, Clamp(t, 0.0f, 1.0f)); }
+template <typename T, typename F> // float, target
+constexpr T LerpClamped(T start, T end, F t) { return Lerp<T>(start, end, Clamp(t, 0.0f, 1.0f)); }
 
-template <typename T>
-constexpr T ConvertRange(T oldStart, T oldEnd, T newStart, T newEnd, T value) { return (newStart + ((value - oldStart) * (newEnd - newStart) / (oldEnd - oldStart))); }
+template <typename T, typename S> // source, target
+constexpr T ConvertRange(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return (newStart + ((value - oldStart) * (newEnd - newStart) / (oldEnd - oldStart))); }
 
 // NOTE: It's easy to accidentally misuse these in cases where (end < start) resulting in "incorrect" clamps
-template <typename T>
-constexpr T ConvertRangeClampInput(T oldStart, T oldEnd, T newStart, T newEnd, T value) { return ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, Clamp<T>(value, oldStart, oldEnd)); }
-template <typename T>
-constexpr T ConvertRangeClampOutput(T oldStart, T oldEnd, T newStart, T newEnd, T value) { return Clamp<T>(ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, value), newStart, newEnd); }
+template <typename T, typename S>
+constexpr T ConvertRangeClampInput(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, Clamp<S>(value, oldStart, oldEnd)); }
+template <typename T, typename S>
+constexpr T ConvertRangeClampOutput(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return Clamp<T>(ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, value), newStart, newEnd); }
 
 constexpr void AnimateExponentialF32(f32* inOutCurrent, f32 target, f32 animationSpeed, f32 deltaTime)
 {

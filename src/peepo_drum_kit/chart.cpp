@@ -90,8 +90,8 @@ namespace PeepoDrumKit
 		case TJA::NoteType::Start_Balloon: return NoteType::Balloon;
 		case TJA::NoteType::End_BalloonOrDrumroll: return NoteType::Count;
 		case TJA::NoteType::Start_BaloonSpecial: return NoteType::BalloonSpecial;
-		case TJA::NoteType::DonBigBoth: return NoteType::Count;
-		case TJA::NoteType::KaBigBoth: return NoteType::Count;
+		case TJA::NoteType::DonBigBoth: return NoteType::DonBigHand;
+		case TJA::NoteType::KaBigBoth: return NoteType::KaBigHand;
 		case TJA::NoteType::Hidden: return NoteType::Adlib;
 		case TJA::NoteType::Bomb: return NoteType::Bomb;
 		case TJA::NoteType::KaDon: return NoteType::KaDon;
@@ -112,6 +112,8 @@ namespace PeepoDrumKit
 		case NoteType::DrumrollBig: return TJA::NoteType::Start_DrumrollBig;
 		case NoteType::Balloon: return TJA::NoteType::Start_Balloon;
 		case NoteType::BalloonSpecial: return TJA::NoteType::Start_BaloonSpecial;
+		case NoteType::DonBigHand: return TJA::NoteType::DonBigBoth;
+		case NoteType::KaBigHand: return TJA::NoteType::KaBigBoth;
 		case NoteType::KaDon: return TJA::NoteType::KaDon;
 		case NoteType::Adlib: return TJA::NoteType::Hidden;
 		case NoteType::Fuse: return TJA::NoteType::Fuse;
@@ -138,18 +140,10 @@ namespace PeepoDrumKit
 	b8 CreateChartProjectFromTJA(const TJA::ParsedTJA& inTJA, ChartProject& out)
 	{
 		out.ChartDuration = Time::Zero();
-		out.ChartTitle[Language::Base] = inTJA.Metadata.TITLE;
-		out.ChartTitle[Language::JA] = inTJA.Metadata.TITLE_JA;
-		out.ChartTitle[Language::EN] = inTJA.Metadata.TITLE_EN;
-		out.ChartTitle[Language::CN] = inTJA.Metadata.TITLE_CN;
-		out.ChartTitle[Language::TW] = inTJA.Metadata.TITLE_TW;
-		out.ChartTitle[Language::KO] = inTJA.Metadata.TITLE_KO;
-		out.ChartSubtitle[Language::Base] = inTJA.Metadata.SUBTITLE;
-		out.ChartSubtitle[Language::JA] = inTJA.Metadata.SUBTITLE_JA;
-		out.ChartSubtitle[Language::EN] = inTJA.Metadata.SUBTITLE_EN;
-		out.ChartSubtitle[Language::CN] = inTJA.Metadata.SUBTITLE_CN;
-		out.ChartSubtitle[Language::TW] = inTJA.Metadata.SUBTITLE_TW;
-		out.ChartSubtitle[Language::KO] = inTJA.Metadata.SUBTITLE_KO;
+		out.ChartTitle = inTJA.Metadata.TITLE;
+		out.ChartTitleLocalized = inTJA.Metadata.TITLE_localized;
+		out.ChartSubtitle = inTJA.Metadata.SUBTITLE;
+		out.ChartSubtitleLocalized = inTJA.Metadata.SUBTITLE_localized;
 		out.ChartCreator = inTJA.Metadata.MAKER;
 		out.ChartGenre = inTJA.Metadata.GENRE;
 		out.ChartLyricsFileName = inTJA.Metadata.LYRICS;
@@ -162,8 +156,12 @@ namespace PeepoDrumKit
 		out.BackgroundImageFileName = inTJA.Metadata.BGIMAGE;
 		out.BackgroundMovieFileName = inTJA.Metadata.BGMOVIE;
 		out.MovieOffset = inTJA.Metadata.MOVIEOFFSET;
+		out.OtherMetadata = inTJA.Metadata.Others;
 		for (size_t i = 0; i < inTJA.Courses.size(); i++)
 		{
+			if (!inTJA.Courses[i].HasChart) // metadata-only TJA section
+				continue;
+
 			const TJA::ConvertedCourse& inCourse = TJA::ConvertParsedToConvertedCourse(inTJA, inTJA.Courses[i]);
 			ChartCourse& outCourse = *out.Courses.emplace_back(std::make_unique<ChartCourse>());
 
@@ -171,6 +169,9 @@ namespace PeepoDrumKit
 			outCourse.Type = Clamp(static_cast<DifficultyType>(inCourse.CourseMetadata.COURSE), DifficultyType {}, DifficultyType::Count);
 			outCourse.Level = Clamp(static_cast<DifficultyLevel>(inCourse.CourseMetadata.LEVEL), DifficultyLevel::Min, DifficultyLevel::Max);
 			outCourse.Decimal = Clamp(static_cast<DifficultyLevelDecimal>(inCourse.CourseMetadata.LEVEL_DECIMALTAG), DifficultyLevelDecimal::None, DifficultyLevelDecimal::Max);
+			outCourse.Style = std::max(inCourse.CourseMetadata.STYLE, 1);
+			outCourse.PlayerSide = std::clamp(inCourse.CourseMetadata.START_PLAYERSIDE, 1, outCourse.Style);
+
 			outCourse.CourseCreator = inCourse.CourseMetadata.NOTESDESIGNER;
 
 			outCourse.Life = Clamp(static_cast<TowerLives>(inCourse.CourseMetadata.LIFE), TowerLives::Min, TowerLives::Max);
@@ -257,7 +258,10 @@ namespace PeepoDrumKit
 			outCourse.ScoreInit = inCourse.CourseMetadata.SCOREINIT;
 			outCourse.ScoreDiff = inCourse.CourseMetadata.SCOREDIFF;
 
+			outCourse.OtherMetadata = inCourse.CourseMetadata.Others;
+
 			outCourse.TempoMap.RebuildAccelerationStructure();
+			outCourse.RecalculateSENotes();
 
 			if (!inCourse.Measures.empty())
 				out.ChartDuration = Max(out.ChartDuration, outCourse.TempoMap.BeatToTime(inCourse.Measures.back().StartTime /*+ inCourse.Measures.back().TimeSignature.GetDurationPerBar()*/));
@@ -269,18 +273,10 @@ namespace PeepoDrumKit
 	b8 ConvertChartProjectToTJA(const ChartProject& in, TJA::ParsedTJA& out, b8 includePeepoDrumKitComment)
 	{
 		static constexpr cstr FallbackTJAChartTitle = "Untitled Chart";
-		out.Metadata.TITLE = !in.ChartTitle[Language::Base].empty() ? in.ChartTitle[Language::Base] : FallbackTJAChartTitle;
-		out.Metadata.TITLE_JA = in.ChartTitle[Language::JA];
-		out.Metadata.TITLE_EN = in.ChartTitle[Language::EN];
-		out.Metadata.TITLE_CN = in.ChartTitle[Language::CN];
-		out.Metadata.TITLE_TW = in.ChartTitle[Language::TW];
-		out.Metadata.TITLE_KO = in.ChartTitle[Language::KO];
-		out.Metadata.SUBTITLE = in.ChartSubtitle[Language::Base];
-		out.Metadata.SUBTITLE_JA = in.ChartSubtitle[Language::JA];
-		out.Metadata.SUBTITLE_EN = in.ChartSubtitle[Language::EN];
-		out.Metadata.SUBTITLE_CN = in.ChartSubtitle[Language::CN];
-		out.Metadata.SUBTITLE_TW = in.ChartSubtitle[Language::TW];
-		out.Metadata.SUBTITLE_KO = in.ChartSubtitle[Language::KO];
+		out.Metadata.TITLE = !in.ChartTitle.empty() ? in.ChartTitle : FallbackTJAChartTitle;
+		out.Metadata.TITLE_localized = in.ChartTitleLocalized;
+		out.Metadata.SUBTITLE = in.ChartSubtitle;
+		out.Metadata.SUBTITLE_localized = in.ChartSubtitleLocalized;
 		out.Metadata.MAKER = in.ChartCreator;
 		out.Metadata.GENRE = in.ChartGenre;
 		out.Metadata.LYRICS = in.ChartLyricsFileName;
@@ -293,6 +289,7 @@ namespace PeepoDrumKit
 		out.Metadata.BGIMAGE = in.BackgroundImageFileName;
 		out.Metadata.BGMOVIE = in.BackgroundMovieFileName;
 		out.Metadata.MOVIEOFFSET = in.MovieOffset;
+		out.Metadata.Others = in.OtherMetadata;
 
 		if (includePeepoDrumKitComment)
 		{
@@ -319,6 +316,8 @@ namespace PeepoDrumKit
 			outCourse.Metadata.COURSE = static_cast<TJA::DifficultyType>(inCourse.Type);
 			outCourse.Metadata.LEVEL = static_cast<i32>(inCourse.Level);
 			outCourse.Metadata.LEVEL_DECIMALTAG = static_cast<i32>(inCourse.Decimal);
+			outCourse.Metadata.STYLE = inCourse.Style;
+			outCourse.Metadata.START_PLAYERSIDE = inCourse.PlayerSide;
 			outCourse.Metadata.NOTESDESIGNER = inCourse.CourseCreator;
 			for (const Note& inNote : inCourse.Notes_Normal) if (IsBalloonNote(inNote.Type)) { outCourse.Metadata.BALLOON.push_back(inNote.BalloonPopCount); }
 			outCourse.Metadata.SCOREINIT = inCourse.ScoreInit;
@@ -326,6 +325,8 @@ namespace PeepoDrumKit
 
 			outCourse.Metadata.LIFE = static_cast<i32>(inCourse.Life);
 			outCourse.Metadata.SIDE = static_cast<TJA::SongSelectSide>(inCourse.Side);
+
+			outCourse.Metadata.Others = inCourse.OtherMetadata;
 
 			// TODO: Is this implemented correctly..? Need to have enough measures to cover every note/command and pad with empty measures up to the chart duration
 			// BUG: NOPE! "07 ゲームミュージック/003D. MagiCatz/MagiCatz.tja" for example still gets rounded up and then increased by a measure each time it gets saved

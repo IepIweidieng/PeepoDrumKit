@@ -421,11 +421,11 @@ namespace PeepoDrumKit
 
 			if (!eventsToAdd.empty()) {
 				if constexpr (Commands::TempoMapMemberPointer<TEvent> != nullptr)
-					context.Undo.Execute<Commands::AddMultipleChartEvents<TEvent>>(&course.TempoMap, std::move(eventsToAdd));
+					context.Undo.Execute<Commands::AddMultipleChartEvents<TEvent>>(&course, &course.TempoMap, std::move(eventsToAdd));
 				else if constexpr (!isLongEvent)
-					context.Undo.Execute<Commands::AddMultipleChartEvents<TEvent>>(&get<List>(course), std::move(eventsToAdd));
+					context.Undo.Execute<Commands::AddMultipleChartEvents<TEvent>>(&course, &get<List>(course), std::move(eventsToAdd));
 				else
-					context.Undo.Execute<Commands::AddMultipleLongChartEvents<TEvent>>(&get<List>(course), std::move(eventsToEdit));
+					context.Undo.Execute<Commands::AddMultipleLongChartEvents<TEvent>>(&course, &get<List>(course), std::move(eventsToEdit));
 			}
 		}
 	}
