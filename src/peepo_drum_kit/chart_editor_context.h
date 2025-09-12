@@ -130,8 +130,13 @@ namespace PeepoDrumKit
 
 		inline BeatAndTime GetCursorBeatAndTime(bool truncTo0) const
 		{
-			if (SongVoice.GetIsPlaying()) { const Time t = (SongVoice.GetPositionSmooth() + Chart.SongOffset); return { ChartSelectedCourse->TempoMap.TimeToBeat(t, truncTo0), t }; }
-			else { const Beat b = CursorBeatWhilePaused; return { b, ChartSelectedCourse->TempoMap.BeatToTime(b) }; }
+			return GetCursorBeatAndTime(ChartSelectedCourse, truncTo0);
+		}
+
+		inline BeatAndTime GetCursorBeatAndTime(const ChartCourse* course, bool truncTo0) const
+		{
+			if (SongVoice.GetIsPlaying()) { const Time t = (SongVoice.GetPositionSmooth() + Chart.SongOffset); return { course->TempoMap.TimeToBeat(t, truncTo0), t }; }
+			else { const Beat b = CursorBeatWhilePaused; return { b, course->TempoMap.BeatToTime(b) }; }
 		}
 
 		inline void SetCursorTime(Time newTime)

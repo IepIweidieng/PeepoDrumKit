@@ -625,18 +625,18 @@ namespace PeepoDrumKit
 			const SortedGoGoRangesList& gogoRanges = course->GoGoRanges;
 
 			const b8 isPlayback = context.GetIsPlayback();
-			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime(true);
+			const BeatAndTime exactCursorBeatAndTime = context.GetCursorBeatAndTime(course, true);
 			const Time cursorTimeOrAnimated = isPlayback ? exactCursorBeatAndTime.Time : animatedCursorTime;
-			const Beat cursorBeatOrAnimatedTrunc = isPlayback ? exactCursorBeatAndTime.Beat : context.TimeToBeat(animatedCursorTime, true);
-			const f64 cursorHBScrollBeatOrAnimated = context.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimatedTrunc, cursorTimeOrAnimated);
-			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
+			const Beat cursorBeatOrAnimatedTrunc = isPlayback ? exactCursorBeatAndTime.Beat : course->TempoMap.TimeToBeat(animatedCursorTime, true);
+			const f64 cursorHBScrollBeatOrAnimated = course->TempoMap.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimatedTrunc, cursorTimeOrAnimated);
+			const Beat chartBeatDuration = course->TempoMap.TimeToBeat(context.Chart.GetDurationOrDefault());
 
 			const auto* lastGogo = gogoRanges.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
 			const b8 isGogo = (lastGogo != nullptr && cursorBeatOrAnimatedTrunc < lastGogo->GetEnd());
 			const Time timeSinceGogo = (lastGogo == nullptr) ? Time::FromSec(F64Max)
-				: TimeSinceNoteHit(context.BeatToTime(lastGogo->BeatTime), cursorTimeOrAnimated);
+				: TimeSinceNoteHit(course->TempoMap.BeatToTime(lastGogo->BeatTime), cursorTimeOrAnimated);
 			const Time timeAfterGogo = (lastGogo == nullptr) ? Time::FromSec(F64Max)
-				: TimeSinceNoteHit(context.BeatToTime(lastGogo->GetEnd()), cursorTimeOrAnimated);
+				: TimeSinceNoteHit(course->TempoMap.BeatToTime(lastGogo->GetEnd()), cursorTimeOrAnimated);
 			const auto [gogoFireZoomAmount, gogoLaneZoomAmount] = getGogoZoomAmount(isGogo, timeSinceGogo, timeAfterGogo);
 
 			auto laneBorderColor = isFocusedLane ? GameLaneBorderFocusedColor : GameLaneBorderColor;
@@ -712,7 +712,7 @@ namespace PeepoDrumKit
 			}
 
 			drawList->ChannelsSetCurrent(2);
-			ForEachBarOnNoteLane(*course, context.ChartSelectedBranch, chartBeatDuration, [&](const ForEachBarLaneData& it)
+			ForEachBarOnNoteLane(*course, branch, chartBeatDuration, [&](const ForEachBarLaneData& it)
 			{
 				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				const f32 laneX = lane.x, laneY = lane.y;
@@ -750,7 +750,7 @@ namespace PeepoDrumKit
 #endif
 
 			drawList->ChannelsSetCurrent(3);
-			ForEachNoteOnNoteLane(*course, context.ChartSelectedBranch, [&](const ForEachNoteLaneData& it)
+			ForEachNoteOnNoteLane(*course, branch, [&](const ForEachNoteLaneData& it)
 			{
 				vec2 laneHead = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				vec2 laneTail = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
@@ -810,7 +810,7 @@ namespace PeepoDrumKit
 						{
 							for (Beat subBeat = hitIntervalRoundedDuration; subBeat >= Beat::Zero(); subBeat -= drummrollHitInterval)
 							{
-								const Time subHitTime = context.BeatToTime(it->OriginalNote->BeatTime + subBeat) + it->OriginalNote->TimeOffset;
+								const Time subHitTime = course->TempoMap.BeatToTime(it->OriginalNote->BeatTime + subBeat) + it->OriginalNote->TimeOffset;
 								if (subHitTime <= cursorTimeOrAnimated)
 									drumrollHitsSoFar++;
 							}
@@ -826,7 +826,7 @@ namespace PeepoDrumKit
 						{
 							for (Beat subBeat = hitIntervalRoundedDuration; subBeat >= Beat::Zero(); subBeat -= drummrollHitInterval)
 							{
-								const Time subHitTime = context.BeatToTime(it->OriginalNote->BeatTime + subBeat) + it->OriginalNote->TimeOffset;
+								const Time subHitTime = course->TempoMap.BeatToTime(it->OriginalNote->BeatTime + subBeat) + it->OriginalNote->TimeOffset;
 								const Time timeSinceSubHit = TimeSinceNoteHit(subHitTime, cursorTimeOrAnimated);
 								// `>` to avoid displaying extra notes when editing (still fails sometimes)
 								if (timeSinceSubHit > Time::Zero() && timeSinceSubHit <= GameNoteHitAnimationDuration)
