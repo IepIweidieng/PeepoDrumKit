@@ -761,7 +761,7 @@ namespace PeepoDrumKit
 				const Time timeSinceTailHit = TimeSinceNoteHit(it.Tail.Time, cursorTimeOrAnimated);
 				if (IsRegularNote(it.OriginalNote->Type)) {
 					if (timeSinceHeadHit >= Time::Zero())
-						laneHead = laneTail = hitCirclePosLane;
+						laneHead = laneTail = hitCirclePosLane; // temporary value, override when drawn
 					if (timeSinceHeadHit > GetTotalGameNoteHitAnimationDuration(it.OriginalNote->Type))
 						isVisible = false;
 				}
@@ -847,7 +847,9 @@ namespace PeepoDrumKit
 				{
 					// TODO: Instead of offseting the lane x position just draw as HitCenter + PositionOffset directly (?)
 					auto hitAnimation = GetNoteHitPathAnimation(timeSinceHit, Camera.ExtendedLaneWidthFactor(), nLanes, iLane, it->OriginalNote->Type);
-					const vec2 noteCenter = Camera.LaneToWorldSpace(it->LaneHeadX, it->LaneHeadY) + hitAnimation.PositionOffset;
+					const vec2 noteOrigin = (timeSinceHit >= Time::Zero()) ? Camera.GetHitCircleCoordinatesLane(jposScrollChanges, it->NoteEndTime, tempoChanges) // keep flying note's start position
+						: vec2{ it->LaneHeadX, it->LaneHeadY };
+					const vec2 noteCenter = Camera.LaneToWorldSpace(noteOrigin.x, noteOrigin.y) + hitAnimation.PositionOffset;
 
 					if (hitAnimation.AlphaFadeOut >= 1.0f)
 						DrawGamePreviewNote(context.Gfx, Camera, drawList, noteCenter, it->Tempo, it->ScrollSpeed, it->OriginalNote->Type, cursorTimeOrAnimated, hitAnimation, nLanes, iLane);
