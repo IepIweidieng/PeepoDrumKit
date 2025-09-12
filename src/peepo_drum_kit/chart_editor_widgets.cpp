@@ -519,6 +519,11 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Add support for editing any unknown TJA headers");
 					Gui::TextUnformatted(u8"- Add support for number-less NOTESDESIGNER: and file-scope usage of numbered NOTESDESIGNER headers");
 					Gui::TextUnformatted(u8"- Fix notes in negative BPM were wrongly flipped horizontally and SENotes in positive BPM were wrongly rotated 180 degree");
+					Gui::TextUnformatted(u8"- (the following are hotfixes)");
+					Gui::TextUnformatted(u8"- Fix crash when player side and count numbers are too long");
+					Gui::TextUnformatted(u8"- Fix compared lanes wrongly used selected lane's beat and time position if their timing commands differ");
+					Gui::TextUnformatted(u8"- Fix flying notes moved with on-going #JPOSSCROLLs again due to reworking of #JPOSSCROLL in v1.2");
+					Gui::TextUnformatted(u8"- Fix undefined default Chart Stats tab docking position since v1.1.1");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
@@ -545,7 +550,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- #JPOSSCROLL is now visualized and editable as long event");
 					Gui::TextUnformatted(u8"- Widen playback speed range to 10%–200%");
 					Gui::TextUnformatted(u8"- Add Chart Stats tab");
-					Gui::TextUnformatted(u8"- Tweak difficulty number display and remove star view");
+					Gui::TextUnformatted(u8"- Tweak difficulty number display and remove star view for decimal");
 					Gui::TextUnformatted(u8"- Add support of editing Tower charts and view Dan charts");
 					Gui::TextUnformatted(u8"- Add “Insert at Selected Items”, the successor of “Selection to Scroll Changes” which applies to all chart events");
 					Gui::TextUnformatted(u8"- Migrate to Dear ImGui 1.92.0-docking and solve missing font glyph issues");
