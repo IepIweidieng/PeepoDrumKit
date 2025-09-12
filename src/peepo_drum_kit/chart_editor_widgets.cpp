@@ -351,7 +351,7 @@ namespace PeepoDrumKit
 		Gui::Property::PropertyTextValueFunc(label, [&]
 		{
 			static constexpr i32 components = 2; // NOTE: Unicode "Rightwards Arrow" U+2192
-			static constexpr std::string_view divisionText = "  \xE2\x86\x92  "; // "  ->  "; // " < > ";
+			static constexpr std::string_view divisionText = u8"  →  "; // "  ->  "; // " < > ";
 			const f32 divisionLabelWidth = Gui::CalcTextSize(Gui::StringViewStart(divisionText), Gui::StringViewEnd(divisionText)).x;
 			const f32 perComponentInputFloatWidth = Floor(((Gui::GetContentRegionAvail().x - divisionLabelWidth) / static_cast<f32>(components)));
 

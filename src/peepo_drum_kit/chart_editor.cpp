@@ -663,7 +663,7 @@ namespace PeepoDrumKit
 
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
-							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s %s###Course_%p",
+							char buffer[64]; sprintf_s(buffer, u8"%s ★%d%s %s###Course_%p",
 								UI_StrRuntime(DifficultyTypeNames[EnumToIndex(course->Type)]),
 								static_cast<i32>(course->Level), 
 								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),

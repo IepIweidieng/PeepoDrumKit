@@ -1,4 +1,4 @@
-#include "chart_editor_settings_gui.h"
+﻿#include "chart_editor_settings_gui.h"
 
 namespace PeepoDrumKit
 {
@@ -505,7 +505,7 @@ namespace PeepoDrumKit
 					else
 					{
 						// NOTE: Use a chouonpu here instead of a regular minus for a more readable and thicker glyph at smaller font sizes
-						Gui::TextDisabled("\xE3\x83\xBC"); // u8"�[" // "-" // "(None)"
+						Gui::TextDisabled(u8"ー"); // u8"ー" // "-" // "(None)"
 					}
 
 					Gui::PopID();
