@@ -663,7 +663,7 @@ namespace PeepoDrumKit
 
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
-							char buffer[64]; sprintf_s(buffer, "%s \xe2\x98\x85%d%s %s###Course_%p",
+							char buffer[96]; sprintf_s(buffer, u8"%s ★%d%s %s###Course_%p",
 								UI_StrRuntime(DifficultyTypeNames[EnumToIndex(course->Type)]),
 								static_cast<i32>(course->Level), 
 								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
@@ -972,16 +972,6 @@ namespace PeepoDrumKit
 			Gui::End();
 		}
 
-		if (PersistentApp.LastSession.ShowWindow_ChartStats)
-		{
-			if (Gui::Begin(UI_WindowName("TAB_CHART_STATS"), &PersistentApp.LastSession.ShowWindow_ChartStats, ImGuiWindowFlags_None))
-			{
-				chartStatsWindow.DrawGui(context);
-			}
-			if (focusChartStatsWindowNextFrame) { focusChartStatsWindowNextFrame = false; Gui::SetWindowFocus(); }
-			Gui::End();
-		}
-
 		if (PersistentApp.LastSession.ShowWindow_Settings)
 		{
 			if (Gui::Begin(UI_WindowName("TAB_SETTINGS"), &PersistentApp.LastSession.ShowWindow_Settings, ImGuiWindowFlags_None))
@@ -1042,6 +1032,16 @@ namespace PeepoDrumKit
 				OpenLoadJacketFileDialog(context.Undo);
 		}
 		Gui::End();
+
+		if (PersistentApp.LastSession.ShowWindow_ChartStats)
+		{
+			if (Gui::Begin(UI_WindowName("TAB_CHART_STATS"), &PersistentApp.LastSession.ShowWindow_ChartStats, ImGuiWindowFlags_None))
+			{
+				chartStatsWindow.DrawGui(context);
+			}
+			if (focusChartStatsWindowNextFrame) { focusChartStatsWindowNextFrame = false; Gui::SetWindowFocus(); }
+			Gui::End();
+		}
 
 #if PEEPO_DEBUG // DEBUG: Manually submit debug window before the timeline window is drawn for better tab ordering
 		if (Gui::Begin(UI_WindowName("TAB_TIMELINE_DEBUG"))) { /* ... */ } Gui::End();
@@ -1311,6 +1311,7 @@ namespace PeepoDrumKit
 
 			Gui::DockBuilderDockWindow(UI_WindowName("TAB_UNDO_HISTORY"), dock.TopRight);
 			Gui::DockBuilderDockWindow(UI_WindowName("TAB_CHART_PROPERTIES"), dock.TopRight);
+			Gui::DockBuilderDockWindow(UI_WindowName("TAB_CHART_STATS"), dock.TopRight);
 
 			Gui::DockBuilderDockWindow(UI_WindowName("TAB_INSPECTOR"), dock.TopRightBot);
 		}
