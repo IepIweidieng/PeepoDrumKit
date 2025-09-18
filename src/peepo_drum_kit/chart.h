@@ -295,6 +295,18 @@ namespace PeepoDrumKit
 	template <>
 	constexpr ScrollType FallbackEvent<ScrollType> = {Beat::Zero(), ScrollMethod::NMSCROLL};
 
+	struct SuddenChange
+	{
+		Beat BeatTime;
+		Time AppearanceOffset;
+		Time MovementOffset;
+		b8 IsSelected;
+	};
+	template <> constexpr std::string_view DisplayNameOfChartEvent<SuddenChange> = "Sudden";
+
+	template <>
+	constexpr SuddenChange FallbackEvent<SuddenChange> = { Beat::Zero(), Time::FromSec(std::numeric_limits<f64>::infinity()), Time::FromSec(std::numeric_limits<f64>::infinity()) };
+
 	struct JPOSScrollChange
 	{
 		Beat BeatTime;
@@ -350,6 +362,7 @@ namespace PeepoDrumKit
 	using SortedBarLineChangesList = BeatSortedList<BarLineChange>;
 	using SortedGoGoRangesList = BeatSortedList<GoGoRange>;
 	using SortedLyricsList = BeatSortedList<LyricChange>;
+	using SortedSuddenChangesList = BeatSortedList<SuddenChange>;
 	using SortedJPOSScrollChangesList = BeatSortedList<JPOSScrollChange>;
 	using SortedScrollTypesList = BeatSortedList<ScrollType>;
 
@@ -360,6 +373,11 @@ namespace PeepoDrumKit
 	constexpr ScrollMethod ScrollTypeOrDefault(const ScrollType* v) { return (v == nullptr) ? ScrollMethod::NMSCROLL : v->Method; }
 	constexpr Complex ScrollOrDefault(const ScrollChange* v) { return (v == nullptr) ? Complex(1.0f, 0.0f) : v->ScrollSpeed; }
 	constexpr Tempo TempoOrDefault(const TempoChange* v) { return (v == nullptr) ? FallbackTempo : v->Tempo; }
+	constexpr std::pair<Time, Time> SuddenOrDefault(const SuddenChange* v)
+	{
+		return (v == nullptr) ? std::pair{ FallbackEvent<SuddenChange>.AppearanceOffset, FallbackEvent<SuddenChange>.MovementOffset }
+			: std::pair{ v->AppearanceOffset, v->MovementOffset };
+	}
 
 	struct ChartCourse
 	{
@@ -384,6 +402,7 @@ namespace PeepoDrumKit
 		SortedLyricsList Lyrics;
 
 		SortedScrollTypesList ScrollTypes;
+		SortedSuddenChangesList SuddenChanges;
 		SortedJPOSScrollChangesList JPOSScrollChanges;
 
 		i32 ScoreInit = 0;
@@ -491,6 +510,7 @@ namespace PeepoDrumKit
 		Lyrics,
 		ScrollType,
 		JPOSScroll,
+		Sudden,
 		Count
 	};
 
@@ -510,6 +530,8 @@ namespace PeepoDrumKit
 		I8_ScrollType,
 		F32_JPOSScroll,
 		F32_JPOSScrollDuration,
+		Time_AppearanceOffset,
+		Time_MovementOffset,
 		Count
 	};
 
@@ -532,14 +554,16 @@ namespace PeepoDrumKit
 		GenericMemberFlags_ScrollType = EnumToFlag(GenericMember::I8_ScrollType),
 		GenericMemberFlags_JPOSScroll = EnumToFlag(GenericMember::F32_JPOSScroll),
 		GenericMemberFlags_JPOSScrollDuration = EnumToFlag(GenericMember::F32_JPOSScrollDuration),
-		GenericMemberFlags_All = 0b11111111111111,
+		GenericMemberFlags_AppearanceOffset = EnumToFlag(GenericMember::Time_AppearanceOffset),
+		GenericMemberFlags_MovementOffset = EnumToFlag(GenericMember::Time_MovementOffset),
+		GenericMemberFlags_All = 0b1111111111111111,
 	};
 
 	static_assert(GenericMemberFlags_All & (1u << (static_cast<u32>(GenericMember::Count) - 1)));
 	static_assert(!(GenericMemberFlags_All & (1u << static_cast<u32>(GenericMember::Count))));
 
-	constexpr cstr GenericListNames[] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", "ScrollType", "JPOSScroll", };
-	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScroll", "JPOSScrollDuration", };
+	constexpr cstr GenericListNames[] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", "ScrollType", "JPOSScroll", "Sudden",};
+	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScroll", "JPOSScrollDuration", "SuddenAppearanceOffset", "SuddenMovementOffset",};
 
 	// Member availability queries
 	template <typename T, GenericMember Member>
@@ -594,6 +618,8 @@ namespace PeepoDrumKit
 		else if constexpr (Member == GenericMember::I8_ScrollType) return (std::forward<GenericMemberUnionT>(values).I16);
 		else if constexpr (Member == GenericMember::F32_JPOSScroll) return (std::forward<GenericMemberUnionT>(values).CPX);
 		else if constexpr (Member == GenericMember::F32_JPOSScrollDuration) return (std::forward<GenericMemberUnionT>(values).F32);
+		else if constexpr (Member == GenericMember::Time_AppearanceOffset) return (std::forward<GenericMemberUnionT>(values).Time);
+		else if constexpr (Member == GenericMember::Time_MovementOffset) return (std::forward<GenericMemberUnionT>(values).Time);
 		else static_assert(false, "unhandled or invalid GenericMember value");
 	}
 
@@ -628,6 +654,8 @@ namespace PeepoDrumKit
 		constexpr auto& ScrollType() { return get<GenericMember::I8_ScrollType>(*this); }
 		constexpr auto& JPOSScrollMove() { return get<GenericMember::F32_JPOSScroll>(*this); }
 		constexpr auto& JPOSScrollDuration() { return get<GenericMember::F32_JPOSScrollDuration>(*this); }
+		constexpr auto& SuddenAppearanceOffset() { return get<GenericMember::Time_AppearanceOffset>(*this); }
+		constexpr auto& SuddenMovementOffset() { return get<GenericMember::Time_MovementOffset>(*this); }
 		constexpr const auto& IsSelected() const { return get<GenericMember::B8_IsSelected>(*this); }
 		constexpr const auto& BarLineVisible() const { return get<GenericMember::B8_BarLineVisible>(*this); }
 		constexpr const auto& BalloonPopCount() const { return get<GenericMember::I16_BalloonPopCount>(*this); }
@@ -642,6 +670,8 @@ namespace PeepoDrumKit
 		constexpr const auto& ScrollType() const { return get<GenericMember::I8_ScrollType>(*this); }
 		constexpr const auto& JPOSScrollMove() const { return get<GenericMember::F32_JPOSScroll>(*this); }
 		constexpr const auto& JPOSScrollDuration() const { return get<GenericMember::F32_JPOSScrollDuration>(*this); }
+		constexpr const auto& SuddenAppearanceOffset() const { return get<GenericMember::Time_AppearanceOffset>(*this); }
+		constexpr const auto& SuddenMovementOffset() const { return get<GenericMember::Time_MovementOffset>(*this); }
 	};
 
 	// types with subset members, return `void` for unavailable members
@@ -714,6 +744,15 @@ namespace PeepoDrumKit
 		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<ScrollTypeT>(event).BeatTime);
 	}
 
+	template <GenericMember Member, typename SuddenChangeT, expect_type_t<SuddenChangeT, SuddenChange> = true>
+	constexpr decltype(auto) get(SuddenChangeT&& event)
+	{
+		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<SuddenChangeT>(event).IsSelected);
+		else if constexpr (Member == GenericMember::Time_AppearanceOffset) return (std::forward<SuddenChangeT>(event).AppearanceOffset);
+		else if constexpr (Member == GenericMember::Time_MovementOffset) return (std::forward<SuddenChangeT>(event).MovementOffset);
+		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<SuddenChangeT>(event).BeatTime);
+	}
+
 	template <GenericMember Member, typename JPOSScrollChangeT, expect_type_t<JPOSScrollChangeT, JPOSScrollChange> = true>
 	constexpr decltype(auto) get(JPOSScrollChangeT&& event)
 	{
@@ -773,6 +812,8 @@ namespace PeepoDrumKit
 		X(GenericMember::I8_ScrollType)
 		X(GenericMember::F32_JPOSScroll)
 		X(GenericMember::F32_JPOSScrollDuration)
+		X(GenericMember::Time_AppearanceOffset)
+		X(GenericMember::Time_MovementOffset)
 #undef X
 		default: assert(false); return keep_or_static_cast<TRet>(vError);
 		}
@@ -893,6 +934,7 @@ namespace PeepoDrumKit
 			GoGoRange GoGo;
 			ScrollType ScrollType;
 			JPOSScrollChange JPOSScroll;
+			SuddenChange Sudden;
 
 			inline PODData() { ::memset(this, 0, sizeof(*this)); }
 		} POD;
@@ -955,6 +997,7 @@ namespace PeepoDrumKit
 		else if constexpr (List == GenericList::Lyrics) return (std::forward<ChartCourseT>(course).Lyrics);
 		else if constexpr (List == GenericList::ScrollType) return (std::forward<ChartCourseT>(course).ScrollTypes);
 		else if constexpr (List == GenericList::JPOSScroll) return (std::forward<ChartCourseT>(course).JPOSScrollChanges);
+		else if constexpr (List == GenericList::Sudden) return (std::forward<ChartCourseT>(course).SuddenChanges);
 		else static_assert(false, "unhandled or invalid GenericList value");
 	}
 
@@ -975,6 +1018,7 @@ namespace PeepoDrumKit
 		else if constexpr (List == GenericList::Lyrics) return (std::forward<GenericListStructT>(inValue).NonTrivial.Lyric);
 		else if constexpr (List == GenericList::ScrollType) return (std::forward<GenericListStructT>(inValue).POD.ScrollType);
 		else if constexpr (List == GenericList::JPOSScroll) return (std::forward<GenericListStructT>(inValue).POD.JPOSScroll);
+		else if constexpr (List == GenericList::Sudden) return (std::forward<GenericListStructT>(inValue).POD.Sudden);
 		else static_assert(false, "unhandled or invalid GenericList value");
 	}
 
@@ -1051,6 +1095,7 @@ namespace PeepoDrumKit
 		X(GenericList::Lyrics)
 		X(GenericList::ScrollType)
 		X(GenericList::JPOSScroll)
+		X(GenericList::Sudden)
 #undef X
 		default: assert(false); return keep_or_static_cast<TRet>(vError);
 		}
@@ -1091,7 +1136,7 @@ namespace PeepoDrumKit
 	constexpr b8 ListHasDurations(GenericList list) { return IsNotesList(list) || (list == GenericList::GoGoRanges); }
 	constexpr b8 ListUsesInclusiveBeatCheck(GenericList list) { return IsNotesList(list) || (list != GenericList::GoGoRanges && list != GenericList::Lyrics); }
 	constexpr b8 ListIsItemEndBounded(GenericList list) { return IsNotesList(list) || (list == GenericList::GoGoRanges) || (list == GenericList::JPOSScroll); }
-	constexpr b8 ListHasNoteStaticEffects(GenericList list) { return (list == GenericList::TempoChanges) || (list == GenericList::ScrollChanges) || (list == GenericList::ScrollType); }
+	constexpr b8 ListHasNoteStaticEffects(GenericList list) { return (list == GenericList::TempoChanges) || (list == GenericList::ScrollChanges) || (list == GenericList::ScrollType) || (list == GenericList::Sudden); }
 	constexpr b8 ListHasBarlineStaticEffects(GenericList list) { return ListHasNoteStaticEffects(list) || (list == GenericList::BarLineChanges); }
 
 	constexpr size_t GetGenericMember_RawByteSize(GenericMember member)

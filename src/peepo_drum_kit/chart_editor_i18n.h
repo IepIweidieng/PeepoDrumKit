@@ -182,9 +182,12 @@ X("EVENT_GO_GO_TIME",								"Go-Go Time") \
 X("EVENT_LYRICS",									"Lyrics") \
 X("EVENT_SCROLL_TYPE",								"Scroll Type") \
 X("EVENT_JPOS_SCROLL",								"JPOS Scroll") \
+X("EVENT_SUDDEN",									"Sudden") \
 X("EVENT_PROP_JPOS_SCROLL_MOVE",					"JPOS Scroll Move") \
 X("EVENT_PROP_VERTICAL_JPOS_SCROLL_MOVE",			"Vertical JPOS Scroll Move") \
 X("EVENT_PROP_JPOS_SCROLL_DURATION",				"JPOS Scroll Duration") \
+X("EVENT_PROP_SUDDEN_APPEARANCE_OFFSET",			"Sudden Appearance Offset") \
+X("EVENT_PROP_SUDDEN_MOVEMENT_OFFSET",				"Sudden Movement Offset") \
 X("DETAILS_EVENTS_SYNC",							"Sync") \
 X("SYNC_CHART_DURATION",							"Chart Duration") \
 X("SYNC_SONG_DEMO_START",							"Song Demo Start") \
@@ -228,6 +231,7 @@ X("SELECTED_EVENTS_TIME_SIGNATURES",				"Time Signatures") \
 X("SELECTED_EVENTS_SCROLL_SPEEDS",					"Scroll Speeds") \
 X("SELECTED_EVENTS_BAR_LINE_VISIBILITIES",			"Bar Lines") \
 X("SELECTED_EVENTS_GO_GO_RANGES",					"Go-Go Ranges") \
+X("SELECTED_EVENTS_SUDDEN",							"Suddens") \
 X("EVENT_PROP_BAR_LINE_VISIBLE",					"Bar Line Visible") \
 X("BAR_LINE_VISIBILITY_VISIBLE",					"Visible") \
 X("BAR_LINE_VISIBILITY_HIDDEN",						"Hidden") \

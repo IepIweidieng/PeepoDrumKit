@@ -491,6 +491,21 @@ namespace PeepoDrumKit
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
+				// v1.2.?
+				{
+					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
+					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
+					Gui::TextUnformatted("v1.2.?");
+					Gui::PopFont();
+
+					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
+					Gui::TextUnformatted(u8"- Support #SUDDEN (simulating TJAP3 behavior)");
+					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
+					Gui::TextUnformatted("");
+					Gui::PopFont();
+					Gui::PopStyleColor();
+				}
+
 				// v1.2
 				{
 					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
@@ -1125,6 +1140,8 @@ namespace PeepoDrumKit
 						case GenericMember::I8_ScrollType: { /* ... */ } break;
 						case GenericMember::F32_JPOSScroll: { /* ... */ } break;
 						case GenericMember::F32_JPOSScrollDuration: { /* ... */ } break;
+						case GenericMember::Time_AppearanceOffset: { /* ... */ } break;
+						case GenericMember::Time_MovementOffset: { /* ... */ } break;
 						default: assert(false); break;
 						}
 					}
@@ -1146,7 +1163,7 @@ namespace PeepoDrumKit
 			{
 				if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 				{
-					const cstr listTypeNames[] = { UI_Str("SELECTED_EVENTS_TEMPOS"), UI_Str("SELECTED_EVENTS_TIME_SIGNATURES"), UI_Str("EVENT_NOTES"), UI_Str("EVENT_NOTES"), UI_Str("EVENT_NOTES"), UI_Str("SELECTED_EVENTS_SCROLL_SPEEDS"), UI_Str("SELECTED_EVENTS_BAR_LINE_VISIBILITIES"), UI_Str("SELECTED_EVENTS_GO_GO_RANGES"), UI_Str("EVENT_LYRICS"), UI_Str("SELECTED_EVENTS_SCROLL_TYPES"), UI_Str("SELECTED_EVENTS_JPOS_SCROLLS"), };
+					const cstr listTypeNames[] = { UI_Str("SELECTED_EVENTS_TEMPOS"), UI_Str("SELECTED_EVENTS_TIME_SIGNATURES"), UI_Str("EVENT_NOTES"), UI_Str("EVENT_NOTES"), UI_Str("EVENT_NOTES"), UI_Str("SELECTED_EVENTS_SCROLL_SPEEDS"), UI_Str("SELECTED_EVENTS_BAR_LINE_VISIBILITIES"), UI_Str("SELECTED_EVENTS_GO_GO_RANGES"), UI_Str("EVENT_LYRICS"), UI_Str("SELECTED_EVENTS_SCROLL_TYPES"), UI_Str("SELECTED_EVENTS_JPOS_SCROLLS"), UI_Str("SELECTED_EVENTS_SUDDEN"), };
 					static_assert(ArrayCount(listTypeNames) == EnumCount<GenericList>);
 
 					Gui::Property::Property([&]
@@ -1210,8 +1227,9 @@ namespace PeepoDrumKit
 					GenericMemberFlags outModifiedMembers = GenericMemberFlags_None;
 					for (const GenericMember member : { GenericMember::NoteType_V, GenericMember::I16_BalloonPopCount, GenericMember::Time_Offset,
 						GenericMember::Tempo_V, GenericMember::TimeSignature_V, GenericMember::F32_ScrollSpeed, GenericMember::B8_BarLineVisible,
-						GenericMember::I8_ScrollType, GenericMember::F32_JPOSScroll, GenericMember::F32_JPOSScrollDuration})
-					{
+						GenericMember::I8_ScrollType, GenericMember::F32_JPOSScroll, GenericMember::F32_JPOSScrollDuration,
+						GenericMember::Time_AppearanceOffset, GenericMember::Time_MovementOffset,
+						}) {
 						if (!(commonAvailableMemberFlags & EnumToFlag(member)))
 							continue;
 
@@ -1396,6 +1414,68 @@ namespace PeepoDrumKit
 									for (auto& selectedItem : SelectedItems)
 									{
 										selectedItem.MemberValues.JPOSScrollDuration() = Clamp(selectedItem.MemberValues.JPOSScrollDuration() + widgetOut.ValueIncrement.F32, MinJPOSScrollDuration, MaxJPOSScrollDuration);
+									}
+									valueWasChanged = true;
+								}
+							}
+						} break;
+						case GenericMember::Time_AppearanceOffset:
+						case GenericMember::Time_MovementOffset:
+						{
+
+							auto getDuration = [&](auto&& item) -> auto&
+							{
+								return (member == GenericMember::Time_AppearanceOffset) ? item.MemberValues.SuddenAppearanceOffset() : item.MemberValues.SuddenMovementOffset();
+							};
+
+							b8 areAllOffsetsTheSame = true;
+							f32 commonDuration = 0.f, minDuration = 0.f, maxDuration = 0.f;
+							for (const auto& selectedItem : SelectedItems)
+							{
+								const f32 duration = getDuration(selectedItem).ToSec_F32();
+								if (&selectedItem == &SelectedItems[0])
+								{
+									commonDuration = minDuration = maxDuration = duration;
+								}
+								else
+								{
+									minDuration = Min(minDuration, duration);
+									maxDuration = Max(maxDuration, duration);
+									areAllOffsetsTheSame &= ApproxmiatelySame(duration, commonDuration, 0.001f);
+								}
+							}
+
+							{
+								MultiEditWidgetParam widgetIn = {};
+								widgetIn.EnableStepButtons = true;
+								widgetIn.Value.F32 = commonDuration;
+								widgetIn.HasMixedValues = !areAllOffsetsTheSame;
+								widgetIn.MixedValuesMin.F32 = minDuration;
+								widgetIn.MixedValuesMax.F32 = maxDuration;
+								widgetIn.ButtonStep.F32 = 0.1f;
+								widgetIn.ButtonStepFast.F32 = 0.5f;
+								widgetIn.DragLabelSpeed = 0.005f;
+								widgetIn.FormatString = "%gs";
+								widgetIn.EnableClamp = true;
+								widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
+								widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
+
+								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
+									(member == GenericMember::Time_AppearanceOffset) ? UI_Str("EVENT_PROP_SUDDEN_APPEARANCE_OFFSET") : UI_Str("EVENT_PROP_SUDDEN_MOVEMENT_OFFSET"),
+									widgetIn);
+								if (widgetOut.HasValueExact)
+								{
+									for (auto& selectedItem : SelectedItems)
+									{
+										getDuration(selectedItem) = Time::FromSec(widgetOut.ValueExact.F32);
+									}
+									valueWasChanged = true;
+								}
+								else if (widgetOut.HasValueIncrement)
+								{
+									for (auto& selectedItem : SelectedItems)
+									{
+										getDuration(selectedItem) = Time::FromSec(getDuration(selectedItem).Seconds + widgetOut.ValueIncrement.F32);
 									}
 									valueWasChanged = true;
 								}
@@ -2640,6 +2720,64 @@ namespace PeepoDrumKit
 						Gui::PopID();
 					});
 
+				const SuddenChange* SuddenChangeAtCursor = course.SuddenChanges.TryFindLastAtBeat(cursorBeat);
+				const Time SuddenAppearanceOffsetAtCursor = (SuddenChangeAtCursor != nullptr) ? SuddenChangeAtCursor->AppearanceOffset : FallbackEvent<SuddenChange>.AppearanceOffset;
+				const Time SuddenMovementOffsetAtCursor = (SuddenChangeAtCursor != nullptr) ? SuddenChangeAtCursor->MovementOffset : FallbackEvent<SuddenChange>.MovementOffset;
+				auto insertOrUpdateCursorSudden = [&](Time newAppearanceOffset, Time newMovementOffset)
+				{
+					if (SuddenChangeAtCursor == nullptr || SuddenChangeAtCursor->BeatTime != cursorBeat)
+						context.Undo.Execute<Commands::AddSudden>(&course, &course.SuddenChanges, SuddenChange{ cursorBeat, newAppearanceOffset, newMovementOffset });
+					else
+						context.Undo.Execute<Commands::UpdateSudden>(&course, &course.SuddenChanges, SuddenChange{ cursorBeat, newAppearanceOffset, newMovementOffset });
+				};
+
+				Gui::Property::Property([&]
+				{
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
+					Gui::SetNextItemWidth(-1.0f);
+					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); GuiDragLabelFloat(UI_Str("EVENT_SUDDEN"), &v, 0.005f, ImGuiSliderFlags_None))
+						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor);
+					Gui::EndDisabled();
+				});
+				Gui::Property::Value([&]
+				{
+					Gui::BeginDisabled(disableEditingAtPlayCursor);
+
+					Gui::SetNextItemWidth(getInsertButtonWidth());
+					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenAppearanceOffsetAtCursor", &v, .1f, .5f, "%gs (show)"))
+						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor);
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					if (Gui::Button(u8"∞##SuddenAppearanceOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						insertOrUpdateCursorSudden(Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenMovementOffsetAtCursor);
+
+					Gui::SetNextItemWidth(getInsertButtonWidth());
+					if (f32 v = SuddenMovementOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenMovementOffsetAtCursor", &v, .1f, .5f, "%gs (move)"))
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(v));
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					if (Gui::Button(u8"∞##SuddenMovementOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(std::numeric_limits<f64>::infinity()));
+
+					Gui::PushID(&course.SuddenChanges);
+					if (!disallowRemoveButton && SuddenChangeAtCursor != nullptr && SuddenChangeAtCursor->BeatTime == cursorBeat)
+					{
+						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+							context.Undo.Execute<Commands::RemoveSudden>(&course, &course.SuddenChanges, cursorBeat);
+					}
+					else
+					{
+						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+							insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, SuddenMovementOffsetAtCursor);
+					}
+					Gui::EndDisabled();
+
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::Sudden)]);
+					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						timeline.ExecuteConvertSelectionToEvents<GenericList::Sudden>(context);
+					Gui::EndDisabled();
+
+					Gui::PopID();
+				});
 
 				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_GO_GO_TIME"), [&]
 				{

@@ -396,12 +396,14 @@ namespace PeepoDrumKit
 		Tempo Tempo;
 		Complex ScrollSpeed;
 		ScrollMethod ScrollType;
+		std::pair<struct Time, struct Time> Sudden;
 		struct {
 			struct Beat Beat;
 			struct Time Time;
 			struct Tempo Tempo;
 			Complex ScrollSpeed;
 			ScrollMethod ScrollType;
+			std::pair<struct Time, struct Time> Sudden;
 		} Tail;
 	};
 
@@ -412,6 +414,7 @@ namespace PeepoDrumKit
 		BeatSortedForwardIterator<ScrollChange> scrollChangeIt {};
 		BeatSortedForwardIterator<ScrollType> scrollTypeIt {};
 		BeatSortedForwardIterator<JPOSScrollChange> JPOSscrollChangeIt {};
+		BeatSortedForwardIterator<SuddenChange> SuddenChangeIt{};
 
 		for (const Note& note : course.GetNotes(branch))
 		{
@@ -423,11 +426,13 @@ namespace PeepoDrumKit
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beat)),
 				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat)),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beat)),
+				SuddenOrDefault(SuddenChangeIt.Next(course.SuddenChanges.Sorted, beat)),
 				{
 					beatTail, tail,
 					TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beatTail)),
 					ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail)),
 					ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beatTail)),
+					SuddenOrDefault(SuddenChangeIt.Next(course.SuddenChanges.Sorted, beatTail)),
 				},
 			});
 		}
@@ -752,13 +757,41 @@ namespace PeepoDrumKit
 			drawList->ChannelsSetCurrent(3);
 			ForEachNoteOnNoteLane(*course, branch, [&](const ForEachNoteLaneData& it)
 			{
-				vec2 laneHead = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
-				vec2 laneTail = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneHeadOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTailOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
 
+				// handle #SUDDEN
 				b8 isVisible = true;
+				Time positionTime = cursorTimeOrAnimated;
+				f64 positionHBScrollBeat = cursorHBScrollBeatOrAnimated;
+				Time positionTimeEnd = cursorTimeOrAnimated;
+				f64 positionHBScrollBeatEnd = cursorHBScrollBeatOrAnimated;
 
 				const Time timeSinceHeadHit = TimeSinceNoteHit(it.Time, cursorTimeOrAnimated);
 				const Time timeSinceTailHit = TimeSinceNoteHit(it.Tail.Time, cursorTimeOrAnimated);
+				if (timeSinceHeadHit < Time::Zero()) {
+					if (timeSinceHeadHit < -it.Sudden.first)
+						isVisible = false;
+					if (timeSinceHeadHit < -it.Sudden.second) {
+						positionTime = it.Time - Time::FromSec(std::floor(it.Sudden.second.Seconds * 1000) / 1000); // TJAP3 behavior
+						positionHBScrollBeat = course->TempoMap.BeatAndTimeToHBScrollBeatTick(course->TempoMap.TimeToBeat(positionTime, true), positionTime);
+					}
+					if (timeSinceTailHit < -it.Tail.Sudden.second) {
+						positionTimeEnd = it.Tail.Time - Time::FromSec(std::floor(it.Tail.Sudden.second.Seconds * 1000) / 1000); // TJAP3 behavior
+						positionHBScrollBeat = course->TempoMap.BeatAndTimeToHBScrollBeatTick(course->TempoMap.TimeToBeat(positionTimeEnd, true), positionTimeEnd);
+					}
+				}
+				vec2 laneHead = Camera.GetNoteCoordinatesLane(hitCirclePosLane, positionTime, positionHBScrollBeat, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneTail = Camera.GetNoteCoordinatesLane(hitCirclePosLane, positionTimeEnd, positionHBScrollBeatEnd, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
+
+				// TJAP3 behavior
+				laneHead.y = laneHeadOrig.y;
+				laneTail.y = laneTailOrig.y;
+
+				if (timeSinceHeadHit < Time::Zero() && timeSinceHeadHit < -it.Sudden.first)
+					isVisible = false;
+
+				// handle normal visibility rules
 				if (IsRegularNote(it.OriginalNote->Type)) {
 					if (timeSinceHeadHit >= Time::Zero())
 						laneHead = laneTail = hitCirclePosLane; // temporary value, override when drawn
@@ -775,9 +808,9 @@ namespace PeepoDrumKit
 				}
 				else { // is bar roll note
 					// flying notes in screen?
-					isVisible = ((timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration)
+					isVisible = isVisible && (((timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration)
 						// roll body in screen?
-						|| Camera.IsRangeVisibleOnLane(Min(laneHead.x, laneTail.x), Max(laneHead.x, laneTail.x)));
+						|| Camera.IsRangeVisibleOnLane(Min(laneHead.x, laneTail.x), Max(laneHead.x, laneTail.x))));
 				}
 				if (isVisible)
 					ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData{ laneHead.x, laneTail.x, laneHead.y, laneTail.y, it.Tempo, it.ScrollSpeed, it.OriginalNote, it.Time, it.Tail.Time });
