@@ -93,6 +93,7 @@ namespace PeepoDrumKit
 				{ "Timeline Scroll Change (Complex) Line", &TimelineScrollChangeComplexLineColor },
 				{ "Timeline Scroll Type Line", &TimelineScrollTypeLineColor },
 				{ "Timeline Bar Line Change Line", &TimelineBarLineChangeLineColor },
+				{ "Timeline Sudden Change Line", &TimelineSuddenChangeLineColor },
 				{ "Timeline Selected Item Line", &TimelineSelectedItemLineColor },
 				NamedColorU32Pointer {},
 				{ "Timeline Song Demo Start Marker Fill", &TimelineSongDemoStartMarkerColorFill },
@@ -780,6 +781,10 @@ namespace PeepoDrumKit
 					if constexpr (std::is_same_v<T, BarLineChange>) { text = it.IsVisible ? "On" : "Off"; lineColor = TimelineBarLineChangeLineColor; }
 					if constexpr (std::is_same_v<T, ScrollType>) { text = std::string_view(b, sprintf_s(b, "%s", it.Method_ToString().c_str())); lineColor = TimelineScrollTypeLineColor; }
 					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s", it.Move.toString().c_str())); }
+					if constexpr (std::is_same_v<T, SuddenChange>) {
+						text = std::string_view(b, sprintf_s(b, !isfinite(it.MovementOffset.Seconds) ? "%gs" : "%gs/%gs", it.AppearanceOffset.Seconds, it.MovementOffset.Seconds));
+						lineColor = (it.MovementOffset >= it.AppearanceOffset) ? TimelineSuddenChangeLineColor : TimelineSuddenChangeDelayMoveLineColor;
+					}
 
 					const vec2 textSize = Gui::CalcTextSize(text);
 
@@ -1264,6 +1269,11 @@ namespace PeepoDrumKit
 					const auto& in = item.Value.POD.JPOSScroll;
 					bufferLength = sprintf_s(buffer, "JPOSScroll { %d, %s, %g };\n", (in.BeatTime - baseBeat).Ticks, in.Move.toString().c_str(), in.Duration);
 				} break;
+				case GenericList::Sudden:
+				{
+					const auto& in = item.Value.POD.Sudden;
+					bufferLength = sprintf_s(buffer, "Sudden { %d, %g, %g };\n", (in.BeatTime - baseBeat).Ticks, in.AppearanceOffset.Seconds, in.MovementOffset.Seconds);
+				} break;
 				default: { assert(false); } break;
 				}
 
@@ -1398,6 +1408,15 @@ namespace PeepoDrumKit
 						newItemValue.Move = parsedParams[1].CPX;
 						newItemValue.Duration = parsedParams[2].F32;
 					}
+					else if (itemType == "Sudden")
+					{
+						auto& newItem = out.emplace_back(); newItem.List = GenericList::Sudden;
+						auto& newItemValue = newItem.Value.POD.Sudden;
+						newItemValue = SuddenChange{};
+						newItemValue.BeatTime.Ticks = parsedParams[0].I32;
+						newItemValue.AppearanceOffset = Time::FromSec(parsedParams[1].F32);
+						newItemValue.MovementOffset = Time::FromSec(parsedParams[2].F32);
+					}
 #if PEEPO_DEBUG
 					else { assert(false); }
 #endif
@@ -1484,6 +1503,7 @@ namespace PeepoDrumKit
 					case GenericList::Lyrics: return check(course.Lyrics, item.Value.NonTrivial.Lyric);
 					case GenericList::ScrollType: return check(course.ScrollTypes, item.Value.POD.ScrollType);
 					case GenericList::JPOSScroll: return check(course.JPOSScrollChanges, item.Value.POD.JPOSScroll);
+					case GenericList::Sudden: return check(course.SuddenChanges, item.Value.POD.Sudden);
 					default: assert(false); return false;
 					}
 				};
@@ -3380,6 +3400,7 @@ namespace PeepoDrumKit
 				case TimelineRowType::Lyrics: DrawTimelineContentItemRowT<LyricChange, TimelineRowType::Lyrics>(rowParam, rowIt, context.ChartSelectedCourse->Lyrics); break;
 				case TimelineRowType::ScrollType: DrawTimelineContentItemRowT<ScrollType, TimelineRowType::ScrollType>(rowParam, rowIt, context.ChartSelectedCourse->ScrollTypes); break;
 				case TimelineRowType::JPOSScroll: DrawTimelineContentItemRowT<JPOSScrollChange, TimelineRowType::JPOSScroll>(rowParam, rowIt, context.ChartSelectedCourse->JPOSScrollChanges); break;
+				case TimelineRowType::Sudden: DrawTimelineContentItemRowT<SuddenChange, TimelineRowType::Sudden>(rowParam, rowIt, context.ChartSelectedCourse->SuddenChanges); break;
 				default: { assert(!"Missing TimelineRowType switch case"); } break;
 				}
 			});

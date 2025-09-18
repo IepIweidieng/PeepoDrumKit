@@ -106,6 +106,8 @@ namespace PeepoDrumKit
 	inline u32 TimelineScrollChangeComplexLineColor = 0xDC1DA386;
 	inline u32 TimelineBarLineChangeLineColor = 0xDCBE9E2C;
 	inline u32 TimelineScrollTypeLineColor = 0xDCE2E222;
+	inline u32 TimelineSuddenChangeLineColor = 0xDC2691FF;
+	inline u32 TimelineSuddenChangeDelayMoveLineColor = 0xDC22BEE2;
 	inline u32 TimelineSelectedItemLineColor = 0xDCFFFFFF;
 
 	inline u32 TimelineSongDemoStartMarkerColorFill = 0x3B75AD85;

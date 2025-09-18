@@ -317,6 +317,10 @@ namespace PeepoDrumKit
 		using RemoveTimeSignatureChange = RemoveSingleChartEvent<TimeSignatureChange>;
 		using UpdateTimeSignatureChange = UpdateSingleChartEvent<TimeSignatureChange>;
 
+		using AddSudden = AddSingleChartEvent<SuddenChange>;
+		using RemoveSudden = RemoveSingleChartEvent<SuddenChange>;
+		using UpdateSudden = UpdateSingleChartEvent<SuddenChange>;
+
 		using AddJPOSScroll = AddSingleChartEvent<JPOSScrollChange>;
 		using RemoveJPOSScroll = RemoveSingleChartEvent<JPOSScrollChange>;
 		using UpdateJPOSScroll = UpdateSingleChartEvent<JPOSScrollChange>;
