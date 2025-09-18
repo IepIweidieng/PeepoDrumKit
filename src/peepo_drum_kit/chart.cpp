@@ -238,6 +238,9 @@ namespace PeepoDrumKit
 				for (const TJA::ConvertedScrollType& inScrollType : inMeasure.ScrollTypes)
 					outCourse.ScrollTypes.Sorted.push_back(ScrollType{ (inMeasure.StartTime + inScrollType.TimeWithinMeasure),  static_cast<ScrollMethod>(inScrollType.Method) });
 
+				for (const TJA::ConvertedSudden& inSuddenChange : inMeasure.SuddenChanges)
+					outCourse.SuddenChanges.Sorted.push_back(SuddenChange{ (inMeasure.StartTime + inSuddenChange.TimeWithinMeasure), inSuddenChange.AppearanceOffset, inSuddenChange.MovementOffset });
+
 				for (const TJA::ConvertedJPOSScroll& inJPOSScrollChange : inMeasure.JPOSScrollChanges)
 					outCourse.JPOSScrollChanges.Sorted.push_back(JPOSScrollChange{ (inMeasure.StartTime + inJPOSScrollChange.TimeWithinMeasure), inJPOSScrollChange.Move, inJPOSScrollChange.Duration });
 
@@ -407,6 +410,13 @@ namespace PeepoDrumKit
 				TJA::ConvertedMeasure* outConvertedMeasure = tryFindMeasureForBeat(outConvertedMeasures, inScrollType.BeatTime);
 				if (assert(outConvertedMeasure != nullptr); outConvertedMeasure != nullptr)
 					outConvertedMeasure->ScrollTypes.push_back(TJA::ConvertedScrollType { (inScrollType.BeatTime - outConvertedMeasure->StartTime), static_cast<i8>(inScrollType.Method) });
+			}
+
+			for (const SuddenChange& inSudden : inCourse.SuddenChanges)
+			{
+				TJA::ConvertedMeasure* outConvertedMeasure = tryFindMeasureForBeat(outConvertedMeasures, inSudden.BeatTime);
+				if (assert(outConvertedMeasure != nullptr); outConvertedMeasure != nullptr)
+					outConvertedMeasure->SuddenChanges.push_back(TJA::ConvertedSudden{ (inSudden.BeatTime - outConvertedMeasure->StartTime), inSudden.AppearanceOffset, inSudden.MovementOffset });
 			}
 
 			for (const JPOSScrollChange& JPOSScroll : inCourse.JPOSScrollChanges)

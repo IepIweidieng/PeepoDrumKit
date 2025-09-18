@@ -397,7 +397,7 @@ namespace TJA
 			struct { i32 Type; } SENoteChange;
 			struct { std::string CommaSeparatedList; } SetNextSong;
 			struct { ScrollDirection Direction; } ChangeDirection;
-			struct { Time AppearanceOffset, MovementWaitDelay; } SetSudden;
+			struct { Time AppearanceOffset, MovementOffset; } SetSudden;
 			struct { Time Duration; f32 MovementDistance; ScrollDirection Direction; } SetScrollTransition;
 		} Param;
 	};
@@ -496,6 +496,13 @@ namespace TJA
 		i8 Method;
 	};
 
+	struct ConvertedSudden
+	{
+		Beat TimeWithinMeasure;
+		Time AppearanceOffset;
+		Time MovementOffset;
+	};
+
 	struct ConvertedJPOSScroll
 	{
 		Beat TimeWithinMeasure;
@@ -512,6 +519,7 @@ namespace TJA
 		std::vector<ConvertedDelayChange> DelayChanges;
 		std::vector<ConvertedScrollChange> ScrollChanges;
 		std::vector<ConvertedScrollType> ScrollTypes;
+		std::vector<ConvertedSudden> SuddenChanges;
 		std::vector<ConvertedJPOSScroll> JPOSScrollChanges;
 		// BUG: Can't actually change inbetween measures..?
 		std::vector<ConvertedBarLineChange> BarLineChanges;

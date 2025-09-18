@@ -886,7 +886,7 @@ namespace TJA
 					} break;
 					case Key::Chart_SUDDEN:
 					{
-						decltype(ParsedChartCommand::ParamData::SetSudden) param = { Time::Zero(), Time::Zero() };
+						decltype(ParsedChartCommand::ParamData::SetSudden) param = { Time::FromSec(std::numeric_limits<f64>::infinity()), Time::FromSec(std::numeric_limits<f64>::infinity()) };
 						i32 valueIndex = 0;
 						b8 valid = true;
 
@@ -896,14 +896,18 @@ namespace TJA
 							if (value.empty())
 								return;
 							if (valueIndex == 0) {
-								if (!tryParseTime(value, &param.AppearanceOffset)) {
+								if (Time v; !tryParseTime(value, &v)) {
 									valid = false;
 									outErrors.Push(lineIndex, "Invalid appearance offset number '%.*s'", FmtStrViewArgs(value));
+								} else if (v.Seconds != 0) {
+									param.AppearanceOffset = v;
 								}
 							} else if (valueIndex == 1) {
-								if (!tryParseTime(value, &param.MovementWaitDelay)) {
+								if (Time v; !tryParseTime(value, &v)) {
 									valid = false;
 									outErrors.Push(lineIndex, "Invalid movement offset number '%.*s'", FmtStrViewArgs(value));
+								} else if (v.Seconds != 0) {
+									param.MovementOffset = v;
 								}
 							} else {
 								outErrors.Push(lineIndex, "Exceeded 2 arguments");
@@ -1408,7 +1412,13 @@ namespace TJA
 				} break;
 				case ParsedChartCommandType::SetSudden:
 				{
-					appendCommandLine(out, Key::Chart_SUDDEN, std::string_view(buffer, sprintf_s(buffer, "%g %g", command.Param.SetSudden.AppearanceOffset.ToSec(), command.Param.SetSudden.MovementWaitDelay.ToSec())));
+					constexpr auto toSuddenDuration = [](const Time& time)
+					{
+						return !isfinite(time.Seconds) ? Time::Zero().Seconds
+							: abs(time.Seconds) < 0.001 ? 0.001 // minimum value not treat as 0 by TJAP2PC & TJAP3
+							: time.ToSec();
+					};
+					appendCommandLine(out, Key::Chart_SUDDEN, std::string_view(buffer, sprintf_s(buffer, "%g %g", toSuddenDuration(command.Param.SetSudden.AppearanceOffset), toSuddenDuration(command.Param.SetSudden.MovementOffset))));
 				} break;
 				case ParsedChartCommandType::SetJPOSScroll:
 				{
@@ -1489,6 +1499,14 @@ namespace TJA
 				tempCommand.Type = ParsedChartCommandType::SetJPOSScroll;
 				tempCommand.Param.ChangeJPOSScroll.Duration = Time(JPOSscrollChange.Duration);
 				tempCommand.Param.ChangeJPOSScroll.Move = JPOSscrollChange.Move;
+			}
+
+			for (const ConvertedSudden& SuddenChange : inMeasure.SuddenChanges)
+			{
+				ParsedChartCommand& tempCommand = tempBuffer.emplace_back(TempCommand{ SuddenChange.TimeWithinMeasure }).ParsedCommand;
+				tempCommand.Type = ParsedChartCommandType::SetSudden;
+				tempCommand.Param.SetSudden.AppearanceOffset = Time(SuddenChange.AppearanceOffset);
+				tempCommand.Param.SetSudden.MovementOffset = Time(SuddenChange.MovementOffset);
 			}
 
 			for (const ConvertedLyricChange& lyricChange : inMeasure.LyricChanges)
@@ -1721,6 +1739,14 @@ namespace TJA
 						currentTimeWithinMeasure,
 						command.Param.ChangeJPOSScroll.Move,
 						command.Param.ChangeJPOSScroll.Duration.ToSec_F32()
+						});
+				}
+				else if (command.Type == ParsedChartCommandType::SetSudden)
+				{
+					currentMeasure->SuddenChanges.push_back(ConvertedSudden{
+						currentTimeWithinMeasure,
+						command.Param.SetSudden.AppearanceOffset,
+						command.Param.SetSudden.MovementOffset,
 						});
 				}
 			}

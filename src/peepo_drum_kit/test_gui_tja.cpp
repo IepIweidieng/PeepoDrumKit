@@ -430,8 +430,8 @@ namespace PeepoDrumKit
 							case TJA::ParsedChartCommandType::SENoteChange: {} break;
 							case TJA::ParsedChartCommandType::SetNextSong: {} break;
 							case TJA::ParsedChartCommandType::ChangeDirection: {} break;
-							case TJA::ParsedChartCommandType::SetSudden: {} break;
 							case TJA::ParsedChartCommandType::SetJPOSScroll: {} break;
+							case TJA::ParsedChartCommandType::SetSudden: {} break;
 							default: {} break;
 							}
 
