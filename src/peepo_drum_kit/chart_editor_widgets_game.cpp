@@ -116,21 +116,57 @@ namespace PeepoDrumKit
 		return out;
 	}
 
-	// fire, lane
-	static std::pair<f32, f32> getGogoZoomAmount(b8 isGogo, Time timeSinceGogo, Time timeAfterGogo)
+	struct GogoTransitionData
 	{
-		static constexpr auto tAttLane = Time::FromSec(0.10);
-		f32 laneAmount = !isGogo ? 0 : timeSinceGogo >= tAttLane ? 1 : (timeSinceGogo / tAttLane);
-		static constexpr auto tAtt = Time::FromSec(0.05); // attack
+		f32 FireZoom = 1.0f;
+		f32 FireAlphaFade = 1.0f;
+		f32 LaneZoomIn = 1.0f;
+		f32 LaneAlphaFade = 1.0f;
+	};
+
+	static GogoTransitionData getGogoTransition(b8 isGogo, Time timeSinceGogo, Time timeAfterGogo)
+	{
+		static constexpr auto tAtt = Time::FromSec(0.075); // attack
 		static constexpr auto tDec = Time::FromSec(0.20); // decay
-		static constexpr auto tRel = Time::FromSec(0.10); // release
-		Time fireTime = isGogo ? std::min(timeSinceGogo, tAtt + tDec) : std::min(timeSinceGogo, tAtt + tDec) + timeAfterGogo;
-		f32 fireAmount = (fireTime > tAtt + tDec + tRel) ? 0
-			: (fireTime > tAtt + tDec) ? std::max(0.0, 1 - pow(((fireTime - (tAtt + tDec)) / tRel), 2))
-			: (fireTime >= tAtt + tDec) ? 1
-			: (fireTime >= tAtt) ? 2 - (1 - pow(1 - (fireTime - tAtt) / tDec, 2))
-			: 2 * (fireTime / tAtt);
-		return { fireAmount, laneAmount };
+		static constexpr auto tBounce = Time::FromSec(0.10);
+		static constexpr auto tDecLane = Time::FromSec(0.075);
+		static constexpr auto tRel = Time::FromSec(0.15); // release
+		static constexpr auto laneBeamZoomAmount = 0.0625;
+		static constexpr auto fireZoomInAmount = 2.75;
+		static constexpr auto fireBounceAmount = 0.1;
+		static constexpr auto fireAlphaMin = 0.25;
+		static constexpr auto fireAlphaStable = 0.875;
+		static constexpr auto easingOutPow = [](auto x, auto power) { return 1 - pow(1 - x, power); };
+		GogoTransitionData res = {};
+		// attack + decay + sustain
+		res.LaneZoomIn = (timeSinceGogo >= tAtt + tDecLane) ? 1
+			: (timeSinceGogo >= tAtt) ? laneBeamZoomAmount + (1 - laneBeamZoomAmount) * (timeSinceGogo - tAtt) / tDecLane
+			: isGogo ? laneBeamZoomAmount
+			: 0;
+		res.LaneAlphaFade = (timeSinceGogo >= tAtt) ? 1 : easingOutPow(timeSinceGogo / tAtt, 2);
+		res.FireZoom = (timeSinceGogo >= tAtt + tDec + tBounce) ? 1
+			: (timeSinceGogo >= tAtt + tDec) ? 1 + fireBounceAmount * (-cos(2 * PI * easingOutPow((timeSinceGogo - (tAtt + tDec)) / tBounce, 2)) + 1) / 2
+			: (timeSinceGogo >= tAtt) ? fireZoomInAmount + (1 - fireZoomInAmount) * easingOutPow((timeSinceGogo - tAtt) / tDec, 1.5)
+			: fireZoomInAmount * pow(timeSinceGogo / tAtt, 1.25);
+		res.FireAlphaFade = (timeSinceGogo >= tAtt + tDec + tBounce) ? fireAlphaStable
+			: (timeSinceGogo >= tAtt + tDec - +tBounce) ? 1 + (fireAlphaStable - 1) * pow((timeSinceGogo - (tAtt + tDec - tBounce)) / (2 * tBounce), 2)
+			: (timeSinceGogo >= tAtt) ? 1
+			: fireAlphaMin + (1 - fireAlphaMin) * (timeSinceGogo / tAtt);
+		if (timeAfterGogo > Time::Zero()) {
+			// release
+			Time laneFadeOutTime = std::min(timeSinceGogo, tAtt + (isGogo ? Time::Zero() : timeAfterGogo));
+			res.LaneAlphaFade *= (laneFadeOutTime > tAtt + tRel) ? 0
+				: (laneFadeOutTime > tAtt) ? 1 - easingOutPow((laneFadeOutTime - tAtt) / tRel, 2)
+				: 1;
+			Time fireFadeOutTime = std::min(timeSinceGogo, tAtt + tDec - tBounce + (isGogo ? Time::Zero() : timeAfterGogo));
+			res.FireZoom *= (fireFadeOutTime > tAtt + tDec - tBounce + tRel) ? 0
+				: (fireFadeOutTime > tAtt + tDec - tBounce) ? 1 - pow((fireFadeOutTime - (tAtt + tDec - tBounce)) / tRel, 2)
+				: 1;
+			res.FireAlphaFade *= (fireFadeOutTime > tAtt + tDec - tBounce + tRel) ? 0
+				: (fireFadeOutTime > tAtt + tDec - tBounce) ? 1 - pow((fireFadeOutTime - (tAtt + tDec - tBounce)) / tRel, 2)
+				: 1;
+		}
+		return res;
 	}
 
 	static constexpr Time TimeSinceNoteHit(Time noteTime, Time cursorTime) { return (cursorTime - noteTime); }
@@ -642,7 +678,7 @@ namespace PeepoDrumKit
 				: TimeSinceNoteHit(course->TempoMap.BeatToTime(lastGogo->BeatTime), cursorTimeOrAnimated);
 			const Time timeAfterGogo = (lastGogo == nullptr) ? Time::FromSec(F64Max)
 				: TimeSinceNoteHit(course->TempoMap.BeatToTime(lastGogo->GetEnd()), cursorTimeOrAnimated);
-			const auto [gogoFireZoomAmount, gogoLaneZoomAmount] = getGogoZoomAmount(isGogo, timeSinceGogo, timeAfterGogo);
+			const auto [gogoFireZoom, gogoFireAlpha, gogoLaneZoom, gogoLaneAlpha] = getGogoTransition(isGogo, timeSinceGogo, timeAfterGogo);
 
 			auto laneBorderColor = isFocusedLane ? GameLaneBorderFocusedColor : GameLaneBorderColor;
 
@@ -662,12 +698,12 @@ namespace PeepoDrumKit
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder)),
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content)),
 					GameLaneContentBackgroundColor);
-				if (gogoLaneZoomAmount > 0) {
-					f32 worldHeightZoomOffset = GameLaneSlice.Content / 2 * (1 - gogoLaneZoomAmount);
+				if (gogoLaneAlpha > 0) {
+					f32 worldHeightZoomOffset = GameLaneSlice.Content / 2 * (1 - gogoLaneZoom);
 					drawList->AddRectFilled( // NOTE: Gogo layer
 						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder + worldHeightZoomOffset)),
 						Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(Camera.LaneWidth(), GameLaneSlice.TopBorder + GameLaneSlice.Content - worldHeightZoomOffset)),
-						GameLaneContentBackgroundColorGogo);
+						Gui::ColorU32WithAlpha(GameLaneContentBackgroundColorGogo, gogoLaneAlpha));
 				}
 				drawList->AddRectFilled( // NOTE: Footer
 					Camera.WorldToScreenSpace(Camera.LaneRect.TL + vec2(0.0f, GameLaneSlice.TopBorder + GameLaneSlice.Content + GameLaneSlice.MidBorder)),
@@ -695,10 +731,10 @@ namespace PeepoDrumKit
 			const vec2 hitCirclePosJPos = Camera.GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
 			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos);
 			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
-			if (gogoFireZoomAmount > 0) {
-				context.Gfx.DrawSprite(drawList, SprID::Game_Lane_GogoFire, SprTransform::FromCenter(
-					hitCirclePos,
-					vec2(Camera.WorldToScreenScale(gogoFireZoomAmount), Camera.WorldToScreenScale(gogoFireZoomAmount))));
+			if (gogoFireZoom > 0) {
+				context.Gfx.DrawSprite(drawList, SprID::Game_Lane_GogoFire,
+					SprTransform::FromCenter(hitCirclePos, vec2(Camera.WorldToScreenScale(gogoFireZoom))),
+					Gui::ColorU32WithAlpha(0xFFFFFFFF, gogoFireAlpha));
 			}
 			drawList->AddCircleFilled(
 				hitCirclePos,
