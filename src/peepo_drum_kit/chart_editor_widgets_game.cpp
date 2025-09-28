@@ -49,7 +49,7 @@ namespace PeepoDrumKit
 		{ FrameToTime(46.0f), 0.0f, 0.0f, 0.0f },
 	};
 	static constexpr Time GameNoteHitAnimationDuration = Time::FromSec(GameNoteHitPath[ArrayCount(GameNoteHitPath) - 1].Time); // Time::FromFrames(46.0);
-	static constexpr Time GameHandNoteHitSquashDuration = Time::FromSec(0.15);
+	static constexpr Time GameHandNoteHitSquashDuration = Time::FromSec(0.067);
 	static constexpr Time GetTotalGameNoteHitAnimationDuration(NoteType noteType) { return (IsHandNote(noteType) ? GameHandNoteHitSquashDuration + GameNoteHitAnimationDuration : GameNoteHitAnimationDuration); }
 
 	struct NoteHitPathAnimationData
