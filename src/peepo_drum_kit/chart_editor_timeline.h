@@ -232,6 +232,14 @@ namespace PeepoDrumKit
 			Beat BeatDistanceMovedSoFar;
 		} SelectedItemDrag = {};
 
+		struct BarLineDragData
+		{
+			b8 IsActive;
+			b8 IsHovered;
+			Beat BarBeat;
+			Beat TempoEventBeat;
+		} BarLineDrag = {};
+
 		struct LongNotePlacementData
 		{
 			b8 IsActive;

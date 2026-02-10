@@ -273,6 +273,7 @@ namespace PeepoDrumKit
 		Time Time;
 		i32 BarIndex;
 		b8 IsBar;
+		Beat Beat;
 	};
 
 	template <typename Func>
@@ -310,7 +311,7 @@ namespace PeepoDrumKit
 			if ((gridLineIndex++ % gridLineModToSkip) == 0)
 			{
 				if (timeIt >= minMaxVisibleTime.Min && timeIt <= minMaxVisibleTime.Max)
-					perGridFunc(ForEachGridLineData { timeIt, it.BarIndex, it.IsBar });
+					perGridFunc(ForEachGridLineData { timeIt, it.BarIndex, it.IsBar, it.Beat });
 			}
 
 			if (timeIt >= minMaxVisibleTime.Max || (it.IsBar && timeIt >= chartDuration))
@@ -3422,6 +3423,33 @@ namespace PeepoDrumKit
 			DrawListContent->AddRectFilled(Regions.Content.TL + vec2(borders), Regions.Content.BR - vec2(borders), TimelineBackgroundColor);
 		}
 
+		// NOTE: Bar Line Drag Logic
+		if (BarLineDrag.IsActive)
+		{
+			if (!Gui::IsMouseDown(ImGuiMouseButton_Left))
+			{
+				BarLineDrag.IsActive = false;
+			}
+			else if (auto* bpmEvent = context.ChartSelectedCourse->TempoMap.Tempo.TryFindExactAtBeat(BarLineDrag.TempoEventBeat))
+			{
+				const Time targetTime = Camera.LocalSpaceXToTime(ScreenToLocalSpace(Gui::GetMousePos()).x);
+				const Time bpmStartTime = context.ChartSelectedCourse->TempoMap.BeatToTime(bpmEvent->Beat);
+				const Time timeDelta = targetTime - bpmStartTime;
+				const Beat beatDelta = BarLineDrag.BarBeat - bpmEvent->Beat;
+
+				if (timeDelta.Seconds > 0.001 && beatDelta > Beat::Zero())
+				{
+					const f64 beats = beatDelta.BeatsFraction();
+					const f32 newBPM = static_cast<f32>(beats * 60.0 / timeDelta.Seconds);
+					if (newBPM > 0.0f)
+					{
+						bpmEvent->Tempo.BPM = Clamp(newBPM, 0.001f, 100000.0f);
+						context.ChartSelectedCourse->TempoMap.RebuildAccelerationStructure();
+					}
+				}
+			}
+		}
+
 		// NOTE: Tempo map bar/beat lines and bar-index/time text
 		ImDrawList* DrawListContentHeader = nullptr;
 		drawers.DrawTimelineContentHeader([&](ImDrawList* drawList)
@@ -3459,6 +3487,37 @@ namespace PeepoDrumKit
 					// TODO: Fix overlapping text when zoomed out really far (while still keeping the grid lines)
 					if (gridIt.IsBar)
 					{
+						b8 isHoveredForDrag = false;
+						if (!BarLineDrag.IsActive && SelectedItemDrag.ActiveTarget == EDragTarget::None && !IsCameraMouseGrabActive && IsContentWindowHovered)
+						{
+							if (Gui::GetIO().KeyCtrl)
+							{
+								const f32 dist = Absolute(Gui::GetMousePos().x - screenSpaceTL.x);
+								if (dist < GuiScale(6.0f))
+								{
+									isHoveredForDrag = true;
+									Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+									if (Gui::IsMouseClicked(ImGuiMouseButton_Left))
+									{
+										Beat searchBeat = gridIt.Beat - Beat::FromTicks(1);
+										if (auto* bpmEvent = context.ChartSelectedCourse->TempoMap.Tempo.TryFindLastAtBeat(searchBeat))
+										{
+											BarLineDrag.IsActive = true;
+											BarLineDrag.BarBeat = gridIt.Beat;
+											BarLineDrag.TempoEventBeat = bpmEvent->Beat;
+										}
+									}
+								}
+							}
+						}
+
+						if (isHoveredForDrag || (BarLineDrag.IsActive && BarLineDrag.BarBeat == gridIt.Beat))
+						{
+							static constexpr f32 highlightThickness = 3.0f;
+							DrawListContent->AddLine(screenSpaceTL, screenSpaceTL + vec2(0.0f, Regions.Content.GetHeight()), TimelineSelectedItemLineColor, highlightThickness);
+							DrawListContentHeader->AddLine(headerScreenSpaceTL, headerScreenSpaceTL + vec2(0.0f, Regions.ContentHeader.GetHeight()), TimelineSelectedItemLineColor, highlightThickness);
+						}
+
 						Gui::DisableFontPixelSnap(true);
 
 						char buffer[32];
