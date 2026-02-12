@@ -48,6 +48,12 @@ namespace PeepoDrumKit
 		f32 OuterOutlineRadius = (154.0f / 2.0f);
 		f32 OuterOutlineThickness = 5.0f;
 	} GameHitCircle;
+	constexpr struct
+	{
+		f32 DigitScale = 1.5f;
+		f32 PaddingX = -7.0f;
+		f32 PaddingY = 90.0f;
+	} GameComboDisplay;
 
 	inline u32 DragTextHoveredColor = 0xFFBCDDDB;
 	inline u32 DragTextActiveColor = 0xFFC3F5F2;

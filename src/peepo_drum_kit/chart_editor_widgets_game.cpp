@@ -1,4 +1,7 @@
 #include "chart_editor_widgets.h"
+#define STBI_ONLY_PNG
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
 
 namespace PeepoDrumKit
 {
@@ -602,6 +605,26 @@ namespace PeepoDrumKit
 		}
 	}
 
+	void ChartCourse::RecalculateComboCounts(BranchType branch) const
+	{
+		const SortedNotesList& notes = GetNotes(branch);
+		i16 comboCount = 0;
+		for (const Note& note : notes)
+		{
+			// NOTE: Only regular (non-long) notes and KaDon contribute to combo count
+			if (IsRegularNote(note.Type) && !IsAdlibNote(note.Type) && !IsBombNote(note.Type))
+			{
+				comboCount++;
+				note.TempComboCount = comboCount;
+			}
+			else
+			{
+				// Long notes and special notes keep the current combo count
+				note.TempComboCount = comboCount;
+			}
+		}
+	}
+
 	void ChartGamePreview::DrawGui(ChartContext& context, Time animatedCursorTime)
 	{
 		IsAnyChildWindowFocused = Gui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
@@ -1026,6 +1049,62 @@ namespace PeepoDrumKit
 				}
 			}
 			ReverseNoteDrawBuffer.clear();
+
+			// NOTE: Draw combo count at the hit circle position using Combo.png
+			{
+				// NOTE: Lazy load the combo font texture from Combo.png
+				if (!ComboFontLoaded)
+				{
+					ComboFontLoaded = true;
+					int w, h, channels;
+					unsigned char* pixels = stbi_load("assets/graphics/game_combo_numerical.png", &w, &h, &channels, 4);
+					if (pixels != nullptr)
+					{
+						ComboFontTexture.Load(CustomDraw::GPUTextureDesc { CustomDraw::GPUPixelFormat::RGBA, CustomDraw::GPUAccessType::Static, ivec2(w, h), pixels });
+						stbi_image_free(pixels);
+					}
+				}
+
+				if (ComboFontTexture.IsValid())
+				{
+					course->RecalculateComboCounts(branch);
+					const SortedNotesList& notes = course->GetNotes(branch);
+					const Note* lastHitNote = notes.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
+					if (lastHitNote != nullptr && lastHitNote->TempComboCount > 0)
+					{
+						char comboStr[16];
+						const i32 comboLen = sprintf_s(comboStr, "%d", static_cast<i32>(lastHitNote->TempComboCount));
+
+						// NOTE: Each digit in Combo.png is 44x51px, 10 digits total (0-9)
+						constexpr f32 digitSrcW = 44.0f;
+						constexpr f32 digitSrcH = 51.0f;
+						constexpr f32 sheetW = 440.0f;
+						const f32 digitScale = Camera.WorldToScreenScaleFactor * GameComboDisplay.DigitScale;
+						const f32 digitW = digitSrcW * digitScale;
+						const f32 digitH = digitSrcH * digitScale;
+
+						const f32 paddingX = GameComboDisplay.PaddingX * digitScale;
+						const f32 digitStepX = digitW + paddingX;
+
+						const vec2 comboWorldPos = Camera.LaneToWorldSpace(hitCirclePosLane.x, hitCirclePosLane.y) + vec2(0.0f, -GameHitCircle.OuterOutlineRadius - GameComboDisplay.PaddingY);
+						const vec2 comboScreenPos = Camera.WorldToScreenSpace(comboWorldPos);
+						const f32 totalW = digitStepX * comboLen - paddingX;
+						const f32 startX = comboScreenPos.x - totalW * 0.5f;
+						const f32 startY = comboScreenPos.y - digitH * 0.5f;
+
+						const ImTextureID texID = ComboFontTexture.GetTexID();
+						for (i32 i = 0; i < comboLen; i++)
+						{
+							const i32 digit = comboStr[i] - '0';
+							const f32 u0 = (digit * digitSrcW) / sheetW;
+							const f32 u1 = ((digit + 1) * digitSrcW) / sheetW;
+							const vec2 p0 = vec2(startX + digitStepX * i, startY);
+							const vec2 p1 = vec2(p0.x + digitW, startY + digitH);
+							drawList->AddImage(texID, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f));
+						}
+					}
+				}
+			}
 		}
 		drawList->PopClipRect();
 	}

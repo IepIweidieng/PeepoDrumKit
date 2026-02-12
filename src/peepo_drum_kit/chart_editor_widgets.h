@@ -6,6 +6,7 @@
 #include "chart_editor_context.h"
 #include "chart_editor_theme.h"
 #include "imgui/imgui_include.h"
+#include "imgui/backend/imgui_custom_draw.h"
 
 namespace PeepoDrumKit
 {
@@ -272,6 +273,10 @@ namespace PeepoDrumKit
 		std::vector<DeferredNoteDrawData> ReverseNoteDrawBuffer;
 
 		b8 IsAnyChildWindowFocused = false;
+
+		// NOTE: Combo font texture loaded from Combo.png
+		CustomDraw::GPUTexture ComboFontTexture = {};
+		b8 ComboFontLoaded = false;
 
 	public:
 		b8 HasKeyboardFocus() const { return IsAnyChildWindowFocused; }
