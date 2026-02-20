@@ -1,4 +1,4 @@
-#include "chart.h"
+ï»¿#include "chart.h"
 #include "core_build_info.h"
 #include <algorithm>
 
@@ -332,7 +332,7 @@ namespace PeepoDrumKit
 			outCourse.Metadata.Others = inCourse.OtherMetadata;
 
 			// TODO: Is this implemented correctly..? Need to have enough measures to cover every note/command and pad with empty measures up to the chart duration
-			// BUG: NOPE! "07 ƒQ[ƒ€ƒ~ƒ…[ƒWƒbƒN/003D. MagiCatz/MagiCatz.tja" for example still gets rounded up and then increased by a measure each time it gets saved
+			// BUG: NOPE! "07 ã‚²ãƒ¼ãƒ ãƒŸãƒ¥ãƒ¼ã‚¸ãƒƒã‚¯/003D. MagiCatz/MagiCatz.tja" for example still gets rounded up and then increased by a measure each time it gets saved
 			// ... and even so does "Heat Haze Shadow 2.tja" without any weird time signatures..??
 			const Beat inChartMaxUsedBeat = FindCourseMaxUsedBeat(inCourse);
 			const Beat inChartBeatDuration = inCourse.TempoMap.TimeToBeat(in.GetDurationOrDefault());
