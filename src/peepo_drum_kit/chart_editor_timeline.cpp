@@ -756,6 +756,7 @@ namespace PeepoDrumKit
 			static constexpr f32 compactFormatStringZoomLevelThreshold = 0.25f;
 			const b8 useCompactFormat = (camera.ZoomTarget.x < compactFormatStringZoomLevelThreshold);
 			const f32 textHeight = Gui::GetFontSize();
+			const f32 lineHeight = textHeight * 0.67f; // compact height, might need to adjust for different fonts
 
 			for (const auto& it : list)
 			{
@@ -770,28 +771,35 @@ namespace PeepoDrumKit
 				const vec2 localSpaceTL = vec2(camera.TimeToLocalSpaceX(startTime), rowIt.LocalY);
 				const vec2 localSpaceBL = localSpaceTL + vec2(0.0f, rowIt.LocalHeight);
 				const vec2 localSpaceCenter = localSpaceTL + vec2(0.0f, rowIt.LocalHeight * 0.5f);
-				const vec2 textPosition = timeline.LocalToScreenSpace(localSpaceCenter + vec2(3.0f, textHeight * -0.5f));
+				const vec2 textPosition1 = timeline.LocalToScreenSpace(localSpaceCenter + vec2(3.0f, textHeight * -0.5f));
+				const vec2 textPosition2 = timeline.LocalToScreenSpace(localSpaceCenter + vec2(3.0f, (textHeight + lineHeight) * -0.5f));
 
 				Gui::DisableFontPixelSnap(true);
 				{
 					[[maybe_unused]] char b[32]; std::string_view text; u32 lineColor = TimelineDefaultLineColor; u32 textColor = TimelineItemTextColor;
 					if constexpr (std::is_same_v<T, TempoChange>) { text = std::string_view(b, sprintf_s(b, useCompactFormat ? "%.0f BPM" : "%g BPM", it.Tempo.BPM)); lineColor = TimelineTempoChangeLineColor; }
 					if constexpr (std::is_same_v<T, TimeSignatureChange>) { text = std::string_view(b, sprintf_s(b, "%d/%d", it.Signature.Numerator, it.Signature.Denominator)); lineColor = TimelineSignatureChangeLineColor; textColor = IsTimeSignatureSupported(it.Signature) ? TimelineItemTextColor : TimelineItemTextColorWarning; }
-					if constexpr (std::is_same_v<T, ScrollChange>) { text = std::string_view(b, sprintf_s(b, "%sx", it.ScrollSpeed.toString().c_str())); lineColor = it.ScrollSpeed.IsReal() ? TimelineScrollChangeLineColor : TimelineScrollChangeComplexLineColor; }
+					if constexpr (std::is_same_v<T, ScrollChange>) { text = std::string_view(b, sprintf_s(b, "%sx", it.ScrollSpeed.toStringCompat("x\n").c_str())); lineColor = it.ScrollSpeed.IsReal() ? TimelineScrollChangeLineColor : TimelineScrollChangeComplexLineColor; }
 					if constexpr (std::is_same_v<T, BarLineChange>) { text = it.IsVisible ? "On" : "Off"; lineColor = TimelineBarLineChangeLineColor; }
 					if constexpr (std::is_same_v<T, ScrollType>) { text = std::string_view(b, sprintf_s(b, "%s", it.Method_ToString().c_str())); lineColor = TimelineScrollTypeLineColor; }
-					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s", it.Move.toString().c_str())); }
+					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s", it.Move.toStringCompat("\n").c_str())); }
 					if constexpr (std::is_same_v<T, SuddenChange>) {
-						text = std::string_view(b, sprintf_s(b, !isfinite(it.MovementOffset.Seconds) ? "%gs" : "%gs/%gs", it.AppearanceOffset.Seconds, it.MovementOffset.Seconds));
+						text = std::string_view(b, sprintf_s(b, !isfinite(it.MovementOffset.Seconds) ? "%gs" : "%gs\n%gs", it.AppearanceOffset.Seconds, it.MovementOffset.Seconds));
 						lineColor = (it.MovementOffset >= it.AppearanceOffset) ? TimelineSuddenChangeLineColor : TimelineSuddenChangeDelayMoveLineColor;
 					}
 
-					const vec2 textSize = Gui::CalcTextSize(text);
+					const size_t idxNewline = text.find('\n');
+					const b8 is2Lines = (idxNewline != text.npos);
+					const auto text1 = is2Lines ? std::string_view(text).substr(0, idxNewline) : text;
+					const auto text2 = is2Lines ? std::string_view(text).substr(idxNewline + 1) : "";
+
+					const vec2 textSize = vec2(std::max(Gui::CalcTextSize(text1).x, Gui::CalcTextSize(text2).x), is2Lines ? textHeight + lineHeight : textHeight);
+					const vec2& textPosition = (idxNewline != text.npos) ? textPosition2 : textPosition1;
 
 					drawListContent->AddRectFilled(vec2(timeline.LocalToScreenSpace(localSpaceTL).x, textPosition.y), textPosition + textSize, TimelineBackgroundColor);
 					if constexpr (std::is_same_v<T, JPOSScrollChange>) {
 						// draw bar background; still need the simple text background if too narrow
-						static constexpr f32 margin = 1.0f;
+						static constexpr f32 margin = 0.0f;
 						const vec2 localTL = vec2(camera.TimeToLocalSpaceX(startTime), 0.0f) + vec2(0.0f, rowIt.LocalY + margin);
 						const vec2 localBR = vec2(camera.TimeToLocalSpaceX(endTime), 0.0f) + vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight - (margin * 2.0f));
 						DrawTimelineJPOSScrollBackground(drawListContent, timeline.LocalToScreenSpace(localTL) + vec2(0.0f, 2.0f), timeline.LocalToScreenSpace(localBR), it.IsSelected);
@@ -799,7 +807,9 @@ namespace PeepoDrumKit
 					else {
 						drawListContent->AddLine(timeline.LocalToScreenSpace(localSpaceTL + vec2(0.0f, 1.0f)), timeline.LocalToScreenSpace(localSpaceBL), it.IsSelected ? TimelineSelectedItemLineColor : lineColor);
 					}
-					Gui::AddTextWithDropShadow(drawListContent, textPosition, textColor, text, TimelineItemTextColorShadow);
+					Gui::AddTextWithDropShadow(drawListContent, textPosition, textColor, text1, TimelineItemTextColorShadow);
+					if (is2Lines)
+						Gui::AddTextWithDropShadow(drawListContent, textPosition + vec2(0, lineHeight), textColor, text2, TimelineItemTextColorShadow);
 
 					if (it.IsSelected)
 					{

@@ -378,11 +378,11 @@ struct Complex {
 		return oss.str();
 	}
 	// for TJA compatibility
-	std::string toStringCompat() const {
+	std::string toStringCompat(std::string_view separator = "") const {
 		std::ostringstream oss;
 		oss << std::noshowpos << this->GetRealPart();
 		if (this->GetImaginaryPart() != 0)
-			oss << std::showpos << this->GetImaginaryPart() << 'i';
+			oss << separator << std::showpos << this->GetImaginaryPart() << 'i';
 		return oss.str();
 	}
 
