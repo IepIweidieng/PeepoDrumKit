@@ -784,7 +784,7 @@ namespace PeepoDrumKit
 					if constexpr (std::is_same_v<T, ScrollType>) { text = std::string_view(b, sprintf_s(b, "%s", it.Method_ToString().c_str())); lineColor = TimelineScrollTypeLineColor; }
 					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s", it.Move.toStringCompat("\n").c_str())); }
 					if constexpr (std::is_same_v<T, SuddenChange>) {
-						text = std::string_view(b, sprintf_s(b, !isfinite(it.MovementOffset.Seconds) ? "%gs" : "%gs\n%gs", it.AppearanceOffset.Seconds, it.MovementOffset.Seconds));
+						text = std::string_view(b, sprintf_s(b, (isinf(it.MovementOffset.Seconds) && it.MovementOffset.Seconds > 0) ? "%gs" : "%gs\n%gs", it.AppearanceOffset.Seconds, it.MovementOffset.Seconds));
 						lineColor = (it.MovementOffset >= it.AppearanceOffset) ? TimelineSuddenChangeLineColor : TimelineSuddenChangeDelayMoveLineColor;
 					}
 
