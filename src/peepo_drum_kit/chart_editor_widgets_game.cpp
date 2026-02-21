@@ -747,8 +747,11 @@ namespace PeepoDrumKit
 				Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius), isGogo ? GameLaneHitCircleOuterOutlineColorGogo : GameLaneHitCircleOuterOutlineColor, 0, Camera.WorldToScreenScale(GameHitCircle.OuterOutlineThickness));
 
 			if (hitCirclePosJPos != vec2{ 0, 0 }) {
-				std::string str = Complex(hitCirclePosJPos.x, hitCirclePosJPos.y).toStringCompat();
-				vec2 posTxtJPos = hitCirclePos + vec2{ -1, -1 } * Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius);
+				std::string str = Complex(hitCirclePosJPos.x, hitCirclePosJPos.y).toStringCompat("\n");
+				const f32 fontHeight = Gui::GetFontSize();
+				vec2 posTxtJPos = hitCirclePos + vec2{ -1, -1 } * (Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius) + fontHeight / 2);
+				if (str.find('\n') != str.npos)
+					posTxtJPos.y -= fontHeight / 2;
 				drawList->AddText(posTxtJPos, 0xFFFFFFFF, str.c_str(), str.c_str() + str.length());
 			}
 
