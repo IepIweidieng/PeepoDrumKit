@@ -491,7 +491,7 @@ namespace PeepoDrumKit
 			return (other.OriginalNote == nullptr) ? F32Max
 				: (other.ScrollType == ScrollMethod::NMSCROLL) ? vbpsOther * timeDistance.Seconds
 				: (other.ScrollType == ScrollMethod::HBSCROLL) ? scrollOther * abs(curr.Beat - other.Beat).Ticks / Beat::TicksPerBeat
-				: /* (prev.ScrollType == ScrollMethod::BMSCROLL) ? */ abs(curr.Beat - other.Beat).Ticks / Beat::TicksPerBeat;
+				: /* (prev.ScrollType == ScrollMethod::BMSCROLL) ? */ 1.0f * abs(curr.Beat - other.Beat).Ticks / Beat::TicksPerBeat;
 		};
 
 		auto getNoteDistance = [&]()
