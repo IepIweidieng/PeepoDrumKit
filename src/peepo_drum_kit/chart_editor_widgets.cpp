@@ -1456,9 +1456,7 @@ namespace PeepoDrumKit
 								widgetIn.ButtonStepFast.F32 = 0.5f;
 								widgetIn.DragLabelSpeed = 0.005f;
 								widgetIn.FormatString = "%gs";
-								widgetIn.EnableClamp = true;
-								widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
-								widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
+								widgetIn.EnableClamp = false;
 
 								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
 									(member == GenericMember::Time_AppearanceOffset) ? UI_Str("EVENT_PROP_SUDDEN_APPEARANCE_OFFSET") : UI_Str("EVENT_PROP_SUDDEN_MOVEMENT_OFFSET"),
