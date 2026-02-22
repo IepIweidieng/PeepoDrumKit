@@ -569,11 +569,11 @@ constexpr T LerpClamped(T start, T end, F t) { return Lerp<T>(start, end, Clamp(
 template <typename T, typename S> // source, target
 constexpr T ConvertRange(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return (newStart + ((value - oldStart) * (newEnd - newStart) / (oldEnd - oldStart))); }
 
-// NOTE: It's easy to accidentally misuse these in cases where (end < start) resulting in "incorrect" clamps
+// NOTE: It's easy to accidentally misuse these in cases where (max < min) resulting in "incorrect" clamps
 template <typename T, typename S>
-constexpr T ConvertRangeClampInput(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, Clamp<S>(value, oldStart, oldEnd)); }
+constexpr T ConvertRangeClampInput(S oldMin, S oldMax, T newMin, T newMax, S value) { return ConvertRange<T>(oldMin, oldMax, newMin, newMax, Clamp<S>(value, oldMin, oldMax)); }
 template <typename T, typename S>
-constexpr T ConvertRangeClampOutput(S oldStart, S oldEnd, T newStart, T newEnd, S value) { return Clamp<T>(ConvertRange<T>(oldStart, oldEnd, newStart, newEnd, value), newStart, newEnd); }
+constexpr T ConvertRangeClampOutput(S oldMin, S oldMax, T newMin, T newMax, S value) { return Clamp<T>(ConvertRange<T>(oldMin, oldMax, newMin, newMax, value), newMin, newMax); }
 
 constexpr void AnimateExponentialF32(f32* inOutCurrent, f32 target, f32 animationSpeed, f32 deltaTime)
 {
