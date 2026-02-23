@@ -397,12 +397,49 @@ namespace TJA
 			struct { i32 Type; } SENoteChange;
 			struct { std::string CommaSeparatedList; } SetNextSong;
 			struct { ScrollDirection Direction; } ChangeDirection;
-			struct { Time AppearanceOffset, MovementOffset; } SetSudden;
+			struct { Time AppearanceOffset, MovementOffset; b8 HideRoll; } SetSudden;
 			struct { Time Duration; f32 MovementDistance; ScrollDirection Direction; } SetScrollTransition;
 		} Param;
 	};
 
 	using SuddenParams = decltype(ParsedChartCommand::ParamData::SetSudden);
+
+	struct SuddenActiveState { b8 ShowActive, MoveActive, MoveDelayVisible, CanHideRollActive, HideRollActive; };
+	template <class T>
+	constexpr SuddenActiveState GetSuddenActiveState(const T& param) {
+		b8 isShowActive = !(isinf(param.AppearanceOffset.Seconds) && param.AppearanceOffset.Seconds > 0);
+		b8 isMoveActive = !(isinf(param.MovementOffset.Seconds) && param.MovementOffset.Seconds > 0);
+		b8 isMoveDelayVisible = (param.MovementOffset < param.AppearanceOffset);
+		b8 canHideRollActive = (isShowActive && !isMoveActive);
+		b8 isHideRollActive = (canHideRollActive && param.HideRoll);
+		return { isShowActive, isMoveActive, isMoveDelayVisible, canHideRollActive, isHideRollActive };
+	}
+
+	constexpr SuddenParams ToLogicalTime(const SuddenParams& param) {
+		constexpr auto toLogicalSuddenDuration = [](auto time)
+		{
+			return ((int)(time * 1000) == 0) ? std::numeric_limits<decltype(time)>::infinity() : time;
+		};
+		return {
+			Time::FromSec(toLogicalSuddenDuration(param.AppearanceOffset.Seconds)),
+			Time::FromSec(toLogicalSuddenDuration(param.MovementOffset.Seconds)),
+			((int)(param.AppearanceOffset.Seconds * 1000) != 0 && (int)(1000 * param.MovementOffset.Seconds) == 0),
+		};
+	}
+
+	constexpr SuddenParams ToTJATime(const SuddenParams& param) {
+		constexpr auto toTJASuddenDuration = [](const Time& time)
+		{
+			return (isinf(time.Seconds) && time.Seconds > 0) ? Time::Zero()
+				: abs(time.Seconds) < 0.001 ? Time::FromSec(0.001) // minimum value not treat as 0 by TJAP2PC & TJAP3
+				: time;
+		};
+		auto state = GetSuddenActiveState(param);
+		return {
+			toTJASuddenDuration(param.AppearanceOffset),
+			(state.CanHideRollActive && !state.HideRollActive) ? param.MovementOffset /* inf */ : toTJASuddenDuration(param.MovementOffset),
+		};
+	}
 
 	struct ParsedCourse
 	{
@@ -503,6 +540,7 @@ namespace TJA
 		Beat TimeWithinMeasure;
 		Time AppearanceOffset;
 		Time MovementOffset;
+		b8 HideRoll;
 	};
 
 	struct ConvertedJPOSScroll

@@ -300,12 +300,13 @@ namespace PeepoDrumKit
 		Beat BeatTime;
 		Time AppearanceOffset;
 		Time MovementOffset;
+		b8 HideRoll;
 		b8 IsSelected;
 	};
 	template <> constexpr std::string_view DisplayNameOfChartEvent<SuddenChange> = "Sudden";
 
 	template <>
-	constexpr SuddenChange FallbackEvent<SuddenChange> = { Beat::Zero(), Time::FromSec(std::numeric_limits<f64>::infinity()), Time::FromSec(std::numeric_limits<f64>::infinity()) };
+	constexpr SuddenChange FallbackEvent<SuddenChange> = { Beat::Zero(), Time::FromSec(std::numeric_limits<f64>::infinity()), Time::FromSec(std::numeric_limits<f64>::infinity()), false };
 
 	struct JPOSScrollChange
 	{
@@ -376,7 +377,7 @@ namespace PeepoDrumKit
 	constexpr TJA::SuddenParams SuddenOrDefault(const SuddenChange* v)
 	{
 		return (v == nullptr) ? SuddenOrDefault(&FallbackEvent<SuddenChange>)
-			: TJA::SuddenParams{ v->AppearanceOffset, v->MovementOffset };
+			: TJA::SuddenParams{ v->AppearanceOffset, v->MovementOffset, v->HideRoll };
 	}
 
 	struct ChartCourse
@@ -532,6 +533,7 @@ namespace PeepoDrumKit
 		F32_JPOSScrollDuration,
 		Time_AppearanceOffset,
 		Time_MovementOffset,
+		B8_SuddenHideRoll,
 		Count
 	};
 
@@ -556,14 +558,15 @@ namespace PeepoDrumKit
 		GenericMemberFlags_JPOSScrollDuration = EnumToFlag(GenericMember::F32_JPOSScrollDuration),
 		GenericMemberFlags_AppearanceOffset = EnumToFlag(GenericMember::Time_AppearanceOffset),
 		GenericMemberFlags_MovementOffset = EnumToFlag(GenericMember::Time_MovementOffset),
-		GenericMemberFlags_All = 0b1111111111111111,
+		GenericMemberFlags_SuddenHideRoll = EnumToFlag(GenericMember::B8_SuddenHideRoll),
+		GenericMemberFlags_All = 0b11111111111111111,
 	};
 
 	static_assert(GenericMemberFlags_All & (1u << (static_cast<u32>(GenericMember::Count) - 1)));
 	static_assert(!(GenericMemberFlags_All & (1u << static_cast<u32>(GenericMember::Count))));
 
 	constexpr cstr GenericListNames[] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", "ScrollType", "JPOSScroll", "Sudden",};
-	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScroll", "JPOSScrollDuration", "SuddenAppearanceOffset", "SuddenMovementOffset",};
+	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScroll", "JPOSScrollDuration", "SuddenAppearanceOffset", "SuddenMovementOffset", "SuddenHideRoll"};
 
 	// Member availability queries
 	template <typename T, GenericMember Member>
@@ -620,6 +623,7 @@ namespace PeepoDrumKit
 		else if constexpr (Member == GenericMember::F32_JPOSScrollDuration) return (std::forward<GenericMemberUnionT>(values).F32);
 		else if constexpr (Member == GenericMember::Time_AppearanceOffset) return (std::forward<GenericMemberUnionT>(values).Time);
 		else if constexpr (Member == GenericMember::Time_MovementOffset) return (std::forward<GenericMemberUnionT>(values).Time);
+		else if constexpr (Member == GenericMember::B8_SuddenHideRoll) return (std::forward<GenericMemberUnionT>(values).B8);
 		else static_assert(false, "unhandled or invalid GenericMember value");
 	}
 
@@ -656,6 +660,7 @@ namespace PeepoDrumKit
 		constexpr auto& JPOSScrollDuration() { return get<GenericMember::F32_JPOSScrollDuration>(*this); }
 		constexpr auto& SuddenAppearanceOffset() { return get<GenericMember::Time_AppearanceOffset>(*this); }
 		constexpr auto& SuddenMovementOffset() { return get<GenericMember::Time_MovementOffset>(*this); }
+		constexpr auto& SuddenHideRoll() { return get<GenericMember::B8_SuddenHideRoll>(*this); }
 		constexpr const auto& IsSelected() const { return get<GenericMember::B8_IsSelected>(*this); }
 		constexpr const auto& BarLineVisible() const { return get<GenericMember::B8_BarLineVisible>(*this); }
 		constexpr const auto& BalloonPopCount() const { return get<GenericMember::I16_BalloonPopCount>(*this); }
@@ -672,6 +677,7 @@ namespace PeepoDrumKit
 		constexpr const auto& JPOSScrollDuration() const { return get<GenericMember::F32_JPOSScrollDuration>(*this); }
 		constexpr const auto& SuddenAppearanceOffset() const { return get<GenericMember::Time_AppearanceOffset>(*this); }
 		constexpr const auto& SuddenMovementOffset() const { return get<GenericMember::Time_MovementOffset>(*this); }
+		constexpr const auto& SuddenHideRoll() const { return get<GenericMember::B8_SuddenHideRoll>(*this); }
 	};
 
 	// types with subset members, return `void` for unavailable members
@@ -750,6 +756,7 @@ namespace PeepoDrumKit
 		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<SuddenChangeT>(event).IsSelected);
 		else if constexpr (Member == GenericMember::Time_AppearanceOffset) return (std::forward<SuddenChangeT>(event).AppearanceOffset);
 		else if constexpr (Member == GenericMember::Time_MovementOffset) return (std::forward<SuddenChangeT>(event).MovementOffset);
+		else if constexpr (Member == GenericMember::B8_SuddenHideRoll) return (std::forward<SuddenChangeT>(event).HideRoll);
 		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<SuddenChangeT>(event).BeatTime);
 	}
 
@@ -814,6 +821,7 @@ namespace PeepoDrumKit
 		X(GenericMember::F32_JPOSScrollDuration)
 		X(GenericMember::Time_AppearanceOffset)
 		X(GenericMember::Time_MovementOffset)
+		X(GenericMember::B8_SuddenHideRoll)
 #undef X
 		default: assert(false); return keep_or_static_cast<TRet>(vError);
 		}

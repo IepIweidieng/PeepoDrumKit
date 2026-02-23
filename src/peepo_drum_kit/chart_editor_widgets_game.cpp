@@ -880,11 +880,6 @@ namespace PeepoDrumKit
 					isVisibleHead = false;
 				if (!(isfinite(laneTail.x) && isfinite(laneTail.y)))
 					isVisibleTail = false;
-				// 0-length body as tail
-				if (!isVisibleBody && !isVisibleHead && isVisibleTail) {
-					isVisibleBody = true;
-					laneHead = laneTail;
-				}
 
 				// handle normal visibility rules
 				if (IsRegularNote(it.OriginalNote->Type)) {
@@ -896,21 +891,33 @@ namespace PeepoDrumKit
 					if (timeSinceHeadHit > GetTotalGameNoteHitAnimationDuration(it.OriginalNote->Type))
 						isVisible = isVisibleHead = isVisibleTail = false;
 				}
-				else if (IsBalloonNote(it.OriginalNote->Type)) {
-					if (timeSinceTailHit >= Time::Zero()) {
+				else {
+					if (TJA::GetSuddenActiveState(it.Sudden).HideRollActive)
+						isVisibleHead = isVisibleBody = false;
+					if (TJA::GetSuddenActiveState(it.Tail.Sudden).HideRollActive)
+						isVisibleTail = isVisibleBody = false;
+					// 0-length body as tail
+					if (!isVisibleBody && !isVisibleHead && isVisibleTail) {
+						isVisibleBody = true;
 						laneHead = laneTail;
-						isVisible = isVisibleHead = isVisibleTail = isVisibleBody = false;
 					}
-					else if (timeSinceHeadHit >= Time::Zero() && isVisibleHead)
-						laneHead = hitCirclePosLane;
-				}
-				else { // is bar roll note
-					// flying notes in screen?
-					isVisible = (timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration)
-						// roll body in screen?
-						|| (isVisibleBody && Camera.IsRangeVisibleOnLane(Min(laneHead.x, laneTail.x), Max(laneHead.x, laneTail.x)))
-						|| (isVisibleHead && Camera.IsRangeVisibleOnLane(laneHead.x, laneHead.x))
-						|| (isVisibleTail && Camera.IsRangeVisibleOnLane(laneTail.x, laneTail.x));
+
+					if (IsBalloonNote(it.OriginalNote->Type)) {
+						if (timeSinceTailHit >= Time::Zero()) {
+							laneHead = laneTail;
+							isVisible = isVisibleHead = isVisibleTail = isVisibleBody = false;
+						}
+						else if (timeSinceHeadHit >= Time::Zero() && isVisibleHead)
+							laneHead = hitCirclePosLane;
+					}
+					else { // is bar roll note
+						// flying notes in screen?
+						isVisible = (timeSinceHeadHit >= Time::Zero() && timeSinceTailHit <= GameNoteHitAnimationDuration)
+							// roll body in screen?
+							|| (isVisibleBody && Camera.IsRangeVisibleOnLane(Min(laneHead.x, laneTail.x), Max(laneHead.x, laneTail.x)))
+							|| (isVisibleHead && Camera.IsRangeVisibleOnLane(laneHead.x, laneHead.x))
+							|| (isVisibleTail && Camera.IsRangeVisibleOnLane(laneTail.x, laneTail.x));
+					}
 				}
 				if (isVisible) {
 					ReverseNoteDrawBuffer.push_back(DeferredNoteDrawData{

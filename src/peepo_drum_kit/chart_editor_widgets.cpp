@@ -1142,6 +1142,7 @@ namespace PeepoDrumKit
 						case GenericMember::F32_JPOSScrollDuration: { /* ... */ } break;
 						case GenericMember::Time_AppearanceOffset: { /* ... */ } break;
 						case GenericMember::Time_MovementOffset: { /* ... */ } break;
+						case GenericMember::B8_SuddenHideRoll: { /* ... */ } break;
 						default: assert(false); break;
 						}
 					}
@@ -1228,7 +1229,7 @@ namespace PeepoDrumKit
 					for (const GenericMember member : { GenericMember::NoteType_V, GenericMember::I16_BalloonPopCount, GenericMember::Time_Offset,
 						GenericMember::Tempo_V, GenericMember::TimeSignature_V, GenericMember::F32_ScrollSpeed, GenericMember::B8_BarLineVisible,
 						GenericMember::I8_ScrollType, GenericMember::F32_JPOSScroll, GenericMember::F32_JPOSScrollDuration,
-						GenericMember::Time_AppearanceOffset, GenericMember::Time_MovementOffset,
+						GenericMember::Time_AppearanceOffset, GenericMember::Time_MovementOffset, GenericMember::B8_SuddenHideRoll,
 						}) {
 						if (!(commonAvailableMemberFlags & EnumToFlag(member)))
 							continue;
@@ -1478,6 +1479,24 @@ namespace PeepoDrumKit
 									valueWasChanged = true;
 								}
 							}
+						} break;
+						case GenericMember::B8_SuddenHideRoll:
+						{
+							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_PROP_SUDDEN_HIDE_ROLL"), [&]
+							{
+								auto v = sharedValues.SuddenHideRoll();
+
+								Gui::PushItemFlag(ImGuiItemFlags_MixedValue, !(commonEqualMemberFlags& EnumToFlag(member)));
+								Gui::PushItemWidth(-1.0f);
+								if (Gui::Checkbox("##SuddenHideRoll", &v)) {
+									for (auto& selectedItem : SelectedItems)
+										selectedItem.MemberValues.SuddenHideRoll() = v;
+									valueWasChanged = true;
+									disableChangePropertiesCommandMerge = true;
+								}
+								Gui::PopItemFlag();
+								Gui::SetItemTooltip(UI_Str("EVENT_PROP_SUDDEN_HIDE_ROLL_TOOLTIPS"));
+							});
 						} break;
 						case GenericMember::F32_ScrollSpeed:
 						{
@@ -2721,12 +2740,13 @@ namespace PeepoDrumKit
 				const SuddenChange* SuddenChangeAtCursor = course.SuddenChanges.TryFindLastAtBeat(cursorBeat);
 				const Time SuddenAppearanceOffsetAtCursor = (SuddenChangeAtCursor != nullptr) ? SuddenChangeAtCursor->AppearanceOffset : FallbackEvent<SuddenChange>.AppearanceOffset;
 				const Time SuddenMovementOffsetAtCursor = (SuddenChangeAtCursor != nullptr) ? SuddenChangeAtCursor->MovementOffset : FallbackEvent<SuddenChange>.MovementOffset;
-				auto insertOrUpdateCursorSudden = [&](Time newAppearanceOffset, Time newMovementOffset)
+				const b8 SuddenHideRollAtCursor = (SuddenChangeAtCursor != nullptr) ? SuddenChangeAtCursor->HideRoll : FallbackEvent<SuddenChange>.HideRoll;
+				auto insertOrUpdateCursorSudden = [&](Time newAppearanceOffset, Time newMovementOffset, b8 newHideRoll)
 				{
 					if (SuddenChangeAtCursor == nullptr || SuddenChangeAtCursor->BeatTime != cursorBeat)
-						context.Undo.Execute<Commands::AddSudden>(&course, &course.SuddenChanges, SuddenChange{ cursorBeat, newAppearanceOffset, newMovementOffset });
+						context.Undo.Execute<Commands::AddSudden>(&course, &course.SuddenChanges, SuddenChange{ cursorBeat, newAppearanceOffset, newMovementOffset, newHideRoll });
 					else
-						context.Undo.Execute<Commands::UpdateSudden>(&course, &course.SuddenChanges, SuddenChange{ cursorBeat, newAppearanceOffset, newMovementOffset });
+						context.Undo.Execute<Commands::UpdateSudden>(&course, &course.SuddenChanges, SuddenChange{ cursorBeat, newAppearanceOffset, newMovementOffset, newHideRoll });
 				};
 
 				Gui::Property::Property([&]
@@ -2734,7 +2754,7 @@ namespace PeepoDrumKit
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
 					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); GuiDragLabelFloat(UI_Str("EVENT_SUDDEN"), &v, 0.005f, ImGuiSliderFlags_None))
-						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor);
+						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					Gui::EndDisabled();
 				});
 				Gui::Property::Value([&]
@@ -2743,17 +2763,21 @@ namespace PeepoDrumKit
 
 					Gui::SetNextItemWidth(getInsertButtonWidth());
 					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenAppearanceOffsetAtCursor", &v, .1f, .5f, "%gs (show)"))
-						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor);
+						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					if (Gui::Button(u8"∞##SuddenAppearanceOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
-						insertOrUpdateCursorSudden(Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenMovementOffsetAtCursor);
+						insertOrUpdateCursorSudden(Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 
 					Gui::SetNextItemWidth(getInsertButtonWidth());
 					if (f32 v = SuddenMovementOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenMovementOffsetAtCursor", &v, .1f, .5f, "%gs (move)"))
-						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(v));
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(v), SuddenHideRollAtCursor);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					if (Gui::Button(u8"∞##SuddenMovementOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
-						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(std::numeric_limits<f64>::infinity()));
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenHideRollAtCursor);
+
+					if (b8 v = SuddenHideRollAtCursor; Gui::Checkbox(UI_Str("EVENT_SUDDEN_HIDE_ROLL"), &v))
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, SuddenMovementOffsetAtCursor, v);
+					Gui::SetItemTooltip(UI_Str("EVENT_PROP_SUDDEN_HIDE_ROLL_TOOLTIPS"));
 
 					Gui::PushID(&course.SuddenChanges);
 					if (!disallowRemoveButton && SuddenChangeAtCursor != nullptr && SuddenChangeAtCursor->BeatTime == cursorBeat)
@@ -2764,7 +2788,7 @@ namespace PeepoDrumKit
 					else
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
-							insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, SuddenMovementOffsetAtCursor);
+							insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					}
 					Gui::EndDisabled();
 

@@ -784,8 +784,9 @@ namespace PeepoDrumKit
 					if constexpr (std::is_same_v<T, ScrollType>) { text = std::string_view(b, sprintf_s(b, "%s", it.Method_ToString().c_str())); lineColor = TimelineScrollTypeLineColor; }
 					if constexpr (std::is_same_v<T, JPOSScrollChange>) { text = std::string_view(b, sprintf_s(b, "%s", it.Move.toStringCompat("\n").c_str())); }
 					if constexpr (std::is_same_v<T, SuddenChange>) {
-						text = std::string_view(b, sprintf_s(b, (isinf(it.MovementOffset.Seconds) && it.MovementOffset.Seconds > 0) ? "%gs" : "%gs\n%gs", it.AppearanceOffset.Seconds, it.MovementOffset.Seconds));
-						lineColor = (it.MovementOffset >= it.AppearanceOffset) ? TimelineSuddenChangeLineColor : TimelineSuddenChangeDelayMoveLineColor;
+						auto st = TJA::GetSuddenActiveState(it);
+						text = std::string_view(b, sprintf_s(b, st.HideRollActive ? "%gs\nHide rolls" : st.MoveActive ? "%gs\n%gs" : "%gs", it.AppearanceOffset.Seconds, it.MovementOffset.Seconds));
+						lineColor = st.MoveDelayVisible ? TimelineSuddenChangeDelayMoveLineColor : TimelineSuddenChangeLineColor;
 					}
 
 					const size_t idxNewline = text.find('\n');
@@ -1282,7 +1283,7 @@ namespace PeepoDrumKit
 				case GenericList::Sudden:
 				{
 					const auto& in = item.Value.POD.Sudden;
-					bufferLength = sprintf_s(buffer, "Sudden { %d, %g, %g };\n", (in.BeatTime - baseBeat).Ticks, in.AppearanceOffset.Seconds, in.MovementOffset.Seconds);
+					bufferLength = sprintf_s(buffer, "Sudden { %d, %g, %g, %hhu };\n", (in.BeatTime - baseBeat).Ticks, in.AppearanceOffset.Seconds, in.MovementOffset.Seconds, in.HideRoll);
 				} break;
 				default: { assert(false); } break;
 				}
@@ -1426,6 +1427,7 @@ namespace PeepoDrumKit
 						newItemValue.BeatTime.Ticks = parsedParams[0].I32;
 						newItemValue.AppearanceOffset = Time::FromSec(parsedParams[1].F32);
 						newItemValue.MovementOffset = Time::FromSec(parsedParams[2].F32);
+						newItemValue.HideRoll = parsedParams[3].I32;
 					}
 #if PEEPO_DEBUG
 					else { assert(false); }

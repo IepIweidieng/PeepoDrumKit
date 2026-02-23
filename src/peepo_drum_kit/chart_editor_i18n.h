@@ -183,11 +183,14 @@ X("EVENT_LYRICS",									"Lyrics") \
 X("EVENT_SCROLL_TYPE",								"Scroll Type") \
 X("EVENT_JPOS_SCROLL",								"JPOS Scroll") \
 X("EVENT_SUDDEN",									"Sudden") \
+X("EVENT_SUDDEN_HIDE_ROLL",							"Hide Rolls") \
 X("EVENT_PROP_JPOS_SCROLL_MOVE",					"JPOS Scroll Move") \
 X("EVENT_PROP_VERTICAL_JPOS_SCROLL_MOVE",			"Vertical JPOS Scroll Move") \
 X("EVENT_PROP_JPOS_SCROLL_DURATION",				"JPOS Scroll Duration") \
 X("EVENT_PROP_SUDDEN_APPEARANCE_OFFSET",			"Sudden Appearance Offset") \
 X("EVENT_PROP_SUDDEN_MOVEMENT_OFFSET",				"Sudden Movement Offset") \
+X("EVENT_PROP_SUDDEN_HIDE_ROLL",					"Sudden Hide Rolls") \
+X("EVENT_PROP_SUDDEN_HIDE_ROLL_TOOLTIPS",			"Hide rolls if the offsets are non-infs (show) and infs (move)") \
 X("DETAILS_EVENTS_SYNC",							"Sync") \
 X("SYNC_CHART_DURATION",							"Chart Duration") \
 X("SYNC_SONG_DEMO_START",							"Song Demo Start") \
