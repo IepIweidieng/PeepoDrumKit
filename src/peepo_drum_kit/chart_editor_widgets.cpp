@@ -1114,7 +1114,9 @@ namespace PeepoDrumKit
 						case GenericMember::B8_IsSelected: { /* ... */ } break;
 						case GenericMember::B8_BarLineVisible: { /* ... */ } break;
 						case GenericMember::I16_BalloonPopCount: { min.I16 = Min(min.I16, v.I16); max.I16 = Max(max.I16, v.I16); } break;
-						case GenericMember::F32_ScrollSpeed: {
+						case GenericMember::F32_ScrollSpeed:
+						case GenericMember::F32_JPOSScroll:
+						{
 							min.CPX.SetRealPart(Min(min.CPX.GetRealPart(), v.CPX.GetRealPart()));
 							min.CPX.SetImaginaryPart(Min(min.CPX.GetImaginaryPart(), v.CPX.GetImaginaryPart()));
 							max.CPX.SetRealPart(Max(max.CPX.GetRealPart(), v.CPX.GetRealPart()));
@@ -1138,7 +1140,6 @@ namespace PeepoDrumKit
 						} break;
 						case GenericMember::CStr_Lyric: { /* ... */ } break;
 						case GenericMember::I8_ScrollType: { /* ... */ } break;
-						case GenericMember::F32_JPOSScroll: { /* ... */ } break;
 						case GenericMember::F32_JPOSScrollDuration: { /* ... */ } break;
 						case GenericMember::Time_AppearanceOffset: { /* ... */ } break;
 						case GenericMember::Time_MovementOffset: { /* ... */ } break;
