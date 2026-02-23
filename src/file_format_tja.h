@@ -402,6 +402,8 @@ namespace TJA
 		} Param;
 	};
 
+	using SuddenParams = decltype(ParsedChartCommand::ParamData::SetSudden);
+
 	struct ParsedCourse
 	{
 		ParsedCourseMetadata Metadata;

@@ -324,6 +324,8 @@ struct vec2
 	inline const f32* data() const { return &x; }
 };
 
+constexpr vec2 operator*(const f32 scalar, const vec2& vec) { return { (vec.x * scalar), (vec.y * scalar) }; }
+
 struct RGBA8
 {
 	u8 R, G, B, A;
@@ -560,6 +562,11 @@ template <typename T> constexpr T Clamp(T value, T min, T max) { return Min<T>(M
 template <typename T> constexpr T ClampBot(T value, T min) { return Max<T>(value, min); }
 template <typename T> constexpr T ClampTop(T value, T max) { return Min<T>(value, max); }
 
+// directional range clamp
+template <typename T> constexpr T RClamp(T value, T start, T end) { return (start <= end) ? Clamp(value, start, end) : Clamp(value, end, start); }
+template <typename T> constexpr T RClampStart(T value, T start, T end) { return (start <= end) ? ClampBot(value, start) : ClampTop(value, end); }
+template <typename T> constexpr T RClampEnd(T value, T start, T end) { return (start <= end) ? ClampTop(value, end) : ClampBot(value, start); }
+
 template <typename T, typename F>
 constexpr T Lerp(T start, T end, F t) { return start * (1.0f - t) + (end * t); }
 
@@ -574,6 +581,40 @@ template <typename T, typename S>
 constexpr T ConvertRangeClampInput(S oldMin, S oldMax, T newMin, T newMax, S value) { return ConvertRange<T>(oldMin, oldMax, newMin, newMax, Clamp<S>(value, oldMin, oldMax)); }
 template <typename T, typename S>
 constexpr T ConvertRangeClampOutput(S oldMin, S oldMax, T newMin, T newMax, S value) { return Clamp<T>(ConvertRange<T>(oldMin, oldMax, newMin, newMax, value), newMin, newMax); }
+
+// directional range clamp
+template <typename T, typename S>
+constexpr T ConvertRangeRClampInput(S oldMin, S oldMax, T newMin, T newMax, S value) { return ConvertRange<T>(oldMin, oldMax, newMin, newMax, RClamp<S>(value, oldMin, oldMax)); }
+template <typename T, typename S>
+constexpr T ConvertRangeRClampOutput(S oldMin, S oldMax, T newMin, T newMax, S value) { return RClamp<T>(ConvertRange<T>(oldMin, oldMax, newMin, newMax, value), newMin, newMax); }
+
+// interval operations
+template <typename T>
+constexpr b8 IntervalSameDirection(T aStart, T aEnd, T bStart, T bEnd) { return (aStart == aEnd) || (bStart == bEnd) || ((aStart <= aEnd) == (bStart <= bEnd)); }
+
+template <typename T>
+constexpr b8 IntervalIntersected(T aStart, T aEnd, T bStart, T bEnd)
+{
+	return IntervalSameDirection(aStart, aEnd, bStart, bEnd)
+		&& ((aStart <= aEnd) ? (aStart <= bEnd && aEnd >= bStart) : (aStart >= bEnd && aEnd <= bEnd));
+};
+
+template <typename T, typename S>
+constexpr std::pair<T, T> ConvertRangeInterval(S oldStart, S oldEnd, T newStart, T newEnd, S vStart, S vEnd)
+{
+	if (oldStart == oldEnd) {
+		return IntervalIntersected(oldStart, oldEnd, vStart, vEnd) ? std::pair{ newStart, newEnd }
+		: std::pair{ newStart * std::nan(""), newEnd * std::nan("") }; // impossible to intersect
+	}
+	if (std::isinf(oldStart))
+		return std::pair{ (vStart == oldStart) ? newStart : newEnd, (vEnd == oldStart) ? newStart : newEnd };
+	if (std::isinf(oldEnd))
+		return std::pair{ (vStart == oldEnd) ? newEnd : newStart, (vEnd == oldEnd) ? newEnd : newStart };
+	return std::pair{
+		ConvertRange(oldStart, oldEnd, newStart, newEnd, vStart),
+		ConvertRange(oldStart, oldEnd, newStart, newEnd, vEnd),
+	};
+};
 
 constexpr void AnimateExponentialF32(f32* inOutCurrent, f32 target, f32 animationSpeed, f32 deltaTime)
 {

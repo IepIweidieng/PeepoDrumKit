@@ -373,10 +373,10 @@ namespace PeepoDrumKit
 	constexpr ScrollMethod ScrollTypeOrDefault(const ScrollType* v) { return (v == nullptr) ? ScrollMethod::NMSCROLL : v->Method; }
 	constexpr Complex ScrollOrDefault(const ScrollChange* v) { return (v == nullptr) ? Complex(1.0f, 0.0f) : v->ScrollSpeed; }
 	constexpr Tempo TempoOrDefault(const TempoChange* v) { return (v == nullptr) ? FallbackTempo : v->Tempo; }
-	constexpr std::pair<Time, Time> SuddenOrDefault(const SuddenChange* v)
+	constexpr TJA::SuddenParams SuddenOrDefault(const SuddenChange* v)
 	{
-		return (v == nullptr) ? std::pair{ FallbackEvent<SuddenChange>.AppearanceOffset, FallbackEvent<SuddenChange>.MovementOffset }
-			: std::pair{ v->AppearanceOffset, v->MovementOffset };
+		return (v == nullptr) ? SuddenOrDefault(&FallbackEvent<SuddenChange>)
+			: TJA::SuddenParams{ v->AppearanceOffset, v->MovementOffset };
 	}
 
 	struct ChartCourse
