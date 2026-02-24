@@ -546,6 +546,8 @@ inline b8 ApproxmiatelySame(Complex a, Complex b, f32 threshold = 0.0001f) { ret
 inline b8 ApproxmiatelySame(f32 a, f32 b, f32 threshold = 0.0001f) { return Absolute(a - b) < threshold; }
 inline b8 ApproxmiatelySame(f64 a, f64 b, f64 threshold = 0.0001) { return Absolute(a - b) < threshold; }
 inline b8 ApproxmiatelySame(vec2 a, vec2 b, f32 threshold = 0.0001f) { return ApproxmiatelySame(a.x, b.x, threshold) && ApproxmiatelySame(a.y, b.y, threshold); }
+template <typename T, typename U, std::enable_if_t<std::is_same_v<T, U> || (std::is_integral_v<T> != std::is_integral_v<U>), bool> = true>
+constexpr b8 ApproxmiatelySame(T a, U b, std::common_type_t<T, U> threshold = 1) { return std::abs(a - b) < threshold; }
 
 constexpr f32 ToPercent(f32 value) { return (value * 100.0f); }
 constexpr f32 FromPercent(f32 percent) { return (percent * 0.01f); }

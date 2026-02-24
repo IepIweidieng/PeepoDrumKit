@@ -244,9 +244,7 @@ X("SCROLL_TYPE_NMSCROLL",							"NMSCROLL") \
 X("SCROLL_TYPE_HBSCROLL",							"HBSCROLL") \
 X("SCROLL_TYPE_BMSCROLL",							"BMSCROLL") \
 X("EVENT_PROP_BALLOON_POP_COUNT",					"Balloon Pop Count") \
-X("EVENT_PROP_INTERPOLATE_SCROLL_SPEED",			"Interpolate: Scroll Speed") \
-X("EVENT_PROP_INTERPOLATE_SCROLL_SPEED_TEMPO",		"Interpolate: Scroll Speed Tempo") \
-X("EVENT_PROP_INTERPOLATE_VERTICAL_SCROLL_SPEED",	"Interpolate: Vertical Scroll Speed") \
+X("EVENT_PROP_INTERPOLATE_%s",						"Interpolate: %s") \
 X("EVENT_PROP_TIME_OFFSET",							"Time Offset") \
 X("EVENT_PROP_NOTE_TYPE",							"Note Type") \
 X("EVENT_PROP_NOTE_TYPE_SIZE",						"Note Type Size") \

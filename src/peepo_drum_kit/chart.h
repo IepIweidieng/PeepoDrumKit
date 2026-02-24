@@ -788,6 +788,15 @@ namespace PeepoDrumKit
 			return std::forward<T>(value);
 	}
 
+	template <typename T, typename Tag, typename = void>
+	struct has_get_type_t : std::false_type {};
+
+	template <typename T, typename Tag>
+	struct has_get_type_t<T, Tag, std::enable_if_t<!std::is_void_v<decltype(get<Tag>(std::forward<T>(std::declval<T&&>())))>, void>> : std::true_type {};
+
+	template <typename T, typename Tag>
+	constexpr b8 has_get_type_v = has_get_type_t<T, Tag>::value;
+
 	template <typename T, GenericMember Member>
 	constexpr b8 IsMemberAvailable = (has_get_v<T, Member> || expect_type_v<T, GenericMemberType<Member>>) && !std::is_void_v<decltype(get_or_forward<Member>(std::declval<T>()))>;
 
