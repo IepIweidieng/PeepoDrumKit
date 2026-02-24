@@ -1051,6 +1051,8 @@ namespace PeepoDrumKit
 		if (Gui::CollapsingHeader(UI_Str("DETAILS_INSPECTOR_SELECTED_ITEMS"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			defer { SelectedItems.clear(); };
+
+			// fetch values from events
 			BeatSortedForwardIterator<TempoChange> scrollTempoChangeIt {};
 			ForEachSelectedChartItem(course, [&](const ForEachChartItemData& it)
 			{
@@ -1072,6 +1074,7 @@ namespace PeepoDrumKit
 					out.BaseScrollTempo = TempoOrDefault(scrollTempoChangeIt.Next(course.TempoMap.Tempo.Sorted, out.MemberValues.BeatStart()));
 			});
 
+			// get event count
 			GenericMemberFlags commonAvailableMemberFlags = SelectedItems.empty() ? GenericMemberFlags_None : GenericMemberFlags_All;
 			GenericList commonListType = SelectedItems.empty() ? GenericList::Count : SelectedItems[0].List;
 			size_t perListSelectionCounts[EnumCount<GenericList>] = {};
@@ -1086,17 +1089,25 @@ namespace PeepoDrumKit
 				}
 			}
 
+			// get value range statistics
 			GenericMemberFlags commonEqualMemberFlags = commonAvailableMemberFlags;
 			AllGenericMembersUnionArray sharedValues = {};
 			AllGenericMembersUnionArray mixedValuesMin = {};
 			AllGenericMembersUnionArray mixedValuesMax = {};
+			Tempo sharedScrollTempo = {};
+			Tempo mixedScrollTempoMin = {};
+			Tempo mixedScrollTempoMax = {};
+			b8 isAnyRegularNoteSelected = false, isAnyDrumrollNoteSelected = false, isAnyBalloonNoteSelected = false;
+			b8 areAllSelectedNotesSmall = true, areAllSelectedNotesBig = true, areAllSelectedNotesHand = true;
+			b8 perNoteTypeHasAtLeastOneSelected[EnumCount<NoteType>] = {};
+			b8 isAnyTimeSignatureInvalid = false;
 			if (!SelectedItems.empty())
 			{
 				for (GenericMember member = {}; member < GenericMember::Count; IncrementEnum(member))
 				{
-					sharedValues[member] = SelectedItems[0].MemberValues[member];
-					mixedValuesMin[member] = sharedValues[member];
-					mixedValuesMax[member] = sharedValues[member];
+					mixedValuesMin[member] = mixedValuesMax[member] = sharedValues[member] = SelectedItems[0].MemberValues[member];
+					if (member == GenericMember::F32_ScrollSpeed)
+						mixedScrollTempoMin = mixedScrollTempoMax = sharedScrollTempo = ScrollSpeedToTempo(sharedValues[member].CPX.GetRealPart(), SelectedItems[0].BaseScrollTempo);
 				}
 
 				for (const TempChartItem& item : SelectedItems)
@@ -1111,9 +1122,30 @@ namespace PeepoDrumKit
 						auto& max = mixedValuesMax[member];
 						switch (member)
 						{
-						case GenericMember::B8_IsSelected: { /* ... */ } break;
-						case GenericMember::B8_BarLineVisible: { /* ... */ } break;
-						case GenericMember::I16_BalloonPopCount: { min.I16 = Min(min.I16, v.I16); max.I16 = Max(max.I16, v.I16); } break;
+						case GenericMember::B8_IsSelected:
+						case GenericMember::B8_BarLineVisible:
+						case GenericMember::I16_BalloonPopCount:
+						case GenericMember::Beat_Start:
+						case GenericMember::Beat_Duration:
+						case GenericMember::Time_Offset:
+						case GenericMember::F32_JPOSScrollDuration:
+						case GenericMember::Time_AppearanceOffset:
+						case GenericMember::Time_MovementOffset:
+						case GenericMember::B8_SuddenHideRoll:
+						{
+							ApplySingleGenericMember(member,
+								[&](auto&& typedV, auto&& typedMin, auto&& typedMax)
+								{
+									if constexpr (!expect_type_v<decltype(typedV), b8, i16, f32, Beat, Time>) {
+										return false;
+									} else {
+										typedMin = Min(typedMin, typedV);
+										typedMax = Max(typedMax, typedV);
+										return true;
+									}
+								}, false, false,
+								v, min, max);
+						} break;
 						case GenericMember::F32_ScrollSpeed:
 						case GenericMember::F32_JPOSScroll:
 						{
@@ -1121,14 +1153,24 @@ namespace PeepoDrumKit
 							min.CPX.SetImaginaryPart(Min(min.CPX.GetImaginaryPart(), v.CPX.GetImaginaryPart()));
 							max.CPX.SetRealPart(Max(max.CPX.GetRealPart(), v.CPX.GetRealPart()));
 							max.CPX.SetImaginaryPart(Max(max.CPX.GetImaginaryPart(), v.CPX.GetImaginaryPart()));
+							if (member == GenericMember::F32_ScrollSpeed) {
+								Tempo vTempo = ScrollSpeedToTempo(v.CPX.GetRealPart(), item.BaseScrollTempo);
+								mixedScrollTempoMin.BPM = Min(mixedScrollTempoMin.BPM, vTempo.BPM);
+								mixedScrollTempoMax.BPM = Max(mixedScrollTempoMax.BPM, vTempo.BPM);
+							}
 						} break;
-						case GenericMember::Beat_Start: { min.Beat = Min(min.Beat, v.Beat); max.Beat = Max(max.Beat, v.Beat); } break;
-						case GenericMember::Beat_Duration: { min.Beat = Min(min.Beat, v.Beat); max.Beat = Max(max.Beat, v.Beat); } break;
-						case GenericMember::Time_Offset: { min.Time = Min(min.Time, v.Time); max.Time = Max(max.Time, v.Time); } break;
 						case GenericMember::NoteType_V:
 						{
 							min.NoteType = static_cast<NoteType>(Min(EnumToIndex(min.NoteType), EnumToIndex(v.NoteType)));
 							max.NoteType = static_cast<NoteType>(Max(EnumToIndex(max.NoteType), EnumToIndex(v.NoteType)));
+
+							isAnyRegularNoteSelected |= IsRegularNote(v.NoteType);
+							isAnyDrumrollNoteSelected |= IsDrumrollNote(v.NoteType);
+							isAnyBalloonNoteSelected |= IsBalloonNote(v.NoteType);
+							areAllSelectedNotesSmall &= IsSmallNote(v.NoteType);
+							areAllSelectedNotesBig &= IsBigNote(v.NoteType);
+							areAllSelectedNotesHand &= IsHandNote(v.NoteType);
+							perNoteTypeHasAtLeastOneSelected[EnumToIndex(v.NoteType)] = true;
 						} break;
 						case GenericMember::Tempo_V: { min.Tempo.BPM = Min(min.Tempo.BPM, v.Tempo.BPM); max.Tempo.BPM = Max(max.Tempo.BPM, v.Tempo.BPM); } break;
 						case GenericMember::TimeSignature_V:
@@ -1137,13 +1179,10 @@ namespace PeepoDrumKit
 							max.TimeSignature.Numerator = Max(max.TimeSignature.Numerator, v.TimeSignature.Numerator);
 							min.TimeSignature.Denominator = Min(min.TimeSignature.Denominator, v.TimeSignature.Denominator);
 							max.TimeSignature.Denominator = Max(max.TimeSignature.Denominator, v.TimeSignature.Denominator);
+							isAnyTimeSignatureInvalid |= !IsTimeSignatureSupported(v.TimeSignature);
 						} break;
 						case GenericMember::CStr_Lyric: { /* ... */ } break;
 						case GenericMember::I8_ScrollType: { /* ... */ } break;
-						case GenericMember::F32_JPOSScrollDuration: { /* ... */ } break;
-						case GenericMember::Time_AppearanceOffset: { /* ... */ } break;
-						case GenericMember::Time_MovementOffset: { /* ... */ } break;
-						case GenericMember::B8_SuddenHideRoll: { /* ... */ } break;
 						default: assert(false); break;
 						}
 					}
@@ -1261,10 +1300,6 @@ namespace PeepoDrumKit
 						} break;
 						case GenericMember::I16_BalloonPopCount:
 						{
-							b8 isAnyBalloonNoteSelected = false;
-							for (const auto& selectedItem : SelectedItems)
-								isAnyBalloonNoteSelected |= IsBalloonNote(selectedItem.MemberValues.NoteType());
-
 							MultiEditWidgetParam widgetIn = {};
 							widgetIn.DataType = ImGuiDataType_S16;
 							widgetIn.Value.I16 = sharedValues.BalloonPopCount();
@@ -1368,57 +1403,38 @@ namespace PeepoDrumKit
 						} break;
 						case GenericMember::F32_JPOSScrollDuration:
 						{
-							b8 areAllJPOSScrollDurationsTheSame = true;
-							f32 commonDuration = 0.f, minDuration = 0.f, maxDuration = 0.f;
-							for (const auto& selectedItem : SelectedItems)
+							MultiEditWidgetParam widgetIn = {};
+							widgetIn.EnableStepButtons = true;
+							widgetIn.Value.F32 = sharedValues.JPOSScrollDuration();
+							widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
+							widgetIn.MixedValuesMin.F32 = mixedValuesMin.JPOSScrollDuration();
+							widgetIn.MixedValuesMax.F32 = mixedValuesMax.JPOSScrollDuration();
+							widgetIn.ButtonStep.F32 = 0.1f;
+							widgetIn.ButtonStepFast.F32 = 0.5f;
+							widgetIn.DragLabelSpeed = 0.005f;
+							widgetIn.FormatString = "%gs";
+							widgetIn.EnableClamp = true;
+							widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
+							widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
+
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
+								UI_Str("EVENT_PROP_JPOS_SCROLL_DURATION"),
+								widgetIn);
+							if (widgetOut.HasValueExact)
 							{
-								const f32 duration = selectedItem.MemberValues.JPOSScrollDuration();
-								if (&selectedItem == &SelectedItems[0])
+								for (auto& selectedItem : SelectedItems)
 								{
-									commonDuration = minDuration = maxDuration = duration;
+									selectedItem.MemberValues.JPOSScrollDuration() = widgetOut.ValueExact.F32;
 								}
-								else
-								{
-									minDuration = Min(minDuration, duration);
-									maxDuration = Max(maxDuration, duration);
-									areAllJPOSScrollDurationsTheSame &= ApproxmiatelySame(duration, commonDuration, 0.001f);
-								}
+								valueWasChanged = true;
 							}
-
+							else if (widgetOut.HasValueIncrement)
 							{
-								MultiEditWidgetParam widgetIn = {};
-								widgetIn.EnableStepButtons = true;
-								widgetIn.Value.F32 = commonDuration;
-								widgetIn.HasMixedValues = !areAllJPOSScrollDurationsTheSame;
-								widgetIn.MixedValuesMin.F32 = minDuration;
-								widgetIn.MixedValuesMax.F32 = maxDuration;
-								widgetIn.ButtonStep.F32 = 0.1f;
-								widgetIn.ButtonStepFast.F32 = 0.5f;
-								widgetIn.DragLabelSpeed = 0.005f;
-								widgetIn.FormatString = "%gs";
-								widgetIn.EnableClamp = true;
-								widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
-								widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
-
-								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
-									UI_Str("EVENT_PROP_JPOS_SCROLL_DURATION"),
-									widgetIn);
-								if (widgetOut.HasValueExact)
+								for (auto& selectedItem : SelectedItems)
 								{
-									for (auto& selectedItem : SelectedItems)
-									{
-										selectedItem.MemberValues.JPOSScrollDuration() = widgetOut.ValueExact.F32;
-									}
-									valueWasChanged = true;
+									selectedItem.MemberValues.JPOSScrollDuration() = Clamp(selectedItem.MemberValues.JPOSScrollDuration() + widgetOut.ValueIncrement.F32, MinJPOSScrollDuration, MaxJPOSScrollDuration);
 								}
-								else if (widgetOut.HasValueIncrement)
-								{
-									for (auto& selectedItem : SelectedItems)
-									{
-										selectedItem.MemberValues.JPOSScrollDuration() = Clamp(selectedItem.MemberValues.JPOSScrollDuration() + widgetOut.ValueIncrement.F32, MinJPOSScrollDuration, MaxJPOSScrollDuration);
-									}
-									valueWasChanged = true;
-								}
+								valueWasChanged = true;
 							}
 						} break;
 						case GenericMember::Time_AppearanceOffset:
@@ -1430,55 +1446,36 @@ namespace PeepoDrumKit
 								return (member == GenericMember::Time_AppearanceOffset) ? item.MemberValues.SuddenAppearanceOffset() : item.MemberValues.SuddenMovementOffset();
 							};
 
-							b8 areAllOffsetsTheSame = true;
-							f32 commonDuration = 0.f, minDuration = 0.f, maxDuration = 0.f;
-							for (const auto& selectedItem : SelectedItems)
+							MultiEditWidgetParam widgetIn = {};
+							widgetIn.EnableStepButtons = true;
+							widgetIn.Value.F32 = GetOrEmpty<Time>(member, sharedValues).Seconds;
+							widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
+							widgetIn.MixedValuesMin.F32 = GetOrEmpty<Time>(member, mixedValuesMin).Seconds;
+							widgetIn.MixedValuesMax.F32 = GetOrEmpty<Time>(member, mixedValuesMax).Seconds;
+							widgetIn.ButtonStep.F32 = 0.1f;
+							widgetIn.ButtonStepFast.F32 = 0.5f;
+							widgetIn.DragLabelSpeed = 0.005f;
+							widgetIn.FormatString = "%gs";
+							widgetIn.EnableClamp = false;
+
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
+								(member == GenericMember::Time_AppearanceOffset) ? UI_Str("EVENT_PROP_SUDDEN_APPEARANCE_OFFSET") : UI_Str("EVENT_PROP_SUDDEN_MOVEMENT_OFFSET"),
+								widgetIn);
+							if (widgetOut.HasValueExact)
 							{
-								const f32 duration = getDuration(selectedItem).ToSec_F32();
-								if (&selectedItem == &SelectedItems[0])
+								for (auto& selectedItem : SelectedItems)
 								{
-									commonDuration = minDuration = maxDuration = duration;
+									getDuration(selectedItem) = Time::FromSec(widgetOut.ValueExact.F32);
 								}
-								else
-								{
-									minDuration = Min(minDuration, duration);
-									maxDuration = Max(maxDuration, duration);
-									areAllOffsetsTheSame &= ApproxmiatelySame(duration, commonDuration, 0.001f);
-								}
+								valueWasChanged = true;
 							}
-
+							else if (widgetOut.HasValueIncrement)
 							{
-								MultiEditWidgetParam widgetIn = {};
-								widgetIn.EnableStepButtons = true;
-								widgetIn.Value.F32 = commonDuration;
-								widgetIn.HasMixedValues = !areAllOffsetsTheSame;
-								widgetIn.MixedValuesMin.F32 = minDuration;
-								widgetIn.MixedValuesMax.F32 = maxDuration;
-								widgetIn.ButtonStep.F32 = 0.1f;
-								widgetIn.ButtonStepFast.F32 = 0.5f;
-								widgetIn.DragLabelSpeed = 0.005f;
-								widgetIn.FormatString = "%gs";
-								widgetIn.EnableClamp = false;
-
-								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(
-									(member == GenericMember::Time_AppearanceOffset) ? UI_Str("EVENT_PROP_SUDDEN_APPEARANCE_OFFSET") : UI_Str("EVENT_PROP_SUDDEN_MOVEMENT_OFFSET"),
-									widgetIn);
-								if (widgetOut.HasValueExact)
+								for (auto& selectedItem : SelectedItems)
 								{
-									for (auto& selectedItem : SelectedItems)
-									{
-										getDuration(selectedItem) = Time::FromSec(widgetOut.ValueExact.F32);
-									}
-									valueWasChanged = true;
+									getDuration(selectedItem) = Time::FromSec(getDuration(selectedItem).Seconds + widgetOut.ValueIncrement.F32);
 								}
-								else if (widgetOut.HasValueIncrement)
-								{
-									for (auto& selectedItem : SelectedItems)
-									{
-										getDuration(selectedItem) = Time::FromSec(getDuration(selectedItem).Seconds + widgetOut.ValueIncrement.F32);
-									}
-									valueWasChanged = true;
-								}
+								valueWasChanged = true;
 							}
 						} break;
 						case GenericMember::B8_SuddenHideRoll:
@@ -1502,22 +1499,7 @@ namespace PeepoDrumKit
 						case GenericMember::F32_ScrollSpeed:
 						{
 							b8 areAllScrollSpeedsTheSame = (commonEqualMemberFlags & EnumToFlag(member));
-							b8 areAllScrollTemposTheSame = true;
-							Tempo commonScrollTempo = {}, minScrollTempo {}, maxScrollTempo {};
-							for (const auto& selectedItem : SelectedItems)
-							{
-								const Tempo scrollTempo = ScrollSpeedToTempo(selectedItem.MemberValues.ScrollSpeed().GetRealPart(), selectedItem.BaseScrollTempo);
-								if (&selectedItem == &SelectedItems[0])
-								{
-									commonScrollTempo = minScrollTempo = maxScrollTempo = scrollTempo;
-								}
-								else
-								{
-									minScrollTempo.BPM = Min(minScrollTempo.BPM, scrollTempo.BPM);
-									maxScrollTempo.BPM = Max(maxScrollTempo.BPM, scrollTempo.BPM);
-									areAllScrollTemposTheSame &= ApproxmiatelySame(scrollTempo.BPM, commonScrollTempo.BPM, 0.001f);
-								}
-							}
+							b8 areAllScrollTemposTheSame = (mixedScrollTempoMin.BPM == mixedScrollTempoMax.BPM);
 
 							for (size_t i = 0; i < 3; i++)
 							{
@@ -1526,7 +1508,7 @@ namespace PeepoDrumKit
 								if (i == 0)
 								{
 									widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetRealPart();
-									widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
+									widgetIn.HasMixedValues = !areAllScrollSpeedsTheSame;
 									widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetRealPart();
 									widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetRealPart();
 									widgetIn.ButtonStep.F32 = 0.1f;
@@ -1539,7 +1521,7 @@ namespace PeepoDrumKit
 								}
 								else if (i == 1) {
 									widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetImaginaryPart();
-									widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
+									widgetIn.HasMixedValues = !areAllScrollSpeedsTheSame;
 									widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetImaginaryPart();
 									widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetImaginaryPart();
 									widgetIn.ButtonStep.F32 = 0.1f;
@@ -1552,10 +1534,10 @@ namespace PeepoDrumKit
 								}
 								else
 								{
-									widgetIn.Value.F32 = commonScrollTempo.BPM;
+									widgetIn.Value.F32 = sharedScrollTempo.BPM;
 									widgetIn.HasMixedValues = !areAllScrollTemposTheSame;
-									widgetIn.MixedValuesMin.F32 = minScrollTempo.BPM;
-									widgetIn.MixedValuesMax.F32 = maxScrollTempo.BPM;
+									widgetIn.MixedValuesMin.F32 = mixedScrollTempoMin.BPM;
+									widgetIn.MixedValuesMax.F32 = mixedScrollTempoMax.BPM;
 									widgetIn.ButtonStep.F32 = 1.0f;
 									widgetIn.ButtonStepFast.F32 = 10.0f;
 									widgetIn.DragLabelSpeed = 1.0f;
@@ -1739,21 +1721,6 @@ namespace PeepoDrumKit
 						} break;
 						case GenericMember::NoteType_V:
 						{
-							b8 isAnyRegularNoteSelected = false, isAnyDrumrollNoteSelected = false, isAnyBalloonNoteSelected = false;
-							b8 areAllSelectedNotesSmall = true, areAllSelectedNotesBig = true, areAllSelectedNotesHand = true;
-							b8 perNoteTypeHasAtLeastOneSelected[EnumCount<NoteType>] = {};
-							for (const auto& selectedItem : SelectedItems)
-							{
-								const auto noteType = selectedItem.MemberValues.NoteType();
-								isAnyRegularNoteSelected |= IsRegularNote(noteType);
-								isAnyDrumrollNoteSelected |= IsDrumrollNote(noteType);
-								isAnyBalloonNoteSelected |= IsBalloonNote(noteType);
-								areAllSelectedNotesSmall &= IsSmallNote(noteType);
-								areAllSelectedNotesBig &= IsBigNote(noteType);
-								areAllSelectedNotesHand &= IsHandNote(noteType);
-								perNoteTypeHasAtLeastOneSelected[EnumToIndex(noteType)] = true;
-							}
-
 							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_PROP_NOTE_TYPE"), [&]
 							{
 								const cstr noteTypeNames[] = { UI_Str("NOTE_TYPE_DON"), UI_Str("NOTE_TYPE_DON_BIG"), UI_Str("NOTE_TYPE_KA"), UI_Str("NOTE_TYPE_KA_BIG"),
@@ -1863,11 +1830,6 @@ namespace PeepoDrumKit
 						case GenericMember::TimeSignature_V:
 						{
 							static constexpr i32 components = 2;
-
-							b8 isAnyTimeSignatureInvalid = false;
-							for (const auto& selectedItem : SelectedItems)
-								isAnyTimeSignatureInvalid |= !IsTimeSignatureSupported(selectedItem.MemberValues.TimeSignature());
-
 							MultiEditWidgetParam widgetIn = {};
 							widgetIn.DataType = ImGuiDataType_S32;
 							widgetIn.Components = components;
