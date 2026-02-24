@@ -104,12 +104,12 @@ template <const auto&... Strs>
 constexpr std::string_view ConstevalStrJoined = {ConstevalStrJoinedArr<Strs...>.data(), ForceConsteval<ConstevalStrJoinedArr<Strs...>.size()>};
 
 // NOTE: Example: if constexpr (expect_type_v<TTested, TExpected>); to be used where TTested is a template type declaring forwarding-reference parameters
-template <typename TTested, typename TExpected>
-constexpr b8 expect_type_v = std::is_same_v<TExpected, std::remove_cv_t<std::remove_reference_t<TTested>>>;
+template <typename TTested, typename... TExpected>
+constexpr b8 expect_type_v = (... || std::is_same_v<TExpected, std::remove_cv_t<std::remove_reference_t<TTested>>>);
 
 // NOTE: Example: template <..., expect_type_t<TTested, TExpected>>; for SFINAE (template substitution programming)
-template <typename TTested, typename TExpected>
-using expect_type_t = std::enable_if_t<expect_type_v<TTested, TExpected>, bool>;
+template <typename TTested, typename... TExpected>
+using expect_type_t = std::enable_if_t<expect_type_v<TTested, TExpected...>, bool>;
 
 // NOTE: Example: remove_member_pointer_t<decltype(member_pointer)>; to be used when the member_pointer is declared as auto type
 template <typename T>

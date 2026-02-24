@@ -774,7 +774,7 @@ namespace PeepoDrumKit
 	struct has_get_t : std::false_type {};
 
 	template <typename T, auto Tag>
-	struct has_get_t<T, Tag, std::void_t<decltype(get<Tag>(std::forward<T>(std::declval<T&&>())))>> : std::true_type {};
+	struct has_get_t<T, Tag, std::enable_if_t<!std::is_void_v<decltype(get<Tag>(std::forward<T>(std::declval<T&&>())))>, void>> : std::true_type {};
 
 	template <typename T, auto Tag>
 	constexpr b8 has_get_v = has_get_t<T, Tag>::value;
@@ -789,7 +789,7 @@ namespace PeepoDrumKit
 	}
 
 	template <typename T, GenericMember Member>
-	constexpr b8 IsMemberAvailable = has_get_v<T, Member> && !std::is_void_v<decltype(get_or_forward<Member>(std::declval<T>()))>;
+	constexpr b8 IsMemberAvailable = (has_get_v<T, Member> || expect_type_v<T, GenericMemberType<Member>>) && !std::is_void_v<decltype(get_or_forward<Member>(std::declval<T>()))>;
 
 	// Apply `action` on `args` resolved by `member` if available, otherwise return `vDefault` on nothing if valid, otherwise return `vError`
 	// If `TRet` is not specified, all of `action`'s possible return values, `vDefault`, and `vError` must have the same type
@@ -851,6 +851,18 @@ namespace PeepoDrumKit
 			std::forward<decltype(event)>(event), std::forward<Args>(args)...);
 	}
 
+	template <GenericMember Member, typename FAction, typename GenericMemberUnionT, expect_type_t<GenericMemberUnionT, GenericMemberUnion, AllGenericMembersUnionArray> = true, typename... Args>
+	constexpr __forceinline b8 TryDo(FAction&& action, GenericMemberUnionT&& value, Args&&... args)
+	{
+		return TryDoImpl<Member>(std::forward<FAction>(action), std::forward<decltype(value)>(value), get_or_forward<Member>(std::forward<Args>(args)...));
+	}
+
+	template <typename FAction, typename GenericMemberUnionT, expect_type_t<GenericMemberUnionT, GenericMemberUnion, AllGenericMembersUnionArray> = true, typename... Args>
+	constexpr __forceinline b8 TryDo(FAction&& action, GenericMemberUnionT&& value, GenericMember member, Args&&... args)
+	{
+		return TryDoImpl(std::forward<FAction>(action), std::forward<decltype(value)>(value), member, std::forward<Args>(args)...);
+	}
+
 	template <GenericMember Member, typename GenericListStructT, expect_type_t<GenericListStructT, struct GenericListStruct> = true, typename FAction, typename... Args>
 	constexpr b8 TryDo(FAction&& action, GenericListStructT&& in, GenericList list, Args&&...args)
 	{
@@ -888,8 +900,10 @@ namespace PeepoDrumKit
 	};
 
 	// generic adapters
-	// TryGet/Set(..., member, obj), where obj is a GenericMemberUnion object
-	// TryGet/Set<Member>(..., obj), where obj is either a GenericMemberUnion object or a concrete type object
+	// TryGet/Set<Member>(obj_args..., value), for compile-time constant Member
+	// TryGet/Set(obj_args..., member, value), for run-time determined member
+	// * obj_args... specifies the single target object
+	// * value is either a GenericMemberUnion object or a concrete type object
 	template <auto... Tags, typename... Args>
 	constexpr __forceinline decltype(auto) TryGet(Args&&... args) { return TryDo<Tags...>(GetGeneric, std::forward<Args>(args)...); }
 	template <auto... Tags, typename... Args>
@@ -904,10 +918,24 @@ namespace PeepoDrumKit
 		return v;
 	}
 
+	template <typename TDefault, typename... Args>
+	constexpr __forceinline decltype(auto) GetOrDefault(GenericMember member, TDefault&& vDefault, Args&&... args)
+	{
+		auto v = vDefault;
+		TryGet(std::forward<Args>(args)..., member, v);
+		return v;
+	}
+
 	template <GenericMember Member, typename TDefault = GenericMemberType<Member>, typename... Args>
 	constexpr __forceinline decltype(auto) GetOrEmpty(Args&&... args)
 	{
 		return GetOrDefault<Member>(TDefault{}, std::forward<Args>(args)...);
+	}
+
+	template <typename TDefault, typename... Args>
+	constexpr __forceinline decltype(auto) GetOrEmpty(GenericMember member, Args&&... args)
+	{
+		return GetOrDefault(member, TDefault{}, std::forward<Args>(args)...);
 	}
 
 	// NOTE: Little helpers here just for convenience
@@ -1115,8 +1143,8 @@ namespace PeepoDrumKit
 	constexpr void ApplyForEachGenericList(enum_sequence<GenericList, Lists...>, FAction&& action, TCastedArgs&&... args)
 	{
 		([&] {
-			auto getSingle = [](auto&& arg) { return get<Lists>(std::forward<decltype(arg)>(arg)); };
-			action(Lists, getSingle(std::forward<TCastedArgs>(args))...);
+			constexpr GenericList List = Lists;
+			action(Lists, get<List>(std::forward<TCastedArgs>(args))...);
 		}(), ...);
 	}
 
