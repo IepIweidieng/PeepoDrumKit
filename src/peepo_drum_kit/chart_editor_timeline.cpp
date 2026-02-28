@@ -936,8 +936,10 @@ namespace PeepoDrumKit
 				{
 					if (IsBalloonNote(note.Type))
 					{
+						const Time timeHead = course->TempoMap.BeatToTime(note.BeatTime);
+						const Time timeEnd = course->TempoMap.BeatToTime(note.GetEnd());
 						for (i32 iPop = 0; iPop < note.BalloonPopCount; ++iPop)
-							checkAndPlayNoteSound(course->TempoMap.BeatToTime(ConvertRange(0, i32{ note.BalloonPopCount }, note.BeatTime, note.GetEnd(), iPop)) + note.TimeOffset, note.Type, pan);
+							checkAndPlayNoteSound(ConvertRange(0, i32{ note.BalloonPopCount }, timeHead, timeEnd, iPop) + note.TimeOffset, note.Type, pan);
 					}
 					else
 					{
