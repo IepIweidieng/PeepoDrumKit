@@ -122,12 +122,29 @@ using remove_member_pointer_t = typename remove_member_pointer<T>::type;
 // NOTE: Specifically to be used with ForEachX(perXFunc) style iterator functions
 enum class ControlFlow : u8 { Fallthrough, Continue, Break };
 
+// Similar to std::void_t<T> but differetiates values; for SFINAE (template substitution programming)
+template <typename T, T Value>
+using void_v = void;
+
 // NOTE: Assumes the enum class EnumType { ..., Count }; convention to be used everywhere
+template <typename EnumType, typename = void>
+struct EnumCountMemberHelper {};
 template <typename EnumType>
-constexpr size_t EnumCount = static_cast<size_t>(EnumType::Count);
+struct EnumCountMemberHelper<EnumType, void_v<EnumType, EnumType::Count>> : std::integral_constant<EnumType, EnumType::Count> {};
+template <typename EnumType>
+struct EnumCountMemberHelper<EnumType, void_v<EnumType, EnumType::COUNT>> : std::integral_constant<EnumType, EnumType::COUNT> {};
+// If nether matches, define like follow:
+// template <>
+// struct EnumCountMemberHelper<EnumType> : std::integral_constant<EnumType, EnumType_COUNT> {};
 
 template <typename EnumType>
-constexpr i32 EnumCountI32 = static_cast<i32>(EnumType::Count);
+constexpr EnumType EnumCountMember = EnumCountMemberHelper<EnumType>::value;
+
+template <typename EnumType>
+constexpr size_t EnumCount = static_cast<size_t>(EnumCountMember<EnumType>);
+
+template <typename EnumType>
+constexpr i32 EnumCountI32 = static_cast<i32>(EnumCountMember<EnumType>);
 
 template <typename EnumType>
 constexpr __forceinline size_t EnumToIndex(EnumType enumValue)
@@ -161,7 +178,22 @@ struct make_enum_sequence_helper<EnumType, std::integer_sequence<UnderlyingType,
 };
 
 template <typename EnumType>
-using make_enum_sequence = typename make_enum_sequence_helper<EnumType, std::make_integer_sequence<std::underlying_type_t<EnumType>, static_cast<std::underlying_type_t<EnumType>>(EnumType::Count)>>::type;
+using make_enum_sequence = typename make_enum_sequence_helper<EnumType, std::make_integer_sequence<std::underlying_type_t<EnumType>, static_cast<std::underlying_type_t<EnumType>>(EnumCountMember<EnumType>)>>::type;
+
+template <template <auto> typename EnumToType, typename T, typename EnumType, EnumType... Values>
+constexpr EnumType FirstMatchEnumToType(enum_sequence<EnumType, Values...>)
+{
+	return std::min({ (expect_type_v<T, EnumToType<Values>> ? Values : EnumCountMember<EnumType>)... });
+}
+
+template <template <auto> typename EnumToType, typename T, typename EnumType>
+constexpr EnumType TypeToEnum = FirstMatchEnumToType<EnumToType, T>(make_enum_sequence<EnumType>{});
+
+// for creating overloaded function set of lambdas
+template <typename... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+template <typename... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
 // NOTE: Shorthand of repeated initialize arguments, required when the element type has no default constructor
 //		 Example: InitializedArray<i32, 3>(42), equivalent to std::array{42, 42, 42}

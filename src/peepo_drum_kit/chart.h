@@ -1083,18 +1083,8 @@ namespace PeepoDrumKit
 	template <typename T>
 	constexpr b8 IsChartEventType = IsNonListChartEventTrait<std::remove_cv_t<std::remove_reference_t<T>>>::value || IsChartEventTypeHelper<T, make_enum_sequence<GenericList>>::value;
 
-	template <typename T, typename = void>
-	struct ChartEventTypeToGenericListHelper : std::false_type {};
-
-	template <typename T, GenericList... Lists>
-	struct ChartEventTypeToGenericListHelper<T, enum_sequence<GenericList, Lists...>>
-		: std::conditional_t<IsChartEventType<T>,
-			std::integral_constant<GenericList, std::min({ (expect_type_v<T, GenericListStructType<Lists>> ? Lists : GenericList::Count)... })>,
-			std::false_type>
-		{};
-
 	template <typename T>
-	constexpr GenericList ChartEventTypeToGenericList = ChartEventTypeToGenericListHelper<T, make_enum_sequence<GenericList>>::value;
+	constexpr GenericList ChartEventTypeToGenericList = TypeToEnum<GenericListStructType, T, GenericList>;
 
 	template <typename TEvent, typename GenericListStructT, expect_type_t<GenericListStructT, GenericListStruct> = true>
 	constexpr decltype(auto) get(GenericListStructT&& inValue)
