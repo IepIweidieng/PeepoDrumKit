@@ -2967,7 +2967,7 @@ unsigned char* jpgdDecompress(jpeg_decoder* decoder)
     if (!pImage_data) return nullptr;
 
     for (int y = 0; y < image_height; y++) {
-        const uint8_t* pScan_line;
+        const uint8_t* pScan_line = nullptr;
         uint32_t scan_line_len;
         if (decoder->decode((const void**)&pScan_line, &scan_line_len) != JPGD_SUCCESS) {
             free(pImage_data);
