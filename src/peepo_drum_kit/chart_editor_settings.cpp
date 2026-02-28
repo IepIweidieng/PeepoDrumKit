@@ -468,8 +468,8 @@ namespace PeepoDrumKit
 			X(General.CustomScaleRatios, "custom_scale_ratios");
 			X(General.TransformScale_ByTempo, "transform_scale_by_tempo");
 			X(General.TransformScale_KeepTimePosition, "transform_scale_keep_time_position");
-			X(General.TransformScale_KeepTimeSignature, "transform_scale_keep_time_signature");
 			X(General.TransformScale_KeepItemDuration, "transform_scale_keep_item_duration");
+			X(General.TransformScale_KeepEventValue, "transform_scale_keep_event_value");
 
 			SECTION("audio");
 			X(Audio.OpenDeviceOnStartup, "open_device_on_startup");

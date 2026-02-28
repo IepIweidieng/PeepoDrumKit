@@ -1664,7 +1664,7 @@ namespace PeepoDrumKit
 	}
 
 	template <typename Arr0, typename Arr1>
-	static b8 ScaleChartItemValues(GenericListStructWithType& item, const Arr0& ratio, const Arr1& ratioBeat, b8 byTempo, b8 keepTimePos, b8 keepTimeSignature)
+	static b8 ScaleChartItemValues(GenericListStructWithType& item, const Arr0& ratio, const Arr1& ratioBeat, b8 byTempo, b8 keepTimePos, b8 keepEventValue)
 	{
 		static_assert(std::size(decltype(ratio){}) == 2 && std::size(decltype(ratioBeat){}) == 2);
 
@@ -1672,6 +1672,16 @@ namespace PeepoDrumKit
 			return false; // no change
 
 		b8 changed = false;
+		if (Time v; !keepTimePos && TryGet<GenericMember::Time_Offset>(item, v) && v != Time::Zero()) {
+			TrySet<GenericMember::Time_Offset>(item, v * ratio[0] / ratio[1]);
+			changed = true;
+		}
+		for (auto member : { GenericMember::Time_AppearanceOffset, GenericMember::Time_MovementOffset }) {
+			if (Time v; !keepEventValue && TryGet(item, member, v) && v != Time::Zero()) {
+				TrySet(item, member, v * ratio[0] / ratio[1]);
+				changed = true;
+			}
+		}
 		if (Tempo v; TryGet<GenericMember::Tempo_V>(item, v)) {
 			changed = true;
 			if (byTempo) // scale beat interval (60/BPM)
@@ -1682,7 +1692,7 @@ namespace PeepoDrumKit
 				changed = false;
 			TrySet<GenericMember::Tempo_V>(item, v);
 		}
-		if (TimeSignature v; !keepTimeSignature && TryGet<GenericMember::TimeSignature_V>(item, v)) {
+		if (TimeSignature v; !keepEventValue && TryGet<GenericMember::TimeSignature_V>(item, v)) {
 			if (std::abs(ratioBeat[0]) != std::abs(ratioBeat[1])) {
 				const auto denomOrig = v.Denominator;
 				v.Numerator *= std::abs(ratioBeat[0]);
@@ -2026,7 +2036,7 @@ namespace PeepoDrumKit
 						}
 					}
 				}
-				ScaleChartItemValues(itemToAdd, param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepTimeSignature);
+				ScaleChartItemValues(itemToAdd, param.TimeRatio, ratioBeat, byTempo, keepTimePos, *Settings.General.TransformScale_KeepEventValue);
 				if (!(reverseBeat && !ListIsItemEndBounded(it.List)) && nowBeat < minBeatAfter) // handle overlapping items with varying lengths from different row
 					minBeatAfter = nowBeat;
 
@@ -2064,7 +2074,7 @@ namespace PeepoDrumKit
 				return;
 
 			auto [byTempo, keepTimePos, keepItemDur, ratioBeat, ratioBeatAbs, reverseBeat] = GetScaleChartItemRatios(param);
-			const b8 keepTimeSig = *Settings.General.TransformScale_KeepTimeSignature;
+			const b8 keepEventValue = *Settings.General.TransformScale_KeepEventValue;
 			enum RangeSide : u8 { Past, Present, Future, Count };
 			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
 
@@ -2144,7 +2154,7 @@ namespace PeepoDrumKit
 							Beat beatMinPrs = std::min(beatHeadPrs, beatEndPrs), beatMaxPrs = std::max(beatHeadPrs, beatEndPrs); // handle reversing
 							// merge if the original item was single note or the resulting items have the same value
 							splitItems.push_back(item);
-							b8 changedIn = ScaleChartItemValues(splitItems.back(), param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepTimeSig);
+							b8 changedIn = ScaleChartItemValues(splitItems.back(), param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepEventValue);
 							if (!changedIn) {
 								if (hasPast && beatMaxPst == beatMinPrs) {
 									beatMinPrs = beatMinPst;
@@ -2181,7 +2191,7 @@ namespace PeepoDrumKit
 					if (origBeatDuration > Beat::Zero()) {
 						if (!keepItemDur || !ListIsItemEndBounded(it.List)) {
 							auto fragments = RefragmentChartItem(itemToRemove, origBeatDuration,
-								std::array{ firstBeat, latestBeat }, param.TimeRatio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepTimeSig,
+								std::array{ firstBeat, latestBeat }, param.TimeRatio, ratioBeat, reverseBeat, byTempo, keepTimePos, keepEventValue,
 								[&](const GenericListStructWithType& itemI, Beat& beatDurationI, b8 needSplit, auto&& fragments)
 								{
 									return splitAndScale(itemI, GetBeat(itemI), beatDurationI, needSplit, fragments, [&](Beat head, Beat end, b8 reverse, RangeSide maxSideItem, RangeSide maxSideSet, GenericListStructWithType& item)
@@ -2215,7 +2225,7 @@ namespace PeepoDrumKit
 						itemToAdd.push_back(itemToRemove);
 						SetBeat(nowBeat, itemToAdd.back());
 						changed |= (nowBeat != origBeat);
-						changed |= ScaleChartItemValues(itemToAdd[0], param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepTimeSig);
+						changed |= ScaleChartItemValues(itemToAdd[0], param.TimeRatio, ratioBeat, byTempo, keepTimePos, keepEventValue);
 					}
 				}
 

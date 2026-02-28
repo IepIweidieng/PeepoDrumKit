@@ -148,8 +148,8 @@ namespace PeepoDrumKit
 			WithDefault<CustomScaleRatioList> CustomScaleRatios = {};
 			WithDefault<b8> TransformScale_ByTempo = false;
 			WithDefault<b8> TransformScale_KeepTimePosition = false;
-			WithDefault<b8> TransformScale_KeepTimeSignature = false;
 			WithDefault<b8> TransformScale_KeepItemDuration = false;
+			WithDefault<b8> TransformScale_KeepEventValue = false;
 			// TODO: ...
 			static inline WithDefault<vec2> GameViewportAspectRatioMin = vec2(0.0f, 0.0f);
 			static inline WithDefault<vec2> GameViewportAspectRatioMax = vec2(0.0f, 0.0f);

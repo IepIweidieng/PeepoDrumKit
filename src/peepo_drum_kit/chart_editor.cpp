@@ -365,8 +365,8 @@ namespace PeepoDrumKit
 					for (const auto& [pSetting, label] : {
 						std::tuple{ &UserSettingsData::GeneralData::TransformScale_ByTempo, UI_Str("ACT_TRANSFORM_SCALE_BY_TEMPO") },
 						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepTimePosition, UI_Str("ACT_TRANSFORM_SCALE_KEEP_TIME_POSITION") },
-						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepTimeSignature, UI_Str("ACT_TRANSFORM_SCALE_KEEP_TIME_SIGNATURE") },
 						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepItemDuration, UI_Str("ACT_TRANSFORM_SCALE_KEEP_ITEM_DURATION") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepEventValue, UI_Str("ACT_TRANSFORM_SCALE_KEEP_EVENT_VALUE") },
 						}) {
 						if (b8 v = *(Settings.General.*pSetting); Gui::Checkbox(label, &v)) {
 							(Settings_Mutable.General.*pSetting).Value = v;
