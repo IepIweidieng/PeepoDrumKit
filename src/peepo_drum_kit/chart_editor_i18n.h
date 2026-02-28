@@ -171,6 +171,8 @@ X("ACT_MSGBOX_CANCEL",								"Cancel") \
 X("DETAILS_CHART_EVENT_EVENTS",						"Events") \
 X("EVENT_TEMPO",									"Tempo") \
 X("EVENT_TIME_SIGNATURE",							"Time Signature") \
+X("EVENT_TIME_SIGNATURE_UPPER",						"Upper Time Signature") \
+X("EVENT_TIME_SIGNATURE_LOWER",						"Lower Time Signature") \
 X("EVENT_NOTES",									"Notes") \
 X("EVENT_NOTES_EXPERT",								"Notes (Expert)") \
 X("EVENT_NOTES_MASTER",								"Notes (Master)") \
