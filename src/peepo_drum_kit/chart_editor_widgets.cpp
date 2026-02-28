@@ -459,28 +459,25 @@ namespace PeepoDrumKit
 	static constexpr f32 MaxVolumeSoftLimit = 1.0f;
 	static constexpr f32 MaxVolumeHardLimit = 4.0f;
 
+	// limited values to prevent crashes due to high load
 	static constexpr i32 MinTimeSignatureValue = -Beat::TicksPerBeat * 4;
 	static constexpr i32 MaxTimeSignatureValue = Beat::TicksPerBeat * 4;
-	static constexpr i16 MinBalloonCount = 0;
-	static constexpr i16 MaxBalloonCount = 999;
+	static constexpr f32 MinBPM = -60000.0f;
+	static constexpr f32 MaxBPM = 60000.0f;
 
-	// TODO: Turn these into user settings
-	// "allowed_tempo_bpm_range_min" = 30
-	// "allowed_tempo_bpm_range_max" = 960
-	// "allowed_scroll_speed_range_min" = -100
-	// "allowed_scroll_speed_range_max" = +100
-	// "allowed_note_time_offset_range_min" = -35
-	// "allowed_note_time_offset_range_max" = +35
-	static constexpr f32 MinBPM = -10000.0f;//30.0f;
-	static constexpr f32 MaxBPM = 10000.0f;//960.0f;
-	static constexpr f32 MinScrollSpeed = -100.0f;
-	static constexpr f32 MaxScrollSpeed = +100.0f;
-	static constexpr f32 MaxJPOSScrollMove = +9999.0f;
-	static constexpr f32 MinJPOSScrollMove = -9999.0f;
-	static constexpr f32 MaxJPOSScrollDuration = +3600.0f;
-	static constexpr f32 MinJPOSScrollDuration = -3600.0f;
-	static constexpr Time MinNoteTimeOffset = Time::FromMS(-35.0);
-	static constexpr Time MaxNoteTimeOffset = Time::FromMS(+35.0);
+	// practically no limits
+	static constexpr i16 MinBalloonCount = 0;
+	static constexpr i16 MaxBalloonCount = I16Max;
+	static constexpr f32 MinScrollSpeed = -F32Max;
+	static constexpr f32 MaxScrollSpeed = +F32Max;
+	static constexpr f32 MinScrollBPM = -F32Max;
+	static constexpr f32 MaxScrollBPM = +F32Max;
+	static constexpr f32 MaxJPOSScrollMove = +F32Max;
+	static constexpr f32 MinJPOSScrollMove = -F32Max;
+	static constexpr f32 MaxJPOSScrollDuration = +F32Max;
+	static constexpr f32 MinJPOSScrollDuration = -F32Max;
+	static constexpr Time MinNoteTimeOffset = Time::FromMS(-F64Max);
+	static constexpr Time MaxNoteTimeOffset = Time::FromMS(+F64Max);
 
 	cstr LoadingTextAnimation::UpdateFrameAndGetText(b8 isLoadingThisFrame, f32 deltaTimeSec)
 	{
@@ -1702,8 +1699,8 @@ namespace PeepoDrumKit
 									widgetIn.DragLabelSpeed = 1.0f;
 									widgetIn.FormatString = "%g BPM";
 									widgetIn.EnableClamp = true;
-									widgetIn.ValueClampMin.F32 = MinBPM;
-									widgetIn.ValueClampMax.F32 = MaxBPM;
+									widgetIn.ValueClampMin.F32 = MinScrollBPM;
+									widgetIn.ValueClampMax.F32 = MaxScrollBPM;
 								}
 								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(labels[i], widgetIn);
 								if (SetPropertyMultiSelection(SelectedItems, widgetIn, widgetOut, getVs[i], setVs[i]))
@@ -2536,7 +2533,7 @@ namespace PeepoDrumKit
 						{
 							if (f32 v = ScrollSpeedToTempo(scrollSpeedAtCursor.GetRealPart(), tempoAtCursor).BPM;
 								Gui::SpinFloat("##ScrollTempoAtCursor", &v, 1.0f, 10.0f, "%g BPM"))
-								insertOrUpdateCursorScrollSpeedChange(Complex(ScrollTempoToSpeed(Tempo(Clamp(v, MinBPM, MaxBPM)), tempoAtCursor), 0.0f));
+								insertOrUpdateCursorScrollSpeedChange(Complex(ScrollTempoToSpeed(Tempo(Clamp(v, MinScrollBPM, MaxScrollBPM)), tempoAtCursor), 0.0f));
 						}
 						return false;
 					});
