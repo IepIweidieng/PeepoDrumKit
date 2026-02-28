@@ -182,8 +182,9 @@ namespace PeepoDrumKit
 
 	enum class DifficultyLevel : u8
 	{
-		Min = 1,
-		Max = 20
+		Min = 0,
+		MaxSoft = 15,
+		Max = U8Max,
 	};
 
 	enum class DifficultyLevelDecimal : i8
@@ -197,7 +198,7 @@ namespace PeepoDrumKit
 	enum class TowerLives : i32
 	{
 		Min = 0,
-		Max = 99999
+		Max = I32Max
 	};
 
 	enum class BranchType : u8

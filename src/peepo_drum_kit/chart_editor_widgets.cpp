@@ -160,18 +160,18 @@ namespace PeepoDrumKit
 		Gui::PushStyleColor(ImGuiCol_FrameBgHovered, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
 		Gui::PushStyleColor(ImGuiCol_FrameBgActive, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
 		if (i32 v = static_cast<i32>(*inOutLevel); Gui::SliderInt(label, &v,
-			static_cast<i32>(DifficultyLevel::Min), static_cast<i32>(DifficultyLevel::Max), u8"★ %d", ImGuiSliderFlags_AlwaysClamp))
+			static_cast<i32>(DifficultyLevel::Min), static_cast<i32>(DifficultyLevel::MaxSoft), u8"★ %d"))
 		{
-			*inOutLevel = static_cast<DifficultyLevel>(v);
+			*inOutLevel = static_cast<DifficultyLevel>(Clamp(v, static_cast<i32>(DifficultyLevel::Min), static_cast<i32>(DifficultyLevel::Max)));
 			valueWasChanged = true;
 		}
 		Gui::PopStyleColor(5);
 
 		const Rect sliderRect = Gui::GetItemRect();
 		const f32 availableWidth = sliderRect.GetWidth();
-		const vec2 starSize = vec2(availableWidth / static_cast<f32>(DifficultyLevel::Max), Gui::GetFrameHeight());
+		const vec2 starSize = vec2(availableWidth / static_cast<f32>(DifficultyLevel::MaxSoft), Gui::GetFrameHeight());
 
-		const b8 starsFitOnScreen = (starSize.x >= Gui::GetFrameHeight()) && !Gui::IsItemBeingEditedAsText();
+		const b8 starsFitOnScreen = (starSize.x >= Gui::GetFrameHeight()) && !Gui::IsItemBeingEditedAsText() && ((*inOutLevel) <= DifficultyLevel::MaxSoft);
 
 		// NOTE: Use the last frame result here too to match the slider text as it has already been drawn
 		if (inOutFitOnScreenLastFrame)
@@ -183,7 +183,7 @@ namespace PeepoDrumKit
 			const f32 starScale = Gui::GetFontSize() / 16.0f;
 
 			// TODO: Consider drawing star background manually instead of using the slider grab hand (?)
-			for (i32 i = 0; i < static_cast<i32>(DifficultyLevel::Max); i++)
+			for (i32 i = 0; i < static_cast<i32>(DifficultyLevel::MaxSoft); i++)
 			{
 				const Rect starRect = Rect::FromTLSize(sliderRect.TL + vec2(i * starSize.x, 0.0f), starSize);
 				const auto star = (i >= static_cast<i32>(*inOutLevel)) ? fontSizedStarParamOutline : fontSizedStarParamFilled;
@@ -454,10 +454,10 @@ namespace PeepoDrumKit
 
 namespace PeepoDrumKit
 {
-	// NOTE: Soft clamp for sliders but hard limit to allow *typing in* values higher, even if it can cause clipping
+	// NOTE: Soft clamp for sliders but still allow *typing in* values to be higher, even if it can cause clipping
 	static constexpr f32 MinVolume = 0.0f;
 	static constexpr f32 MaxVolumeSoftLimit = 1.0f;
-	static constexpr f32 MaxVolumeHardLimit = 4.0f;
+	static constexpr f32 MaxVolumeHardLimit = F32Max;
 
 	// limited values to prevent crashes due to high load
 	static constexpr i32 MinTimeSignatureValue = -Beat::TicksPerBeat * 4;
