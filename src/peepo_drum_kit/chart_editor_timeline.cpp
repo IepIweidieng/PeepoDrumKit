@@ -246,7 +246,7 @@ namespace PeepoDrumKit
 	template <typename Func>
 	static void ForEachTimelineRow(ChartTimeline& timeline, Func perRowFunc)
 	{
-		f32 localY = 0.0f;
+		f32 localY = -timeline.Camera.PositionCurrent.y;
 		for (TimelineRowType rowType = {}; rowType < TimelineRowType::Count; IncrementEnum(rowType))
 		{
 			// HACK: Draw the non default branches smaller for now to waste less space (might wanna rethink all of this...)
@@ -254,7 +254,7 @@ namespace PeepoDrumKit
 				(rowType >= TimelineRowType::NoteBranches_First && rowType <= TimelineRowType::NoteBranches_Last) &&
 				(TimelineRowToBranchType(rowType) == BranchType::Normal);
 
-			const f32 localHeight = GuiScale(isNotesRow ? TimelineRowHeightNotes : TimelineRowHeight);
+			const f32 localHeight = GuiScale(isNotesRow ? TimelineRowHeightNotes : TimelineRowHeight) * timeline.Camera.ZoomCurrent.y;
 
 			perRowFunc(ForEachRowData { rowType, localY, localHeight, UI_StrRuntime(TimelineRowTypeNames[EnumToIndex(rowType)]) });
 			localY += localHeight;
@@ -2296,10 +2296,8 @@ namespace PeepoDrumKit
 
 			if (IsSidebarWindowHovered)
 			{
-#if 0 // NOTE: Not needed at the moment for small number of rows
 				if (!Gui::GetIO().KeyAlt)
 					Camera.PositionTarget.y -= (Gui::GetIO().MouseWheel * scrollStep.y);
-#endif
 			}
 			else if (IsContentHeaderWindowHovered || IsContentWindowHovered)
 			{
@@ -2332,10 +2330,13 @@ namespace PeepoDrumKit
 				Gui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
 				// BUG: Kinda freaks out when mouse grabbing and smooth zooming at the same time
-				Camera.PositionTarget.x = Camera.PositionCurrent.x += (MousePosLastFrame.x - MousePosThisFrame.x);
+				Camera.PositionTarget = Camera.PositionCurrent += (MousePosLastFrame - MousePosThisFrame);
 				Camera.ZoomTarget.x = Camera.ZoomCurrent.x;
 			}
 		}
+
+		// restrict vertical scroll range
+		Camera.PositionTarget.y = std::max(0.0f, std::min(Camera.PositionTarget.y, GetTotalTimelineRowsHeight(*this) - Regions.Content.GetHeight()));
 
 		// NOTE: Auto playback scroll (needs to be updated before the toggle playback input check is run for better result (?))
 		{
