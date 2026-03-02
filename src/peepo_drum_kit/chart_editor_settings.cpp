@@ -206,16 +206,6 @@ namespace PeepoDrumKit
 			ToString(in, stringToAppendTo, [](auto&& x) { return x; });
 		}
 
-		static IniMemberParseResult FromString(std::string_view stringToParse, PlaybackSpeedStepList& out)
-		{
-			return FromString(stringToParse, out.V, FromPercent);
-		}
-
-		static void ToString(const PlaybackSpeedStepList& in, std::string& stringToAppendTo)
-		{
-			ToString(in.V, stringToAppendTo, ToPercent);
-		}
-
 		static IniMemberParseResult FromString(std::string_view stringToParse, CustomSelectionPatternList& out)
 		{
 			return FromString(stringToParse, out.V);
@@ -458,9 +448,9 @@ namespace PeepoDrumKit
 			X(General.TimelineScrubAutoScrollPixelThreshold, "timeline_scrub_auto_scroll_pixel_threshold");
 			X(General.TimelineScrubAutoScrollSpeedMin, "timeline_scrub_auto_scroll_speed_min");
 			X(General.TimelineScrubAutoScrollSpeedMax, "timeline_scrub_auto_scroll_speed_max");
-			X(General.PlaybackSpeedSteps, "playback_speed_steps");
-			X(General.PlaybackSpeedStepsRough, "playback_speed_steps_rough");
-			X(General.PlaybackSpeedStepsPrecise, "playback_speed_steps_precise");
+			X(General.PlaybackSpeedStepPercent, "playback_speed_step_percent");
+			X(General.PlaybackSpeedStepRoughPercent, "playback_speed_step_rough_percent");
+			X(General.PlaybackSpeedStepPrecisePercent, "playback_speed_step_precise_percent");
 			X(General.DisableTempoWindowWidgetsIfHasSelection, "disable_tempo_window_widgets_if_has_selection");
 			X(General.ConvertSelectionToScrollChanges_UnselectOld, "convert_selection_to_scroll_changes_unselect_old");
 			X(General.ConvertSelectionToScrollChanges_SelectNew, "convert_selection_to_scroll_changes_select_new");

@@ -33,14 +33,6 @@ namespace PeepoDrumKit
 		inline b8 operator!=(const CustomSelectionPatternList& o) const { return !(*this == o); }
 	};
 
-	// NOTE: Expected to be stored in sorted decending order: "{ 1.0f, 0.75f, 0.5f, 0.25f }" etc.
-	struct PlaybackSpeedStepList
-	{
-		std::vector<f32> V;
-		inline PlaybackSpeedStepList() = default;
-		inline PlaybackSpeedStepList(std::initializer_list<f32> args) : V(std::forward<std::initializer_list<f32>>(args)) {}
-	};
-
 	struct CustomScaleRatio
 	{
 		ivec2 TimeRatio;
@@ -138,9 +130,9 @@ namespace PeepoDrumKit
 			WithDefault<f32> TimelineScrubAutoScrollPixelThreshold = 36.0f;
 			WithDefault<f32> TimelineScrubAutoScrollSpeedMin = 2500.0f;
 			WithDefault<f32> TimelineScrubAutoScrollSpeedMax = 3500.0f;
-			WithDefault<PlaybackSpeedStepList> PlaybackSpeedSteps = PlaybackSpeedStepList { 2.0f, 1.9f, 1.8f, 1.7f, 1.6f, 1.5f, 1.4f, 1.3f, 1.2f, 1.1f, 1.0f, 0.9f, 0.8f, 0.7f, 0.6f, 0.5f, 0.4f, 0.3f, 0.2f, 0.1f };
-			WithDefault<PlaybackSpeedStepList> PlaybackSpeedStepsRough = PlaybackSpeedStepList { 2.0f, 1.75f, 1.5f, 1.25f, 1.0f, 0.75f, 0.5f, 0.25f };
-			WithDefault<PlaybackSpeedStepList> PlaybackSpeedStepsPrecise = PlaybackSpeedStepList { 2.0f, 1.95f, 1.9f, 1.85f, 1.8f, 1.75f, 1.7f, 1.65f, 1.6f, 1.55f, 1.5f, 1.45f, 1.4f, 1.35f, 1.3f, 1.25f, 1.2f, 1.15f, 1.1f, 1.05f, 1.0f, 0.95f, 0.9f, 0.85f, 0.8f, 0.75f, 0.7f, 0.65f, 0.6f, 0.55f, 0.5f, 0.45f, 0.4f, 0.35f, 0.3f, 0.25f, 0.2f, 0.15f, 0.1f };
+			WithDefault<f32> PlaybackSpeedStepPercent = 10.0f;
+			WithDefault<f32> PlaybackSpeedStepRoughPercent = 25.0f;
+			WithDefault<f32> PlaybackSpeedStepPrecisePercent = 5.0f;
 			WithDefault<b8> DisableTempoWindowWidgetsIfHasSelection = true;
 			WithDefault<b8> ConvertSelectionToScrollChanges_UnselectOld = false;
 			WithDefault<b8> ConvertSelectionToScrollChanges_SelectNew = true;

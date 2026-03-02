@@ -2342,7 +2342,10 @@ namespace PeepoDrumKit
 			if (context.GetIsPlayback() && Audio::Engine.GetIsStreamOpenRunning())
 			{
 				const Time cursorTime = context.GetCursorTime();
-				if (IsTimelineCursorVisibleOnScreen(Camera, Regions, cursorTime) && Camera.TimeToLocalSpaceX(cursorTime) >= Round(Regions.Content.GetWidth() * TimelineAutoScrollLockContentWidthFactor))
+				f32 cursorPos = Camera.TimeToLocalSpaceX(cursorTime);
+				if (context.GetPlaybackSpeed() < 0)
+					cursorPos = Regions.Content.GetWidth() - cursorPos;
+				if (IsTimelineCursorVisibleOnScreen(Camera, Regions, cursorTime) && cursorPos >= Regions.Content.GetWidth() * TimelineAutoScrollLockContentWidthFactor)
 				{
 					const Time elapsedCursorTime = Time::FromSec(Gui::DeltaTime()) * context.GetPlaybackSpeed();
 					const f32 cameraScrollIncrement = Camera.TimeToWorldSpaceX(elapsedCursorTime) * Camera.ZoomCurrent.x;
@@ -2843,14 +2846,17 @@ namespace PeepoDrumKit
 			{
 				if (const auto& io = Gui::GetIO(); !io.KeyCtrl)
 				{
-					const std::vector<f32>& speeds = io.KeyAlt ? Settings.General.PlaybackSpeedStepsPrecise->V : io.KeyShift ? Settings.General.PlaybackSpeedStepsRough->V : Settings.General.PlaybackSpeedSteps->V;
+					const f32& stepPercent = io.KeyAlt ? Settings.General.PlaybackSpeedStepPrecisePercent.Value
+						: io.KeyShift ? Settings.General.PlaybackSpeedStepRoughPercent.Value
+						: Settings.General.PlaybackSpeedStepPercent.Value;
 
-					i32 closetPlaybackSpeedIndex = 0;
 					const f32 currentPlaybackSpeed = context.GetPlaybackSpeed();
-					for (const f32& it : speeds) if (it >= currentPlaybackSpeed) closetPlaybackSpeedIndex = ArrayItToIndexI32(&it, &speeds[0]);
+					f32 closetPlaybackSpeedIndex = std::round(ToPercent(currentPlaybackSpeed)) / stepPercent;
 
-					if (Gui::IsAnyPressed(*Settings.Input.Timeline_IncreasePlaybackSpeed, true, InputModifierBehavior::Relaxed)) context.SetPlaybackSpeed(speeds[Clamp(closetPlaybackSpeedIndex - 1, 0, speeds.empty() ? 0 : static_cast<i32>(speeds.size() - 1))]);
-					if (Gui::IsAnyPressed(*Settings.Input.Timeline_DecreasePlaybackSpeed, true, InputModifierBehavior::Relaxed)) context.SetPlaybackSpeed(speeds[Clamp(closetPlaybackSpeedIndex + 1, 0, speeds.empty() ? 0 : static_cast<i32>(speeds.size() - 1))]);
+					if (Gui::IsAnyPressed(*Settings.Input.Timeline_IncreasePlaybackSpeed, true, InputModifierBehavior::Relaxed))
+						context.SetPlaybackSpeed(FromPercent(stepPercent * (std::floor(closetPlaybackSpeedIndex) + 1)));
+					if (Gui::IsAnyPressed(*Settings.Input.Timeline_DecreasePlaybackSpeed, true, InputModifierBehavior::Relaxed))
+						context.SetPlaybackSpeed(FromPercent(stepPercent * (std::ceil(closetPlaybackSpeedIndex) - 1)));
 				}
 
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_SetPlaybackSpeed_100, false)) context.SetPlaybackSpeed(FromPercent(100.0f));
