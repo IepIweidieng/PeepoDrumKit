@@ -292,18 +292,22 @@ namespace PeepoDrumKit
 		case NoteSEType::Katsu: { spr = SprID::Game_NoteTxt_Katsu; } break;
 		case NoteSEType::KatsuBig: { spr = SprID::Game_NoteTxt_KatsuBig; } break;
 		case NoteSEType::KatsuHand: { spr = SprID::Game_NoteTxt_KatsuHand; } break;
+		case NoteSEType::KaDon: { spr = SprID::Game_NoteTxt_KaDon; } break;
 		case NoteSEType::Drumroll: { spr = SprID::Game_NoteTxt_Drumroll; } break;
 		case NoteSEType::DrumrollBig: { spr = SprID::Game_NoteTxt_DrumrollBig; } break;
 		case NoteSEType::Balloon: { spr = SprID::Game_NoteTxt_Balloon; } break;
 		case NoteSEType::BalloonSpecial: { spr = SprID::Game_NoteTxt_BalloonSpecial; } break;
+		case NoteSEType::Bomb: { spr = SprID::Game_NoteTxt_Bomb; } break;
+		case NoteSEType::Adlib: { spr = SprID::Game_NoteTxt_Adlib; } break;
+		case NoteSEType::Fuse: { spr = SprID::Game_NoteTxt_Fuse; } break;
 		default: return;
 		}
 
-		if (seType == NoteSEType::Drumroll || seType == NoteSEType::DrumrollBig)
+		if (seType == NoteSEType::Drumroll || seType == NoteSEType::DrumrollBig || seType == NoteSEType::Fuse)
 		{
 			const SprInfo sprInfo = gfx.GetInfo(spr);
 
-			const f32 midAlignmentOffset = (seType == NoteSEType::DrumrollBig) ? 136.0f : 68.0f;
+			const f32 midAlignmentOffset = (seType != NoteSEType::Drumroll) ? 136.0f : 68.0f;
 			f32 distance = Distance(centerTail, centerHead);
 			const vec2 mid = isfinite(distance) ? (centerHead + centerTail) / 2.0f : hasHead ? centerHead : centerTail;
 			if (!isfinite(distance))
@@ -568,10 +572,14 @@ namespace PeepoDrumKit
 			case NoteType::Ka: { it.TempSEType = (se == SEFormType::Long) ? NoteSEType::Katsu : NoteSEType::Ka; } break;
 			case NoteType::KaBig: { it.TempSEType = NoteSEType::KatsuBig; } break;
 			case NoteType::KaBigHand: { it.TempSEType = NoteSEType::KatsuHand; } break;
+			case NoteType::KaDon: { it.TempSEType = NoteSEType::KaDon; } break;
 			case NoteType::Drumroll: { it.TempSEType = NoteSEType::Drumroll; } break;
 			case NoteType::DrumrollBig: { it.TempSEType = NoteSEType::DrumrollBig; } break;
 			case NoteType::Balloon: { it.TempSEType = NoteSEType::Balloon; } break;
 			case NoteType::BalloonSpecial: { it.TempSEType = NoteSEType::BalloonSpecial; } break;
+			case NoteType::Bomb: { it.TempSEType = NoteSEType::Bomb; } break;
+			case NoteType::Adlib: { it.TempSEType = NoteSEType::Adlib; } break;
+			case NoteType::Fuse: { it.TempSEType = NoteSEType::Fuse; } break;
 			default: { it.TempSEType = NoteSEType::Count; } break;
 			}
 		};

@@ -36,8 +36,12 @@ namespace PeepoDrumKit
 	{
 		Do, Ko, Don, DonBig, DonHand,
 		Ka, Katsu, KatsuBig, KatsuHand,
+		KaDon,
 		Drumroll, DrumrollBig,
 		Balloon, BalloonSpecial,
+		Bomb, // might take other NoteSEType instead
+		Adlib, // long
+		Fuse,
 		Count
 	};
 
