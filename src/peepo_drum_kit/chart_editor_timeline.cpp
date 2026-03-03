@@ -348,8 +348,9 @@ namespace PeepoDrumKit
 		const f32 visibleWidth = regions.Content.GetWidth();
 		const f32 totalTimelineWidth = camera.WorldToLocalSpaceScale(vec2(camera.TimeToWorldSpaceX(chart.GetDurationOrDefault()), 0.0f)).x + 2.0f;
 
-		const f32 cameraTargetPosition = TimelineCameraBaseScrollX + (totalTimelineWidth - visibleWidth - TimelineCameraBaseScrollX) * normalizedTargetPosition;
-		camera.PositionTarget.x = ClampBot(cameraTargetPosition, TimelineCameraBaseScrollX);
+		const f32 cameraTargetPosition = totalTimelineWidth * normalizedTargetPosition
+			+ LerpClamped(TimelineCameraBaseScrollX, -visibleWidth - TimelineCameraBaseScrollX, normalizedTargetPosition);
+		camera.PositionTarget.x = cameraTargetPosition;
 	}
 
 	static f32 GetNotesWaveAnimationTimeAtIndex(i32 noteIndex, i32 notesCount, i32 direction)
@@ -1065,38 +1066,58 @@ namespace PeepoDrumKit
 				char buffer[64];
 
 				// TODO: ...
+				static constexpr f32 textAlpha = 0.5f;
 				static constexpr f32 buttonAlpha = 0.35f;
 				Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
 				Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, buttonAlpha));
 				Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, buttonAlpha));
 				Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, buttonAlpha));
 				{
-					Gui::BeginDisabled();
+					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x, Gui::GetFrameHeight() - Gui::GetFontSize()));
 					const vec2 perButtonSize = vec2(Gui::GetContentRegionAvail()) * vec2(1.0f / 3.0f, 1.0f);
 					{
-						Time displayTime = {};
-						if (*Settings.General.DisplayTimeInSongSpace)
-							displayTime = ClampBot(context.GetCursorTime() - context.Chart.SongOffset, Min(-context.Chart.SongOffset, Time::Zero()));
-						else
-							displayTime = ClampBot(context.GetCursorTime(), Time::Zero());
+						Time cursorTimeOffset = (*Settings.General.DisplayTimeInSongSpace) ? -context.Chart.SongOffset : Time::Zero();
+						Time displayTime = context.GetCursorTime() + cursorTimeOffset;
+						Time displayTimeMin = Min(cursorTimeOffset, Time::Zero());
+						Time displayTimeMax = context.Chart.GetDurationOrDefault() + cursorTimeOffset;
+						displayTime.ToString(buffer, sizeof(buffer));
 
-						Gui::Button(displayTime.ToString().Data, perButtonSize);
+						Gui::SetNextItemWidth(perButtonSize.x);
+						b8 isOutOfChart = !((displayTime >= displayTimeMin) && (displayTime <= displayTimeMax));
+						if (isOutOfChart)
+							Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
+						if (f32 v = displayTime.Seconds;
+							Gui::DragFloat("##DisplayTime", &v, 1, 0, 0, buffer) && !(context.GetIsPlayback() && Gui::IsItemBeingEditedAsText())
+							) {
+							Time newTime = Time::FromSec(v);
+							if (*Settings.General.DisplayTimeInSongSpace)
+								context.SetCursorTime(newTime + context.Chart.SongOffset);
+							else
+								context.SetCursorTime(newTime);
+							ScrollToTimelinePosition(Camera, Regions, context.Chart, context.GetCursorTime() / context.Chart.GetDurationOrDefault());
+						}
+						Gui::PopStyleColor(isOutOfChart);
 					}
 					Gui::SameLine(0.0f, 0.0f);
 					{
-						sprintf_s(buffer, "%g%%", ToPercent(context.GetPlaybackSpeed()));
-						Gui::Button(buffer, perButtonSize);
+						Gui::SetNextItemWidth(perButtonSize.x);
+						b8 isStop = (context.GetPlaybackSpeed() == 0);
+						if (isStop)
+							Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
+						if (f32 percent = ToPercent(context.GetPlaybackSpeed()); Gui::DragFloat("##PlaybackSpeed", &percent, 1.0f, 0.0f, 0.0f, "%g%%"))
+							context.SetPlaybackSpeed(FromPercent(percent));
+						Gui::PopStyleColor(isStop);
 					}
 					Gui::SameLine(0.0f, 0.0f);
 					{
-						sprintf_s(buffer, "1 / %d", CurrentGridBarDivision);
-						u32 textColorOrig = Gui::GetColorU32(Gui::GetStyleColorVec4(ImGuiCol_Text));
-						u32 textColor = IsTimeSignatureSupported({ 1, CurrentGridBarDivision }) ? textColorOrig : TimelineItemTextColorWarning;
-						Gui::PushStyleColor(ImGuiCol_Text, textColor);
-						Gui::Button(buffer, perButtonSize);
-						Gui::PopStyleColor();
+						Gui::SetNextItemWidth(perButtonSize.x);
+						b8 isDivUnsupported = !IsTimeSignatureSupported({ 1, CurrentGridBarDivision });
+						if (isDivUnsupported)
+							Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
+						Gui::DragInt("##GridBarDivision", &CurrentGridBarDivision, 0.25, 1, INT32_MAX, "1 / %d");
+						Gui::PopStyleColor(isDivUnsupported);
 					}
-					Gui::EndDisabled();
+					Gui::PopStyleVar();
 				}
 				Gui::PopStyleColor(3);
 				Gui::PopFont();
