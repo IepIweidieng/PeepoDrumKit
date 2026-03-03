@@ -661,13 +661,31 @@ namespace PeepoDrumKit
 							context.Undo.NotifyChangesWereMade();
 						}
 
+						auto lastDiffType = DifficultyType::Count;
+						i32 lastPlayerCount = -1;
+						i32 lastPlayerSide = -1;
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
-							char buffer[96]; sprintf_s(buffer, u8"%s ★%d%s %s###Course_%p",
+							enum OmitLevel { None, Diff, PlayerCount, PlayerSide };
+							auto diffType = course->Type;
+							i32 playerCount = course->Style;
+							i32 playerSide = course->PlayerSide;
+							OmitLevel omitLevel = (diffType != lastDiffType) ? None
+								: (playerCount != lastPlayerCount) ? Diff
+								: (playerSide != lastPlayerSide) ? PlayerCount
+								: PlayerSide;
+							lastDiffType = diffType;
+							lastPlayerCount = playerCount;
+							lastPlayerSide = playerSide;
+
+							constexpr cstr fmts[] = {u8"%s ★%d%s %s###Course_%p", u8"%.0s★%d%s %s###Course_%p", u8"%.0s★%d%s%.0s###Course_%p"};
+							cstr fmt = fmts[std::array{ 0, 1, 1, 2 }[omitLevel]];
+
+							char buffer[96]; sprintf_s(buffer, fmt,
 								UI_StrRuntime(DifficultyTypeNames[EnumToIndex(course->Type)]),
 								static_cast<i32>(course->Level), 
 								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
-								GetStyleName(course->Style, course->PlayerSide).data(),
+								GetStyleName(course->Style, course->PlayerSide, omitLevel >= PlayerCount).data(),
 								course.get());
 							const b8 isSelected = (course.get() == context.ChartSelectedCourse);
 							const b8 setSelectedThisFrame = (isSelected && course.get() != lastFrameSelectedCoursePtrID);

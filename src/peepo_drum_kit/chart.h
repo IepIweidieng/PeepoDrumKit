@@ -165,15 +165,16 @@ namespace PeepoDrumKit
 		"DIFFICULTY_TYPE_DAN",
 	};
 
-	static inline std::string GetStyleName(i32 style, i32 playerSide)
+	static inline std::string GetStyleName(i32 style, i32 playerSide, b8 omitStyle = false)
 	{
 		if (style == 1)
-			return UI_Str("PLAYER_SIDE_STYLE_SINGLE");
+			return omitStyle ? "" : UI_Str("PLAYER_SIDE_STYLE_SINGLE");
 		char buf[32];
-		std::string res = (style == 2) ? UI_Str("PLAYER_SIDE_STYLE_DOUBLE")
+		std::string res = omitStyle ? ""
+			: (style == 2) ? UI_Str("PLAYER_SIDE_STYLE_DOUBLE")
 			: std::string(buf, sprintf_s(buf, UI_Str("PLAYER_SIDE_STYLE_FMT_%d_STYLE"), style));
 		std::string_view strPlaySide (buf, sprintf_s(buf, UI_Str("PLAYER_SIDE_PLAYER_FMT_%d_PLAYER"), playerSide));
-		res += " ("; res += strPlaySide; res += ")";
+		res += (omitStyle ? "(" : " ("); res += strPlaySide; res += ")";
 		return res;
 	}
 
