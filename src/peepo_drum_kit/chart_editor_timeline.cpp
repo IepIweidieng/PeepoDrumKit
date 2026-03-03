@@ -1090,7 +1090,11 @@ namespace PeepoDrumKit
 					Gui::SameLine(0.0f, 0.0f);
 					{
 						sprintf_s(buffer, "1 / %d", CurrentGridBarDivision);
+						u32 textColorOrig = Gui::GetColorU32(Gui::GetStyleColorVec4(ImGuiCol_Text));
+						u32 textColor = IsTimeSignatureSupported({ 1, CurrentGridBarDivision }) ? textColorOrig : TimelineItemTextColorWarning;
+						Gui::PushStyleColor(ImGuiCol_Text, textColor);
 						Gui::Button(buffer, perButtonSize);
+						Gui::PopStyleColor();
 					}
 					Gui::EndDisabled();
 				}
@@ -2799,14 +2803,34 @@ namespace PeepoDrumKit
 			// NOTE: Grid snap controls
 			if (IsContentWindowHovered || HasKeyboardFocus())
 			{
-				i32 currentGridDivisionIndex = 0;
-				for (const i32& it : AllowedGridBarDivisions) if (it == CurrentGridBarDivision) currentGridDivisionIndex = ArrayItToIndexI32(&it, &AllowedGridBarDivisions[0]);
-
 				const b8 keyboardFocus = HasKeyboardFocus() && !Gui::GetIO().KeyCtrl;
 				const b8 increaseGrid = (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_X2, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_IncreaseGridDivision, true, InputModifierBehavior::Relaxed));
 				const b8 decreaseGrid = (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_X1, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_DecreaseGridDivision, true, InputModifierBehavior::Relaxed));
-				if (increaseGrid) CurrentGridBarDivision = AllowedGridBarDivisions[Clamp(currentGridDivisionIndex + 1, 0, ArrayCountI32(AllowedGridBarDivisions) - 1)];
-				if (decreaseGrid) CurrentGridBarDivision = AllowedGridBarDivisions[Clamp(currentGridDivisionIndex - 1, 0, ArrayCountI32(AllowedGridBarDivisions) - 1)];
+
+				const auto& io = Gui::GetIO();
+				const auto& divisions = io.KeyAlt ? std::vector<i32>{}
+					: io.KeyShift ? Settings.General.GridBarDivisionsRough.Value
+					: Settings.General.GridBarDivisions.Value;
+				const i32 step = io.KeyAlt ? 1 : io.KeyShift ? 12 : 4;
+				i32 last = divisions.empty() ? 0 : divisions.back();
+				if (increaseGrid) {
+					if (CurrentGridBarDivision >= last) {
+						CurrentGridBarDivision = last + step * (std::floor((CurrentGridBarDivision - last) / step) + 1);
+					} else {
+						auto itLower = std::upper_bound(std::begin(divisions), std::end(divisions), CurrentGridBarDivision);
+						i32 idxLower = (itLower == std::end(divisions)) ? std::size(divisions) : ArrayItToIndexI32(&*itLower, divisions.data());
+						CurrentGridBarDivision = divisions[Clamp(idxLower, 0, i32( std::size(divisions) ) - 1)];
+					}
+				}
+				if (decreaseGrid) {
+					if (CurrentGridBarDivision - step >= last) {
+						CurrentGridBarDivision = last + step * (std::ceil((CurrentGridBarDivision - last) / step) - 1);
+					} else {
+						auto itUpper = std::lower_bound(std::begin(divisions), std::end(divisions), CurrentGridBarDivision);
+						i32 idxUpper = (itUpper == std::end(divisions)) ? std::size(divisions) : ArrayItToIndexI32(&*itUpper, divisions.data());
+						CurrentGridBarDivision = divisions[Clamp(idxUpper - 1, 0, i32( std::size(divisions) ) - 1)];
+					}
+				}
 			}
 			if (HasKeyboardFocus())
 			{

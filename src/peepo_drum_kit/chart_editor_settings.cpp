@@ -451,6 +451,8 @@ namespace PeepoDrumKit
 			X(General.PlaybackSpeedStepPercent, "playback_speed_step_percent");
 			X(General.PlaybackSpeedStepRoughPercent, "playback_speed_step_rough_percent");
 			X(General.PlaybackSpeedStepPrecisePercent, "playback_speed_step_precise_percent");
+			X(General.GridBarDivisions, "grid_bar_divisions");
+			X(General.GridBarDivisionsRough, "grid_bar_divisions_rough");
 			X(General.DisableTempoWindowWidgetsIfHasSelection, "disable_tempo_window_widgets_if_has_selection");
 			X(General.ConvertSelectionToScrollChanges_UnselectOld, "convert_selection_to_scroll_changes_unselect_old");
 			X(General.ConvertSelectionToScrollChanges_SelectNew, "convert_selection_to_scroll_changes_select_new");

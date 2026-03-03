@@ -167,8 +167,6 @@ namespace PeepoDrumKit
 
 	//static_assert((Beat::TicksPerBeat * 4) == 192);
 	static_assert((Beat::TicksPerBeat * 4) == 20160);
-	//constexpr i32 AllowedGridBarDivisions[] = { 4, 8, 12, 16, 24, 32, 48, 64, 96, 192 };
-	constexpr i32 AllowedGridBarDivisions[] = { 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64, 96, 192 };
 
 	// NOTE: Nudge the startup camera position and min scrollbar.x slightly to the left
 	//		 so that a line drawn at worldspace position { x = 0.0f } is fully visible

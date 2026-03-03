@@ -133,6 +133,8 @@ namespace PeepoDrumKit
 			WithDefault<f32> PlaybackSpeedStepPercent = 10.0f;
 			WithDefault<f32> PlaybackSpeedStepRoughPercent = 25.0f;
 			WithDefault<f32> PlaybackSpeedStepPrecisePercent = 5.0f;
+			WithDefault<std::vector<i32>> GridBarDivisions = std::vector{ 1, 2, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64, 96, 192 };
+			WithDefault<std::vector<i32>> GridBarDivisionsRough = std::vector{ 1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 192 };
 			WithDefault<b8> DisableTempoWindowWidgetsIfHasSelection = true;
 			WithDefault<b8> ConvertSelectionToScrollChanges_UnselectOld = false;
 			WithDefault<b8> ConvertSelectionToScrollChanges_SelectNew = true;
