@@ -546,10 +546,18 @@ namespace PeepoDrumKit
 		const Time waveformTimePerPixel = timeline.Camera.LocalSpaceXToTime(1.0f) - timeline.Camera.LocalSpaceXToTime(0.0f);
 		const Time waveformDuration = waveformL.Duration;
 
+		// parallax effect
 		const Rect contentRect = timeline.Regions.Content;
+		const f32 contentHeight = contentRect.GetHeight();
 		const f32 rowsHeight = GetTotalTimelineRowsHeight(timeline);
+		const f32 drawHeight = std::min(rowsHeight, contentHeight);
+		const f32 scrollYRange = std::max(0.0f, rowsHeight - contentHeight);
+		const f32 shiftAmount = std::min(drawHeight / 4, scrollYRange / 4);
+		f32 drawOffsetY = (contentHeight - drawHeight) / 2;
+		if (scrollYRange > 0)
+			drawOffsetY += shiftAmount * 2 * (0.5 - timeline.Camera.PositionCurrent.y / scrollYRange);
 
-		const f32 minAmplitude = (2.0f / rowsHeight);
+		const f32 minAmplitude = (2.0f / drawHeight);
 		for (size_t waveformIndex = 0; waveformIndex < 2; waveformIndex++)
 		{
 			const auto& waveform = (waveformIndex == 0) ? waveformL : waveformR;
@@ -560,7 +568,7 @@ namespace PeepoDrumKit
 			for (i32 visiblePixel = 0; visiblePixel < contentRect.GetWidth(); /*visiblePixel++*/)
 			{
 				CustomDraw::WaveformChunk chunk;
-				const Rect chunkRect = Rect::FromTLSize(timeline.LocalToScreenSpace(vec2(static_cast<f32>(visiblePixel), 0.5f)), vec2(static_cast<f32>(CustomDraw::WaveformPixelsPerChunk), rowsHeight));
+				const Rect chunkRect = Rect::FromTLSize(timeline.LocalToScreenSpace(vec2(static_cast<f32>(visiblePixel), drawOffsetY)), vec2(static_cast<f32>(CustomDraw::WaveformPixelsPerChunk), drawHeight));
 
 				for (i32 chunkPixel = 0; chunkPixel < CustomDraw::WaveformPixelsPerChunk; chunkPixel++)
 				{
