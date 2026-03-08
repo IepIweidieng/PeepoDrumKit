@@ -2457,6 +2457,7 @@ namespace PeepoDrumKit
 				{
 					const TimeSignatureChange* signatureChangeAtCursor = course.TempoMap.Signature.TryFindLastAtBeat(cursorBeat);
 					const TimeSignature signatureAtCursor = (signatureChangeAtCursor != nullptr) ? signatureChangeAtCursor->Signature : FallbackEvent<TimeSignatureChange>.Signature;
+					const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
 					auto insertOrUpdateCursorSignatureChange = [&](TimeSignature newSignature)
 					{
 						// TODO: Also floor cursor beat to next whole bar (?)
@@ -2473,6 +2474,15 @@ namespace PeepoDrumKit
 						insertOrUpdateCursorSignatureChange(TimeSignature(v[0], v[1]));
 
 					Gui::PushID(&course.TempoMap.Signature);
+					Gui::BeginDisabled(!hasRangeSelection);
+					if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), vec2(-1.0f, 0.0f)))
+					{
+						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
+						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
+						const Beat rangeSelectionDuration = rangeSelectionMax - rangeSelectionMin;
+						insertOrUpdateCursorSignatureChange(TimeSignature(rangeSelectionDuration.Ticks, Beat::FromBars(1).Ticks).GetSimplified(4));
+					}
+					Gui::EndDisabled();
 					if (!disallowRemoveButton && signatureChangeAtCursor != nullptr && signatureChangeAtCursor->Beat == cursorBeat)
 					{
 						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
@@ -2659,6 +2669,8 @@ namespace PeepoDrumKit
 					});
 				Gui::Property::Value([&]
 					{
+						const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
+
 						Gui::BeginDisabled(disableEditingAtPlayCursor);
 						Gui::SetNextItemWidth(-1.0f); Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
 							{
@@ -2689,6 +2701,17 @@ namespace PeepoDrumKit
 							);
 
 						Gui::PushID(&course.JPOSScrollChanges);
+						Gui::BeginDisabled(!hasRangeSelection);
+						if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), vec2(-1.0f, 0.0f)))
+						{
+							const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
+							const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
+							const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);
+							insertOrUpdateCursorJPOSScrollChange(
+								JPOSScrollMoveAtCursor, Clamp(rangeSelectionDuration.ToSec_F32(), MinJPOSScrollDuration, MaxJPOSScrollDuration)
+							);
+						}
+						Gui::EndDisabled();
 						if (!disallowRemoveButton && JPOSScrollChangeAtCursor != nullptr && JPOSScrollChangeAtCursor->BeatTime == cursorBeat)
 						{
 							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
@@ -2734,6 +2757,8 @@ namespace PeepoDrumKit
 				});
 				Gui::Property::Value([&]
 				{
+					const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
+
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 
 					Gui::SetNextItemWidth(getInsertButtonWidth());
@@ -2743,12 +2768,36 @@ namespace PeepoDrumKit
 					if (Gui::Button(u8"∞##SuddenAppearanceOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						insertOrUpdateCursorSudden(Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 
+					Gui::PushID(&course.SuddenChanges);
+					Gui::BeginDisabled(!hasRangeSelection);
+					if (Gui::Button((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenAppearanceOffsetSetFromRange")).c_str(), vec2(-1.0f, 0.0f)))
+					{
+						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
+						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
+						const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);
+						insertOrUpdateCursorSudden(rangeSelectionDuration, SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
+					}
+					Gui::EndDisabled();
+					Gui::PopID();
+
 					Gui::SetNextItemWidth(getInsertButtonWidth());
 					if (f32 v = SuddenMovementOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenMovementOffsetAtCursor", &v, .1f, .5f, "%gs (move)"))
 						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(v), SuddenHideRollAtCursor);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					if (Gui::Button(u8"∞##SuddenMovementOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenHideRollAtCursor);
+
+					Gui::PushID(&course.SuddenChanges);
+					Gui::BeginDisabled(!hasRangeSelection);
+					if (Gui::Button((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenMovementOffsetSetFromRange")).c_str(), vec2(-1.0f, 0.0f)))
+					{
+						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
+						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
+						const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, rangeSelectionDuration, SuddenHideRollAtCursor);
+					}
+					Gui::EndDisabled();
+					Gui::PopID();
 
 					if (b8 v = SuddenHideRollAtCursor; Gui::Checkbox(UI_Str("EVENT_SUDDEN_HIDE_ROLL"), &v))
 						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, SuddenMovementOffsetAtCursor, v);
