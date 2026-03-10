@@ -202,7 +202,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_Paste = { KeyBinding(ImGuiKey_V, ImGuiMod_Ctrl) };
 			WithDefault<MultiInputBinding> Timeline_DeleteSelection = { KeyBinding(ImGuiKey_Delete) };
 			WithDefault<MultiInputBinding> Timeline_StartEndRangeSelection = { KeyBinding(ImGuiKey_Tab) };
-			WithDefault<MultiInputBinding> Timeline_SelectAll = {};
+			WithDefault<MultiInputBinding> Timeline_SelectAll = { KeyBinding(ImGuiKey_A, ImGuiMod_Ctrl) };
 			WithDefault<MultiInputBinding> Timeline_ClearSelection = {};
 			WithDefault<MultiInputBinding> Timeline_InvertSelection = {};
 			WithDefault<MultiInputBinding> Timeline_SelectToChartEnd = {};
