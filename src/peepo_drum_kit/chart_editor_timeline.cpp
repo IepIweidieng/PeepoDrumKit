@@ -548,12 +548,11 @@ namespace PeepoDrumKit
 
 		// parallax effect
 		const Rect contentRect = timeline.Regions.Content;
-		const f32 contentHeight = contentRect.GetHeight();
+		const f32 drawHeight = contentRect.GetHeight();
 		const f32 rowsHeight = GetTotalTimelineRowsHeight(timeline);
-		const f32 drawHeight = std::min(rowsHeight, contentHeight);
-		const f32 scrollYRange = std::max(0.0f, rowsHeight - contentHeight);
+		const f32 scrollYRange = std::max(0.0f, rowsHeight - drawHeight);
 		const f32 shiftAmount = std::min(drawHeight / 4, scrollYRange / 4);
-		f32 drawOffsetY = (contentHeight - drawHeight) / 2;
+		f32 drawOffsetY = (drawHeight - drawHeight) / 2;
 		if (scrollYRange > 0)
 			drawOffsetY += shiftAmount * 2 * (0.5 - timeline.Camera.PositionCurrent.y / scrollYRange);
 
