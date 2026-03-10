@@ -3528,14 +3528,18 @@ namespace PeepoDrumKit
 		// NOTE: Mouse selection box
 		if (BoxSelection.IsActive)
 		{
-			auto clampVisibleScreenSpace = [&](vec2 screenSpace) { return vec2(screenSpace.x, Clamp(screenSpace.y, Regions.Content.TL.y + 2.0f, Regions.Content.BR.y - 2.0f)); };
+			f32 localYMax = std::max(Regions.Content.GetHeight(), GetTotalTimelineRowsHeight(*this));
+			auto clampVisibleLocalSpace = [&](vec2 localSpace) // keep top and bottom outlines within the world space
+			{
+				return vec2(localSpace.x, std::max(1.0f, std::min(localSpace.y + Camera.PositionCurrent.y, (localYMax - 1.0f))) - Camera.PositionCurrent.y);
+			};
 
 			DrawListContent->AddRectFilled(
-				clampVisibleScreenSpace(LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.TL))),
-				clampVisibleScreenSpace(LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.BR))), TimelineBoxSelectionBackgroundColor);
+				LocalToScreenSpace(clampVisibleLocalSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.TL))),
+				LocalToScreenSpace(clampVisibleLocalSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.BR))), TimelineBoxSelectionBackgroundColor);
 			DrawListContent->AddRect(
-				clampVisibleScreenSpace(LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.TL))),
-				clampVisibleScreenSpace(LocalToScreenSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.BR))), TimelineBoxSelectionBorderColor);
+				LocalToScreenSpace(clampVisibleLocalSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.TL))),
+				LocalToScreenSpace(clampVisibleLocalSpace(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.BR))), TimelineBoxSelectionBorderColor);
 
 			if (BoxSelection.Action != BoxSelectionAction::Clear)
 			{
