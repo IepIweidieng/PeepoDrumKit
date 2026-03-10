@@ -2368,9 +2368,6 @@ namespace PeepoDrumKit
 			}
 		}
 
-		// restrict vertical scroll range
-		Camera.PositionTarget.y = std::max(0.0f, std::min(Camera.PositionTarget.y, GetTotalTimelineRowsHeight(*this) - Regions.Content.GetHeight()));
-
 		// NOTE: Auto playback scroll (needs to be updated before the toggle playback input check is run for better result (?))
 		{
 			if (context.GetIsPlayback() && Audio::Engine.GetIsStreamOpenRunning())
@@ -3214,7 +3211,7 @@ namespace PeepoDrumKit
 				Gui::SetActiveID(Gui::GetID(&BoxSelection), Gui::GetCurrentWindow());
 
 				// NOTE: Auto scroll timeline if selection offscreen and mouse moved (similar to how it works in reaper)
-				if ((MousePosThisFrame.x < Regions.Content.TL.x) || (MousePosThisFrame.x > Regions.Content.BR.x))
+				if (!Regions.Content.Contains(MousePosThisFrame))
 				{
 					const vec2 mouseDelta = (MousePosLastFrame - MousePosThisFrame);
 					if (!ApproxmiatelySame(mouseDelta.x, 0.0f) || !ApproxmiatelySame(mouseDelta.y, 0.0f))
@@ -3224,12 +3221,17 @@ namespace PeepoDrumKit
 
 						// NOTE: Using the max axis feels more natural than the vector length
 						const f32 mouseDistanceMoved = Max(Absolute(mouseDelta.x), Absolute(mouseDelta.y));
-						const f32 scrollDirection = (MousePosThisFrame.x < Regions.Content.TL.x) ? -1.0f : +1.0f;
-						Camera.PositionTarget.x = ClampBot(Min(TimelineCameraBaseScrollX, Camera.PositionTarget.x), Camera.PositionTarget.x + (scrollDirection * mouseDistanceMoved * scrollSpeed));
+						const f32 scrollDirectionX = { (MousePosThisFrame.x < Regions.Content.TL.x) ? -1.0f : (MousePosThisFrame.x >= Regions.Content.BR.x) ? +1.0f : 0.0f };
+						const f32 scrollDirectionY = { (MousePosThisFrame.y < Regions.Content.TL.y) ? -1.0f : (MousePosThisFrame.y >= Regions.Content.BR.y) ? +1.0f : 0.0f };
+						Camera.PositionTarget.x = ClampBot(Min(TimelineCameraBaseScrollX, Camera.PositionTarget.x), Camera.PositionTarget.x + (scrollDirectionX * mouseDistanceMoved * scrollSpeed));
+						Camera.PositionTarget.y += scrollDirectionY * mouseDistanceMoved * scrollSpeed;
 					}
 				}
 			}
 		}
+
+		// restrict vertical scroll range
+		Camera.PositionTarget.y = std::max(0.0f, std::min(Camera.PositionTarget.y, GetTotalTimelineRowsHeight(*this) - Regions.Content.GetHeight()));
 	}
 
 	void ChartTimeline::UpdateAllAnimationsAfterUserInput(ChartContext& context)
