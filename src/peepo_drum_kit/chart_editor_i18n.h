@@ -152,6 +152,7 @@ X("ACT_COURSES_COMPARE_ACROSS_BRANCHES",			"Across Branches") \
 X("ACT_COURSES_COMPARE_MODE",						"Comparison Mode") \
 X("ACT_COURSES_COMPARE_THIS",						"Compare This") \
 X("ACT_COURSES_EDIT",								"Edit...") \
+X("INFO_COURSES_REORDER",							"Drag tabs to reorder") \
 /* audio menu */ \
 X("ACT_AUDIO_OPEN_DEVICE",							"Open Audio Device") \
 X("ACT_AUDIO_CLOSE_DEVICE",							"Close Audio Device") \

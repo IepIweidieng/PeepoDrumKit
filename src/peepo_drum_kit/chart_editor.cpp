@@ -614,6 +614,8 @@ namespace PeepoDrumKit
 						Gui::EndMenu();
 					}
 
+					Gui::Separator();
+					Gui::MenuItem(UI_Str("INFO_COURSES_REORDER"), nullptr, false, false);
 					Gui::EndMenu();
 				}
 
@@ -765,6 +767,8 @@ namespace PeepoDrumKit
 								if (Gui::MenuItem(UI_Str("ACT_COURSES_EDIT"), " "))
 									propertiesWindow.FocusCoursePropertyHeaderNextFrame = ChartPropertiesWindow::EFocus::Focus;
 
+								Gui::Separator();
+								Gui::MenuItem(UI_Str("INFO_COURSES_REORDER"), nullptr, false, false);
 								Gui::EndPopup();
 							}
 
