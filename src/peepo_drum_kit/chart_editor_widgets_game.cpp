@@ -851,36 +851,25 @@ namespace PeepoDrumKit
 				// snake in
 				vec2 laneHead = laneHeadMove, laneTail = laneTailMove;
 				if (it.Beat != it.Tail.Beat) {
-					// snake in, from hasVisualRange head with hasVisualRange head time, to hasVisualRange end with hasVisualRange end time
-					// Range of visible roll body, in approach time
-					// pre-move head -> visual time lower, shown head is pre-move head
-					auto visualRangePos = std::pair{
-						std::min(cursorTimeOrAnimated + suddenMoveOffsetHead, it.Time),
-						std::min(cursorTimeOrAnimated + suddenMoveOffsetTail, it.Tail.Time),
-					};
-					if (!IntervalSameDirection(visualRangePos.first, visualRangePos.second, it.Time, it.Tail.Time)) {
+					// Range of interpolated sudden appear offset to show
+					auto shownRangeSudden = (suddenShowTimeHead <= suddenShowTimeTail) ? std::pair{ suddenShowTimeHead, cursorTimeOrAnimated }
+						: std::pair{ cursorTimeOrAnimated, suddenShowTimeTail };
+					// Range of roll body to show, in chart time
+					auto shownRangePos = ConvertRangeInterval(suddenShowTimeHead.Seconds, suddenShowTimeTail.Seconds, it.Time, it.Tail.Time, shownRangeSudden.first.Seconds, shownRangeSudden.second.Seconds);
+					if (!IntervalIntersected(shownRangePos.first, shownRangePos.second, it.Time, it.Tail.Time)) {
 						isVisibleBody = false;
 					} else {
-						// Range of interpolated sudden appear offset to show
-						auto shownRangeSudden = (suddenShowTimeHead <= suddenShowTimeTail) ? std::pair{ suddenShowTimeHead, cursorTimeOrAnimated }
-							: std::pair{ cursorTimeOrAnimated, suddenShowTimeTail };
-						// Range of roll body to show, in approach time
-						auto shownRangePos = ConvertRangeInterval(suddenShowTimeHead.Seconds, suddenShowTimeTail.Seconds, visualRangePos.first, it.Tail.Time, shownRangeSudden.first.Seconds, shownRangeSudden.second.Seconds);
-						if (!IntervalIntersected(shownRangePos.first, shownRangePos.second, visualRangePos.first, visualRangePos.second)) {
-							isVisibleBody = false;
-						} else if (visualRangePos.first != visualRangePos.second) { // need interpolation
+						shownRangePos = std::pair{
+							RClamp(shownRangePos.first, it.Time, it.Tail.Time),
+							RClamp(shownRangePos.second, it.Time, it.Tail.Time),
+						};
+						if (IsBalloonNote(it.OriginalNote->Type)) {
 							shownRangePos = std::pair{
-								RClamp(shownRangePos.first, visualRangePos.first, visualRangePos.second),
-								RClamp(shownRangePos.second, visualRangePos.first, visualRangePos.second),
+								ClampBot(shownRangePos.first, ClampTop(cursorTimeOrAnimated, it.Tail.Time)),
+								ClampBot(shownRangePos.second, ClampTop(cursorTimeOrAnimated, it.Tail.Time)),
 							};
-							if (IsBalloonNote(it.OriginalNote->Type)) {
-								shownRangePos = std::pair{
-									RClampStart(shownRangePos.first, RClampEnd(cursorTimeOrAnimated, it.Time, it.Tail.Time), it.Tail.Time),
-									RClampStart(shownRangePos.second, RClampEnd(cursorTimeOrAnimated, it.Time, it.Tail.Time), it.Tail.Time),
-								};
-							}
-							std::tie(laneHead, laneTail) = ConvertRangeInterval(visualRangePos.first.Seconds, visualRangePos.second.Seconds, laneHeadMove, laneTailMove, shownRangePos.first.Seconds, shownRangePos.second.Seconds);
 						}
+						std::tie(laneHead, laneTail) = ConvertRangeInterval(it.Time.Seconds, it.Tail.Time.Seconds, laneHeadMove, laneTailMove, shownRangePos.first.Seconds, shownRangePos.second.Seconds);
 					}
 				}
 				// finite check
