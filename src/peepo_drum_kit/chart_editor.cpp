@@ -614,7 +614,6 @@ namespace PeepoDrumKit
 						Gui::EndMenu();
 					}
 
-					Gui::MenuItem(UI_Str("ACT_COURSES_EDIT"), "(TODO)", nullptr, false);
 					Gui::EndMenu();
 				}
 
@@ -713,6 +712,9 @@ namespace PeepoDrumKit
 								isAnyCourseTabSelected = true;
 								Gui::EndTabItem();
 							}
+							// jump to course property for editing
+							if (Gui::IsItemClicked() && Gui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+								propertiesWindow.FocusCoursePropertyHeaderNextFrame = ChartPropertiesWindow::EFocus::Focus;
 
 							Gui::PopStyleColor(nPushedStyleColorI);
 
@@ -756,6 +758,12 @@ namespace PeepoDrumKit
 								}
 								if (Gui::MenuItem(UI_Str("ACT_COURSES_COMPARE_MODE"), " ", &context.CompareMode) && !context.CompareMode)
 									context.ResetChartsCompared();
+
+								Gui::Separator();
+
+								// jump to course property for editing
+								if (Gui::MenuItem(UI_Str("ACT_COURSES_EDIT"), " "))
+									propertiesWindow.FocusCoursePropertyHeaderNextFrame = ChartPropertiesWindow::EFocus::Focus;
 
 								Gui::EndPopup();
 							}
@@ -1031,6 +1039,8 @@ namespace PeepoDrumKit
 		}
 		Gui::End();
 
+		if (propertiesWindow.FocusCoursePropertyHeaderNextFrame == ChartPropertiesWindow::EFocus::Focus)
+			Gui::SetNextWindowFocus();
 		if (Gui::Begin(UI_WindowName("TAB_CHART_PROPERTIES"), nullptr, ImGuiWindowFlags_None))
 		{
 			ChartPropertiesWindowIn in = {};

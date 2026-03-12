@@ -2154,8 +2154,22 @@ namespace PeepoDrumKit
 			}
 		}
 
+		if (FocusCoursePropertyHeaderNextFrame != EFocus::None)
+			Gui::SetNextItemOpen(true);
 		if (Gui::CollapsingHeader(UI_Str("DETAILS_CHART_PROPERTIES_COURSE"), ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			switch (FocusCoursePropertyHeaderNextFrame) {
+			case EFocus::Focus:
+				FocusCoursePropertyHeaderNextFrame = EFocus::Scroll;
+				Gui::SetNavCursorVisible(true);
+				Gui::FocusItem();
+				break;
+			case EFocus::Scroll:
+				FocusCoursePropertyHeaderNextFrame = EFocus::None;
+				Gui::SetScrollHereY(0);
+				break;
+			}
+
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner))
 			{
 				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_TYPE"), [&]

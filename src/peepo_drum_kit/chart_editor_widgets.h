@@ -117,6 +117,9 @@ namespace PeepoDrumKit
 		std::string JacketFileNameInputBuffer;
 		LoadingTextAnimation JacketLoadingTextAnimation{};
 
+		enum class EFocus: u8 { None, Focus, Scroll };
+		EFocus FocusCoursePropertyHeaderNextFrame = EFocus::None;
+
 		void DrawGui(ChartContext& context, const ChartPropertiesWindowIn& in, ChartPropertiesWindowOut& out);
 	};
 
