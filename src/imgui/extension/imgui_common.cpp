@@ -40,7 +40,6 @@ namespace ImGui
 		f32& scrollYTarget = storage->ScrollYTarget;
 		f32& scrollYCurrentLastFrame = storage->ScrollYLastFrame;
 		f32& scrollYCurrent = window->Scroll.y;
-		AnimateExponential(&scrollYCurrent, scrollYTarget, animationSpeed);
 
 		if (ImGui::GetCurrentContext()->WheelingWindow == window)
 		{
@@ -63,6 +62,7 @@ namespace ImGui
 			if (!ApproxmiatelySame(scrollYCurrentLastFrame, scrollYCurrent))
 				scrollYTarget = scrollYCurrent;
 		}
+		AnimateExponential(&scrollYCurrent, scrollYTarget, animationSpeed);
 		scrollYCurrentLastFrame = scrollYCurrent;
 	}
 
