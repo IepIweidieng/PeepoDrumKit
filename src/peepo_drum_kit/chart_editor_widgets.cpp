@@ -1976,10 +1976,16 @@ namespace PeepoDrumKit
 	static void PropertyMapCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& properties,
 		const char* labelAdd, std::string* pNewKey, FCharFilter&& charFilter, FKeyFilter&& keyFilter, const std::string& newDefault)
 	{
+		ImDrawList* drawList = Gui::GetWindowDrawList();
 		ImGuiTable* table = Gui::GetCurrentTable();
 		Gui::TableNextRow();
 		f32 restoreX = TableFullRowBegin();
-		if (Gui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)) {
+
+		drawList->ChannelsSplit(2);
+		drawList->ChannelsSetCurrent(1);
+		b8 isOpen = Gui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen);
+		vec2 tl = Gui::GetItemRectMin();
+		if (isOpen) {
 			if (Gui::Property::BeginTable(ImGuiTableFlags_BordersInner)) {
 				const std::string* localeToRemove = nullptr;
 				for (auto&& [key, val] : properties) {
@@ -2027,7 +2033,18 @@ namespace PeepoDrumKit
 				Gui::EndTable();
 			}
 		}
+		drawList->ChannelsSetCurrent(0);
+		// unclip, clip to window, and then draw background and border
+		ImGuiStyle style = Gui::GetStyle();
+		vec2 marginSize = style.CellPadding;
+		f32 borderSize = style.ChildBorderSize;
+		ImGuiWindow* window = Gui::GetCurrentWindow();
+		drawList->PushClipRect(window->OuterRectClipped.Min, window->OuterRectClipped.Max, false);
+		drawList->AddRectFilled(vec2{ tl.x, tl.y - marginSize.y }, vec2(Gui::GetItemRectMax()) + marginSize, Gui::GetColorU32(ImGuiCol_Separator, 0.1), ImDrawFlags_None, borderSize);
+		drawList->AddRect(vec2{ tl.x, tl.y - marginSize.y }, vec2(Gui::GetItemRectMax()) + marginSize, Gui::GetColorU32(ImGuiCol_Separator), ImDrawFlags_None, borderSize);
+		drawList->PopClipRect();
 		TableFullRowEnd(restoreX);
+		drawList->ChannelsMerge();
 	}
 
 	static void LocalizedPropertyCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& propertyLocalized, std::string* pNewLocale)
