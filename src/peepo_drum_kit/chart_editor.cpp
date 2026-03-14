@@ -1412,19 +1412,26 @@ namespace PeepoDrumKit
 	
 	void ChartEditor::CreateNewDifficulty(ChartContext& context, DifficultyType difficulty)
 	{
-		auto ccourse = std::make_unique<ChartCourse>();
+		auto course = std::make_unique<ChartCourse>();
 
-		ccourse->Type = difficulty;
-
-		for (auto& course : context.Chart.Courses)
-		{
-			ccourse->TempoMap.Tempo.Sorted = course->TempoMap.Tempo.Sorted;
-			ccourse->TempoMap.Signature.Sorted = course->TempoMap.Signature.Sorted;
-			ccourse->TempoMap.RebuildAccelerationStructure();
-			break;
+		// old behavior: use first course for timing events
+		// new behavior: use selected course for non-note events
+		if (context.ChartSelectedCourse != nullptr) {
+			const auto& courseRef = context.ChartSelectedCourse;
+			ApplyForEachGenericList(overloaded{
+				[&](GenericList list, SortedNotesList& typedList, const SortedNotesList& typedListRef) { }, // ignore notes
+				[&](GenericList list, auto& typedList, const auto& typedListRef)
+				{
+					typedList = typedListRef;
+					for (size_t i = 0; i < typedList.size(); i++)
+						SetIsSelected(false, typedList[i]);
+				},
+			}, *course, *courseRef);
+			course->TempoMap.RebuildAccelerationStructure();
 		}
+		course->Type = difficulty;
 
-		context.SetSelectedChart(context.Chart.Courses.emplace_back(std::move(ccourse)).get(), BranchType::Normal);
+		context.SetSelectedChart(context.Chart.Courses.emplace_back(std::move(course)).get(), BranchType::Normal);
 	}
 
 	void ChartEditor::SaveChart(ChartContext& context, std::string_view filePath)
