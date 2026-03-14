@@ -1096,6 +1096,67 @@ namespace PeepoDrumKit
 		Gui::PopFont();
 	}
 
+	template <typename T, typename TEUnit, typename TConvert, typename TClamp, typename TFloatEdit, typename... Ts>
+	static b8 GuiEditInUnit(T* value, TEUnit unit,
+		TConvert&& convertTo, TConvert&& convertFrom, TClamp&& clamp, TFloatEdit&& guiEdit, Ts&&... args)
+	{
+		size_t i_unit = EnumToIndex(unit);
+		T v = convertTo[i_unit](*value, args...);
+		b8 res = guiEdit(&v);
+		*value = convertFrom[i_unit](clamp(v), std::forward<Ts>(args)...);
+		return res;
+	}
+
+	template <typename T, typename TEUnit, typename TConvert, typename TClamp, typename TStep, typename... Ts>
+	static b8 SpinInUnit(cstr label, T* value, TEUnit unit,
+		TConvert&& convertTo, TConvert&& convertFrom, TClamp&& clamp, TStep&& step, TStep&& stepFast, cstr format, Ts&&... args)
+	{
+		size_t i_unit = EnumToIndex(unit);
+		return GuiEditInUnit(value, unit, convertTo, convertFrom, clamp,
+			[&](T* v) { return Gui::SpinFloat(label, v, step[i_unit], stepFast[i_unit], format); },
+			args...);
+	}
+
+	template <typename T, typename TEUnit, typename TConvert, typename TClamp, typename TStep, typename... Ts>
+	static b8 DragLabelInUnit(cstr label, T* value, TEUnit unit,
+		TConvert&& convertTo, TConvert&& convertFrom, TClamp&& clamp, TStep&& dragSpeed, Ts&&... args)
+	{
+		size_t i_unit = EnumToIndex(unit);
+		return GuiEditInUnit(value, unit, convertTo, convertFrom, clamp,
+			[&](T* v) { return GuiDragLabelFloat(label, v, dragSpeed[i_unit]); },
+			args...);
+	}
+
+	enum class EScrollUnit { Scroll, BPM, Count };
+	constexpr cstr scrollUnitNames[] = { "x", "BPM" };
+	constexpr f32 scrollUnitStep[] = { 0.1f, 1.0f };
+	constexpr f32 scrollUnitStepFast[] = { 0.5f, 10.0f };
+	constexpr f32 scrollUnitDragSpeed[] = { 0.005f, 0.01f };
+	std::function<f32(f32, Tempo)> scrollUnitConvertTo[] = {
+		[](f32 v, Tempo tempo) { return v; },
+		[](f32 v, Tempo tempo) { return ScrollSpeedToTempo(v, tempo).BPM; },
+	};
+	std::function<f32(f32, Tempo)> scrollUnitConvertFrom[] = {
+		[](f32 v, Tempo tempo) { return v; },
+		[](f32 v, Tempo tempo) { return ScrollTempoToSpeed(Tempo(v), tempo); },
+	};
+	constexpr f32 scrollUnitMin[] = { MinScrollSpeed, MinScrollBPM };
+	constexpr f32 scrollUnitMax[] = { MaxScrollSpeed, MaxScrollBPM };
+	static b8 DragLabelInUnit(cstr label, f32* value, EScrollUnit unit, Tempo tempoAtCursor)
+	{
+		size_t i_unit = EnumToIndex(unit);
+		return DragLabelInUnit(label, value, unit, scrollUnitConvertTo, scrollUnitConvertFrom,
+			[&](f32 v) { return Clamp(v, scrollUnitMin[i_unit], scrollUnitMax[i_unit]); },
+			scrollUnitDragSpeed, tempoAtCursor);
+	}
+	static b8 SpinInUnit(cstr label, f32* value, EScrollUnit unit, cstr format, Tempo tempoAtCursor)
+	{
+		size_t i_unit = EnumToIndex(unit);
+		return SpinInUnit(label, value, unit, scrollUnitConvertTo, scrollUnitConvertFrom,
+			[&](f32 v) { return Clamp(v, scrollUnitMin[i_unit], scrollUnitMax[i_unit]); },
+			scrollUnitStep, scrollUnitStepFast, format, tempoAtCursor);
+	}
+
 	using TempChartItem = ChartInspectorWindow::TempChartItem;
 
 	template <typename HintT = keep_deduced_t, typename GetF, typename SetF, typename ClampF,
@@ -1283,6 +1344,9 @@ namespace PeepoDrumKit
 			Tempo sharedScrollTempo = {};
 			Tempo mixedScrollTempoMin = {};
 			Tempo mixedScrollTempoMax = {};
+			Tempo sharedScrollTempoImag = {};
+			Tempo mixedScrollTempoImagMin = {};
+			Tempo mixedScrollTempoImagMax = {};
 			b8 isAnyRegularNoteSelected = false, isAnyDrumrollNoteSelected = false, isAnyBalloonNoteSelected = false;
 			b8 areAllSelectedNotesSmall = true, areAllSelectedNotesBig = true, areAllSelectedNotesHand = true;
 			b8 perNoteTypeHasAtLeastOneSelected[EnumCount<NoteType>] = {};
@@ -1292,8 +1356,10 @@ namespace PeepoDrumKit
 				for (GenericMember member = {}; member < GenericMember::Count; IncrementEnum(member))
 				{
 					mixedValuesMin[member] = mixedValuesMax[member] = sharedValues[member] = SelectedItems[0].MemberValues[member];
-					if (member == GenericMember::F32_ScrollSpeed)
+					if (member == GenericMember::F32_ScrollSpeed) {
 						mixedScrollTempoMin = mixedScrollTempoMax = sharedScrollTempo = ScrollSpeedToTempo(sharedValues[member].CPX.GetRealPart(), SelectedItems[0].BaseScrollTempo);
+						mixedScrollTempoImagMin = mixedScrollTempoImagMax = sharedScrollTempoImag = ScrollSpeedToTempo(sharedValues[member].CPX.GetImaginaryPart(), SelectedItems[0].BaseScrollTempo);
+					}
 				}
 
 				for (const TempChartItem& item : SelectedItems)
@@ -1343,6 +1409,9 @@ namespace PeepoDrumKit
 								Tempo vTempo = ScrollSpeedToTempo(v.CPX.GetRealPart(), item.BaseScrollTempo);
 								mixedScrollTempoMin.BPM = Min(mixedScrollTempoMin.BPM, vTempo.BPM);
 								mixedScrollTempoMax.BPM = Max(mixedScrollTempoMax.BPM, vTempo.BPM);
+								Tempo vTempoImag = ScrollSpeedToTempo(v.CPX.GetImaginaryPart(), item.BaseScrollTempo);
+								mixedScrollTempoImagMin.BPM = Min(mixedScrollTempoImagMin.BPM, vTempoImag.BPM);
+								mixedScrollTempoImagMax.BPM = Max(mixedScrollTempoImagMax.BPM, vTempoImag.BPM);
 							}
 						} break;
 						case GenericMember::NoteType_V:
@@ -1640,78 +1709,89 @@ namespace PeepoDrumKit
 						} break;
 						case GenericMember::F32_ScrollSpeed:
 						{
+							static EScrollUnit unit = EScrollUnit::Scroll;
+							size_t i_unit = EnumToIndex(unit);
+
 							b8 areAllScrollSpeedsTheSame = (commonEqualMemberFlags & EnumToFlag(member));
 							b8 areAllScrollTemposTheSame = (mixedScrollTempoMin.BPM == mixedScrollTempoMax.BPM);
-							cstr labels[3] = { UI_Str("EVENT_SCROLL_SPEED"), UI_Str("EVENT_PROP_VERTICAL_SCROLL_SPEED"), UI_Str("EVENT_PROP_SCROLL_SPEED_TEMPO") };
-							MultiEditWidgetParam widgetIns[3]  = {};
-							std::function<f32(const TempChartItem&, i32)> getVs[3] = {};
-							std::function<void(TempChartItem&, f32, i32)> setVs[3] = {};
-							std::function<b8(const TempChartItem& item, f32 v, i32)> equalVss[3] = {};
+							b8 areAllScrollTemposImagTheSame = (mixedScrollTempoImagMin.BPM == mixedScrollTempoImagMax.BPM);
+							cstr labels[2] = { UI_Str("EVENT_SCROLL_SPEED"), UI_Str("EVENT_PROP_VERTICAL_SCROLL_SPEED") };
+							MultiEditWidgetParam widgetIns[2]  = {};
+							std::function<f32(const TempChartItem&, i32)> getVs[2] = {};
+							std::function<void(TempChartItem&, f32, i32)> setVs[2] = {};
+							std::function<b8(const TempChartItem& item, f32 v, i32)> equalVss[2] = {};
 
-							for (size_t i = 0; i < 3; i++)
+							for (size_t i = 0; i < 2; i++)
 							{
 								auto& widgetIn = widgetIns[i];
 								widgetIn.EnableStepButtons = true;
 								if (i == 0)
 								{
-									getVs[i] = [](const TempChartItem& item, ...) { return item.MemberValues.ScrollSpeed().GetRealPart(); };
-									setVs[i] = [](TempChartItem& item, f32 v, ...) { item.MemberValues.ScrollSpeed().SetRealPart(v); };
-									equalVss[i] = getDefaultIsEqualValues(getVs[i]);
-									widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetRealPart();
-									widgetIn.HasMixedValues = !areAllScrollSpeedsTheSame;
-									widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetRealPart();
-									widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetRealPart();
-									widgetIn.ButtonStep.F32 = 0.1f;
-									widgetIn.ButtonStepFast.F32 = 0.5f;
-									widgetIn.DragLabelSpeed = 0.005f;
-									widgetIn.FormatString = "%gx";
-									widgetIn.EnableClamp = true;
-									widgetIn.ValueClampMin.F32 = MinScrollSpeed;
-									widgetIn.ValueClampMax.F32 = MaxScrollSpeed;
+									getVs[i] = [&](const TempChartItem& item, ...) { return scrollUnitConvertTo[i_unit](item.MemberValues.ScrollSpeed().GetRealPart(), item.BaseScrollTempo); };
+									setVs[i] = [&](TempChartItem& item, f32 v, ...) { item.MemberValues.ScrollSpeed().SetRealPart(scrollUnitConvertFrom[i_unit](v, item.BaseScrollTempo)); };
+									equalVss[i] = [&](const TempChartItem& item, f32 v, i32) { return ApproxmiatelySame(item.MemberValues.ScrollSpeed().GetRealPart(), scrollUnitConvertFrom[i_unit](v, item.BaseScrollTempo)); };
+									switch (unit) {
+									default:
+									case EScrollUnit::Scroll:
+										widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetRealPart();
+										widgetIn.HasMixedValues = !areAllScrollSpeedsTheSame;
+										widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetRealPart();
+										widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetRealPart();
+										break;
+									case EScrollUnit::BPM:
+										widgetIn.Value.F32 = sharedScrollTempo.BPM;
+										widgetIn.HasMixedValues = !areAllScrollTemposTheSame;
+										widgetIn.MixedValuesMin.F32 = mixedScrollTempoMin.BPM;
+										widgetIn.MixedValuesMax.F32 = mixedScrollTempoMax.BPM;
+										break;
+									}
+									widgetIn.FormatString = std::array{"%gx", "%g BPM"}[i_unit];
 								}
-								else if (i == 1) {
-									getVs[i] = [](const TempChartItem& item, ...) { return item.MemberValues.ScrollSpeed().GetImaginaryPart(); };
-									setVs[i] = [](TempChartItem& item, f32 v, ...) { item.MemberValues.ScrollSpeed().SetImaginaryPart(v); };
-									equalVss[i] = getDefaultIsEqualValues(getVs[i]);
-									widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetImaginaryPart();
-									widgetIn.HasMixedValues = !areAllScrollSpeedsTheSame;
-									widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetImaginaryPart();
-									widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetImaginaryPart();
-									widgetIn.ButtonStep.F32 = 0.1f;
-									widgetIn.ButtonStepFast.F32 = 0.5f;
-									widgetIn.DragLabelSpeed = 0.005f;
-									widgetIn.FormatString = "%gix";
-									widgetIn.EnableClamp = true;
-									widgetIn.ValueClampMin.F32 = MinScrollSpeed;
-									widgetIn.ValueClampMax.F32 = MaxScrollSpeed;
-								}
-								else
+								else if (i == 1)
 								{
-									getVs[i] = [](const TempChartItem& item, ...) { return ScrollSpeedToTempo(item.MemberValues.ScrollSpeed().GetRealPart(), item.BaseScrollTempo).BPM; };
-									setVs[i] = [](TempChartItem& item, f32 v, ...) { item.MemberValues.ScrollSpeed().SetRealPart(ScrollTempoToSpeed(Tempo(v), item.BaseScrollTempo)); };
-									equalVss[i] = [](const TempChartItem& item, f32 v, i32) { return ApproxmiatelySame(item.MemberValues.ScrollSpeed().GetRealPart(), ScrollTempoToSpeed(Tempo(v), item.BaseScrollTempo)); };
-									widgetIn.Value.F32 = sharedScrollTempo.BPM;
-									widgetIn.HasMixedValues = !areAllScrollTemposTheSame;
-									widgetIn.MixedValuesMin.F32 = mixedScrollTempoMin.BPM;
-									widgetIn.MixedValuesMax.F32 = mixedScrollTempoMax.BPM;
-									widgetIn.ButtonStep.F32 = 1.0f;
-									widgetIn.ButtonStepFast.F32 = 10.0f;
-									widgetIn.DragLabelSpeed = 1.0f;
-									widgetIn.FormatString = "%g BPM";
-									widgetIn.EnableClamp = true;
-									widgetIn.ValueClampMin.F32 = MinScrollBPM;
-									widgetIn.ValueClampMax.F32 = MaxScrollBPM;
+									getVs[i] = [&](const TempChartItem& item, ...) { return scrollUnitConvertTo[i_unit](item.MemberValues.ScrollSpeed().GetImaginaryPart(), item.BaseScrollTempo); };
+									setVs[i] = [&](TempChartItem& item, f32 v, ...) { item.MemberValues.ScrollSpeed().SetImaginaryPart(scrollUnitConvertFrom[i_unit](v, item.BaseScrollTempo)); };
+									equalVss[i] = [&](const TempChartItem& item, f32 v, i32) { return ApproxmiatelySame(item.MemberValues.ScrollSpeed().GetImaginaryPart(), scrollUnitConvertFrom[i_unit](v, item.BaseScrollTempo)); };
+									switch (unit) {
+									default:
+									case EScrollUnit::Scroll:
+										widgetIn.Value.F32 = sharedValues.ScrollSpeed().GetImaginaryPart();
+										widgetIn.HasMixedValues = !areAllScrollSpeedsTheSame;
+										widgetIn.MixedValuesMin.F32 = mixedValuesMin.ScrollSpeed().GetImaginaryPart();
+										widgetIn.MixedValuesMax.F32 = mixedValuesMax.ScrollSpeed().GetImaginaryPart();
+										break;
+									case EScrollUnit::BPM:
+										widgetIn.Value.F32 = sharedScrollTempoImag.BPM;
+										widgetIn.HasMixedValues = !areAllScrollTemposImagTheSame;
+										widgetIn.MixedValuesMin.F32 = mixedScrollTempoImagMin.BPM;
+										widgetIn.MixedValuesMax.F32 = mixedScrollTempoImagMax.BPM;
+										break;
+									}
+									widgetIn.FormatString = std::array{ "%gix", "%gi BPM" }[i_unit];
 								}
+								widgetIn.ButtonStep.F32 = scrollUnitStep[i_unit];
+								widgetIn.ButtonStepFast.F32 = scrollUnitStepFast[i_unit];
+								widgetIn.DragLabelSpeed = scrollUnitDragSpeed[i_unit];
+								widgetIn.EnableClamp = true;
+								widgetIn.ValueClampMin.F32 = scrollUnitMin[i_unit];
+								widgetIn.ValueClampMax.F32 = scrollUnitMax[i_unit];
+
 								const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(labels[i], widgetIn);
 								if (SetPropertyMultiSelection(SelectedItems, widgetIn, widgetOut, getVs[i], setVs[i]))
 									valueWasChanged = true;
 							}
 
-							for (size_t i = 0; i < 3; i++) {
+							for (size_t i = 0; i < 2; i++) {
 								sprintf_s(labelBuffer, UI_Str("EVENT_PROP_INTERPOLATE_%s"), labels[i]);
 								if (DrawInterpolationProperty(labelBuffer, widgetIns[i], SelectedItems, getVs[i], setVs[i], equalVss[i]))
 									valueWasChanged = true;
 							}
+
+							Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_SCROLL_SPEED_UNIT"), [&]
+							{
+								Gui::SetNextItemWidth(-1);
+								Gui::ComboEnum("##ScrollSpeedUnit", &unit, scrollUnitNames);
+							});
 						} break;
 						case GenericMember::Time_Offset:
 						{
@@ -2545,12 +2625,13 @@ namespace PeepoDrumKit
 						context.Undo.Execute<Commands::UpdateScrollChange>(&course, &course.ScrollChanges, ScrollChange { cursorBeat, newScrollSpeed });
 				};
 
+				static EScrollUnit unit = EScrollUnit::Scroll;
 				Gui::Property::Property([&]
 				{
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
-					if (Complex v = scrollSpeedAtCursor; GuiDragLabelFloat(UI_Str("EVENT_SCROLL_SPEED"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.005f, MinScrollSpeed, MaxScrollSpeed, ImGuiSliderFlags_AlwaysClamp))
-						insertOrUpdateCursorScrollSpeedChange(v);
+					if (f32 v = scrollSpeedAtCursor.GetRealPart(); DragLabelInUnit(UI_Str("EVENT_SCROLL_SPEED"), &v, unit, tempoAtCursor))
+						insertOrUpdateCursorScrollSpeedChange(Complex(v, scrollSpeedAtCursor.GetImaginaryPart()));
 					Gui::EndDisabled();
 				});
 				Gui::Property::Value([&]
@@ -2560,21 +2641,17 @@ namespace PeepoDrumKit
 					{
 						if (i.Index == 0)
 						{
-							if (Complex v = scrollSpeedAtCursor;
-								Gui::SpinFloat("##ScrollSpeedAtCursor", &reinterpret_cast<f32*>(&(v.cpx))[0], 0.1f, 0.5f, "%gx"))
-								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
+							if (f32 v = scrollSpeedAtCursor.GetRealPart(); SpinInUnit("##ScrollSpeedAtCursor", &v, unit, "%g", tempoAtCursor))
+								insertOrUpdateCursorScrollSpeedChange(Complex(v, scrollSpeedAtCursor.GetImaginaryPart()));
 						}
 						else if (i.Index == 1)
 						{
-							if (Complex v = scrollSpeedAtCursor;
-								Gui::SpinFloat("##ScrollSpeedAtCursorImag", &reinterpret_cast<f32*>(&(v.cpx))[1], 0.1f, 0.5f, "%gix"))
-								insertOrUpdateCursorScrollSpeedChange(Complex(Clamp(v.GetRealPart(), MinScrollSpeed, MaxScrollSpeed), Clamp(v.GetImaginaryPart(), MinScrollSpeed, MaxScrollSpeed)));
+							if (f32 v = scrollSpeedAtCursor.GetImaginaryPart(); SpinInUnit("##ScrollSpeedAtCursorImag", &v, unit, "%gi", tempoAtCursor))
+								insertOrUpdateCursorScrollSpeedChange(Complex(scrollSpeedAtCursor.GetRealPart(), v));
 						}
-						else
+						else if (i.Index == 2)
 						{
-							if (f32 v = ScrollSpeedToTempo(scrollSpeedAtCursor.GetRealPart(), tempoAtCursor).BPM;
-								Gui::SpinFloat("##ScrollTempoAtCursor", &v, 1.0f, 10.0f, "%g BPM"))
-								insertOrUpdateCursorScrollSpeedChange(Complex(ScrollTempoToSpeed(Tempo(Clamp(v, MinScrollBPM, MaxScrollBPM)), tempoAtCursor), 0.0f));
+							Gui::ComboEnum("##ScrollSpeedUnit", &unit, scrollUnitNames);
 						}
 						return false;
 					});

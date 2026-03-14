@@ -179,7 +179,7 @@ X("EVENT_NOTES_EXPERT",								"Notes (Expert)") \
 X("EVENT_NOTES_MASTER",								"Notes (Master)") \
 X("EVENT_SCROLL_SPEED",								"Scroll Speed") \
 X("EVENT_PROP_VERTICAL_SCROLL_SPEED",				"Vertical Scroll Speed") \
-X("EVENT_PROP_SCROLL_SPEED_TEMPO",					"Scroll Speed Tempo") \
+X("EVENT_SCROLL_SPEED_UNIT",						"Scroll Speed Unit") \
 X("EVENT_BAR_LINE_VISIBILITY",						"Bar Line Visibility") \
 X("EVENT_GO_GO_TIME",								"Go-Go Time") \
 X("EVENT_LYRICS",									"Lyrics") \
