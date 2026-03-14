@@ -362,36 +362,37 @@ const T* BeatSortedList<T>::TryFindExactAtBeat(Beat beat) const
 }
 
 template <typename T>
-T* BeatSortedList<T>::TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck)
+T* BeatSortedList<T>::TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 requireStartAfterLastEnd)
 {
-	return const_cast<T*>(static_cast<const BeatSortedList<T>*>(this)->TryFindOverlappingBeat(beatStart, beatEnd, inclusiveBeatCheck));
+	return const_cast<T*>(static_cast<const BeatSortedList<T>*>(this)->TryFindOverlappingBeat(beatStart, beatEnd, requireStartAfterLastEnd));
 }
 
 template <typename T>
-const T* BeatSortedList<T>::TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck) const
+const T* BeatSortedList<T>::TryFindOverlappingBeat(Beat beatStart, Beat beatEnd, b8 requireStartAfterLastEnd) const
 {
 	assert(beatEnd >= beatStart && "Don't accidentally mix up BeatEnd with BeatDuration");
-	return this->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, inclusiveBeatCheck);
+	return this->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, requireStartAfterLastEnd);
 }
 
 template <typename T>
-T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck)
+T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 requireStartAfterLastEnd)
 {
-	return const_cast<T*>(static_cast<const BeatSortedList<T>*>(this)->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, inclusiveBeatCheck));
+	return const_cast<T*>(static_cast<const BeatSortedList<T>*>(this)->TryFindOverlappingBeatUntrusted(beatStart, beatEnd, requireStartAfterLastEnd));
 }
 
 template <typename T>
-const T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 inclusiveBeatCheck) const
+const T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat beatEnd, b8 requireStartAfterLastEnd) const
 {
 	// TODO: Optimize using binary search
 	const T* found = nullptr;
-	if (inclusiveBeatCheck)
+	if (requireStartAfterLastEnd)
 	{
 		for (const T& v : Sorted)
 		{
 			// NOTE: Only break after a large beat has been found to correctly handle long notes with other notes "inside"
 			//		 (even if they should't be placable in the first place)
-			if (GetBeat(v) <= beatEnd && beatStart <= (GetBeat(v) + GetBeatDuration(v)))
+			// Not overlap: last end < next head
+			if (!(beatEnd < GetBeat(v) || (GetBeat(v) + GetBeatDuration(v) < beatStart)))
 				found = &v;
 			else if ((GetBeat(v) + GetBeatDuration(v)) > beatEnd)
 				break;
@@ -401,7 +402,8 @@ const T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat
 	{
 		for (const T& v : Sorted)
 		{
-			if (GetBeat(v) < beatEnd && beatStart < (GetBeat(v) + GetBeatDuration(v)))
+			// Not overlap: last head <= next head && last end <= next head
+			if (!(std::max(beatStart, beatEnd) <= GetBeat(v) || (GetBeat(v) + std::max(Beat::Zero(), GetBeatDuration(v))) <= beatStart))
 				found = &v;
 			else if ((GetBeat(v) + GetBeatDuration(v)) > beatEnd)
 				break;

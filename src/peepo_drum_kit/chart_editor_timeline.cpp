@@ -1534,8 +1534,8 @@ namespace PeepoDrumKit
 
 				auto itemAlreadyExistsOrIsBad = [&](const GenericListStructWithType& item)
 				{
-					const b8 inclusiveBeatCheck = ListUsesInclusiveBeatCheck(item.List);
-					auto check = [&](auto& list, auto& i) { return (GetBeat(i) < Beat::Zero()) || (list.TryFindOverlappingBeatUntrusted(GetBeat(i), GetBeat(i) + GetBeatDuration(i), inclusiveBeatCheck) != nullptr); };
+					const b8 requireStartAfterLastEnd = ListIsStartAfterLastEndRequired(item.List);
+					auto check = [&](auto& list, auto& i) { return (GetBeat(i) < Beat::Zero()) || (list.TryFindOverlappingBeatUntrusted(GetBeat(i), GetBeat(i) + GetBeatDuration(i), requireStartAfterLastEnd) != nullptr); };
 					switch (item.List)
 					{
 					case GenericList::TempoChanges: return check(course.TempoMap.Tempo, item.Value.POD.Tempo);
@@ -2440,7 +2440,7 @@ namespace PeepoDrumKit
 
 								Rect screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(hitboxSize)));
 								Rect screenHitboxTail = screenHitbox;
-								if (hasBeatDuration && beatDuration > Beat::Zero()) {
+								if (hasBeatDuration && (!isNotesRow || beatDuration > Beat::Zero())) {
 									// TODO: Proper hitboxses (at least for gogo range and lyrics?)
 									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart + beatDuration)), 0.0f)).x, screenRectCenter.y);
 									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
@@ -2488,6 +2488,8 @@ namespace PeepoDrumKit
 					auto itemSelected = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::B8_IsSelected>(selectedCourse, list, i); };
 					auto itemStart = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::Beat_Start>(selectedCourse, list, i); };
 					auto itemDuration = [&](GenericList list, size_t i) constexpr { return GetOrEmpty<GenericMember::Beat_Duration>(selectedCourse, list, i); };
+					auto itemHasDuration = [&](GenericList list, size_t i) constexpr { Beat v = {}; return TryGet<GenericMember::Beat_Duration>(selectedCourse, list, i, v); };
+					auto itemCanEditDuration = [&](GenericList list, size_t i) constexpr { return IsNotesList(list) ? itemDuration(list, i) > Beat::Zero() : itemHasDuration(list, i); };
 					auto itemTimeDuration = [&](GenericList list, size_t i) constexpr -> std::tuple<bool, Time> { f32 out {}; return { TryGet<GenericMember::F32_JPOSScrollDuration>(selectedCourse, list, i, out), Time::FromSec(out) }; };
 					auto checkCanSelectedItemsBeDragged = [&](GenericList list, Beat beatIncrement, b8 tailOnly) -> b8
 					{
@@ -2497,8 +2499,14 @@ namespace PeepoDrumKit
 
 						// BUG: It's possible to move two non-empty lyric changes on top of each other, which isn't a critical bug (as it's still handled correctly) 
 						//		but definitely annoying and a bit confusing
+						// => ensure last head < next head (existing last head == next head is kept)
 						// TODO: Rework LyricChange to be Beat+Duration based to avoid the problem all together and also simplify the rest of the code
-						const b8 inclusiveBeatCheck = ListUsesInclusiveBeatCheck(list);
+						const b8 requireStartAfterLastEnd = ListIsStartAfterLastEndRequired(list);
+						auto IsOverlapLess = [&](Beat prevStart, Beat prevEnd, Beat nextStart)
+						{
+							return requireStartAfterLastEnd ? (prevEnd < nextStart) : (prevStart < nextStart && prevEnd <= nextStart);
+						};
+
 						if (beatIncrement > Beat::Zero())
 						{
 							for (i32 thisIndex = 0; thisIndex < listCount; thisIndex++)
@@ -2506,21 +2514,14 @@ namespace PeepoDrumKit
 								const i32 nextIndex = thisIndex + 1;
 								const b8 hasNext = (nextIndex < listCount);
 								if (itemSelected(list, thisIndex) && hasNext
-									&& (tailOnly ? (itemDuration(list, thisIndex) > Beat::Zero()) : !itemSelected(list, nextIndex))
+									&& (tailOnly ? itemCanEditDuration(list, thisIndex) : !itemSelected(list, nextIndex))
 									)
 								{
-									const Beat thisEnd = itemStart(list, thisIndex) + itemDuration(list, thisIndex);
+									const Beat thisStart = itemStart(list, thisIndex);
+									const Beat thisEnd = thisStart + itemDuration(list, thisIndex);
 									const Beat nextStart = itemStart(list, nextIndex);
-									if (inclusiveBeatCheck)
-									{
-										if (thisEnd + beatIncrement >= nextStart)
-											return false;
-									}
-									else
-									{
-										if (thisEnd + beatIncrement > nextStart)
-											return false;
-									}
+									if (!IsOverlapLess((tailOnly ? thisStart : thisStart + beatIncrement), thisEnd + beatIncrement, nextStart))
+										return false;
 								}
 							}
 						}
@@ -2530,8 +2531,9 @@ namespace PeepoDrumKit
 							{
 								if (!itemSelected(list, thisIndex))
 									continue;
-								if (itemDuration(list, thisIndex) > Beat::Zero()) {
-									if (itemDuration(list, thisIndex) + beatIncrement <= Beat::Zero())
+								if (itemCanEditDuration(list, thisIndex)) {
+									Beat duration = itemDuration(list, thisIndex) + beatIncrement;
+									if (IsNotesList(list) ? duration <= Beat::Zero() : duration < Beat::Zero())
 										return false;
 								}
 								else if (auto [hasTimeDuration, timeDuration] = itemTimeDuration(list, thisIndex); hasTimeDuration) {
@@ -2559,17 +2561,10 @@ namespace PeepoDrumKit
 
 									if (hasPrev && !itemSelected(list, prevIndex))
 									{
-										const Beat prevEnd = itemStart(list, prevIndex) + itemDuration(list, prevIndex);
-										if (inclusiveBeatCheck)
-										{
-											if (thisStart + beatIncrement <= prevEnd)
-												return false;
-										}
-										else
-										{
-											if (thisStart + beatIncrement < prevEnd)
-												return false;
-										}
+										const Beat prevStart = itemStart(list, prevIndex);
+										const Beat prevEnd = prevStart + itemDuration(list, prevIndex);
+										if (!IsOverlapLess(prevStart, prevEnd, thisStart + beatIncrement))
+											return false;
 									}
 								}
 							}
@@ -2624,7 +2619,10 @@ namespace PeepoDrumKit
 										data.Member = GenericMember::Beat_Start;
 										data.NewValue.Beat = GetBeat(it, selectedCourse) + dragBeatIncrement;
 									}
-									else if (auto beatDuration = GetBeatDuration(it, selectedCourse); beatDuration > Beat::Zero()) {
+									else if (Beat beatDuration;
+										TryGet<GenericMember::Beat_Duration>(it, selectedCourse, beatDuration)
+										&& (!IsNotesList(it.List) || beatDuration > Beat::Zero())
+										) {
 										data.Member = GenericMember::Beat_Duration;
 										data.NewValue.Beat = beatDuration + dragBeatIncrement;
 									}
