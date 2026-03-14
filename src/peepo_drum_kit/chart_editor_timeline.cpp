@@ -2439,7 +2439,7 @@ namespace PeepoDrumKit
 								}
 
 								Rect screenHitbox = Rect::FromCenterSize(center, vec2(GuiScale(hitboxSize)));
-								Rect screenHitboxTail = screenHitbox;
+								Rect screenHitboxTail = Rect::FromTLSize(vec2{ FLT_MAX, FLT_MAX }, vec2{ 0, 0 }); // no hitbox
 								if (hasBeatDuration && (!isNotesRow || beatDuration > Beat::Zero())) {
 									// TODO: Proper hitboxses (at least for gogo range and lyrics?)
 									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart + beatDuration)), 0.0f)).x, screenRectCenter.y);
@@ -2448,6 +2448,12 @@ namespace PeepoDrumKit
 								else if (hasTimeDuration) {
 									centerTail = vec2(LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatStart) + Time::FromSec(timeDuration)), 0.0f)).x, screenRectCenter.y);
 									screenHitboxTail = Rect::FromCenterSize(centerTail, vec2(GuiScale(hitboxSize)));
+								}
+								if (screenHitbox.Overlaps(screenHitboxTail)) {
+									auto [screenHitboxLeft, screenHitboxRight] = (screenHitbox.GetCenter().x <= screenHitboxTail.GetCenter().x) ?
+										std::tie(screenHitbox, screenHitboxTail)
+										: std::tie(screenHitboxTail, screenHitbox);
+									screenHitboxLeft.BR.x = screenHitboxRight.TL.x = (screenHitboxLeft.BR.x + screenHitboxRight.TL.x) / 2;
 								}
 
 								for (const auto& [hitbox, target] : {
