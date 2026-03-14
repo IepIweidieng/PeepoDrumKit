@@ -269,6 +269,10 @@ namespace PeepoDrumKit
 		};
 		std::vector<DeferredNoteDrawData> ReverseNoteDrawBuffer;
 
+		b8 IsAnyChildWindowFocused = false;
+
+	public:
+		b8 HasKeyboardFocus() const { return IsAnyChildWindowFocused; }
 		void DrawGui(ChartContext& context, Time animatedCursorTime);
 	};
 

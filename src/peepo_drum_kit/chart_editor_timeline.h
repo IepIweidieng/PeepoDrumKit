@@ -316,7 +316,7 @@ namespace PeepoDrumKit
 			return { minVisibleTime, maxVisibleTime };
 		}
 
-		void DrawGui(ChartContext& context);
+		void DrawGui(ChartContext& context, b8 hasGamePreviewFocus = false);
 
 		void StartEndRangeSelectionAtCursor(ChartContext& context);
 		void PlayNoteSoundAndHitAnimationsAtBeat(ChartContext& context, Beat cursorBeat);
@@ -330,7 +330,7 @@ namespace PeepoDrumKit
 		// NOTE: Must update input *before* drawing so that the scroll positions won't change
 		//		 between having drawn the timeline header and drawing the timeline content.
 		//		 But this also means we have to store any of the window focus / active / hover states across frame boundary
-		void UpdateInputAtStartOfFrame(ChartContext& context);
+		void UpdateInputAtStartOfFrame(ChartContext& context, b8 hasGamePreviewFocus = false);
 
 		// NOTE: Not entirely sure about this but updating *after* all user input seems to make the most sense..?
 		void UpdateAllAnimationsAfterUserInput(ChartContext& context);

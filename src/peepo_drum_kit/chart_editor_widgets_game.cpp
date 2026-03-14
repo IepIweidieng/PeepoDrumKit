@@ -604,6 +604,8 @@ namespace PeepoDrumKit
 
 	void ChartGamePreview::DrawGui(ChartContext& context, Time animatedCursorTime)
 	{
+		IsAnyChildWindowFocused = Gui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
+
 		const i32 nLanes = size(context.ChartsCompared);
 
 		static constexpr vec2 buttonMargin = vec2(8.0f);

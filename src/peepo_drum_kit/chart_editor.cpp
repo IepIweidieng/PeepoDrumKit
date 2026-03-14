@@ -1093,7 +1093,7 @@ namespace PeepoDrumKit
 
 		// NOTE: Always update the timeline even if the window isn't visible so that child-windows can be docked properly and hit sounds can always be heard
 		Gui::Begin(UI_WindowName("TAB_TIMELINE"), nullptr, ImGuiWindowFlags_None);
-		timeline.DrawGui(context);
+		timeline.DrawGui(context, gamePreview.HasKeyboardFocus());
 		Gui::End();
 
 		// NOTE: Test stuff

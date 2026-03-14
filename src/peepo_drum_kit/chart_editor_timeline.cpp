@@ -1024,9 +1024,9 @@ namespace PeepoDrumKit
 		}
 	}
 
-	void ChartTimeline::DrawGui(ChartContext& context)
+	void ChartTimeline::DrawGui(ChartContext& context, b8 hasGamePreviewFocus)
 	{
-		UpdateInputAtStartOfFrame(context);
+		UpdateInputAtStartOfFrame(context, hasGamePreviewFocus);
 		UpdateAllAnimationsAfterUserInput(context);
 
 #if PEEPO_DEBUG // DEBUG: Submit empty window first for more natural tab order sorting
@@ -2313,8 +2313,10 @@ namespace PeepoDrumKit
 		}
 	}
 
-	void ChartTimeline::UpdateInputAtStartOfFrame(ChartContext& context)
+	void ChartTimeline::UpdateInputAtStartOfFrame(ChartContext& context, b8 hasGamePreviewFocus)
 	{
+		const b8 hasTimelineOrGamePreviewFocus = HasKeyboardFocus() || hasGamePreviewFocus;
+
 		MousePosLastFrame = MousePosThisFrame;
 		MousePosThisFrame = Gui::GetMousePos();
 
@@ -2746,7 +2748,7 @@ namespace PeepoDrumKit
 				}
 			}
 
-			if (HasKeyboardFocus())
+			if (hasTimelineOrGamePreviewFocus)
 			{
 				if (Gui::GetActiveID() == 0)
 				{
@@ -2826,9 +2828,9 @@ namespace PeepoDrumKit
 			}
 
 			// NOTE: Grid snap controls
-			if (IsContentWindowHovered || HasKeyboardFocus())
+			if (IsContentWindowHovered || hasTimelineOrGamePreviewFocus)
 			{
-				const b8 keyboardFocus = HasKeyboardFocus() && !Gui::GetIO().KeyCtrl;
+				const b8 keyboardFocus = hasTimelineOrGamePreviewFocus && !Gui::GetIO().KeyCtrl;
 				const b8 increaseGrid = (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_X2, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_IncreaseGridDivision, true, InputModifierBehavior::Relaxed));
 				const b8 decreaseGrid = (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_X1, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_DecreaseGridDivision, true, InputModifierBehavior::Relaxed));
 
@@ -2857,7 +2859,7 @@ namespace PeepoDrumKit
 					}
 				}
 			}
-			if (HasKeyboardFocus())
+			if (hasTimelineOrGamePreviewFocus)
 			{
 				const struct { const WithDefault<MultiInputBinding>& V; i32 BarDivision; } allBindings[] =
 				{
@@ -2892,7 +2894,7 @@ namespace PeepoDrumKit
 			}
 
 			// NOTE: Playback speed controls
-			if (HasKeyboardFocus())
+			if (hasTimelineOrGamePreviewFocus)
 			{
 				if (const auto& io = Gui::GetIO(); !io.KeyCtrl)
 				{
@@ -2915,7 +2917,7 @@ namespace PeepoDrumKit
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_SetPlaybackSpeed_25, false)) context.SetPlaybackSpeed(FromPercent(25.0f));
 			}
 
-			if (HasKeyboardFocus() && Gui::IsAnyPressed(*Settings.Input.Timeline_TogglePlayback, false, InputModifierBehavior::Relaxed))
+			if (hasTimelineOrGamePreviewFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_TogglePlayback, false, InputModifierBehavior::Relaxed))
 			{
 				if (context.GetIsPlayback())
 				{
@@ -3008,10 +3010,10 @@ namespace PeepoDrumKit
 			};
 
 			PlaceBalloonBindingDownLastFrame = PlaceBalloonBindingDownThisFrame;
-			PlaceBalloonBindingDownThisFrame = HasKeyboardFocus() && Gui::IsAnyDown(*Settings.Input.Timeline_PlaceNoteBalloon, InputModifierBehavior::Relaxed);
+			PlaceBalloonBindingDownThisFrame = hasTimelineOrGamePreviewFocus && Gui::IsAnyDown(*Settings.Input.Timeline_PlaceNoteBalloon, InputModifierBehavior::Relaxed);
 			PlaceDrumrollBindingDownLastFrame = PlaceDrumrollBindingDownThisFrame;
-			PlaceDrumrollBindingDownThisFrame = HasKeyboardFocus() && Gui::IsAnyDown(*Settings.Input.Timeline_PlaceNoteDrumroll, InputModifierBehavior::Relaxed);
-			if (HasKeyboardFocus())
+			PlaceDrumrollBindingDownThisFrame = hasTimelineOrGamePreviewFocus && Gui::IsAnyDown(*Settings.Input.Timeline_PlaceNoteDrumroll, InputModifierBehavior::Relaxed);
+			if (hasTimelineOrGamePreviewFocus)
 			{
 				updateNotePlacementBinding(*Settings.Input.Timeline_PlaceNoteDon, ToBigNoteIf(NoteType::Don, Gui::GetIO().KeyAlt));
 				updateNotePlacementBinding(*Settings.Input.Timeline_PlaceNoteKa, ToBigNoteIf(NoteType::Ka, Gui::GetIO().KeyAlt));
@@ -3059,11 +3061,11 @@ namespace PeepoDrumKit
 				PlaySoundEffectTypeForNoteType(context, longNoteType);
 			};
 
-			const b8 activeFocusedAndHasLength = HasKeyboardFocus() && LongNotePlacement.IsActive && (LongNotePlacement.CursorBeatHead != LongNotePlacement.CursorBeatTail);
+			const b8 activeFocusedAndHasLength = hasTimelineOrGamePreviewFocus && LongNotePlacement.IsActive && (LongNotePlacement.CursorBeatHead != LongNotePlacement.CursorBeatTail);
 			if (PlaceBalloonBindingDownLastFrame && !PlaceBalloonBindingDownThisFrame) { if (activeFocusedAndHasLength) placeLongNoteOnBindingRelease(LongNotePlacement.NoteType); LongNotePlacement = {}; }
 			if (PlaceDrumrollBindingDownLastFrame && !PlaceDrumrollBindingDownThisFrame) { if (activeFocusedAndHasLength) placeLongNoteOnBindingRelease(LongNotePlacement.NoteType); LongNotePlacement = {}; }
 
-			if (HasKeyboardFocus())
+			if (hasTimelineOrGamePreviewFocus)
 			{
 				TransformActionParam param {};
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_FlipNoteType, false)) ExecuteTransformAction(context, TransformAction::FlipNoteType, param);
@@ -3094,7 +3096,7 @@ namespace PeepoDrumKit
 			}
 		}
 
-		if (HasKeyboardFocus() && Gui::IsAnyPressed(*Settings.Input.Timeline_ToggleMetronome))
+		if (hasTimelineOrGamePreviewFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_ToggleMetronome))
 		{
 			Metronome.IsEnabled ^= true;
 			if (!context.GetIsPlayback())
