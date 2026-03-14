@@ -608,11 +608,7 @@ namespace PeepoDrumKit
 
 		static constexpr vec2 buttonMargin = vec2(8.0f);
 		vec2 minContentRectSize = vec2(128.0f, nLanes * 72.0f);
-		Gui::BeginDisabled();
-		Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, 0.25f));
-		Gui::Button("##GamePreview", ClampBot(vec2(Gui::GetContentRegionAvail()), minContentRectSize));
-		Gui::PopStyleColor();
-		Gui::EndDisabled();
+		Gui::Dummy(ClampBot(vec2(Gui::GetContentRegionAvail()), minContentRectSize));
 		Camera.ScreenSpaceViewportRect = Gui::GetItemRect();
 		Camera.ScreenSpaceViewportRect.TL = Camera.ScreenSpaceViewportRect.TL + buttonMargin;
 		Camera.ScreenSpaceViewportRect.BR = ClampBot(Camera.ScreenSpaceViewportRect.BR - buttonMargin, Camera.ScreenSpaceViewportRect.TL + (minContentRectSize - vec2(buttonMargin.x, 0.0f)));
@@ -667,6 +663,8 @@ namespace PeepoDrumKit
 			auto branch = BranchType::Normal;
 			if (!context.IsChartCompared(course, branch))
 				continue;
+			Gui::PushID(it->get());
+			defer { Gui::PopID(); };
 			const b8 isFocusedLane = (context.CompareMode && course == context.ChartSelectedCourse && branch == context.ChartSelectedBranch);
 			++iLane;
 
@@ -737,6 +735,15 @@ namespace PeepoDrumKit
 				}
 			};
 
+			// click lane to select course
+			Rect laneRectScreen = {
+				Camera.WorldToScreenSpace(stdLaneRectBR.TL - vec2(GameLanePaddingL, 0.0f)),
+				Camera.WorldToScreenSpace(stdLaneRectBR.GetBL() + vec2(Camera.LaneWidth(), 0) + vec2(GameLanePaddingR, 0.0f)),
+			};
+			Gui::SetCursorScreenPos(laneRectScreen.TL);
+			if (Gui::InvisibleButton("##GamePreviewLane", laneRectScreen.GetSize(), ImGuiButtonFlags_AllowOverlap))
+				context.SetSelectedChart(it->get(), BranchType::Normal);
+			Gui::SetItemAllowOverlap();
 
 			// NOTE: Hit indicator circle
 			drawList->ChannelsSetCurrent(1);

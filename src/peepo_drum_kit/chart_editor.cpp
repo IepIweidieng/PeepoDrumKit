@@ -636,6 +636,9 @@ namespace PeepoDrumKit
 					{
 						// HACK: How to properly manage the imgui selected tab internal state..?
 						static const ChartCourse* lastFrameSelectedCoursePtrID = nullptr;
+
+						const ChartCourse* const thisFrameSelectedCoursePtrID = context.ChartSelectedCourse;
+						const b8 isSelectedCourseSetThisFrame = (thisFrameSelectedCoursePtrID != lastFrameSelectedCoursePtrID);
 						b8 isAnyCourseTabSelected = false;
 
 						// Reorder courses by querying tab bar order
@@ -688,8 +691,8 @@ namespace PeepoDrumKit
 								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
 								GetStyleName(course->Style, course->PlayerSide, omitLevel >= PlayerCount).data(),
 								course.get());
-							const b8 isSelected = (course.get() == context.ChartSelectedCourse);
-							const b8 setSelectedThisFrame = (isSelected && course.get() != lastFrameSelectedCoursePtrID);
+							const b8 isSelected = (course.get() == thisFrameSelectedCoursePtrID);
+							const b8 setSelectedThisFrame = (isSelected && isSelectedCourseSetThisFrame);
 
 							Gui::PushID(course.get());
 
@@ -706,11 +709,14 @@ namespace PeepoDrumKit
 								nPushedStyleColorI += 2;
 							}
 
+							// NOTE: ImGuiTabItemFlags_SetSelected applies at the next frame
 							if (Gui::BeginTabItem(buffer, nullptr, setSelectedThisFrame ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None))
 							{
 								// TODO: Selecting a course should also be an undo command so that there isn't ever any confusion (?)
-								context.SetSelectedChart(course.get(), BranchType::Normal);
-								lastFrameSelectedCoursePtrID = context.ChartSelectedCourse;
+								if (!isSelectedCourseSetThisFrame || setSelectedThisFrame) {
+									context.SetSelectedChart(course.get(), BranchType::Normal);
+									lastFrameSelectedCoursePtrID = context.ChartSelectedCourse;
+								}
 								isAnyCourseTabSelected = true;
 								Gui::EndTabItem();
 							}
