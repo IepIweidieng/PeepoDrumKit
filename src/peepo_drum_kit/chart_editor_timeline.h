@@ -208,12 +208,6 @@ namespace PeepoDrumKit
 		// NOTE: Defined as a fraction of a 4/4 bar
 		i32 CurrentGridBarDivision = 16;
 
-		// NOTE: Only valid inside the window drawing scope
-		ImDrawList* DrawListSidebarHeader = nullptr;
-		ImDrawList* DrawListSidebar = nullptr;
-		ImDrawList* DrawListContentHeader = nullptr;
-		ImDrawList* DrawListContent = nullptr;
-
 		b8 IsAnyChildWindowFocused = false;
 		b8 IsContentHeaderWindowHovered = false;
 		b8 IsContentWindowHovered = false;
@@ -327,6 +321,15 @@ namespace PeepoDrumKit
 		template <GenericList List> void ExecuteConvertSelectionToEvents(ChartContext& context);
 
 	private:
+		struct TimelineRegionDrawers {
+			std::function<void(std::function<void(ImDrawList* drawList)> drawRemaining)>
+				DrawTimelineSideBarHeader,
+				DrawTimelineSideBar,
+				DrawTimelineContentHeader,
+				DrawTimelineContent,
+				DrawTimelineContentScrollbarX;
+		};
+
 		// NOTE: Must update input *before* drawing so that the scroll positions won't change
 		//		 between having drawn the timeline header and drawing the timeline content.
 		//		 But this also means we have to store any of the window focus / active / hover states across frame boundary
@@ -335,7 +338,7 @@ namespace PeepoDrumKit
 		// NOTE: Not entirely sure about this but updating *after* all user input seems to make the most sense..?
 		void UpdateAllAnimationsAfterUserInput(ChartContext& context);
 
-		void DrawAllAtEndOfFrame(ChartContext& context);
+		void DrawAllAtEndOfFrame(ChartContext& context, const TimelineRegionDrawers& drawers);
 	};
 
 	template <GenericList List>

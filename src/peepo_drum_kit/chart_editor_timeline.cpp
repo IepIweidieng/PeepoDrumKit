@@ -1033,8 +1033,6 @@ namespace PeepoDrumKit
 		if (Gui::Begin(UI_WindowName("TAB_TIMELINE_DEBUG"))) { DrawTimelineDebugWindowContent(*this, context); } Gui::End();
 #endif
 
-		const auto& style = Gui::GetStyle();
-
 		// NOTE: Big enough to fit both the bar-index, bar-time and some padding
 		static constexpr f32 contentAndSidebarHeaderHeight = 34.0f;
 		const f32 sidebarWidth = GuiScale(CurrentSidebarWidth);
@@ -1067,155 +1065,56 @@ namespace PeepoDrumKit
 
 		timelineRegionBegin(Regions.Window, "TimelineWindow");
 		{
-			timelineRegionBegin(Regions.SidebarHeader, "TimelineSideBarHeader");
+			TimelineRegionDrawers drawers = {};
+			drawers.DrawTimelineSideBarHeader = [&](auto&& drawRemaining)
 			{
-				DrawListSidebarHeader = Gui::GetWindowDrawList();
-				char buffer[64];
-
-				// TODO: ...
-				static constexpr f32 textAlpha = 0.5f;
-				static constexpr f32 buttonAlpha = 0.35f;
-				Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
-				Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, buttonAlpha));
-				Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, buttonAlpha));
-				Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, buttonAlpha));
-				{
-					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x, Gui::GetFrameHeight() - Gui::GetFontSize()));
-					const vec2 perButtonSize = vec2(Gui::GetContentRegionAvail()) * vec2(1.0f / 3.0f, 1.0f);
-					{
-						Time cursorTimeOffset = (*Settings.General.DisplayTimeInSongSpace) ? -context.Chart.SongOffset : Time::Zero();
-						Time displayTime = context.GetCursorTime() + cursorTimeOffset;
-						Time displayTimeMin = Min(cursorTimeOffset, Time::Zero());
-						Time displayTimeMax = context.Chart.GetDurationOrDefault() + cursorTimeOffset;
-						displayTime.ToString(buffer, sizeof(buffer));
-
-						Gui::SetNextItemWidth(perButtonSize.x);
-						b8 isOutOfChart = !((displayTime >= displayTimeMin) && (displayTime <= displayTimeMax));
-						if (isOutOfChart)
-							Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
-						if (f32 v = displayTime.Seconds;
-							Gui::DragFloat("##DisplayTime", &v, 1, 0, 0, buffer) && !(context.GetIsPlayback() && Gui::IsItemBeingEditedAsText())
-							) {
-							Time newTime = Time::FromSec(v);
-							if (*Settings.General.DisplayTimeInSongSpace)
-								context.SetCursorTime(newTime + context.Chart.SongOffset);
-							else
-								context.SetCursorTime(newTime);
-							ScrollToTimelinePosition(Camera, Regions, context.Chart, context.GetCursorTime() / context.Chart.GetDurationOrDefault());
-						}
-						Gui::PopStyleColor(isOutOfChart);
-					}
-					Gui::SameLine(0.0f, 0.0f);
-					{
-						Gui::SetNextItemWidth(perButtonSize.x);
-						b8 isStop = (context.GetPlaybackSpeed() == 0);
-						if (isStop)
-							Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
-						if (f32 percent = ToPercent(context.GetPlaybackSpeed()); Gui::DragFloat("##PlaybackSpeed", &percent, 1.0f, 0.0f, 0.0f, "%g%%"))
-							context.SetPlaybackSpeed(FromPercent(percent));
-						Gui::PopStyleColor(isStop);
-					}
-					Gui::SameLine(0.0f, 0.0f);
-					{
-						Gui::SetNextItemWidth(perButtonSize.x);
-						b8 isDivUnsupported = !IsTimeSignatureSupported({ 1, CurrentGridBarDivision });
-						if (isDivUnsupported)
-							Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
-						Gui::DragInt("##GridBarDivision", &CurrentGridBarDivision, 0.25, 1, INT32_MAX, "1 / %d");
-						Gui::PopStyleColor(isDivUnsupported);
-					}
-					Gui::PopStyleVar();
-				}
-				Gui::PopStyleColor(3);
-				Gui::PopFont();
-			}
-			timelineRegionEnd();
+				timelineRegionBegin(Regions.SidebarHeader, "TimelineSideBarHeader");
+				drawRemaining(Gui::GetWindowDrawList());
+				timelineRegionEnd();
+			};
 
 			const ImGuiHoveredFlags hoveredFlags = BoxSelection.IsActive ? ImGuiHoveredFlags_AllowWhenBlockedByActiveItem : ImGuiHoveredFlags_None;
 
-			timelineRegionBegin(Regions.Sidebar, "TimelineSideBar");
+			drawers.DrawTimelineSideBar = [&](auto&& drawRemaining)
 			{
-				DrawListSidebar = Gui::GetWindowDrawList();
+				timelineRegionBegin(Regions.Sidebar, "TimelineSideBar");
 				IsSidebarWindowHovered = Gui::IsWindowHovered(hoveredFlags);
-			}
-			timelineRegionEnd();
+				drawRemaining(Gui::GetWindowDrawList());
+				timelineRegionEnd();
+			};
 
-			timelineRegionBegin(Regions.ContentHeader, "TimelineContentHeader");
+			drawers.DrawTimelineContentHeader = [&](auto&& drawRemaining)
 			{
-				DrawListContentHeader = Gui::GetWindowDrawList();
+				timelineRegionBegin(Regions.ContentHeader, "TimelineContentHeader");
 				IsContentHeaderWindowHovered = Gui::IsWindowHovered(hoveredFlags);
-			}
-			timelineRegionEnd();
+				drawRemaining(Gui::GetWindowDrawList());
+				timelineRegionEnd();
+			};
 
-			timelineRegionBegin(Regions.Content, "TimelineContent");
+			drawers.DrawTimelineContent = [&](auto&& drawRemaining)
 			{
+				timelineRegionBegin(Regions.Content, "TimelineContent");
 				if (Gui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && !Gui::IsWindowFocused())
 				{
 					if (Gui::IsMouseClicked(ImGuiMouseButton_Middle) || Gui::IsMouseClicked(ImGuiMouseButton_Right))
 						Gui::SetWindowFocus();
 				}
 
-				DrawListContent = Gui::GetWindowDrawList();
 				IsContentWindowHovered = Gui::IsWindowHovered(hoveredFlags);
 				IsContentWindowFocused = Gui::IsWindowFocused();
-			}
-			timelineRegionEnd();
 
-			timelineRegionBegin(Regions.ContentScrollbarX, "TimelineContentScrollbarX");
+				drawRemaining(Gui::GetWindowDrawList());
+				timelineRegionEnd();
+			};
+
+			drawers.DrawTimelineContentScrollbarX = [&](auto&& drawRemaining)
 			{
-				Gui::PushStyleColor(ImGuiCol_ScrollbarGrab, Gui::GetColorU32(ImGuiCol_ScrollbarGrab, 0.2f));
-				Gui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, Gui::GetColorU32(ImGuiCol_ScrollbarGrabHovered, 0.2f));
-				Gui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, Gui::GetColorU32(ImGuiCol_ScrollbarGrabActive, 0.2f));
+				timelineRegionBegin(Regions.ContentScrollbarX, "TimelineContentScrollbarX");
+				drawRemaining(Gui::GetWindowDrawList());
+				timelineRegionEnd();
+			};
 
-				// NOTE: Waveform and cursor on top of scrollbar!
-				{
-					const Time cursorTime = context.GetCursorTime();
-					const Time chartDuration = context.Chart.GetDurationOrDefault();
-					const b8 isPlayback = context.GetIsPlayback();
-
-					if (!context.SongWaveformL.IsEmpty())
-						DrawTimelineScrollbarXWaveform(*this, Gui::GetWindowDrawList(), context.Chart.SongOffset, chartDuration, context.SongWaveformL, context.SongWaveformR, context.SongWaveformFadeAnimationCurrent);
-
-					DrawTimelineScrollbarXMinimap(*this, Gui::GetWindowDrawList(), *context.ChartSelectedCourse, context.ChartSelectedBranch, chartDuration);
-
-					const f32 animatedCursorLocalSpaceX = TimeToScrollbarLocalSpaceXClamped(Camera.WorldSpaceXToTime(WorldSpaceCursorXAnimationCurrent), Regions, chartDuration);
-					const f32 currentCursorLocalSpaceX = TimeToScrollbarLocalSpaceXClamped(cursorTime, Regions, chartDuration);
-					const f32 cursorLocalSpaceX = isPlayback ? currentCursorLocalSpaceX : animatedCursorLocalSpaceX;
-
-					// BUG: Drawn cursor doesn't perfectly line up on the left side with the scroll grab hand (?)
-					Gui::GetWindowDrawList()->AddLine(
-						LocalToScreenSpace_ScrollbarX(vec2(cursorLocalSpaceX, 2.0f)),
-						LocalToScreenSpace_ScrollbarX(vec2(cursorLocalSpaceX, Regions.ContentScrollbarX.GetHeight() - 2.0f)),
-						TimelineCursorColor);
-				}
-
-				// NOTE: Nice extra bit of user feedback
-				if (IsCameraMouseGrabActive) Gui::PushStyleColor(ImGuiCol_ScrollbarGrab, Gui::GetStyleColorVec4(ImGuiCol_ScrollbarGrabHovered));
-
-				const f32 localSpaceVisibleWidth = Regions.Content.GetWidth();
-				const f32 localSpaceTimelineWidth = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.Chart.GetDurationOrDefault()), 0.0f)).x + 2.0f;
-
-				// BUG: Scrollbar should still be interactable while box selecting
-				static constexpr ImS64 padding = 1;
-				ImS64 inOutScrollValue = static_cast<ImS64>(Camera.PositionCurrent.x - TimelineCameraBaseScrollX);
-				const ImS64 inSizeAvail = static_cast<ImS64>(localSpaceVisibleWidth + TimelineCameraBaseScrollX);
-				const ImS64 inContentSize = static_cast<ImS64>(localSpaceTimelineWidth);
-				if (Gui::ScrollbarEx(ImRect(Regions.ContentScrollbarX.TL, Regions.ContentScrollbarX.BR), Gui::GetID("ContentScrollbarX"), ImGuiAxis_X,
-					&inOutScrollValue, inSizeAvail, inContentSize, ImDrawFlags_RoundCornersNone))
-				{
-					// BUG: Only setting PositionTarget results in glitchy behavior when clicking somewhere on the scrollbar for shorter than the animation duration
-					//		however setting both PositionCurrent and PositionTarget means no smooth scrolling while dragging around
-					// Camera.PositionTarget.x = static_cast<f32>(inOutScrollValue);
-					Camera.PositionCurrent.x = Camera.PositionTarget.x = static_cast<f32>(inOutScrollValue) + TimelineCameraBaseScrollX;
-				}
-
-				if (IsCameraMouseGrabActive) Gui::PopStyleColor();
-				Gui::PopStyleColor(3);
-			}
-			timelineRegionEnd();
-
-			DrawAllAtEndOfFrame(context);
-			DrawListSidebarHeader = DrawListSidebar = DrawListContentHeader = DrawListContent = nullptr;
+			DrawAllAtEndOfFrame(context, drawers);
 		}
 		timelineRegionEnd();
 	}
@@ -3275,23 +3174,153 @@ namespace PeepoDrumKit
 		GridSnapLineAnimationCurrent = Clamp(GridSnapLineAnimationCurrent, 0.0f, 1.0f);
 	}
 
-	void ChartTimeline::DrawAllAtEndOfFrame(ChartContext& context)
+	void ChartTimeline::DrawAllAtEndOfFrame(ChartContext& context, const TimelineRegionDrawers& drawers)
 	{
 		if (!context.Gfx.IsAsyncLoading())
 			context.Gfx.Rasterize(SprGroup::Timeline, GuiScaleFactorTarget);
+
+		// HACK: Drawing outside the BeginChild() / EndChild() means the clipping rect has already been popped...
+		// call PushClipRect() after calling the drawers function
+
+		// Layer order from bottom to top:
+		// [SideBarHeader (interactable)] -> [ScrollbarX (interactable)]
+		// -> [Content.0] Base background -> [ContentHeader.0] Demo start time marker
+		// -> [ContentHeader.1 (interactable) + Content.0] Tempo map bar/beat lines and bar-index/time text
+		// -> [Content.0] Grid snap beat lines -> [Content.0] Out of bounds darkening -> [ContentHeader.1 + Content.0] RangeSelect -> [Content.0] Background waveform
+		// -> [SideBar (interactable) + Content.1 (interactable)] Row labels, lines and items
+		// -> [Content.1] Background waveform overlay -> [ContentHeader.1 + Content.1] Cursor foreground -> [Content.1] Mouse selection box
+
+		// To make interactable layers drawn within BeginChild() / EndChild():
+		// Basically draw layers in order, but if a non-interactable layer requires the drawlist of a non-drawn region,
+		// draw the interactable layer of the region right before it,
+		// and assign channel 0 to all layers requiring this region but layered below the interactable layer of this region, or channel 1 otherwise
+
+		// draw first to update status
+		ImDrawList* DrawListSidebarHeader = nullptr;
+		drawers.DrawTimelineSideBarHeader([&](ImDrawList* drawList)
+		{
+			DrawListSidebarHeader = drawList;
+			char buffer[64];
+
+			// TODO: ...
+			static constexpr f32 textAlpha = 0.5f;
+			static constexpr f32 buttonAlpha = 0.35f;
+			Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
+			Gui::PushStyleColor(ImGuiCol_Button, Gui::GetColorU32(ImGuiCol_Button, buttonAlpha));
+			Gui::PushStyleColor(ImGuiCol_ButtonHovered, Gui::GetColorU32(ImGuiCol_ButtonHovered, buttonAlpha));
+			Gui::PushStyleColor(ImGuiCol_ButtonActive, Gui::GetColorU32(ImGuiCol_ButtonActive, buttonAlpha));
+			{
+				const auto& style = Gui::GetStyle();
+
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x, Gui::GetFrameHeight() - Gui::GetFontSize()));
+				const vec2 perButtonSize = vec2(Gui::GetContentRegionAvail()) * vec2(1.0f / 3.0f, 1.0f);
+				{
+					Time cursorTimeOffset = (*Settings.General.DisplayTimeInSongSpace) ? -context.Chart.SongOffset : Time::Zero();
+					Time displayTime = context.GetCursorTime() + cursorTimeOffset;
+					Time displayTimeMin = Min(cursorTimeOffset, Time::Zero());
+					Time displayTimeMax = context.Chart.GetDurationOrDefault() + cursorTimeOffset;
+					displayTime.ToString(buffer, sizeof(buffer));
+
+					Gui::SetNextItemWidth(perButtonSize.x);
+					b8 isOutOfChart = !((displayTime >= displayTimeMin) && (displayTime <= displayTimeMax));
+					if (isOutOfChart)
+						Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
+					if (f32 v = displayTime.Seconds;
+						Gui::DragFloat("##DisplayTime", &v, 1, 0, 0, buffer) && !(context.GetIsPlayback() && Gui::IsItemBeingEditedAsText())
+						) {
+						Time newTime = Time::FromSec(v);
+						if (*Settings.General.DisplayTimeInSongSpace)
+							context.SetCursorTime(newTime + context.Chart.SongOffset);
+						else
+							context.SetCursorTime(newTime);
+						ScrollToTimelinePosition(Camera, Regions, context.Chart, context.GetCursorTime() / context.Chart.GetDurationOrDefault());
+					}
+					Gui::PopStyleColor(isOutOfChart);
+				}
+				Gui::SameLine(0.0f, 0.0f);
+				{
+					Gui::SetNextItemWidth(perButtonSize.x);
+					b8 isStop = (context.GetPlaybackSpeed() == 0);
+					if (isStop)
+						Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
+					if (f32 percent = ToPercent(context.GetPlaybackSpeed()); Gui::DragFloat("##PlaybackSpeed", &percent, 1.0f, 0.0f, 0.0f, "%g%%"))
+						context.SetPlaybackSpeed(FromPercent(percent));
+					Gui::PopStyleColor(isStop);
+				}
+				Gui::SameLine(0.0f, 0.0f);
+				{
+					Gui::SetNextItemWidth(perButtonSize.x);
+					b8 isDivUnsupported = !IsTimeSignatureSupported({ 1, CurrentGridBarDivision });
+					if (isDivUnsupported)
+						Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
+					Gui::DragInt("##GridBarDivision", &CurrentGridBarDivision, 0.25, 1, INT32_MAX, "1 / %d");
+					Gui::PopStyleColor(isDivUnsupported);
+				}
+				Gui::PopStyleVar();
+			}
+			Gui::PopStyleColor(3);
+			Gui::PopFont();
+		});
+		DrawListSidebarHeader->PushClipRect(Regions.SidebarHeader.TL, Regions.SidebarHeader.BR);
+
+		// draw first to update scroll position
+		drawers.DrawTimelineContentScrollbarX([&](ImDrawList* drawList)
+		{
+			Gui::PushStyleColor(ImGuiCol_ScrollbarGrab, Gui::GetColorU32(ImGuiCol_ScrollbarGrab, 0.2f));
+			Gui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, Gui::GetColorU32(ImGuiCol_ScrollbarGrabHovered, 0.2f));
+			Gui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, Gui::GetColorU32(ImGuiCol_ScrollbarGrabActive, 0.2f));
+
+			// NOTE: Waveform and cursor on top of scrollbar!
+			{
+				const Time cursorTime = context.GetCursorTime();
+				const Time chartDuration = context.Chart.GetDurationOrDefault();
+				const b8 isPlayback = context.GetIsPlayback();
+
+				if (!context.SongWaveformL.IsEmpty())
+					DrawTimelineScrollbarXWaveform(*this, Gui::GetWindowDrawList(), context.Chart.SongOffset, chartDuration, context.SongWaveformL, context.SongWaveformR, context.SongWaveformFadeAnimationCurrent);
+
+				DrawTimelineScrollbarXMinimap(*this, Gui::GetWindowDrawList(), *context.ChartSelectedCourse, context.ChartSelectedBranch, chartDuration);
+
+				const f32 animatedCursorLocalSpaceX = TimeToScrollbarLocalSpaceXClamped(Camera.WorldSpaceXToTime(WorldSpaceCursorXAnimationCurrent), Regions, chartDuration);
+				const f32 currentCursorLocalSpaceX = TimeToScrollbarLocalSpaceXClamped(cursorTime, Regions, chartDuration);
+				const f32 cursorLocalSpaceX = isPlayback ? currentCursorLocalSpaceX : animatedCursorLocalSpaceX;
+
+				// BUG: Drawn cursor doesn't perfectly line up on the left side with the scroll grab hand (?)
+				Gui::GetWindowDrawList()->AddLine(
+					LocalToScreenSpace_ScrollbarX(vec2(cursorLocalSpaceX, 2.0f)),
+					LocalToScreenSpace_ScrollbarX(vec2(cursorLocalSpaceX, Regions.ContentScrollbarX.GetHeight() - 2.0f)),
+					TimelineCursorColor);
+			}
+
+			// NOTE: Nice extra bit of user feedback
+			if (IsCameraMouseGrabActive) Gui::PushStyleColor(ImGuiCol_ScrollbarGrab, Gui::GetStyleColorVec4(ImGuiCol_ScrollbarGrabHovered));
+
+			const f32 localSpaceVisibleWidth = Regions.Content.GetWidth();
+			const f32 localSpaceTimelineWidth = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.Chart.GetDurationOrDefault()), 0.0f)).x + 2.0f;
+
+			// BUG: Scrollbar should still be interactable while box selecting
+			static constexpr ImS64 padding = 1;
+			ImS64 inOutScrollValue = static_cast<ImS64>(Camera.PositionCurrent.x - TimelineCameraBaseScrollX);
+			const ImS64 inSizeAvail = static_cast<ImS64>(localSpaceVisibleWidth + TimelineCameraBaseScrollX);
+			const ImS64 inContentSize = static_cast<ImS64>(localSpaceTimelineWidth);
+			if (Gui::ScrollbarEx(ImRect(Regions.ContentScrollbarX.TL, Regions.ContentScrollbarX.BR), Gui::GetID("ContentScrollbarX"), ImGuiAxis_X,
+				&inOutScrollValue, inSizeAvail, inContentSize, ImDrawFlags_RoundCornersNone))
+			{
+				// BUG: Only setting PositionTarget results in glitchy behavior when clicking somewhere on the scrollbar for shorter than the animation duration
+				//		however setting both PositionCurrent and PositionTarget means no smooth scrolling while dragging around
+				// Camera.PositionTarget.x = static_cast<f32>(inOutScrollValue);
+				Camera.PositionCurrent.x = Camera.PositionTarget.x = static_cast<f32>(inOutScrollValue) + TimelineCameraBaseScrollX;
+			}
+
+			if (IsCameraMouseGrabActive) Gui::PopStyleColor();
+			Gui::PopStyleColor(3);
+		});
 
 		const b8 isPlayback = context.GetIsPlayback();
 		const BeatAndTime cursorBeatAndTime = context.GetCursorBeatAndTime();
 		const Time cursorTime = cursorBeatAndTime.Time;
 		const Beat cursorBeat = cursorBeatAndTime.Beat;
 		const Beat cursorBeatOnPlaybackStart = context.TimeToBeat(context.CursorTimeOnPlaybackStart);
-
-		// HACK: Drawing outside the BeginChild() / EndChild() means the clipping rect has already been popped...
-		DrawListSidebarHeader->PushClipRect(Regions.SidebarHeader.TL, Regions.SidebarHeader.BR);
-		DrawListSidebar->PushClipRect(Regions.Sidebar.TL, Regions.Sidebar.BR);
-		DrawListContentHeader->PushClipRect(Regions.ContentHeader.TL, Regions.ContentHeader.BR);
-		DrawListContent->PushClipRect(Regions.Content.TL, Regions.Content.BR);
-		defer { DrawListContent->PopClipRect(); DrawListContentHeader->PopClipRect(); DrawListSidebar->PopClipRect(); DrawListSidebarHeader->PopClipRect(); };
 
 		context.ElapsedProgramTimeSincePlaybackStarted = isPlayback ? context.ElapsedProgramTimeSincePlaybackStarted + Time::FromSec(Gui::DeltaTime()) : Time::Zero();
 		context.ElapsedProgramTimeSincePlaybackStopped = !isPlayback ? context.ElapsedProgramTimeSincePlaybackStopped + Time::FromSec(Gui::DeltaTime()) : Time::Zero();
@@ -3301,34 +3330,93 @@ namespace PeepoDrumKit
 		const f32 cursorLocalSpaceX = isPlayback ? currentCursorLocalSpaceX : animatedCursorLocalSpaceX;
 		const f32 cursorHeaderTriangleLocalSpaceX = cursorLocalSpaceX + 0.5f;
 
+		// NOTE: Row labels, lines and items
+		ImDrawList* DrawListSidebar = nullptr;
+		ImDrawList* DrawListContent = nullptr;
+		{
+			const Time visibleTimeOverdraw = Camera.TimePerScreenPixel() * (Gui::GetFrameHeight() * 4.0f);
+			Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
+			drawers.DrawTimelineSideBar([&](ImDrawList* drawList)
+			{
+				DrawListSidebar = drawList;
+				DrawListSidebar->ChannelsSplit(2); // 0: background, 1: interactable objects and forground
+				DrawListSidebar->ChannelsSetCurrent(1);
+				// NOTE: Row label text
+				ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
+				{
+					const vec2 sidebarScreenSpaceTL = LocalToScreenSpace_Sidebar(vec2(0.0f, rowIt.LocalY));
+					const vec2 sidebarScreenSpaceBL = LocalToScreenSpace_Sidebar(vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight));
+
+					DrawListSidebar->AddLine(
+						sidebarScreenSpaceBL,
+						sidebarScreenSpaceBL + vec2(Regions.Sidebar.GetWidth(), 0.0f),
+						Gui::GetColorU32(ImGuiCol_Separator, 0.35f));
+
+					const f32 textHeight = Gui::GetFontSize();
+					const vec2 screenSpaceTextPosition = sidebarScreenSpaceTL + vec2((Gui::GetStyle().FramePadding.x * 2.0f), Floor((rowIt.LocalHeight * 0.5f) - (textHeight * 0.5f)));
+
+					// HACK: Use TextDisable for now to make it clear that these aren't really implemented yet
+					const b8 isThisRowImplemented = !(rowIt.RowType == TimelineRowType::Notes_Expert || rowIt.RowType == TimelineRowType::Notes_Master);
+
+					Gui::DisableFontPixelSnap(true);
+					DrawListSidebar->AddText(screenSpaceTextPosition, Gui::GetColorU32(isThisRowImplemented ? ImGuiCol_Text : ImGuiCol_TextDisabled), Gui::StringViewStart(rowIt.Label), Gui::StringViewEnd(rowIt.Label));
+					Gui::DisableFontPixelSnap(false);
+				});
+			});
+			DrawListSidebar->PushClipRect(Regions.Sidebar.TL, Regions.Sidebar.BR);
+
+			drawers.DrawTimelineContent([&](ImDrawList* drawList)
+			{
+				DrawListContent = drawList;
+				const DrawTimelineContentItemRowParam rowParam = { *this, context, DrawListContent, GetMinMaxVisibleTime(visibleTimeOverdraw), isPlayback, cursorTime, cursorBeatOnPlaybackStart };
+				DrawListContent->ChannelsSplit(2); // 0: background, 1: interactable objects and forground
+				DrawListContent->ChannelsSetCurrent(1);
+				// NOTE: Row separator line
+				ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
+				{
+					const vec2 screenSpaceBL = LocalToScreenSpace(vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight));
+					DrawListContent->AddLine(screenSpaceBL, screenSpaceBL + vec2(Regions.Content.GetWidth(), 0.0f), TimelineHorizontalRowLineColor);
+
+					// NOTE: Row items
+					switch (rowIt.RowType)
+					{
+					case TimelineRowType::Tempo: DrawTimelineContentItemRowT<TempoChange, TimelineRowType::Tempo>(rowParam, rowIt, context.ChartSelectedCourse->TempoMap.Tempo); break;
+					case TimelineRowType::TimeSignature: DrawTimelineContentItemRowT<TimeSignatureChange, TimelineRowType::TimeSignature>(rowParam, rowIt, context.ChartSelectedCourse->TempoMap.Signature); break;
+					case TimelineRowType::Notes_Normal: DrawTimelineContentItemRowT<Note, TimelineRowType::Notes_Normal>(rowParam, rowIt, context.ChartSelectedCourse->Notes_Normal); break;
+					case TimelineRowType::Notes_Expert: DrawTimelineContentItemRowT<Note, TimelineRowType::Notes_Expert>(rowParam, rowIt, context.ChartSelectedCourse->Notes_Expert); break;
+					case TimelineRowType::Notes_Master: DrawTimelineContentItemRowT<Note, TimelineRowType::Notes_Master>(rowParam, rowIt, context.ChartSelectedCourse->Notes_Master); break;
+					case TimelineRowType::ScrollSpeed: DrawTimelineContentItemRowT<ScrollChange, TimelineRowType::ScrollSpeed>(rowParam, rowIt, context.ChartSelectedCourse->ScrollChanges); break;
+					case TimelineRowType::BarLineVisibility: DrawTimelineContentItemRowT<BarLineChange, TimelineRowType::BarLineVisibility>(rowParam, rowIt, context.ChartSelectedCourse->BarLineChanges); break;
+					case TimelineRowType::GoGoTime: DrawTimelineContentItemRowT<GoGoRange, TimelineRowType::GoGoTime>(rowParam, rowIt, context.ChartSelectedCourse->GoGoRanges); break;
+					case TimelineRowType::Lyrics: DrawTimelineContentItemRowT<LyricChange, TimelineRowType::Lyrics>(rowParam, rowIt, context.ChartSelectedCourse->Lyrics); break;
+					case TimelineRowType::ScrollType: DrawTimelineContentItemRowT<ScrollType, TimelineRowType::ScrollType>(rowParam, rowIt, context.ChartSelectedCourse->ScrollTypes); break;
+					case TimelineRowType::JPOSScroll: DrawTimelineContentItemRowT<JPOSScrollChange, TimelineRowType::JPOSScroll>(rowParam, rowIt, context.ChartSelectedCourse->JPOSScrollChanges); break;
+					case TimelineRowType::Sudden: DrawTimelineContentItemRowT<SuddenChange, TimelineRowType::Sudden>(rowParam, rowIt, context.ChartSelectedCourse->SuddenChanges); break;
+					default: { assert(!"Missing TimelineRowType switch case"); } break;
+					}
+				});
+			});
+			DrawListContent->PushClipRect(Regions.Content.TL, Regions.Content.BR);
+			Gui::PopFont();
+		}
+
 		// NOTE: Base background
 		{
+			DrawListContent->ChannelsSetCurrent(0);
 			static constexpr f32 borders = 1.0f;
 			DrawListContent->AddRectFilled(Regions.Content.TL + vec2(borders), Regions.Content.BR - vec2(borders), TimelineBackgroundColor);
 		}
 
-		// NOTE: Demo start time marker
-		{
-			if (context.Chart.SongDemoStartTime > Time::Zero())
-			{
-				const Time songDemoStartTimeChartSpace = context.Chart.SongDemoStartTime + context.Chart.SongOffset;
-				const f32 songDemoStartTimeLocalSpaceX = Camera.TimeToLocalSpaceX(songDemoStartTimeChartSpace);
-
-				const vec2 headerScreenSpaceTL = LocalToScreenSpace_ContentHeader(vec2(songDemoStartTimeLocalSpaceX, 0.0f));
-				const vec2 triangle[3]
-				{
-					headerScreenSpaceTL + vec2(0.0f, Regions.ContentHeader.GetHeight() - GuiScale(TimelineSongDemoStartMarkerHeight)),
-					headerScreenSpaceTL + vec2(GuiScale(TimelineSongDemoStartMarkerWidth), Regions.ContentHeader.GetHeight()),
-					headerScreenSpaceTL + vec2(0.0f, Regions.ContentHeader.GetHeight()),
-				};
-
-				DrawListContentHeader->AddTriangleFilled(triangle[0], triangle[1], triangle[2], TimelineSongDemoStartMarkerColorFill);
-				DrawListContentHeader->AddTriangle(triangle[0], triangle[1], triangle[2], TimelineSongDemoStartMarkerColorBorder);
-			}
-		}
-
 		// NOTE: Tempo map bar/beat lines and bar-index/time text
+		ImDrawList* DrawListContentHeader = nullptr;
+		drawers.DrawTimelineContentHeader([&](ImDrawList* drawList)
 		{
+			DrawListContentHeader = drawList;
+			DrawListContentHeader->ChannelsSplit(2); // 0: background, 1: interactable objects and forground
+
+			DrawListContentHeader->ChannelsSetCurrent(1);
+			DrawListContent->ChannelsSetCurrent(0);
+
 			const f32 screenSpaceTimeTextWidth = Gui::CalcTextSize(Time::Zero().ToString().Data).x;
 			vec2 lastDrawnScreenSpaceTextTL = vec2(F32Min);
 
@@ -3370,12 +3458,36 @@ namespace PeepoDrumKit
 				}
 			});
 			Gui::PopFont();
+		});
+		DrawListContentHeader->PushClipRect(Regions.ContentHeader.TL, Regions.ContentHeader.BR);
+
+		// NOTE: Demo start time marker
+		{
+			DrawListContentHeader->ChannelsSetCurrent(0);
+			if (context.Chart.SongDemoStartTime > Time::Zero())
+			{
+				const Time songDemoStartTimeChartSpace = context.Chart.SongDemoStartTime + context.Chart.SongOffset;
+				const f32 songDemoStartTimeLocalSpaceX = Camera.TimeToLocalSpaceX(songDemoStartTimeChartSpace);
+
+				const vec2 headerScreenSpaceTL = LocalToScreenSpace_ContentHeader(vec2(songDemoStartTimeLocalSpaceX, 0.0f));
+				const vec2 triangle[3]
+				{
+					headerScreenSpaceTL + vec2(0.0f, Regions.ContentHeader.GetHeight() - GuiScale(TimelineSongDemoStartMarkerHeight)),
+					headerScreenSpaceTL + vec2(GuiScale(TimelineSongDemoStartMarkerWidth), Regions.ContentHeader.GetHeight()),
+					headerScreenSpaceTL + vec2(0.0f, Regions.ContentHeader.GetHeight()),
+				};
+
+				DrawListContentHeader->AddTriangleFilled(triangle[0], triangle[1], triangle[2], TimelineSongDemoStartMarkerColorFill);
+				DrawListContentHeader->AddTriangle(triangle[0], triangle[1], triangle[2], TimelineSongDemoStartMarkerColorBorder);
+			}
 		}
 
 		// NOTE: Grid snap beat lines
 		{
 			if (GridSnapLineAnimationCurrent > 0.0f)
 			{
+				DrawListContent->ChannelsSetCurrent(0);
+
 				const auto minMaxVisibleTime = GetMinMaxVisibleTime();
 				const Beat gridBeatSnap = GetGridBeatSnap(CurrentGridBarDivision);
 				const Beat minVisibleBeat = FloorBeatToGrid(context.TimeToBeat(minMaxVisibleTime.Min), gridBeatSnap) - gridBeatSnap;
@@ -3404,6 +3516,8 @@ namespace PeepoDrumKit
 
 		// NOTE: Out of bounds darkening
 		{
+			DrawListContent->ChannelsSetCurrent(0);
+
 			const Time gridTimeMin = ClampTop(context.Chart.SongOffset, Time::Zero()), gridTimeMax = context.Chart.GetDurationOrDefault();
 			const f32 localSpaceMinL = Clamp(Camera.WorldToLocalSpace(vec2(Camera.TimeToWorldSpaceX(gridTimeMin), 0.0f)).x, 0.0f, Regions.Content.GetWidth());
 			const f32 localSpaceMaxR = Clamp(Camera.WorldToLocalSpace(vec2(Camera.TimeToWorldSpaceX(gridTimeMax), 0.0f)).x, 0.0f, Regions.Content.GetWidth());
@@ -3418,6 +3532,9 @@ namespace PeepoDrumKit
 		// NOTE: Range selection rect
 		if (RangeSelection.IsActive)
 		{
+			DrawListContentHeader->ChannelsSetCurrent(1);
+			DrawListContent->ChannelsSetCurrent(0);
+
 			vec2 localTL = vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(RangeSelection.Start)), 1.0f);
 			vec2 localBR = vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(RangeSelection.End)), Regions.Content.GetHeight() - 1.0f);
 			localBR.x = LerpClamped(localTL.x, localBR.x, RangeSelectionExpansionAnimationCurrent);
@@ -3440,70 +3557,22 @@ namespace PeepoDrumKit
 		}
 
 		// NOTE: Background waveform
-		if (TimelineWaveformDrawOrder == WaveformDrawOrder::Background && !context.SongWaveformL.IsEmpty())
+		if (TimelineWaveformDrawOrder == WaveformDrawOrder::Background && !context.SongWaveformL.IsEmpty()) {
+			DrawListContent->ChannelsSetCurrent(0);
 			DrawTimelineContentWaveform(*this, DrawListContent, context.Chart.SongOffset, context.SongWaveformL, context.SongWaveformR, context.SongWaveformFadeAnimationCurrent);
-
-		// NOTE: Row labels, lines and items
-		{
-			const Time visibleTimeOverdraw = Camera.TimePerScreenPixel() * (Gui::GetFrameHeight() * 4.0f);
-			const DrawTimelineContentItemRowParam rowParam = { *this, context, DrawListContent, GetMinMaxVisibleTime(visibleTimeOverdraw), isPlayback, cursorTime, cursorBeatOnPlaybackStart };
-			Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
-			ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
-			{
-				// NOTE: Row label text
-				{
-					const vec2 sidebarScreenSpaceTL = LocalToScreenSpace_Sidebar(vec2(0.0f, rowIt.LocalY));
-					const vec2 sidebarScreenSpaceBL = LocalToScreenSpace_Sidebar(vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight));
-
-					DrawListSidebar->AddLine(
-						sidebarScreenSpaceBL,
-						sidebarScreenSpaceBL + vec2(Regions.Sidebar.GetWidth(), 0.0f),
-						Gui::GetColorU32(ImGuiCol_Separator, 0.35f));
-
-					const f32 textHeight = Gui::GetFontSize();
-					const vec2 screenSpaceTextPosition = sidebarScreenSpaceTL + vec2((Gui::GetStyle().FramePadding.x * 2.0f), Floor((rowIt.LocalHeight * 0.5f) - (textHeight * 0.5f)));
-
-					// HACK: Use TextDisable for now to make it clear that these aren't really implemented yet
-					const b8 isThisRowImplemented = !(rowIt.RowType == TimelineRowType::Notes_Expert || rowIt.RowType == TimelineRowType::Notes_Master);
-
-					Gui::DisableFontPixelSnap(true);
-					DrawListSidebar->AddText(screenSpaceTextPosition, Gui::GetColorU32(isThisRowImplemented ? ImGuiCol_Text : ImGuiCol_TextDisabled), Gui::StringViewStart(rowIt.Label), Gui::StringViewEnd(rowIt.Label));
-					Gui::DisableFontPixelSnap(false);
-				}
-
-				// NOTE: Row separator line
-				{
-					const vec2 screenSpaceBL = LocalToScreenSpace(vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight));
-					DrawListContent->AddLine(screenSpaceBL, screenSpaceBL + vec2(Regions.Content.GetWidth(), 0.0f), TimelineHorizontalRowLineColor);
-				}
-
-				// NOTE: Row items
-				switch (rowIt.RowType)
-				{
-				case TimelineRowType::Tempo: DrawTimelineContentItemRowT<TempoChange, TimelineRowType::Tempo>(rowParam, rowIt, context.ChartSelectedCourse->TempoMap.Tempo); break;
-				case TimelineRowType::TimeSignature: DrawTimelineContentItemRowT<TimeSignatureChange, TimelineRowType::TimeSignature>(rowParam, rowIt, context.ChartSelectedCourse->TempoMap.Signature); break;
-				case TimelineRowType::Notes_Normal: DrawTimelineContentItemRowT<Note, TimelineRowType::Notes_Normal>(rowParam, rowIt, context.ChartSelectedCourse->Notes_Normal); break;
-				case TimelineRowType::Notes_Expert: DrawTimelineContentItemRowT<Note, TimelineRowType::Notes_Expert>(rowParam, rowIt, context.ChartSelectedCourse->Notes_Expert); break;
-				case TimelineRowType::Notes_Master: DrawTimelineContentItemRowT<Note, TimelineRowType::Notes_Master>(rowParam, rowIt, context.ChartSelectedCourse->Notes_Master); break;
-				case TimelineRowType::ScrollSpeed: DrawTimelineContentItemRowT<ScrollChange, TimelineRowType::ScrollSpeed>(rowParam, rowIt, context.ChartSelectedCourse->ScrollChanges); break;
-				case TimelineRowType::BarLineVisibility: DrawTimelineContentItemRowT<BarLineChange, TimelineRowType::BarLineVisibility>(rowParam, rowIt, context.ChartSelectedCourse->BarLineChanges); break;
-				case TimelineRowType::GoGoTime: DrawTimelineContentItemRowT<GoGoRange, TimelineRowType::GoGoTime>(rowParam, rowIt, context.ChartSelectedCourse->GoGoRanges); break;
-				case TimelineRowType::Lyrics: DrawTimelineContentItemRowT<LyricChange, TimelineRowType::Lyrics>(rowParam, rowIt, context.ChartSelectedCourse->Lyrics); break;
-				case TimelineRowType::ScrollType: DrawTimelineContentItemRowT<ScrollType, TimelineRowType::ScrollType>(rowParam, rowIt, context.ChartSelectedCourse->ScrollTypes); break;
-				case TimelineRowType::JPOSScroll: DrawTimelineContentItemRowT<JPOSScrollChange, TimelineRowType::JPOSScroll>(rowParam, rowIt, context.ChartSelectedCourse->JPOSScrollChanges); break;
-				case TimelineRowType::Sudden: DrawTimelineContentItemRowT<SuddenChange, TimelineRowType::Sudden>(rowParam, rowIt, context.ChartSelectedCourse->SuddenChanges); break;
-				default: { assert(!"Missing TimelineRowType switch case"); } break;
-				}
-			});
-			Gui::PopFont();
 		}
 
 		// NOTE: Background waveform overlay
-		if (TimelineWaveformDrawOrder == WaveformDrawOrder::Foreground && !context.SongWaveformL.IsEmpty())
+		if (TimelineWaveformDrawOrder == WaveformDrawOrder::Foreground && !context.SongWaveformL.IsEmpty()) {
+			DrawListContent->ChannelsSetCurrent(1);
 			DrawTimelineContentWaveform(*this, DrawListContent, context.Chart.SongOffset, context.SongWaveformL, context.SongWaveformR, context.SongWaveformFadeAnimationCurrent);
+		}
 
 		// NOTE: Cursor foreground
 		{
+			DrawListContent->ChannelsSetCurrent(1);
+			DrawListContentHeader->ChannelsSetCurrent(1);
+
 			const f32 cursorWidth = GuiScale(TimelineCursorHeadWidth);
 			const f32 cursorHeight = GuiScale(TimelineCursorHeadHeight);
 
@@ -3533,6 +3602,8 @@ namespace PeepoDrumKit
 		// NOTE: Mouse selection box
 		if (BoxSelection.IsActive)
 		{
+			DrawListContent->ChannelsSetCurrent(1);
+
 			f32 localYMax = std::max(Regions.Content.GetHeight(), GetTotalTimelineRowsHeight(*this));
 			auto clampVisibleLocalSpace = [&](vec2 localSpace) // keep top and bottom outlines within the world space
 			{
@@ -3575,5 +3646,8 @@ namespace PeepoDrumKit
 				}
 			}
 		}
+
+		for (auto* ptr : { &DrawListContent, &DrawListContentHeader, &DrawListSidebar, &DrawListSidebarHeader })
+			(*ptr)->PopClipRect();
 	}
 }
