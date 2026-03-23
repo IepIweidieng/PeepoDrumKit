@@ -454,31 +454,6 @@ namespace PeepoDrumKit
 
 namespace PeepoDrumKit
 {
-	// NOTE: Soft clamp for sliders but still allow *typing in* values to be higher, even if it can cause clipping
-	static constexpr f32 MinVolume = 0.0f;
-	static constexpr f32 MaxVolumeSoftLimit = 1.0f;
-	static constexpr f32 MaxVolumeHardLimit = F32Max;
-
-	// limited values to prevent crashes due to high load
-	static constexpr i32 MinTimeSignatureValue = -Beat::TicksPerBeat * 4;
-	static constexpr i32 MaxTimeSignatureValue = Beat::TicksPerBeat * 4;
-	static constexpr f32 MinBPM = -60000.0f;
-	static constexpr f32 MaxBPM = 60000.0f;
-
-	// practically no limits
-	static constexpr i16 MinBalloonCount = 0;
-	static constexpr i16 MaxBalloonCount = I16Max;
-	static constexpr f32 MinScrollSpeed = -F32Max;
-	static constexpr f32 MaxScrollSpeed = +F32Max;
-	static constexpr f32 MinScrollBPM = -F32Max;
-	static constexpr f32 MaxScrollBPM = +F32Max;
-	static constexpr f32 MaxJPOSScrollMove = +F32Max;
-	static constexpr f32 MinJPOSScrollMove = -F32Max;
-	static constexpr f32 MaxJPOSScrollDuration = +F32Max;
-	static constexpr f32 MinJPOSScrollDuration = -F32Max;
-	static constexpr Time MinNoteTimeOffset = Time::FromMS(-F64Max);
-	static constexpr Time MaxNoteTimeOffset = Time::FromMS(+F64Max);
-
 	cstr LoadingTextAnimation::UpdateFrameAndGetText(b8 isLoadingThisFrame, f32 deltaTimeSec)
 	{
 		static constexpr cstr TextFrames[] = { "Loading o....", "Loading .o...", "Loading ..o..", "Loading ...o.", "Loading ....o", "Loading ...o.", "Loading ..o..", "Loading .o..." };

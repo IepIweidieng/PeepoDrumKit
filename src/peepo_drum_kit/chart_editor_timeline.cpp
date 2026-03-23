@@ -3437,15 +3437,12 @@ namespace PeepoDrumKit
 				const Time timeDelta = targetTime - bpmStartTime;
 				const Beat beatDelta = BarLineDrag.BarBeat - bpmEvent->Beat;
 
-				if (timeDelta.Seconds > 0.001 && beatDelta > Beat::Zero())
+				if (abs(timeDelta.Seconds) >= 0.001 && beatDelta != Beat::Zero())
 				{
 					const f64 beats = beatDelta.BeatsFraction();
 					const f32 newBPM = static_cast<f32>(beats * 60.0 / timeDelta.Seconds);
-					if (newBPM > 0.0f)
-					{
-						bpmEvent->Tempo.BPM = Clamp(newBPM, 0.001f, 100000.0f);
-						context.ChartSelectedCourse->TempoMap.RebuildAccelerationStructure();
-					}
+					bpmEvent->Tempo.BPM = Clamp(newBPM, MinBPM, MaxBPM);
+					context.ChartSelectedCourse->TempoMap.RebuildAccelerationStructure();
 				}
 			}
 		}
