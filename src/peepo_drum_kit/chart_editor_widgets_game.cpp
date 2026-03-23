@@ -656,7 +656,7 @@ namespace PeepoDrumKit
 			context.Gfx.Rasterize(SprGroup::Game, Camera.WorldToScreenScaleFactor);
 
 		ImDrawList* drawList = Gui::GetWindowDrawList();
-		drawList->ChannelsSplit(4); // 0: lane, 1: judgement mark, 2: bar lines, 3: notes
+		drawList->ChannelsSplit(5); // 0: lane, 1: judgement mark, 2: bar lines, 3: notes & frame, 4: overlay texts
 		drawList->PushClipRect(Camera.ScreenSpaceViewportRect.TL, Camera.ScreenSpaceViewportRect.BR, true);
 
 		i32 iLane = -1;
@@ -769,10 +769,12 @@ namespace PeepoDrumKit
 
 			if (hitCirclePosJPos != vec2{ 0, 0 }) {
 				std::string str = Complex(hitCirclePosJPos.x, hitCirclePosJPos.y).toStringCompat("\n");
-				const f32 fontHeight = Gui::GetFontSize();
-				vec2 posTxtJPos = hitCirclePos + vec2{ -1, -1 } * (Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius) + fontHeight / 2);
+				const vec2 textSize = Gui::CalcTextSize(str);
+				vec2 posTxtJPos = hitCirclePos + vec2{ -1, -1 } * (Camera.WorldToScreenScale(GameHitCircle.OuterOutlineRadius) + textSize.y / 2);
 				if (str.find('\n') != str.npos)
-					posTxtJPos.y -= fontHeight / 2;
+					posTxtJPos.y -= textSize.y / 2;
+				posTxtJPos = Max(Camera.ScreenSpaceViewportRect.TL, Min(posTxtJPos, Camera.ScreenSpaceViewportRect.BR - textSize));
+				drawList->ChannelsSetCurrent(4);
 				drawList->AddText(posTxtJPos, 0xFFFFFFFF, str.c_str(), str.c_str() + str.length());
 			}
 
