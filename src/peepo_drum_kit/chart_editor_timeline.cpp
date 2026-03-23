@@ -3344,22 +3344,37 @@ namespace PeepoDrumKit
 				// NOTE: Row label text
 				ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
 				{
-					const vec2 sidebarScreenSpaceTL = LocalToScreenSpace_Sidebar(vec2(0.0f, rowIt.LocalY));
-					const vec2 sidebarScreenSpaceBL = LocalToScreenSpace_Sidebar(vec2(0.0f, rowIt.LocalY + rowIt.LocalHeight));
+					const Rect sidebarScreenSpace = {
+						LocalToScreenSpace_Sidebar(vec2(0.0f, rowIt.LocalY)),
+						LocalToScreenSpace_Sidebar(vec2(Regions.Sidebar.GetWidth(), rowIt.LocalY + rowIt.LocalHeight)),
+					};
 
-					DrawListSidebar->AddLine(
-						sidebarScreenSpaceBL,
-						sidebarScreenSpaceBL + vec2(Regions.Sidebar.GetWidth(), 0.0f),
-						Gui::GetColorU32(ImGuiCol_Separator, 0.35f));
+					DrawListSidebar->AddLine(sidebarScreenSpace.GetBL(), sidebarScreenSpace.BR, Gui::GetColorU32(ImGuiCol_Separator, 0.35f));
 
 					const f32 textHeight = Gui::GetFontSize();
-					const vec2 screenSpaceTextPosition = sidebarScreenSpaceTL + vec2((Gui::GetStyle().FramePadding.x * 2.0f), Floor((rowIt.LocalHeight * 0.5f) - (textHeight * 0.5f)));
+					const vec2 screenSpaceTextPosition = sidebarScreenSpace.TL + vec2((Gui::GetStyle().FramePadding.x * 2.0f), Floor((rowIt.LocalHeight * 0.5f) - (textHeight * 0.5f)));
 
 					// HACK: Use TextDisable for now to make it clear that these aren't really implemented yet
 					const b8 isThisRowImplemented = !(rowIt.RowType == TimelineRowType::Notes_Expert || rowIt.RowType == TimelineRowType::Notes_Master);
 
 					Gui::DisableFontPixelSnap(true);
-					DrawListSidebar->AddText(screenSpaceTextPosition, Gui::GetColorU32(isThisRowImplemented ? ImGuiCol_Text : ImGuiCol_TextDisabled), Gui::StringViewStart(rowIt.Label), Gui::StringViewEnd(rowIt.Label));
+					Gui::BeginDisabled(!isThisRowImplemented);
+
+					Gui::SetCursorScreenPos(screenSpaceTextPosition);
+
+					Gui::TextEx(Gui::StringViewStart(rowIt.Label), Gui::StringViewEnd(rowIt.Label));
+
+					if (rowIt.RowType == TimelineRowType::JPOSScroll) {
+						Gui::SameLine();
+						vec2 padding = Gui::GetStyle().FramePadding;
+						Gui::SetCursorScreenPos(vec2{ Gui::GetCursorScreenPos().x, sidebarScreenSpace.TL.y + padding.y });
+						Gui::SetNextItemWidth(Gui::GetContentRegionAvail().x - padding.x);
+						Gui::ComboEnum("##JPosScrollDistanceType", &context.Chart.JPosDistanceType, strJPosDistanceType);
+
+						Gui::SetItemTooltip(UI_Str("EVENT_JPOS_SCROLL_DISTANCE_TOOLTIP"));
+					}
+
+					Gui::EndDisabled();
 					Gui::DisableFontPixelSnap(false);
 				});
 			});

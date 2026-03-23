@@ -152,11 +152,13 @@ namespace PeepoDrumKit
 		constexpr vec2 WorldToScreenScale(vec2 worldScale) const { return worldScale * WorldToScreenScaleFactor; }
 		constexpr vec2 WorldToScreenSpace(vec2 worldSpace) const { return ScreenSpaceViewportRect.TL + (worldSpace * WorldToScreenScaleFactor); }
 
-		constexpr vec2 JPOSScrollToLaneSpace(const vec2& jPosCoord) const
+		constexpr vec2 JPOSScrollToLaneSpace(const vec2& jPosCoord, f64 pxJPosDistance) const
 		{
 			constexpr f32 jposMoveCoordHeight = 720.0f;
+			constexpr f32 scaleFrom720p = 1080 / 720.0f;
 			f32 coordRatio = GameWorldStandardHeight / jposMoveCoordHeight;
-			return jPosCoord * coordRatio;
+			f32 simulatorRatio = GameLaneStandardWidth / (pxJPosDistance * scaleFrom720p);
+			return jPosCoord * coordRatio * simulatorRatio;
 		}
 
 		vec2 GetHitCircleCoordinatesJPOSScroll(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
@@ -191,9 +193,9 @@ namespace PeepoDrumKit
 			return vec2(x, y);
 		}
 
-		vec2 GetHitCircleCoordinatesLane(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
+		vec2 GetHitCircleCoordinatesLane(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure, f64 pxJPosDistance)
 		{
-			return JPOSScrollToLaneSpace(GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, timeStamp, accelerationStructure));
+			return JPOSScrollToLaneSpace(GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, timeStamp, accelerationStructure), pxJPosDistance);
 		}
 
 		vec2 GetNoteCoordinatesLane(
@@ -217,9 +219,9 @@ namespace PeepoDrumKit
 			);
 		}
 
-		vec2 GetHitCircleCoordinatesScreen(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
+		vec2 GetHitCircleCoordinatesScreen(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure, f64 pxJPosDistance)
 		{
-			return LaneToScreenSpace(GetHitCircleCoordinatesLane(jposScrollChanges, timeStamp, accelerationStructure));
+			return LaneToScreenSpace(GetHitCircleCoordinatesLane(jposScrollChanges, timeStamp, accelerationStructure, pxJPosDistance));
 		}
 
 		// NOTE: Same scale as world space but with (0,0) starting at the hit-circle center point

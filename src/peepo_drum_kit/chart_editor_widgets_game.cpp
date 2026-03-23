@@ -750,7 +750,7 @@ namespace PeepoDrumKit
 			// NOTE: Hit indicator circle
 			drawList->ChannelsSetCurrent(1);
 			const vec2 hitCirclePosJPos = Camera.GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
-			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos);
+			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos, GetJPosDistance(context.Chart.JPosDistanceType));
 			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
 			if (gogoFireZoom > 0) {
 				context.Gfx.DrawSprite(drawList, SprID::Game_Lane_GogoFire,
@@ -992,7 +992,7 @@ namespace PeepoDrumKit
 								{
 									// TODO: Scale duration, animation speed and path by extended lane width
 									const auto hitAnimation = GetNoteHitPathAnimation(timeSinceSubHit, Camera.ExtendedLaneWidthFactor(), nLanes, iLane, it->OriginalNote->Type);
-									const vec2 laneOrigin = Camera.GetHitCircleCoordinatesLane(jposScrollChanges, subHitTime, tempoChanges);
+									const vec2 laneOrigin = Camera.GetHitCircleCoordinatesLane(jposScrollChanges, subHitTime, tempoChanges, GetJPosDistance(context.Chart.JPosDistanceType));
 									const vec2 noteCenter = Camera.LaneToWorldSpace(laneOrigin.x, laneOrigin.y) + hitAnimation.PositionOffset;
 
 									if (hitAnimation.AlphaFadeOut >= 1.0f)
@@ -1007,7 +1007,7 @@ namespace PeepoDrumKit
 					// TODO: Instead of offseting the lane x position just draw as HitCenter + PositionOffset directly (?)
 					auto hitAnimation = GetNoteHitPathAnimation(timeSinceHit, Camera.ExtendedLaneWidthFactor(), nLanes, iLane, it->OriginalNote->Type);
 					const vec2 noteOrigin = (timeSinceHit < Time::Zero()) ? it->LaneHead
-						: Camera.GetHitCircleCoordinatesLane(jposScrollChanges, it->NoteEndTime, tempoChanges); // keep flying note's start position
+						: Camera.GetHitCircleCoordinatesLane(jposScrollChanges, it->NoteEndTime, tempoChanges, GetJPosDistance(context.Chart.JPosDistanceType)); // keep flying note's start position
 					const vec2 noteCenter = Camera.LaneToWorldSpace(noteOrigin.x, noteOrigin.y) + hitAnimation.PositionOffset;
 
 					if (hitAnimation.AlphaFadeOut >= 1.0f)

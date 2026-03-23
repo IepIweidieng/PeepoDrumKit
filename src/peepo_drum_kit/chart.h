@@ -326,6 +326,22 @@ namespace PeepoDrumKit
 	template <>
 	constexpr JPOSScrollChange FallbackEvent<JPOSScrollChange> = {Beat::Zero(), Complex(100.0f, 0.0f), 0.f};
 
+	enum class EJPosDistanceType { PDK, TJAP3Old, TJAP3, OpTk, Count };
+	constexpr cstr strJPosDistanceType[] = { "PDK (~949.3px)", "TJAP3 Old (~954.4px)", "TJAP3 1.6+ (~954.5px)", "OpTk (960px)" };
+	constexpr f64 px720pJPosDistances[] = {
+		2848 / 3.0, // 949.333...
+		4000 * 60 * 1 * 2.5 / 628.7, // 954.350...
+		4000 * 60 * 1 * 2 / 502.8594, // 954.541...
+		960,
+	};
+
+	constexpr f64 GetJPosDistance(EJPosDistanceType type) {
+		size_t index = EnumToIndex(type);
+		if (index >= std::size(px720pJPosDistances))
+			index = EnumToIndex(EJPosDistanceType::PDK);
+		return px720pJPosDistances[index];
+	}
+
 	struct BarLineChange
 	{
 		Beat BeatTime;
@@ -458,6 +474,8 @@ namespace PeepoDrumKit
 		std::string BackgroundImageFileName;
 		std::string BackgroundMovieFileName;
 		Time MovieOffset = {};
+
+		EJPosDistanceType JPosDistanceType = EJPosDistanceType::PDK;
 
 		std::map<std::string, std::string> OtherMetadata;
 
