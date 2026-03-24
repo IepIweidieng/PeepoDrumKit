@@ -3447,9 +3447,9 @@ namespace PeepoDrumKit
 				if (abs(timeDelta.Seconds) >= 0.001 && beatDelta != Beat::Zero())
 				{
 					const f64 beats = beatDelta.BeatsFraction();
-					const f32 newBPM = static_cast<f32>(beats * 60.0 / timeDelta.Seconds);
-					bpmEvent->Tempo.BPM = Clamp(newBPM, MinBPM, MaxBPM);
-					context.ChartSelectedCourse->TempoMap.RebuildAccelerationStructure();
+					Tempo newTempo = Tempo(f32(beats * 60.0 / timeDelta.Seconds));
+					newTempo.BPM = Clamp(newTempo.BPM, MinBPM, MaxBPM);
+					context.Undo.Execute<Commands::UpdateTempoChange>(context.ChartSelectedCourse, &context.ChartSelectedCourse->TempoMap, TempoChange(bpmEvent->Beat, newTempo));
 				}
 			}
 		}
