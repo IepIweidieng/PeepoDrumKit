@@ -72,11 +72,17 @@ namespace PeepoDrumKit
 		return GuiDragLabelScalar(label, ImGuiDataType_Float, inOutValue, speed, &min, &max, flags);
 	}
 
-	b8 GuiInputFraction(cstr label, ivec2* inOutValue, std::optional<ivec2> valueRange, i32 step, i32 stepFast, const u32* textColorOverride, std::string_view divisionText)
+	static f32 getInsertButtonWidth(int count = 1)
+	{
+		return std::max(1.0f, ImGui::GetContentRegionAvail().x - 1 - count * (Gui::GetStyle().ItemInnerSpacing.x + Gui::GetFrameHeight()));
+	}
+
+	b8 GuiInputFraction(cstr label, ivec2* inOutValue, std::optional<ivec2> valueRange, i32 step, i32 stepFast, const u32* textColorOverride, std::string_view divisionText, int insertButtonCount)
 	{
 		static constexpr i32 components = 2;
 		const f32 divisionLabelWidth = Gui::CalcTextSize(Gui::StringViewStart(divisionText), Gui::StringViewEnd(divisionText)).x;
-		const f32 perComponentInputFloatWidth = Floor(((Gui::GetContentRegionAvail().x - divisionLabelWidth) / static_cast<f32>(components)));
+		const f32 componentsWidth = getInsertButtonWidth(insertButtonCount) - divisionLabelWidth;
+		const f32 perComponentInputFloatWidth = Floor((componentsWidth / static_cast<f32>(components)));
 
 		b8 anyValueChanged = false;
 		for (i32 component = 0; component < components; component++)
@@ -84,7 +90,7 @@ namespace PeepoDrumKit
 			Gui::PushID(&(*inOutValue)[component]);
 
 			const b8 isLastComponent = ((component + 1) == components);
-			Gui::SetNextItemWidth(isLastComponent ? (Gui::GetContentRegionAvail().x - 1.0f) : perComponentInputFloatWidth);
+			Gui::SetNextItemWidth(perComponentInputFloatWidth);
 
 			Gui::InputScalarWithButtonsExData exData {}; exData.TextColor = (textColorOverride != nullptr) ? *textColorOverride : Gui::GetColorU32(ImGuiCol_Text); exData.SpinButtons = true;
 			Gui::InputScalarWithButtonsResult result = Gui::InputScalarN_WithExtraStuff("##Component", ImGuiDataType_S32, &(*inOutValue)[component], 1, &step, &stepFast, nullptr, ImGuiInputTextFlags_None, &exData);
@@ -2022,11 +2028,6 @@ namespace PeepoDrumKit
 		Gui::PopClipRect();
 	}
 
-	static float getInsertButtonWidth()
-	{
-		return std::max(1.0f, ImGui::GetContentRegionAvail().x - 1 - Gui::GetStyle().ItemInnerSpacing.x - Gui::GetFrameHeight());
-	}
-
 	template <typename FCharFilter, typename FKeyFilter>
 	static void PropertyMapCollapsingHeader(ChartContext& context, const char* label, std::map<std::string, std::string>& properties,
 		const char* labelAdd, std::string* pNewKey, FCharFilter&& charFilter, FKeyFilter&& keyFilter, const std::string& newDefault)
@@ -2380,7 +2381,11 @@ namespace PeepoDrumKit
 			res = Gui::ImageButton(tooltip_key, tex_id, image_size, uv0, uv1, bg_col, tint_col);
 		}
 		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
-			ImGui::SetTooltip(tooltip_key);
+			// prevent hidden ID from displaying
+			std::string_view tooltip = tooltip_key;
+			if (size_t idxID = tooltip.find_first_of("##"); idxID != tooltip.npos)
+				tooltip = tooltip.substr(0, idxID);
+			ImGui::SetTooltip("%.*s", tooltip.size(), tooltip.data());
 		}
 		return res;
 	}
@@ -2554,14 +2559,18 @@ namespace PeepoDrumKit
 					};
 
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
-					Gui::SetNextItemWidth(-1.0f);
+					// Gui::SetNextItemWidth(-1.0f); // Ignored by GuiInputFraction
 					if (ivec2 v = { signatureAtCursor.Numerator, signatureAtCursor.Denominator };
-						GuiInputFraction("##SignatureAtCursor", &v, ivec2(MinTimeSignatureValue, MaxTimeSignatureValue), 1, 4, !IsTimeSignatureSupported(signatureAtCursor) ? &InputTextWarningTextColor : nullptr))
+						GuiInputFraction("##SignatureAtCursor", &v, ivec2(MinTimeSignatureValue, MaxTimeSignatureValue), 1, 4,
+							!IsTimeSignatureSupported(signatureAtCursor) ? &InputTextWarningTextColor : nullptr, " / ", 1)
+						) {
 						insertOrUpdateCursorSignatureChange(TimeSignature(v[0], v[1]));
+					}
 
 					Gui::PushID(&course.TempoMap.Signature);
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!hasRangeSelection);
-					if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), vec2(-1.0f, 0.0f)))
+					if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 					{
 						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
 						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
@@ -2776,7 +2785,7 @@ namespace PeepoDrumKit
 								return false;
 							});
 
-						Gui::SetNextItemWidth(-1.0f);
+						Gui::SetNextItemWidth(getInsertButtonWidth());
 						if (f32 v = JPOSScrollDurationAtCursor;
 							Gui::SpinFloat("##JPOSScrollDurationAtCursor", &v, .1f, .5f, "%gs"))
 							insertOrUpdateCursorJPOSScrollChange(
@@ -2784,8 +2793,9 @@ namespace PeepoDrumKit
 							);
 
 						Gui::PushID(&course.JPOSScrollChanges);
+						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 						Gui::BeginDisabled(!hasRangeSelection);
-						if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), vec2(-1.0f, 0.0f)))
+						if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						{
 							const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
 							const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
@@ -2844,7 +2854,7 @@ namespace PeepoDrumKit
 
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 
-					Gui::SetNextItemWidth(getInsertButtonWidth());
+					Gui::SetNextItemWidth(getInsertButtonWidth(2));
 					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenAppearanceOffsetAtCursor", &v, .1f, .5f, "%gs (show)"))
 						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
@@ -2852,9 +2862,11 @@ namespace PeepoDrumKit
 						insertOrUpdateCursorSudden(Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 
 					Gui::PushID(&course.SuddenChanges);
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!hasRangeSelection);
-					if (Gui::Button((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenAppearanceOffsetSetFromRange")).c_str(), vec2(-1.0f, 0.0f)))
-					{
+					if (SpriteButton((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenAppearanceOffsetSetFromRange")).c_str(),
+						context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })
+						) {
 						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
 						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
 						const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);
@@ -2863,7 +2875,7 @@ namespace PeepoDrumKit
 					Gui::EndDisabled();
 					Gui::PopID();
 
-					Gui::SetNextItemWidth(getInsertButtonWidth());
+					Gui::SetNextItemWidth(getInsertButtonWidth(2));
 					if (f32 v = SuddenMovementOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenMovementOffsetAtCursor", &v, .1f, .5f, "%gs (move)"))
 						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(v), SuddenHideRollAtCursor);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
@@ -2871,9 +2883,11 @@ namespace PeepoDrumKit
 						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenHideRollAtCursor);
 
 					Gui::PushID(&course.SuddenChanges);
+					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!hasRangeSelection);
-					if (Gui::Button((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenMovementOffsetSetFromRange")).c_str(), vec2(-1.0f, 0.0f)))
-					{
+					if (SpriteButton((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenMovementOffsetSetFromRange")).c_str(),
+						context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })
+						) {
 						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
 						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
 						const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);

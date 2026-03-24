@@ -35,6 +35,7 @@ namespace PeepoDrumKit
 		Timeline_Note_Arms, // contains all arms
 
 		Timeline_Icon_InsertAtSelectedItems,
+		Timeline_Icon_SetFromRangeSelection,
 
 		Game_Note_Don,
 		Game_Note_DonBig,
@@ -104,6 +105,7 @@ namespace PeepoDrumKit
 		{ SprID::Timeline_Note_Arms,				SprGroup::Timeline, u8"assets/graphics/timeline_note_arms.svg" },
 
 		{ SprID::Timeline_Icon_InsertAtSelectedItems,	SprGroup::Timeline, u8"assets/graphics/timeline_icon_insert_at_selected_items.svg" },
+		{ SprID::Timeline_Icon_SetFromRangeSelection,	SprGroup::Timeline, u8"assets/graphics/timeline_icon_set_from_range_selection.svg" },
 
 		{ SprID::Game_Note_Don,						SprGroup::Game, u8"assets/graphics/game_note_don.svg" },
 		{ SprID::Game_Note_DonBig,					SprGroup::Game, u8"assets/graphics/game_note_don_big.svg" },

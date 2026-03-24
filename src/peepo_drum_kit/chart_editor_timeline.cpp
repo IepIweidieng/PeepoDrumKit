@@ -3525,9 +3525,11 @@ namespace PeepoDrumKit
 						Gui::DisableFontPixelSnap(true);
 
 						char buffer[32];
-						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarIndex, Gui::GetColorU32(gridIt.IsEndOfChart ? ImGuiCol_TextDisabled : ImGuiCol_Text),
+						auto colorKey = gridIt.IsEndOfChart ? ImGuiCol_TextDisabled : ImGuiCol_Text;
+						f32 timeAlphaMul = gridIt.IsEndOfChart ? 0.75f : 0.5f; // prevent too dark if in disable color
+						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarIndex, Gui::GetColorU32(colorKey),
 							std::string_view(buffer, sprintf_s(buffer, "%d", gridIt.BarIndex)));
-						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarTime, Gui::GetColorU32(ImGuiCol_Text, 0.5f),
+						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarTime, Gui::GetColorU32(colorKey, timeAlphaMul),
 							(gridIt.Time + timeLabelDisplayOffset).ToString().Data);
 
 						lastDrawnScreenSpaceTextTL = headerScreenSpaceTL;

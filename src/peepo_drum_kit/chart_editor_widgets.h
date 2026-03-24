@@ -281,5 +281,5 @@ namespace PeepoDrumKit
 	// Other GUI helpers
 	b8 GuiInputFraction(cstr label, ivec2* inOutValue, std::optional<ivec2> valueRange,
 		i32 step = 0, i32 stepFast = 0,
-		const u32* textColorOverride = nullptr, std::string_view divisionText = " / ");
+		const u32* textColorOverride = nullptr, std::string_view divisionText = " / ", int insertButtonCount = 0);
 }
