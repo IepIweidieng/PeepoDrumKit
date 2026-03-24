@@ -582,7 +582,7 @@ namespace TJA
 		ParsedMainMetadata MainMetadata;
 		ParsedCourseMetadata CourseMetadata;
 
-		std::vector<ConvertedMeasure> Measures;
+		std::vector<ConvertedMeasure> Measures; // stores first measure start and all measure ends
 		std::vector<ConvertedGoGoRange> GoGoRanges;
 	};
 

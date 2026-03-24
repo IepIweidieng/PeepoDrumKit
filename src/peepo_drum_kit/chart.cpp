@@ -266,8 +266,16 @@ namespace PeepoDrumKit
 			outCourse.TempoMap.RebuildAccelerationStructure();
 			outCourse.RecalculateSENotes();
 
-			if (!inCourse.Measures.empty())
-				out.ChartDuration = Max(out.ChartDuration, outCourse.TempoMap.BeatToTime(inCourse.Measures.back().StartTime /*+ inCourse.Measures.back().TimeSignature.GetDurationPerBar()*/));
+			// NOTE: use the non-0 shortest duration to prevent extra measures (editor need to display until max used beat in each difficulty)
+			if (!inCourse.Measures.empty()) {
+				Time courseDuration = outCourse.TempoMap.BeatToTime(inCourse.Measures.back().StartTime); // last measure end time
+				if (out.ChartDuration <= Time::Zero())
+					out.ChartDuration = courseDuration;
+				else if (courseDuration <= Time::Zero())
+					/* keep out.ChartDuration unchanged */;
+				else
+					out.ChartDuration = Min(out.ChartDuration, courseDuration);
+			}
 		}
 
 		return true;
@@ -334,13 +342,15 @@ namespace PeepoDrumKit
 			// TODO: Is this implemented correctly..? Need to have enough measures to cover every note/command and pad with empty measures up to the chart duration
 			// BUG: NOPE! "07 ゲームミュージック/003D. MagiCatz/MagiCatz.tja" for example still gets rounded up and then increased by a measure each time it gets saved
 			// ... and even so does "Heat Haze Shadow 2.tja" without any weird time signatures..??
+			// 1. rounded beat of time can have 1 extra tick which would become a whole measure -> used truncated beat
+			// 2. use minimum length of difficulties in case the timing differ slightly
 			const Beat inChartMaxUsedBeat = FindCourseMaxUsedBeat(inCourse);
-			const Beat inChartBeatDuration = inCourse.TempoMap.TimeToBeat(in.GetDurationOrDefault());
+			const Beat inChartBeatDuration = inCourse.TempoMap.TimeToBeat(in.GetDuration(), true);
 			std::vector<TJA::ConvertedMeasure> outConvertedMeasures;
 
 			inCourse.TempoMap.ForEachBeatBar([&](const SortedTempoMap::ForEachBeatBarData& it)
 			{
-				if (inChartBeatDuration > inChartMaxUsedBeat && (it.Beat >= inChartBeatDuration))
+				if (it.Beat > inChartMaxUsedBeat && it.Beat >= inChartBeatDuration) // ensure max used beat is converted
 					return ControlFlow::Break;
 				if (it.IsBar)
 				{
@@ -348,7 +358,8 @@ namespace PeepoDrumKit
 					outConvertedMeasure.StartTime = it.Beat;
 					outConvertedMeasure.TimeSignature = it.Signature;
 				}
-				return (it.Beat >= Max(inChartBeatDuration, inChartMaxUsedBeat)) ? ControlFlow::Break : ControlFlow::Fallthrough;
+				// if max used beat is converted, can stop it now
+				return (it.Beat >= inChartMaxUsedBeat && it.Beat >= inChartBeatDuration) ? ControlFlow::Break : ControlFlow::Fallthrough;
 			});
 
 			if (outConvertedMeasures.empty())
