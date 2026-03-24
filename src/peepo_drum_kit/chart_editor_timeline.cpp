@@ -3485,7 +3485,7 @@ namespace PeepoDrumKit
 					if (gridIt.IsBar)
 					{
 						b8 isHoveredForDrag = false;
-						if (!BarLineDrag.IsActive && SelectedItemDrag.ActiveTarget == EDragTarget::None && !IsCameraMouseGrabActive && IsContentWindowHovered)
+						if (!BarLineDrag.IsActive && SelectedItemDrag.ActiveTarget == EDragTarget::None && !IsCameraMouseGrabActive && (IsContentHeaderWindowHovered || IsContentWindowHovered))
 						{
 							if (Gui::GetIO().KeyCtrl)
 							{
