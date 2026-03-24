@@ -91,7 +91,7 @@ namespace PeepoDrumKit
 		};
 		std::vector<TempChartItem> SelectedItems;
 
-		void DrawGui(ChartContext& context);
+		void DrawGui(ChartContext& context, const ChartTimeline& timeline);
 	};
 
 	struct ChartPropertiesWindowIn 

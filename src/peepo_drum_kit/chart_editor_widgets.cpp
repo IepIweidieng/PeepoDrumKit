@@ -300,7 +300,8 @@ namespace PeepoDrumKit
 		}
 	}
 
-	static MultiEditWidgetResult GuiPropertyMultiSelectionEditWidget(std::string_view label, const MultiEditWidgetParam& in)
+	using TailWidgetDrawer = void(Gui::InputScalarWithButtonsResult* result, ImGuiDataType type, MultiEditDataUnion* v);
+	static MultiEditWidgetResult GuiPropertyMultiSelectionEditWidget(std::string_view label, const MultiEditWidgetParam& in, f32 valueWidth = -1.0f, std::function<TailWidgetDrawer> drawTailWidgets = nullptr)
 	{
 		MultiEditWidgetResult out = {};
 		Gui::PushID(Gui::StringViewStart(label), Gui::StringViewEnd(label));
@@ -339,10 +340,12 @@ namespace PeepoDrumKit
 			b8& textInputActiveLastFrame = *Gui::GetStateStorage()->GetBoolRef(Gui::GetID("TextInputActiveLastFrame"), false);
 			const b8 showMixedValues = (in.HasMixedValues && !textInputActiveLastFrame);
 
-			Gui::SetNextItemWidth(-1.0f);
+			Gui::SetNextItemWidth(valueWidth);
 			MultiEditDataUnion v = in.Value;
 			Gui::InputScalarWithButtonsExData exData {}; exData.TextColor = showMixedValues ? 0 : (in.TextColorOverride != nullptr) ? *in.TextColorOverride : Gui::GetColorU32(ImGuiCol_Text); exData.SpinButtons = in.UseSpinButtonsInstead;
 			Gui::InputScalarWithButtonsResult result = Gui::InputScalarN_WithExtraStuff("##Input", in.DataType, &v, in.Components, in.EnableStepButtons ? &in.ButtonStep : nullptr, in.EnableStepButtons ? &in.ButtonStepFast : nullptr, formatString, ImGuiInputTextFlags_None, &exData);
+			if (drawTailWidgets)
+				drawTailWidgets(&result, in.DataType, &v);
 			if (result.ValueChanged)
 			{
 				for (i32 c = 0; c < in.Components; c++)
@@ -1268,7 +1271,65 @@ namespace PeepoDrumKit
 		return DrawInterpolationProperty<HintT>(label, widgetIn, SelectedItems, getValue, setValue, getDefaultIsEqualValues(getValue), component);
 	}
 
-	void ChartInspectorWindow::DrawGui(ChartContext& context)
+	static std::map<std::tuple<SprID, u32, float, float, float, float>, ImImageQuad> sprImageQuadCache = {};
+	// [{sprite_id, tint_col, uv0.x, uv0.y, uv1.x, uv1.y}] = quad;
+	// Cannot use std::unordered_map because std::hash<std::tuple<...>> is not defined.
+	static i32 sprImageGuiScaleCache = GuiScaleFactorCurrent;
+
+	static bool SpriteButton(const char* tooltip_key, const ChartContext& context, SprID sprite_id, const ImVec2& button_size,
+		const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1),
+		const ImVec4& bg_col = ImVec4(0, 0, 0, 0), const ImVec4& tint_col = ImVec4(1, 1, 1, 1))
+	{
+		if (GuiScaleFactorCurrent != sprImageGuiScaleCache) {
+			sprImageQuadCache.clear(); // remove invalidated textures
+		}
+
+		u32 u32_tint_col = Gui::ColorConvertFloat4ToU32(tint_col);
+		ImImageQuad& quad = sprImageQuadCache[{sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y}];
+		ImTextureID tex_id = quad.TexID;
+		if (tex_id == 0) {
+			SprUV quadUV = SprUV::FromRect(uv0, uv1);
+			if (context.Gfx.GetImageQuad(quad, sprite_id, { {0, 0}, {0, 0}, {1, 1,}, 0 }, u32_tint_col, &quadUV)) {
+				tex_id = quad.TexID;
+			}
+			else {
+				sprImageQuadCache.erase({ sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y });
+				tex_id = 0;
+			}
+		}
+
+		bool res;
+		if (tex_id == 0) {
+			res = Gui::Button(tooltip_key, button_size);
+		}
+		else {
+			ImVec2 image_size = { button_size.x - 2 * Gui::GetStyle().FramePadding.x, button_size.y - 2 * Gui::GetStyle().FramePadding.y };
+			res = Gui::ImageButton(tooltip_key, tex_id, image_size, uv0, uv1, bg_col, tint_col);
+		}
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
+			// prevent hidden ID from displaying
+			std::string_view tooltip = tooltip_key;
+			if (size_t idxID = tooltip.find_first_of("##"); idxID != tooltip.npos)
+				tooltip = tooltip.substr(0, idxID);
+			ImGui::SetTooltip("%.*s", tooltip.size(), tooltip.data());
+		}
+		return res;
+	}
+
+	auto GetRangeSelectToTimeTailButtonDrawer(const ChartContext& context, const ChartTimeline& timeline) {
+		return [&](Gui::InputScalarWithButtonsResult* result, auto type, MultiEditDataUnion* v)
+		{
+			Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+			Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
+			if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
+				v->F32 = timeline.GetRangeSelectionDuration(context).ToSec_F32();
+				result->ValueChanged = true;
+			}
+			Gui::EndDisabled();
+		};
+	}
+
+	void ChartInspectorWindow::DrawGui(ChartContext& context, const ChartTimeline& timeline)
 	{
 		Gui::UpdateSmoothScrollWindow();
 
@@ -1636,7 +1697,7 @@ namespace PeepoDrumKit
 							widgetIn.ValueClampMin.F32 = MinJPOSScrollDuration;
 							widgetIn.ValueClampMax.F32 = MaxJPOSScrollDuration;
 
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), GetRangeSelectToTimeTailButtonDrawer(context, timeline));
 							auto getV = [](const TempChartItem& item, ...) { return item.MemberValues.JPOSScrollDuration(); };
 							auto setV = [](TempChartItem& item, f32 v, ...) { item.MemberValues.JPOSScrollDuration() = v; };
 							if (SetPropertyMultiSelection(SelectedItems, widgetIn, widgetOut, getV, setV))
@@ -1661,7 +1722,7 @@ namespace PeepoDrumKit
 							widgetIn.FormatString = "%gs";
 							widgetIn.EnableClamp = false;
 
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), GetRangeSelectToTimeTailButtonDrawer(context, timeline));
 							auto getV = [&](const TempChartItem& item, ...) { return GetOrEmpty<Time>(member, item.MemberValues).ToSec_F32(); };
 							auto setV = [&](TempChartItem& item, f32 v, ...) { TrySet(item.MemberValues, member, Time::FromSec(v)); };
 							if (SetPropertyMultiSelection(SelectedItems, widgetIn, widgetOut, getV, setV))
@@ -1791,7 +1852,16 @@ namespace PeepoDrumKit
 							widgetIn.EnableClamp = true;
 							widgetIn.ValueClampMin.F32 = MinNoteTimeOffset.ToMS_F32();
 							widgetIn.ValueClampMax.F32 = MaxNoteTimeOffset.ToMS_F32();
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), [&](Gui::InputScalarWithButtonsResult* result, auto type, MultiEditDataUnion* v)
+							{
+								Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+								Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
+								if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
+									v->F32 = timeline.GetRangeSelectionDuration(context).ToMS_F32();
+									result->ValueChanged = true;
+								}
+								Gui::EndDisabled();
+							});
 
 							auto getV = [](const TempChartItem& item, ...) { return item.MemberValues.TimeOffset().ToMS_F32(); };
 							auto setV = [](TempChartItem& item, f32 v, ...)
@@ -1934,7 +2004,18 @@ namespace PeepoDrumKit
 							widgetIn.EnableDragLabel = false;
 							widgetIn.FormatString = "%d";
 							widgetIn.TextColorOverride = isAnyTimeSignatureInvalid ? &InputTextWarningTextColor : nullptr;
-							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn);
+							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), [&](Gui::InputScalarWithButtonsResult* result, auto type, MultiEditDataUnion* v)
+							{
+								Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
+								Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
+								if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
+									auto timeSig = TimeSignature(timeline.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4);
+									v->I32_V[0] = timeSig.Numerator;
+									v->I32_V[1] = timeSig.Denominator;
+									result->ValueChanged = true;
+								}
+								Gui::EndDisabled();
+							});
 							auto getV = [](const TempChartItem& item, i32 c) { return item.MemberValues.TimeSignature()[c]; };
 							auto setV = [](TempChartItem& item, i32 v, i32 c) { item.MemberValues.TimeSignature()[c] = v; };
 							if (SetPropertyMultiSelection(SelectedItems, widgetIn, widgetOut, getV, setV))
@@ -2345,49 +2426,6 @@ namespace PeepoDrumKit
 		});
 		Gui::PopID();
 		return valueChanged;
-	}
-
-	static std::map<std::tuple<SprID, u32, float, float, float, float>, ImImageQuad> sprImageQuadCache = {};
-	// [{sprite_id, tint_col, uv0.x, uv0.y, uv1.x, uv1.y}] = quad;
-	// Cannot use std::unordered_map because std::hash<std::tuple<...>> is not defined.
-	static i32 sprImageGuiScaleCache = GuiScaleFactorCurrent;
-
-	static bool SpriteButton(const char* tooltip_key, ChartContext& context, SprID sprite_id, const ImVec2& button_size,
-		const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1),
-		const ImVec4& bg_col = ImVec4(0, 0, 0, 0), const ImVec4& tint_col = ImVec4(1, 1, 1, 1))
-	{
-		if (GuiScaleFactorCurrent != sprImageGuiScaleCache) {
-			sprImageQuadCache.clear(); // remove invalidated textures
-		}
-
-		u32 u32_tint_col = Gui::ColorConvertFloat4ToU32(tint_col);
-		ImImageQuad& quad = sprImageQuadCache[{sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y}];
-		ImTextureID tex_id = quad.TexID;
-		if (tex_id == 0) {
-			SprUV quadUV = SprUV::FromRect(uv0, uv1);
-			if (context.Gfx.GetImageQuad(quad, sprite_id, { {0, 0}, {0, 0}, {1, 1,}, 0 }, u32_tint_col, &quadUV)) {
-				tex_id = quad.TexID;
-			} else {
-				sprImageQuadCache.erase({ sprite_id, u32_tint_col, uv0.x, uv0.y, uv1.x, uv1.y });
-				tex_id = 0;
-			}
-		}
-
-		bool res;
-		if (tex_id == 0) {
-			res = Gui::Button(tooltip_key, button_size);
-		} else {
-			ImVec2 image_size = { button_size.x - 2 * Gui::GetStyle().FramePadding.x, button_size.y - 2 * Gui::GetStyle().FramePadding.y };
-			res = Gui::ImageButton(tooltip_key, tex_id, image_size, uv0, uv1, bg_col, tint_col);
-		}
-		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
-			// prevent hidden ID from displaying
-			std::string_view tooltip = tooltip_key;
-			if (size_t idxID = tooltip.find_first_of("##"); idxID != tooltip.npos)
-				tooltip = tooltip.substr(0, idxID);
-			ImGui::SetTooltip("%.*s", tooltip.size(), tooltip.data());
-		}
-		return res;
 	}
 
 	void ChartTempoWindow::DrawGui(ChartContext& context, ChartTimeline& timeline)

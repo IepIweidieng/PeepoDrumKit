@@ -1021,7 +1021,7 @@ namespace PeepoDrumKit
 
 		if (Gui::Begin(UI_WindowName("TAB_INSPECTOR"), nullptr, ImGuiWindowFlags_None))
 		{
-			chartInspectorWindow.DrawGui(context);
+			chartInspectorWindow.DrawGui(context, timeline);
 		}
 		Gui::End();
 

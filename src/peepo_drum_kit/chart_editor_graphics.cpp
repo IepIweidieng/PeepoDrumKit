@@ -209,7 +209,7 @@ namespace PeepoDrumKit
 		return info;
 	}
 
-	b8 ChartGraphicsResources::GetImageQuad(ImImageQuad& out, SprID spr, SprTransform transform, u32 colorTint, const SprUV* uv)
+	b8 ChartGraphicsResources::GetImageQuad(ImImageQuad& out, SprID spr, SprTransform transform, u32 colorTint, const SprUV* uv) const
 	{
 		if (!Data->FinishedLoading || spr >= SprID::Count)
 			return false;
