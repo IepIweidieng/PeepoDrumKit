@@ -274,6 +274,7 @@ namespace PeepoDrumKit
 		i32 BarIndex;
 		b8 IsBar;
 		Beat Beat;
+		b8 IsEndOfChart;
 	};
 
 	template <typename Func>
@@ -303,7 +304,8 @@ namespace PeepoDrumKit
 		const i32 gridLineModToSkip = (1 << gridLineSubDivisions);
 		i32 gridLineIndex = 0;
 
-		const Time chartDuration = context.Chart.GetDurationOrDefault();
+		const Time chartDuration = context.GetUsedDurationFast();
+		const Beat chartBeatDuration = context.GetUsedBeatDurationFast();
 		context.ChartSelectedCourse->TempoMap.ForEachBeatBar([&](const SortedTempoMap::ForEachBeatBarData& it)
 		{
 			const Time timeIt = context.ChartSelectedCourse->TempoMap.BeatToTime(it.Beat);
@@ -311,10 +313,10 @@ namespace PeepoDrumKit
 			if ((gridLineIndex++ % gridLineModToSkip) == 0)
 			{
 				if (timeIt >= minMaxVisibleTime.Min && timeIt <= minMaxVisibleTime.Max)
-					perGridFunc(ForEachGridLineData { timeIt, it.BarIndex, it.IsBar, it.Beat });
+					perGridFunc(ForEachGridLineData { timeIt, it.BarIndex, it.IsBar, it.Beat, it.Beat > chartBeatDuration });
 			}
 
-			if (timeIt >= minMaxVisibleTime.Max || (it.IsBar && timeIt >= chartDuration))
+			if (timeIt >= minMaxVisibleTime.Max || (it.IsBar && it.Beat > chartBeatDuration))
 				return ControlFlow::Break;
 			else
 				return ControlFlow::Fallthrough;
@@ -344,14 +346,19 @@ namespace PeepoDrumKit
 		return (cursorLocalSpaceX >= edgePixelThreshold && cursorLocalSpaceX <= ClampBot(regions.Content.GetWidth() - edgePixelThreshold, edgePixelThreshold));
 	}
 
-	static void ScrollToTimelinePosition(TimelineCamera& camera, const TimelineRegions& regions, const ChartProject& chart, f32 normalizedTargetPosition)
+	static void ScrollToTimelinePosition(TimelineCamera& camera, const TimelineRegions& regions, const ChartProject& chart, const ChartCourse& course, f32 normalizedTargetPosition)
 	{
 		const f32 visibleWidth = regions.Content.GetWidth();
-		const f32 totalTimelineWidth = camera.WorldToLocalSpaceScale(vec2(camera.TimeToWorldSpaceX(chart.GetDurationOrDefault()), 0.0f)).x + 2.0f;
+		const f32 totalTimelineWidth = camera.WorldToLocalSpaceScale(vec2(camera.TimeToWorldSpaceX(chart.GetUsedDurationFast(course)), 0.0f)).x + 2.0f;
 
 		const f32 cameraTargetPosition = totalTimelineWidth * normalizedTargetPosition
 			+ LerpClamped(TimelineCameraBaseScrollX, -visibleWidth - TimelineCameraBaseScrollX, normalizedTargetPosition);
 		camera.PositionTarget.x = cameraTargetPosition;
+	}
+
+	static void ScrollToTimelinePosition(TimelineCamera& camera, const TimelineRegions& regions, const ChartContext& context, f32 normalizedTargetPosition)
+	{
+		ScrollToTimelinePosition(camera, regions, context.Chart, *context.ChartSelectedCourse, normalizedTargetPosition);
 	}
 
 	static f32 GetNotesWaveAnimationTimeAtIndex(i32 noteIndex, i32 notesCount, i32 direction)
@@ -713,7 +720,7 @@ namespace PeepoDrumKit
 		}
 		else if constexpr (std::is_same_v<T, LyricChange>)
 		{
-			const Beat chartBeatDuration = context.TimeToBeat(context.Chart.GetDurationOrDefault());
+			const Beat chartBeatDuration = context.GetUsedBeatDurationFast();
 
 			Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 			for (size_t i = 0; i < list.size(); i++)
@@ -2632,7 +2639,7 @@ namespace PeepoDrumKit
 						const f32 scrollIncrementThisFrame = ConvertRange(0.0f, threshold, speedMin, speedMax, mouseLocalSpaceX - right) * modifier * Gui::DeltaTime();
 						if (*Settings.General.TimelineScrubAutoScrollEnableClamp)
 						{
-							const f32 maxScrollX = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.Chart.GetDurationOrDefault()), 0.0f)).x - Regions.ContentHeader.GetWidth() + 1.0f;
+							const f32 maxScrollX = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.GetUsedDurationFast()), 0.0f)).x - Regions.ContentHeader.GetWidth() + 1.0f;
 							Camera.PositionCurrent.x = ClampTop(Camera.PositionCurrent.x + scrollIncrementThisFrame, ClampBot(Camera.PositionCurrent.x, maxScrollX));
 							Camera.PositionTarget.x = ClampTop(Camera.PositionTarget.x + scrollIncrementThisFrame, ClampBot(Camera.PositionTarget.x, maxScrollX));
 						}
@@ -2726,8 +2733,8 @@ namespace PeepoDrumKit
 					}
 				}
 
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineStart, false)) ScrollToTimelinePosition(Camera, Regions, context.Chart, 0.0f);
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineEnd, false)) ScrollToTimelinePosition(Camera, Regions, context.Chart, 1.0f);
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineStart, false)) ScrollToTimelinePosition(Camera, Regions, context, 0.0f);
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineEnd, false)) ScrollToTimelinePosition(Camera, Regions, context, 1.0f);
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_StartEndRangeSelection, false)) StartEndRangeSelectionAtCursor(context);
 			}
 
@@ -3219,7 +3226,7 @@ namespace PeepoDrumKit
 					Time cursorTimeOffset = (*Settings.General.DisplayTimeInSongSpace) ? -context.Chart.SongOffset : Time::Zero();
 					Time displayTime = context.GetCursorTime() + cursorTimeOffset;
 					Time displayTimeMin = Min(cursorTimeOffset, Time::Zero());
-					Time displayTimeMax = context.Chart.GetDurationOrDefault() + cursorTimeOffset;
+					Time displayTimeMax = context.GetUsedDurationFast() + cursorTimeOffset;
 					displayTime.ToString(buffer, sizeof(buffer));
 
 					Gui::SetNextItemWidth(perButtonSize.x);
@@ -3234,7 +3241,7 @@ namespace PeepoDrumKit
 							context.SetCursorTime(newTime + context.Chart.SongOffset);
 						else
 							context.SetCursorTime(newTime);
-						ScrollToTimelinePosition(Camera, Regions, context.Chart, context.GetCursorTime() / context.Chart.GetDurationOrDefault());
+						ScrollToTimelinePosition(Camera, Regions, context, context.GetCursorTime() / context.GetUsedDurationFast());
 					}
 					Gui::PopStyleColor(isOutOfChart);
 				}
@@ -3274,7 +3281,7 @@ namespace PeepoDrumKit
 			// NOTE: Waveform and cursor on top of scrollbar!
 			{
 				const Time cursorTime = context.GetCursorTime();
-				const Time chartDuration = context.Chart.GetDurationOrDefault();
+				const Time chartDuration = context.GetUsedDurationFast();
 				const b8 isPlayback = context.GetIsPlayback();
 
 				if (!context.SongWaveformL.IsEmpty())
@@ -3297,7 +3304,7 @@ namespace PeepoDrumKit
 			if (IsCameraMouseGrabActive) Gui::PushStyleColor(ImGuiCol_ScrollbarGrab, Gui::GetStyleColorVec4(ImGuiCol_ScrollbarGrabHovered));
 
 			const f32 localSpaceVisibleWidth = Regions.Content.GetWidth();
-			const f32 localSpaceTimelineWidth = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.Chart.GetDurationOrDefault()), 0.0f)).x + 2.0f;
+			const f32 localSpaceTimelineWidth = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.GetUsedDurationFast()), 0.0f)).x + 2.0f;
 
 			// BUG: Scrollbar should still be interactable while box selecting
 			static constexpr ImS64 padding = 1;
@@ -3470,7 +3477,7 @@ namespace PeepoDrumKit
 			const Time visibleTimeOverdraw = Camera.TimePerScreenPixel() * (Gui::CalcTextSize("00:00.000").x + Gui::GetFrameHeight());
 			ForEachTimelineVisibleGridLine(*this, context, visibleTimeOverdraw, [&](const ForEachGridLineData& gridIt)
 			{
-				const u32 lineColor = gridIt.IsBar ? TimelineGridBarLineColor : TimelineGridBeatLineColor;
+				const u32 lineColor = (gridIt.IsBar && !gridIt.IsEndOfChart) ? TimelineGridBarLineColor : TimelineGridBeatLineColor;
 
 				const vec2 screenSpaceTL = LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(gridIt.Time), 0.0f));
 				DrawListContent->AddLine(screenSpaceTL, screenSpaceTL + vec2(0.0f, Regions.Content.GetHeight()), lineColor);
@@ -3518,7 +3525,7 @@ namespace PeepoDrumKit
 						Gui::DisableFontPixelSnap(true);
 
 						char buffer[32];
-						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarIndex, Gui::GetColorU32(ImGuiCol_Text),
+						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarIndex, Gui::GetColorU32(gridIt.IsEndOfChart ? ImGuiCol_TextDisabled : ImGuiCol_Text),
 							std::string_view(buffer, sprintf_s(buffer, "%d", gridIt.BarIndex)));
 						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarTime, Gui::GetColorU32(ImGuiCol_Text, 0.5f),
 							(gridIt.Time + timeLabelDisplayOffset).ToString().Data);
@@ -3577,7 +3584,7 @@ namespace PeepoDrumKit
 				const u32 gridSnapLineColor = Gui::ColorU32WithAlpha(
 					gridColorHex,
 					GridSnapLineAnimationCurrent);
-				for (Beat beatIt = ClampBot(minVisibleBeat, Beat::Zero()); beatIt <= ClampTop(maxVisibleBeat, context.TimeToBeat(context.Chart.GetDurationOrDefault())); beatIt += gridBeatSnap)
+				for (Beat beatIt = ClampBot(minVisibleBeat, Beat::Zero()); beatIt <= ClampTop(maxVisibleBeat, context.GetUsedBeatDurationFast()); beatIt += gridBeatSnap)
 				{
 					const vec2 screenSpaceTL = LocalToScreenSpace(vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(beatIt)), 0.0f));
 					DrawListContent->AddLine(screenSpaceTL, screenSpaceTL + vec2(0.0f, Regions.Content.GetHeight()), gridSnapLineColor);
@@ -3589,7 +3596,7 @@ namespace PeepoDrumKit
 		{
 			DrawListContent->ChannelsSetCurrent(0);
 
-			const Time gridTimeMin = ClampTop(context.Chart.SongOffset, Time::Zero()), gridTimeMax = context.Chart.GetDurationOrDefault();
+			const Time gridTimeMin = ClampTop(context.Chart.SongOffset, Time::Zero()), gridTimeMax = context.GetUsedDurationFast();
 			const f32 localSpaceMinL = Clamp(Camera.WorldToLocalSpace(vec2(Camera.TimeToWorldSpaceX(gridTimeMin), 0.0f)).x, 0.0f, Regions.Content.GetWidth());
 			const f32 localSpaceMaxR = Clamp(Camera.WorldToLocalSpace(vec2(Camera.TimeToWorldSpaceX(gridTimeMax), 0.0f)).x, 0.0f, Regions.Content.GetWidth());
 

@@ -126,14 +126,25 @@ namespace PeepoDrumKit
 	{
 		// NOTE: Technically only need to look at the last item of each sorted list **but just to be sure**, in case there is something wonky going on with out-of-order durations or something
 		Beat maxBeat = Beat::Zero();
-		for (const auto& v : course.TempoMap.Tempo) maxBeat = Max(maxBeat, v.Beat);
-		for (const auto& v : course.TempoMap.Signature) maxBeat = Max(maxBeat, v.Beat);
-		for (size_t i = 0; i < EnumCount<BranchType>; i++)
-			for (const auto& v : course.GetNotes(static_cast<BranchType>(i))) maxBeat = Max(maxBeat, v.BeatTime + Max(Beat::Zero(), v.BeatDuration));
-		for (const auto& v : course.GoGoRanges) maxBeat = Max(maxBeat, v.BeatTime + Max(Beat::Zero(), v.BeatDuration));
-		for (const auto& v : course.ScrollChanges) maxBeat = Max(maxBeat, v.BeatTime);
-		for (const auto& v : course.BarLineChanges) maxBeat = Max(maxBeat, v.BeatTime);
-		for (const auto& v : course.Lyrics) maxBeat = Max(maxBeat, v.BeatTime);
+		ApplyForEachGenericList([&](GenericList list, const auto& typedList)
+		{
+			for (const auto& v : typedList)
+				maxBeat = Max(maxBeat, GetBeat(v) + Max(Beat::Zero(), GetBeatDuration(v)));
+		}, course);
+		return maxBeat;
+	}
+
+	Beat FindCourseMaxUsedBeatFast(const ChartCourse& course)
+	{
+		// NOTE: Fast version by only look at the last item of each sorted list
+		Beat maxBeat = Beat::Zero();
+		ApplyForEachGenericList([&](GenericList list, const auto& typedList)
+		{
+			if (!typedList.empty()) {
+				const auto& last = typedList[std::size(typedList) - 1];
+				maxBeat = Max(maxBeat, GetBeat(last) + Max(Beat::Zero(), GetBeatDuration(last)));
+			}
+		}, course);
 		return maxBeat;
 	}
 

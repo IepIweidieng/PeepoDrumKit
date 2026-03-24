@@ -58,6 +58,11 @@ namespace PeepoDrumKit
 		inline Beat TimeToBeat(Time time, bool truncTo0) const { return ChartSelectedCourse->TempoMap.TimeToBeat(time, truncTo0); }
 		inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return ChartSelectedCourse->TempoMap.BeatAndTimeToHBScrollBeatTick(beat, time); }
 
+		Time GetUsedDuration() const { return Chart.GetUsedDuration(*ChartSelectedCourse); }
+		Time GetUsedDurationFast() const { return Chart.GetUsedDurationFast(*ChartSelectedCourse); }
+		Beat GetUsedBeatDuration() const { return Chart.GetUsedBeatDuration(*ChartSelectedCourse); }
+		Beat GetUsedBeatDurationFast() const { return Chart.GetUsedBeatDurationFast(*ChartSelectedCourse); }
+
 		void ResetChartsCompared() { ChartsCompared = { { ChartSelectedCourse, { ChartSelectedBranch } } }; CompareMode = false; }
 		b8 IsChartCompared(const ChartCourse* course, BranchType branch) const
 		{

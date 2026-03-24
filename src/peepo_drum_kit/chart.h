@@ -449,6 +449,9 @@ namespace PeepoDrumKit
 		void RecalculateSENotes(BranchType branch) const; // implemented in chart_editor_widgets_game.cpp
 	};
 
+	Beat FindCourseMaxUsedBeat(const ChartCourse& course);
+	Beat FindCourseMaxUsedBeatFast(const ChartCourse& course);
+
 	// NOTE: Internal representation of a chart. Can then be imported / exported as .tja (and maybe as the native fumen binary format too eventually?)
 	struct ChartProject
 	{
@@ -480,7 +483,25 @@ namespace PeepoDrumKit
 		std::map<std::string, std::string> OtherMetadata;
 
 		// TODO: Maybe change to GetDurationOr(Time defaultDuration) and always pass in context.SongDuration (?)
-		inline Time GetDurationOrDefault() const { return (ChartDuration.Seconds <= 0.0) ? Time::FromMin(1.0) : ChartDuration; }
+		inline Time GetDuration() const { return (ChartDuration.Seconds < 0.0) ? Time::Zero() : ChartDuration; }
+		inline Time GetUsedDuration(const ChartCourse& course) const
+		{
+			return Max(course.TempoMap.BeatToTime(FindCourseMaxUsedBeat(course)), GetDuration());
+		}
+		// NOTE: Will break if chart contains negative time duration sections (not supported yet)
+		inline Time GetUsedDurationFast(const ChartCourse& course) const
+		{
+			return Max(course.TempoMap.BeatToTime(FindCourseMaxUsedBeatFast(course)), GetDuration());
+		}
+		// NOTE: Time duration end is exclusive
+		inline Beat GetUsedBeatDuration(const ChartCourse& course) const
+		{
+			return Max(FindCourseMaxUsedBeat(course), course.TempoMap.TimeToBeat(GetDuration(), true) - Beat::FromTicks(1));
+		}
+		inline Beat GetUsedBeatDurationFast(const ChartCourse& course) const
+		{
+			return Max(FindCourseMaxUsedBeatFast(course), course.TempoMap.TimeToBeat(GetDuration(), true) - Beat::FromTicks(1));
+		}
 	};
 
 	template <auto ChartProject::* Attr>
@@ -515,7 +536,6 @@ namespace PeepoDrumKit
 	using DebugCompareChartsOnMessageFunc = void(*)(std::string_view message, void* userData);
 	void DebugCompareCharts(const ChartProject& chartA, const ChartProject& chartB, DebugCompareChartsOnMessageFunc onMessageFunc, void* userData = nullptr);
 
-	Beat FindCourseMaxUsedBeat(const ChartCourse& course);
 	b8 CreateChartProjectFromTJA(const TJA::ParsedTJA& inTJA, ChartProject& out);
 	b8 ConvertChartProjectToTJA(const ChartProject& in, TJA::ParsedTJA& out, b8 includePeepoDrumKitComment = true);
 }
