@@ -2572,10 +2572,7 @@ namespace PeepoDrumKit
 					Gui::BeginDisabled(!hasRangeSelection);
 					if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 					{
-						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
-						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
-						const Beat rangeSelectionDuration = rangeSelectionMax - rangeSelectionMin;
-						insertOrUpdateCursorSignatureChange(TimeSignature(rangeSelectionDuration.Ticks, Beat::FromBars(1).Ticks).GetSimplified(4));
+						insertOrUpdateCursorSignatureChange(TimeSignature(timeline.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4));
 					}
 					Gui::EndDisabled();
 					if (!disallowRemoveButton && signatureChangeAtCursor != nullptr && signatureChangeAtCursor->Beat == cursorBeat)
@@ -2797,11 +2794,8 @@ namespace PeepoDrumKit
 						Gui::BeginDisabled(!hasRangeSelection);
 						if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						{
-							const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
-							const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
-							const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);
 							insertOrUpdateCursorJPOSScrollChange(
-								JPOSScrollMoveAtCursor, Clamp(rangeSelectionDuration.ToSec_F32(), MinJPOSScrollDuration, MaxJPOSScrollDuration)
+								JPOSScrollMoveAtCursor, Clamp(timeline.GetRangeSelectionDuration(context).ToSec_F32(), MinJPOSScrollDuration, MaxJPOSScrollDuration)
 							);
 						}
 						Gui::EndDisabled();
@@ -2867,10 +2861,7 @@ namespace PeepoDrumKit
 					if (SpriteButton((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenAppearanceOffsetSetFromRange")).c_str(),
 						context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })
 						) {
-						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
-						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
-						const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);
-						insertOrUpdateCursorSudden(rangeSelectionDuration, SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
+						insertOrUpdateCursorSudden(timeline.GetRangeSelectionDuration(context), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					}
 					Gui::EndDisabled();
 					Gui::PopID();
@@ -2888,10 +2879,7 @@ namespace PeepoDrumKit
 					if (SpriteButton((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenMovementOffsetSetFromRange")).c_str(),
 						context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })
 						) {
-						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
-						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
-						const Time rangeSelectionDuration = context.BeatToTime(rangeSelectionMax) - context.BeatToTime(rangeSelectionMin);
-						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, rangeSelectionDuration, SuddenHideRollAtCursor);
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, timeline.GetRangeSelectionDuration(context), SuddenHideRollAtCursor);
 					}
 					Gui::EndDisabled();
 					Gui::PopID();
@@ -2931,8 +2919,8 @@ namespace PeepoDrumKit
 					Gui::BeginDisabled(!hasRangeSelection);
 					if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), { getInsertButtonWidth(), 0.0f }))
 					{
-						const Beat rangeSelectionMin = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMin());
-						const Beat rangeSelectionMax = timeline.RoundBeatToCurrentGrid(timeline.RangeSelection.GetMax());
+						const Beat rangeSelectionMin = timeline.RangeSelection.GetMin();
+						const Beat rangeSelectionMax = timeline.RangeSelection.GetMax();
 						auto gogoIntersectsSelection = [&](const GoGoRange& gogo) { return (gogo.GetStart() < rangeSelectionMax) && (gogo.GetEnd() > rangeSelectionMin); };
 
 						// TODO: Try to shorten/move intersecting gogo ranges instead of removing them outright

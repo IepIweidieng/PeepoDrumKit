@@ -265,9 +265,10 @@ namespace PeepoDrumKit
 			Beat Start, End;
 			b8 HasEnd;
 			b8 IsActive;
-			inline b8 IsActiveAndHasEnd() { return (IsActive && HasEnd); }
+			inline b8 IsActiveAndHasEnd() const { return (IsActive && HasEnd); }
 			inline Beat GetMin() const { return ClampBot(Min(Start, End), Beat::Zero()); }
 			inline Beat GetMax() const { return ClampBot(Max(Start, End), Beat::Zero()); }
+			Beat GetDuration() const { return GetMax() - GetMin(); }
 		} RangeSelection = {};
 		f32 RangeSelectionExpansionAnimationCurrent = 0.0f;
 		f32 RangeSelectionExpansionAnimationTarget = 0.0f;
@@ -316,6 +317,11 @@ namespace PeepoDrumKit
 			const Time minVisibleTime = Camera.LocalSpaceXToTime(0.0f) - overdraw;
 			const Time maxVisibleTime = Camera.LocalSpaceXToTime(Regions.Content.GetWidth()) + overdraw;
 			return { minVisibleTime, maxVisibleTime };
+		}
+
+		Time GetRangeSelectionDuration(const ChartContext& context) const
+		{
+			return context.BeatToTime(RangeSelection.GetMax()) - context.BeatToTime(RangeSelection.GetMin());
 		}
 
 		void DrawGui(ChartContext& context, b8 hasGamePreviewFocus = false);
