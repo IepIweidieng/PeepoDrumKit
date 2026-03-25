@@ -3491,8 +3491,9 @@ namespace PeepoDrumKit
 					// TODO: Fix overlapping text when zoomed out really far (while still keeping the grid lines)
 					if (gridIt.IsBar)
 					{
+						// Too easy to misdrag; only allow dragging on header
 						b8 isHoveredForDrag = false;
-						if (!BarLineDrag.IsActive && SelectedItemDrag.ActiveTarget == EDragTarget::None && !IsCameraMouseGrabActive && (IsContentHeaderWindowHovered || IsContentWindowHovered))
+						if (!BarLineDrag.IsActive && SelectedItemDrag.ActiveTarget == EDragTarget::None && !IsCameraMouseGrabActive && IsContentHeaderWindowHovered)
 						{
 							if (Gui::GetIO().KeyCtrl)
 							{
