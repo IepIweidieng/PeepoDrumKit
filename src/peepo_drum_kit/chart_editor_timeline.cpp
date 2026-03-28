@@ -3243,6 +3243,8 @@ namespace PeepoDrumKit
 							context.SetCursorTime(newTime);
 						ScrollToTimelinePosition(Camera, Regions, context, context.GetCursorTime() / context.GetUsedDurationFast());
 					}
+					if (Gui::IsItemActiveAsInputText())
+						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
 					Gui::PopStyleColor(isOutOfChart);
 				}
 				Gui::SameLine(0.0f, 0.0f);
@@ -3253,6 +3255,8 @@ namespace PeepoDrumKit
 						Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
 					if (f32 percent = ToPercent(context.GetPlaybackSpeed()); Gui::DragFloat("##PlaybackSpeed", &percent, 1.0f, 0.0f, 0.0f, "%g%%"))
 						context.SetPlaybackSpeed(FromPercent(percent));
+					if (Gui::IsItemActiveAsInputText())
+						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
 					Gui::PopStyleColor(isStop);
 				}
 				Gui::SameLine(0.0f, 0.0f);
@@ -3262,6 +3266,8 @@ namespace PeepoDrumKit
 					if (isDivUnsupported)
 						Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
 					Gui::DragInt("##GridBarDivision", &CurrentGridBarDivision, 0.25, 1, INT32_MAX, "1 / %d");
+					if (Gui::IsItemActiveAsInputText())
+						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
 					Gui::PopStyleColor(isDivUnsupported);
 				}
 				Gui::PopStyleVar();
