@@ -183,6 +183,9 @@ struct BeatSortedList
 	std::vector<T> Sorted;
 
 public:
+	using HeadAtAfterType = std::tuple<typename std::vector<T>::const_iterator, typename std::vector<T>::const_iterator, typename std::vector<T>::const_iterator>;
+	HeadAtAfterType GetHeadAtAfter(Beat beat) const;
+
 	T* TryFindLastAtBeat(Beat beat);
 	T* TryFindExactAtBeat(Beat beat);
 	const T* TryFindLastAtBeat(Beat beat) const;
@@ -320,6 +323,19 @@ inline const T* BeatSortedForwardIterator<T>::Next(const std::vector<T>& sortedL
 }
 
 template <typename T>
+typename BeatSortedList<T>::HeadAtAfterType BeatSortedList<T>::GetHeadAtAfter(Beat beat) const
+{
+	// binary search
+	auto head = std::begin(Sorted);
+	if (head == Sorted.end()) // empty
+		return { head, head, head };
+	T target = *head; // copy to ensure a valid value
+	SetBeat(beat, target);
+	auto [atOrAfter, after] = std::equal_range(head, std::end(Sorted), target, [](const T& lhs, const T& rhs) { return GetBeat(lhs) < GetBeat(rhs); });
+	return { head, atOrAfter, after };
+}
+
+template <typename T>
 T* BeatSortedList<T>::TryFindLastAtBeat(Beat beat)
 {
 	return const_cast<T*>(static_cast<const BeatSortedList<T>*>(this)->TryFindLastAtBeat(beat));
@@ -334,30 +350,23 @@ T* BeatSortedList<T>::TryFindExactAtBeat(Beat beat)
 template <typename T>
 const T* BeatSortedList<T>::TryFindLastAtBeat(Beat beat) const
 {
-	// TODO: Optimize using binary search
-	if (Sorted.size() == 0)
+	// binary search
+	auto [head, atOrAfter, after] = GetHeadAtAfter(beat);
+	if (atOrAfter != after) // found
+		return std::addressof(*atOrAfter);
+	if (after == head)
 		return nullptr;
-	if (Sorted.size() == 1)
-		return (GetBeat(Sorted[0]) <= beat) ? &Sorted[0] : nullptr;
-	if (beat < GetBeat(Sorted[0]))
-		return nullptr;
-	for (size_t i = 0; i < Sorted.size() - 1; i++)
-	{
-		if (GetBeat(Sorted[i]) <= beat && GetBeat(Sorted[i + 1]) > beat)
-			return &Sorted[i];
-	}
-	return &Sorted.back();
+	auto before = after - 1;
+	return std::addressof(*before);
 }
 
 template <typename T>
 const T* BeatSortedList<T>::TryFindExactAtBeat(Beat beat) const
 {
-	// TODO: Optimize using binary search
-	for (const T& v : Sorted)
-	{
-		if (GetBeat(v) == beat)
-			return &v;
-	}
+	// binary search
+	auto [head, atOrAfter, after] = GetHeadAtAfter(beat);
+	if (atOrAfter != after) // found
+		return std::addressof(*atOrAfter);
 	return nullptr;
 }
 
@@ -415,10 +424,9 @@ const T* BeatSortedList<T>::TryFindOverlappingBeatUntrusted(Beat beatStart, Beat
 template <typename T>
 inline size_t LinearlySearchForInsertionIndex(const BeatSortedList<T>& sortedList, Beat beat)
 {
-	// TODO: Optimize using binary search
-	for (size_t i = 0; i < sortedList.size(); i++)
-		if (beat <= GetBeat(sortedList[i])) return i;
-	return sortedList.size();
+	// binary search
+	auto [head, atOrAfter, after] = sortedList.GetHeadAtAfter(beat);
+	return atOrAfter - head;
 }
 
 template <typename T>

@@ -65,23 +65,15 @@ Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearc
 	}
 	else // NOTE: Perform a binary search
 	{
-		i32 left = 0, right = beatTickToTimesCount - 1;
-
-		while (left <= right)
-		{
-			const i32 mid = (left + right) / 2;
-
-			if (time < BeatTickToTimes[mid])
-				right = mid - 1;
-			else if (time > BeatTickToTimes[mid])
-				left = mid + 1;
-			else
-				return Beat::FromTicks(mid);
-		}
+		auto base = std::begin(BeatTickToTimes);
+		auto [atOrAfter, after] = std::equal_range(base, std::end(BeatTickToTimes), time);
+		if (atOrAfter != after) // found
+			Beat::FromTicks(atOrAfter - base);
+		auto before = after - 1;
 
 		// left > right
-		return Beat::FromTicks((truncTo0) ? right
-			: (BeatTickToTimes[left] - time) < (time - BeatTickToTimes[right]) ? left : right);
+		return Beat::FromTicks((truncTo0) ? before - base
+			: (*after - time) < (time - *before) ? after - base : before - base);
 	}
 }
 
