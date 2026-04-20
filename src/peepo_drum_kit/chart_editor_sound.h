@@ -14,12 +14,12 @@ namespace PeepoDrumKit
 		Count
 	};
 
-	static constexpr cstr SoundEffectTypeFilePaths[] =
+	static constexpr cstr SoundEffectTypeFilePaths[][3] =
 	{
-		u8"assets/audio/taiko_don_16bit_44100.wav",
-		u8"assets/audio/taiko_ka_16bit_44100.wav",
-		u8"assets/audio/metronome_bar_16bit_44100.wav",
-		u8"assets/audio/metronome_beat_16bit_44100.wav",
+		{ u8"assets/audio/taiko_don_16bit_44100", u8"assets/audio/taiko_don", u8"assets/audio/don" },
+		{ u8"assets/audio/taiko_ka_16bit_44100", u8"assets/audio/taiko_ka", u8"assets/audio/ka"} ,
+		{ u8"assets/audio/metronome_bar_16bit_44100", u8"assets/audio/metronome_bar"},
+		{ u8"assets/audio/metronome_beat_16bit_44100", u8"assets/audio/metronome_beat"},
 	};
 
 	static_assert(ArrayCount(SoundEffectTypeFilePaths) == EnumCount<SoundEffectType>);
@@ -27,6 +27,8 @@ namespace PeepoDrumKit
 	struct AsyncLoadSoundEffectsResult
 	{
 		Audio::PCMSampleBuffer SampleBuffers[EnumCount<SoundEffectType>];
+		std::string_view FilePath;
+		std::string_view Extension;
 	};
 
 	enum class SoundGroup : i32

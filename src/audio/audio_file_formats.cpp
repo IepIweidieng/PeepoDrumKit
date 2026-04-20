@@ -31,7 +31,7 @@ namespace Audio
 		return SupportedFileFormat::Count;
 	}
 
-	DecodeFileResult DecodeEntireFile(std::string_view fileNameWithExtension, const void* inFileContent, size_t inFileSize, PCMSampleBuffer& outBuffer)
+	DecodeFileResult DecodeEntireFile(std::string_view fileNameWithOrExtension, const void* inFileContent, size_t inFileSize, PCMSampleBuffer& outBuffer)
 	{
 		outBuffer = {};
 
@@ -39,7 +39,7 @@ namespace Audio
 			return DecodeFileResult::Sadge;
 
 		// TODO: Check for magic bytes instead, though shouldn't really matter for now
-		const SupportedFileFormat fileFormat = TryToDetermineFileFormatFromExtension(fileNameWithExtension);
+		const SupportedFileFormat fileFormat = TryToDetermineFileFormatFromExtension(fileNameWithOrExtension);
 		if (fileFormat == SupportedFileFormat::Count)
 			return DecodeFileResult::Sadge;
 

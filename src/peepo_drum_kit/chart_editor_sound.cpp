@@ -12,25 +12,37 @@ namespace PeepoDrumKit
 			AsyncLoadSoundEffectsResult result {};
 			for (size_t i = 0; i < EnumCount<SoundEffectType>; i++)
 			{
-				const std::string_view inFilePath = SoundEffectTypeFilePaths[i];
 				auto& resultBuffer = result.SampleBuffers[i];
 
-				auto[fileContent, fileSize] = File::ReadAllBytes(inFilePath);
-				if (fileContent == nullptr || fileSize == 0)
+				for (const std::string_view inFilePath : SoundEffectTypeFilePaths[i])
 				{
-					printf("Failed to read file '%.*s'\n", FmtStrViewArgs(inFilePath));
-					continue;
-				}
+					if (inFilePath.empty())
+						continue;
 
-				if (Audio::DecodeEntireFile(inFilePath, fileContent.get(), fileSize, resultBuffer) != Audio::DecodeFileResult::FeelsGoodMan)
-				{
-					printf("Failed to decode audio file '%.*s'\n", FmtStrViewArgs(inFilePath));
-					continue;
-				}
+					auto [res, extension] = File::ReadAllBytes(inFilePath, Audio::SupportedFileFormatExtensions);
+					auto& [fileContent, fileSize] = res;
 
-				// HACK: ...
-				if (resultBuffer.SampleRate != Audio::Engine.OutputSampleRate)
-					Audio::LinearlyResampleBuffer<i16>(resultBuffer.InterleavedSamples, resultBuffer.FrameCount, resultBuffer.SampleRate, resultBuffer.ChannelCount, Audio::Engine.OutputSampleRate);
+					if (fileContent == nullptr || fileSize == 0)
+					{
+						printf("Failed to read file '%.*s'\n", FmtStrViewArgs(inFilePath));
+						continue;
+					}
+
+					if (Audio::DecodeEntireFile(extension, fileContent.get(), fileSize, resultBuffer) != Audio::DecodeFileResult::FeelsGoodMan)
+					{
+						printf("Failed to decode audio file '%.*s'\n", FmtStrViewArgs(inFilePath));
+						continue;
+					}
+
+					result.FilePath = inFilePath;
+					result.Extension = extension;
+
+					// HACK: ...
+					if (resultBuffer.SampleRate != Audio::Engine.OutputSampleRate)
+						Audio::LinearlyResampleBuffer<i16>(resultBuffer.InterleavedSamples, resultBuffer.FrameCount, resultBuffer.SampleRate, resultBuffer.ChannelCount, Audio::Engine.OutputSampleRate);
+
+					break;
+				}
 			}
 			return result;
 		});
@@ -50,8 +62,10 @@ namespace PeepoDrumKit
 			AsyncLoadSoundEffectsResult loadResult = LoadSoundEffectFuture.get();
 			for (size_t i = 0; i < EnumCount<SoundEffectType>; i++)
 			{
-				if (loadResult.SampleBuffers[i].InterleavedSamples != nullptr)
-					LoadedSources[i] = Audio::Engine.LoadSourceFromBufferMove(Path::GetFileName(SoundEffectTypeFilePaths[i]), std::move(loadResult.SampleBuffers[i]));
+				if (loadResult.SampleBuffers[i].InterleavedSamples != nullptr) {
+					const auto filePathExt = std::string{ loadResult.FilePath } + std::string{ loadResult.Extension };
+					LoadedSources[i] = Audio::Engine.LoadSourceFromBufferMove(Path::GetFileName(filePathExt), std::move(loadResult.SampleBuffers[i]));
+				}
 			}
 		}
 	}

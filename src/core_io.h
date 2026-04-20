@@ -51,6 +51,21 @@ namespace File
 	};
 
 	UniqueFileContent ReadAllBytes(std::string_view filePath);
+
+	template <typename T, size_t N>
+	std::tuple<UniqueFileContent, std::string_view> ReadAllBytes(std::string_view filePath, const T (&extensions)[N])
+	{
+		for (std::string_view extension : extensions)
+		{
+			const auto filePathExt = std::string{ filePath } + std::string{ extension };
+			auto res = ReadAllBytes(filePathExt);
+			if (res.Content == nullptr || res.Size == 0)
+				continue;
+			return { std::move(res), extension };
+		}
+		return {};
+	}
+
 	b8 WriteAllBytes(std::string_view filePath, const void* fileContent, size_t fileSize);
 	b8 WriteAllBytes(std::string_view filePath, const UniqueFileContent& uniqueFileContent);
 	b8 WriteAllBytes(std::string_view filePath, const std::string_view textFileContent);
