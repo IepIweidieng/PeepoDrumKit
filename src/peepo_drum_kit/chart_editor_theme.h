@@ -53,7 +53,8 @@ namespace PeepoDrumKit
 		f32 DigitScale = 1.5f;
 		f32 PaddingX = -7.0f;
 		f32 PaddingY = 90.0f;
-	} GameComboDisplay;
+	} GameComboDisplay, GameComboDisplay3UpLanes = { 1, -14.0f, 90.0f };
+	constexpr const decltype(GameComboDisplay)& GetGameComboDisplay(i32 nLanes) { return (nLanes > 2) ? GameComboDisplay3UpLanes : GameComboDisplay; }
 
 	inline u32 DragTextHoveredColor = 0xFFBCDDDB;
 	inline u32 DragTextActiveColor = 0xFFC3F5F2;

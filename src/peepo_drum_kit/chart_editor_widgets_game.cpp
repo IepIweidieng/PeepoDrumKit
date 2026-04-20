@@ -960,6 +960,7 @@ namespace PeepoDrumKit
 				}
 			});
 
+			b8 balloonPopCountDrawn = false; // prevent long pop count text from overlapping with long combo text
 			const Beat drummrollHitInterval = GetGridBeatSnap(*Settings.General.DrumrollAutoHitBarDivision);
 			for (auto it = ReverseNoteDrawBuffer.rbegin(); it != ReverseNoteDrawBuffer.rend(); it++)
 			{
@@ -977,8 +978,11 @@ namespace PeepoDrumKit
 							DrawGamePreviewNote(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(headPos.x, headPos.y), it->Tempo, it->ScrollSpeed, it->OriginalNote->Type, cursorTimeOrAnimated);
 						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(headPos.x, headPos.y), {}, it->Tempo, it->ScrollSpeed, it->OriginalNote->TempSEType, it->HasHead || afterHit, it->HasEnd, it->HasBody);
 						if (afterHit) {
+							drawList->ChannelsSetCurrent(4);
 							DrawGamePreviewNumericText(context.Gfx, Camera, drawList, SprTransform::FromCenter(Camera.LaneToWorldSpace(headPos.x, headPos.y), vec2(2)),
 								std::to_string(it->OriginalNote->BalloonPopCount).c_str(), 0xFFFFFFFF);
+							balloonPopCountDrawn = true;
+							drawList->ChannelsSetCurrent(3);
 						}
 					}
 					else
@@ -1069,36 +1073,42 @@ namespace PeepoDrumKit
 				{
 					const SortedNotesList& notes = course->GetNotes(branch);
 					const Note* lastHitNote = notes.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
-					if (lastHitNote != nullptr && lastHitNote->TempComboCount > 0)
+					if (lastHitNote != nullptr && lastHitNote->TempComboCount > 0 && !(nLanes > 2 && balloonPopCountDrawn))
 					{
+						drawList->ChannelsSetCurrent((nLanes > 2) ? 2 : 4);
+
 						char comboStr[16];
 						const i32 comboLen = sprintf_s(comboStr, "%d", static_cast<i32>(lastHitNote->TempComboCount));
 
 						// NOTE: Each digit in Combo.png is 44x51px, 10 digits total (0-9)
-						constexpr f32 digitSrcW = 44.0f;
-						constexpr f32 digitSrcH = 51.0f;
+						const auto& display = GetGameComboDisplay(nLanes);
+						constexpr vec2 digitSrcSize = { 44.0f, 51.0f };
 						constexpr f32 sheetW = 440.0f;
-						const f32 digitScale = Camera.WorldToScreenScaleFactor * GameComboDisplay.DigitScale;
-						const f32 digitW = digitSrcW * digitScale;
-						const f32 digitH = digitSrcH * digitScale;
+						const f32 digitScale = Camera.WorldToScreenScaleFactor * display.DigitScale;
+						const vec2 digitSize = digitSrcSize * digitScale;
 
-						const f32 paddingX = GameComboDisplay.PaddingX * digitScale;
-						const f32 digitStepX = digitW + paddingX;
+						const vec2 padding = vec2{ display.PaddingX, display.PaddingY } * digitScale;
+						const vec2 digitStep = digitSize + padding;
+						const vec2 comboWorldOffset = (nLanes > 2) ? vec2{ 0, 0 }
+							: (iLane == 1) ? vec2{ 0.0f, GameHitCircle.OuterOutlineRadius + GameLaneSlice.Footer + display.PaddingY }
+							: vec2{ 0.0f, -GameHitCircle.OuterOutlineRadius - display.PaddingY };
+						const vec2 comboWorldPos = Camera.LaneToWorldSpace(hitCirclePosLane.x, hitCirclePosLane.y) + comboWorldOffset;
+						const vec2 totalSize = vec2{ digitStep.x * comboLen, digitStep.y } - padding;
 
-						const vec2 comboWorldPos = Camera.LaneToWorldSpace(hitCirclePosLane.x, hitCirclePosLane.y) + vec2(0.0f, -GameHitCircle.OuterOutlineRadius - GameComboDisplay.PaddingY);
-						const vec2 comboScreenPos = Camera.WorldToScreenSpace(comboWorldPos);
-						const f32 totalW = digitStepX * comboLen - paddingX;
-						const f32 startX = comboScreenPos.x - totalW * 0.5f;
-						const f32 startY = comboScreenPos.y - digitH * 0.5f;
+						vec2 comboScreenPos = Camera.WorldToScreenSpace(comboWorldPos);
+						vec2 marginTL = totalSize * vec2{ (nLanes > 2) ? 0.5f : 0.5f, 0.5f };
+						vec2 marginBR = totalSize - marginTL;
+						comboScreenPos = Max(Camera.ScreenSpaceViewportRect.TL + marginTL, Min(comboScreenPos, Camera.ScreenSpaceViewportRect.BR - marginBR));
+						const vec2 startPos = comboScreenPos - marginTL;
 
 						const ImTextureID texID = ComboFontTexture.GetTexID();
 						for (i32 i = 0; i < comboLen; i++)
 						{
 							const i32 digit = comboStr[i] - '0';
-							const f32 u0 = (digit * digitSrcW) / sheetW;
-							const f32 u1 = ((digit + 1) * digitSrcW) / sheetW;
-							const vec2 p0 = vec2(startX + digitStepX * i, startY);
-							const vec2 p1 = vec2(p0.x + digitW, startY + digitH);
+							const f32 u0 = (digit * digitSrcSize.x) / sheetW;
+							const f32 u1 = ((digit + 1) * digitSrcSize.x) / sheetW;
+							const vec2 p0 = startPos + vec2(digitStep.x * i, 0.0f);
+							const vec2 p1 = p0 + vec2(digitSize.x, digitSize.y);
 							drawList->AddImage(texID, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f));
 						}
 					}
