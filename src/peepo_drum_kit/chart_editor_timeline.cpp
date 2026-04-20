@@ -2747,7 +2747,7 @@ namespace PeepoDrumKit
 				const b8 decreaseGrid = (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_X1, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_DecreaseGridDivision, true, InputModifierBehavior::Relaxed));
 
 				const auto& io = Gui::GetIO();
-				const auto& divisions = io.KeyAlt ? std::vector<i32>{}
+				const auto& divisions = io.KeyAlt ? Settings.General.GridBarDivisionsPrecise.Value
 					: io.KeyShift ? Settings.General.GridBarDivisionsRough.Value
 					: Settings.General.GridBarDivisions.Value;
 				const i32 step = io.KeyAlt ? 1 : io.KeyShift ? 12 : 4;
