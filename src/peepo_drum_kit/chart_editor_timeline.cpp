@@ -228,6 +228,7 @@ namespace PeepoDrumKit
 			region("Regions.ContentHeader", timeline.Regions.ContentHeader);
 			region("Regions.Content", timeline.Regions.Content);
 			region("Regions.ContentScrollbarX", timeline.Regions.ContentScrollbarX);
+			region("Regions.ContentScrollbarY", timeline.Regions.ContentScrollbarY);
 		}
 	}
 }
@@ -1046,13 +1047,15 @@ namespace PeepoDrumKit
 		const f32 sidebarWidth = GuiScale(CurrentSidebarWidth);
 		const f32 sidebarHeight = GuiScale(contentAndSidebarHeaderHeight);
 
-		const f32 scrollbarHeight = Gui::GetStyle().ScrollbarSize * 3.0f;
+		const f32 scrollbarXHeight = Gui::GetStyle().ScrollbarSize * 3.0f;
+		const f32 scrollbarYWidth = Gui::GetStyle().ScrollbarSize;
 		Regions.Window = Rect::FromTLSize(Gui::GetCursorScreenPos(), Gui::GetContentRegionAvail());
 		Regions.SidebarHeader = Rect::FromTLSize(Regions.Window.TL, vec2(sidebarWidth, sidebarHeight));
 		Regions.Sidebar = Rect::FromTLSize(Regions.SidebarHeader.GetBL(), vec2(sidebarWidth, Regions.Window.GetHeight() - sidebarHeight));
 		Regions.ContentHeader = Rect(Regions.SidebarHeader.GetTR(), vec2(Regions.Window.BR.x, Regions.SidebarHeader.BR.y));
-		Regions.Content = Rect::FromTLSize(Regions.ContentHeader.GetBL(), Max(vec2(0.0f), vec2(Regions.Window.GetWidth() - sidebarWidth, Regions.Window.GetHeight() - sidebarHeight - scrollbarHeight)));
-		Regions.ContentScrollbarX = Rect::FromTLSize(Regions.Content.GetBL(), vec2(Regions.Content.GetWidth(), scrollbarHeight));
+		Regions.Content = Rect::FromTLSize(Regions.ContentHeader.GetBL(), Max(vec2(0.0f), vec2(Regions.Window.GetWidth() - sidebarWidth - scrollbarYWidth, Regions.Window.GetHeight() - sidebarHeight - scrollbarXHeight)));
+		Regions.ContentScrollbarY = Rect::FromTLSize(Regions.Content.GetTR(), vec2(scrollbarYWidth, Regions.Content.GetHeight()));
+		Regions.ContentScrollbarX = Rect::FromTLSize(Regions.Content.GetBL(), vec2(Regions.ContentHeader.GetWidth(), scrollbarXHeight));
 
 		auto timelineRegionBegin = [](const Rect region, cstr name, b8 padding = false)
 		{
@@ -1120,6 +1123,18 @@ namespace PeepoDrumKit
 				timelineRegionBegin(Regions.ContentScrollbarX, "TimelineContentScrollbarX");
 				drawRemaining(Gui::GetWindowDrawList());
 				timelineRegionEnd();
+			};
+
+			drawers.DrawTimelineContentScrollbarY = [&](auto&& drawRemaining)
+			{
+				timelineRegionBegin(Regions.ContentScrollbarY, "TimelineContentScrollbarY");
+				drawRemaining(Gui::GetWindowDrawList());
+				timelineRegionEnd();
+			};
+
+			drawers.HideTimelineContentScrollbarY = [&]() {
+				Regions.Content = Rect::FromTLSize(Regions.ContentHeader.GetBL(), Max(vec2(0.0f), vec2(Regions.Window.GetWidth() - sidebarWidth, Regions.Window.GetHeight() - sidebarHeight - scrollbarXHeight)));
+				Regions.ContentScrollbarY = Rect::FromTLSize(Regions.Content.GetTR(), vec2(0, Regions.Content.GetHeight()));
 			};
 
 			DrawAllAtEndOfFrame(context, drawers);
@@ -3285,6 +3300,27 @@ namespace PeepoDrumKit
 		DrawListSidebarHeader->PushClipRect(Regions.SidebarHeader.TL, Regions.SidebarHeader.BR);
 
 		// draw first to update scroll position
+		drawers.DrawTimelineContentScrollbarY([&](ImDrawList* drawList)
+		{
+			const f32 localSpaceVisibleHeight = Regions.Content.GetHeight();
+			const f32 localSpaceRowHeight = GetTotalTimelineRowsHeight(*this);
+
+			if (localSpaceRowHeight <= localSpaceVisibleHeight) { // can hide scrollbar
+				drawers.HideTimelineContentScrollbarY();
+				return;
+			}
+
+			// BUG: Scrollbar should still be interactable while box selecting
+			ImS64 inOutScrollValue = static_cast<ImS64>(Camera.PositionCurrentScrollBar.y);
+			const ImS64 inSizeAvail = static_cast<ImS64>(localSpaceVisibleHeight);
+			const ImS64 inContentSize = static_cast<ImS64>(localSpaceRowHeight);
+			if (Gui::ScrollbarEx(ImRect(Regions.ContentScrollbarY.TL, Regions.ContentScrollbarY.BR), Gui::GetID("ContentScrollbarY"), ImGuiAxis_Y,
+				&inOutScrollValue, inSizeAvail, inContentSize, ImDrawFlags_RoundCornersNone))
+			{
+				Camera.PositionCurrentScrollBar.y = Camera.PositionTarget.y = static_cast<f32>(inOutScrollValue);
+			}
+		});
+
 		drawers.DrawTimelineContentScrollbarX([&](ImDrawList* drawList)
 		{
 			Gui::PushStyleColor(ImGuiCol_ScrollbarGrab, Gui::GetColorU32(ImGuiCol_ScrollbarGrab, 0.2f));

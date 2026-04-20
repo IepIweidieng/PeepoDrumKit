@@ -168,6 +168,7 @@ namespace PeepoDrumKit
 		Rect ContentHeader;
 		Rect Content;
 		Rect ContentScrollbarX;
+		Rect ContentScrollbarY;
 	};
 
 	//static_assert((Beat::TicksPerBeat * 4) == 192);
@@ -346,7 +347,9 @@ namespace PeepoDrumKit
 				DrawTimelineSideBar,
 				DrawTimelineContentHeader,
 				DrawTimelineContent,
-				DrawTimelineContentScrollbarX;
+				DrawTimelineContentScrollbarX,
+				DrawTimelineContentScrollbarY;
+			std::function<void()> HideTimelineContentScrollbarY;
 		};
 
 		// NOTE: Must update input *before* drawing so that the scroll positions won't change
