@@ -178,6 +178,7 @@ X("EVENT_NOTES",									"Notes") \
 X("EVENT_NOTES_EXPERT",								"Notes (Expert)") \
 X("EVENT_NOTES_MASTER",								"Notes (Master)") \
 X("EVENT_SCROLL_SPEED",								"Scroll Speed") \
+X("EVENT_SCROLL_SPEED_VIEW_TOOLTIP",				"Scroll speed and direction in positive BPM and positive time signature") \
 X("EVENT_PROP_VERTICAL_SCROLL_SPEED",				"Vertical Scroll Speed") \
 X("EVENT_SCROLL_SPEED_UNIT",						"Scroll Speed Unit") \
 X("EVENT_BAR_LINE_VISIBILITY",						"Bar Line Visibility") \

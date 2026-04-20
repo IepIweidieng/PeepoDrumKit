@@ -402,7 +402,7 @@ namespace PeepoDrumKit
 	};
 
 	template <typename Func>
-	static void ForEachBarOnNoteLane(const ChartCourse& course, BranchType branch, Beat maxBeatDuration, Func perBarFunc)
+	static void ForEachBarOnNoteLane(const ChartCourse& course, BranchType branch, Beat maxBeatDuration, std::function<Complex(Complex)> scrollTypeToView, Func perBarFunc)
 	{
 		BeatSortedForwardIterator<TempoChange> tempoChangeIt {};
 		BeatSortedForwardIterator<ScrollChange> scrollChangeIt {};
@@ -424,7 +424,7 @@ namespace PeepoDrumKit
 			const Time time = course.TempoMap.BeatToTime(it.Beat);
 			perBarFunc(ForEachBarLaneData { it.Beat, time,
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, it.Beat)),
-				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, it.Beat)), 
+				scrollTypeToView(ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, it.Beat))),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, it.Beat)),
 				it.BarIndex });
 
@@ -452,7 +452,7 @@ namespace PeepoDrumKit
 	};
 
 	template <typename Func>
-	static void ForEachNoteOnNoteLane(const ChartCourse& course, BranchType branch, Func perNoteFunc)
+	static void ForEachNoteOnNoteLane(const ChartCourse& course, BranchType branch, std::function<Complex(Complex)> scrollTypeToView, Func perNoteFunc)
 	{
 		BeatSortedForwardIterator<TempoChange> tempoChangeIt {};
 		BeatSortedForwardIterator<ScrollChange> scrollChangeIt {};
@@ -468,13 +468,13 @@ namespace PeepoDrumKit
 			const Time tail = (note.BeatDuration > Beat::Zero()) ? (course.TempoMap.BeatToTime(beatTail) + note.TimeOffset) : head;
 			perNoteFunc(ForEachNoteLaneData { &note, beat, head,
 				TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beat)),
-				ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat)),
+				scrollTypeToView(ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beat))),
 				ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beat)),
 				SuddenOrDefault(SuddenChangeIt.Next(course.SuddenChanges.Sorted, beat)),
 				{
 					beatTail, tail,
 					TempoOrDefault(tempoChangeIt.Next(course.TempoMap.Tempo.Sorted, beatTail)),
-					ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail)),
+					scrollTypeToView(ScrollOrDefault(scrollChangeIt.Next(course.ScrollChanges.Sorted, beatTail))),
 					ScrollTypeOrDefault(scrollTypeIt.Next(course.ScrollTypes.Sorted, beatTail)),
 					SuddenOrDefault(SuddenChangeIt.Next(course.SuddenChanges.Sorted, beatTail)),
 				},
@@ -586,7 +586,7 @@ namespace PeepoDrumKit
 
 		// fetch 2nd next note, update current note
 		i32 lastFilled = 0;
-		ForEachNoteOnNoteLane(*this, branch, [&](const ForEachNoteLaneData& dataIt)
+		ForEachNoteOnNoteLane(*this, branch, scrollSpeedToViews[0], [&](const ForEachNoteLaneData& dataIt)
 		{
 			if (getNoteData(1).OriginalNote != nullptr)
 				assignSingleNote();
@@ -778,8 +778,9 @@ namespace PeepoDrumKit
 				drawList->AddText(posTxtJPos, 0xFFFFFFFF, str.c_str(), str.c_str() + str.length());
 			}
 
+			const auto scrollSpeedToView = GetScrollSpeedToView(context.Chart.ScrollSpeedViewType);
 			drawList->ChannelsSetCurrent(2);
-			ForEachBarOnNoteLane(*course, branch, chartBeatDuration, [&](const ForEachBarLaneData& it)
+			ForEachBarOnNoteLane(*course, branch, chartBeatDuration, scrollSpeedToView, [&](const ForEachBarLaneData& it)
 			{
 				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				const f32 laneX = lane.x, laneY = lane.y;
@@ -817,7 +818,7 @@ namespace PeepoDrumKit
 #endif
 
 			drawList->ChannelsSetCurrent(3);
-			ForEachNoteOnNoteLane(*course, branch, [&](const ForEachNoteLaneData& it)
+			ForEachNoteOnNoteLane(*course, branch, scrollSpeedToView, [&](const ForEachNoteLaneData& it)
 			{
 				vec2 laneHeadOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
 				vec2 laneTailOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeed, it.Tail.ScrollType, tempoChanges, jposScrollChanges);

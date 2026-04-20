@@ -3378,14 +3378,31 @@ namespace PeepoDrumKit
 
 					Gui::TextEx(Gui::StringViewStart(rowIt.Label), Gui::StringViewEnd(rowIt.Label));
 
-					if (rowIt.RowType == TimelineRowType::JPOSScroll) {
-						Gui::SameLine();
-						vec2 padding = Gui::GetStyle().FramePadding;
-						Gui::SetCursorScreenPos(vec2{ Gui::GetCursorScreenPos().x, sidebarScreenSpace.TL.y + padding.y });
-						Gui::SetNextItemWidth(Gui::GetContentRegionAvail().x - padding.x);
-						Gui::ComboEnum("##JPosScrollDistanceType", &context.Chart.JPosDistanceType, strJPosDistanceType);
+					switch (rowIt.RowType) {
+					default:
+						break;
+					case TimelineRowType::ScrollSpeed:
+						{
+							Gui::SameLine();
+							vec2 padding = Gui::GetStyle().FramePadding;
+							Gui::SetCursorScreenPos(vec2{ Gui::GetCursorScreenPos().x, sidebarScreenSpace.TL.y + padding.y });
+							Gui::SetNextItemWidth(Gui::GetContentRegionAvail().x - padding.x);
+							Gui::ComboEnum("##ScrollSpeedViewType", &context.Chart.ScrollSpeedViewType, strScrollSpeedViewType);
 
-						Gui::SetItemTooltip(UI_Str("EVENT_JPOS_SCROLL_DISTANCE_TOOLTIP"));
+							Gui::SetItemTooltip(UI_Str("EVENT_SCROLL_SPEED_VIEW_TOOLTIP"));
+						}
+						break;
+					case TimelineRowType::JPOSScroll:
+						{
+							Gui::SameLine();
+							vec2 padding = Gui::GetStyle().FramePadding;
+							Gui::SetCursorScreenPos(vec2{ Gui::GetCursorScreenPos().x, sidebarScreenSpace.TL.y + padding.y });
+							Gui::SetNextItemWidth(Gui::GetContentRegionAvail().x - padding.x);
+							Gui::ComboEnum("##JPosScrollDistanceType", &context.Chart.JPosDistanceType, strJPosDistanceType);
+
+							Gui::SetItemTooltip(UI_Str("EVENT_JPOS_SCROLL_DISTANCE_TOOLTIP"));
+						}
+						break;
 					}
 
 					Gui::EndDisabled();

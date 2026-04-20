@@ -277,6 +277,21 @@ namespace PeepoDrumKit
 	template <>
 	constexpr ScrollChange FallbackEvent<ScrollChange> = {Beat::Zero(), Complex(1.0f, 0.0f)};
 
+	enum class EScrollSpeedViewType { TJAP3, Jiro2, Disabled, Count };
+	constexpr cstr strScrollSpeedViewType[] = { u8"TJAP3 (i is up)", u8"Jiro2 (i is down)", u8"Disabled" };
+	static const std::function<Complex(Complex)> scrollSpeedToViews[] = {
+		[](Complex cpx) { return cpx; },
+		[](Complex cpx) { return Complex{cpx.GetRealPart(), -cpx.GetImaginaryPart()}; },
+		[](Complex cpx) { return Complex{1, 0}; },
+	};
+
+	static inline std::function<Complex(Complex)> GetScrollSpeedToView(EScrollSpeedViewType type) {
+		size_t index = EnumToIndex(type);
+		if (index >= std::size(scrollSpeedToViews))
+			index = EnumToIndex(EScrollSpeedViewType::TJAP3);
+		return scrollSpeedToViews[index];
+	}
+
 	struct ScrollType
 	{
 		Beat BeatTime;
@@ -478,6 +493,7 @@ namespace PeepoDrumKit
 		std::string BackgroundMovieFileName;
 		Time MovieOffset = {};
 
+		EScrollSpeedViewType ScrollSpeedViewType = EScrollSpeedViewType::TJAP3;
 		EJPosDistanceType JPosDistanceType = EJPosDistanceType::PDK;
 
 		std::map<std::string, std::string> OtherMetadata;
