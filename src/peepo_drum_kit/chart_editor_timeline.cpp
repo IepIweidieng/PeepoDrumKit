@@ -2272,7 +2272,7 @@ namespace PeepoDrumKit
 				Gui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
 				// BUG: Kinda freaks out when mouse grabbing and smooth zooming at the same time
-				Camera.PositionTarget = Camera.PositionCurrent += (MousePosLastFrame - MousePosThisFrame);
+				Camera.PositionTarget = Camera.PositionCurrentScrollBar = Camera.PositionCurrent += (MousePosLastFrame - MousePosThisFrame);
 				Camera.ZoomTarget.x = Camera.ZoomCurrent.x;
 			}
 		}
@@ -2289,7 +2289,7 @@ namespace PeepoDrumKit
 				{
 					const Time elapsedCursorTime = Time::FromSec(Gui::DeltaTime()) * context.GetPlaybackSpeed();
 					const f32 cameraScrollIncrement = Camera.TimeToWorldSpaceX(elapsedCursorTime) * Camera.ZoomCurrent.x;
-					Camera.PositionCurrent.x += cameraScrollIncrement;
+					Camera.PositionCurrentScrollBar.x = Camera.PositionCurrent.x += cameraScrollIncrement;
 					Camera.PositionTarget.x += cameraScrollIncrement;
 				}
 			}
@@ -2626,12 +2626,12 @@ namespace PeepoDrumKit
 						if (*Settings.General.TimelineScrubAutoScrollEnableClamp)
 						{
 							const f32 minScrollX = TimelineCameraBaseScrollX;
-							Camera.PositionCurrent.x = ClampBot(Camera.PositionCurrent.x - scrollIncrementThisFrame, ClampTop(Camera.PositionCurrent.x, minScrollX));
+							Camera.PositionCurrentScrollBar.x = Camera.PositionCurrent.x = ClampBot(Camera.PositionCurrent.x - scrollIncrementThisFrame, ClampTop(Camera.PositionCurrent.x, minScrollX));
 							Camera.PositionTarget.x = ClampBot(Camera.PositionTarget.x - scrollIncrementThisFrame, ClampTop(Camera.PositionTarget.x, minScrollX));
 						}
 						else
 						{
-							Camera.PositionCurrent.x -= scrollIncrementThisFrame;
+							Camera.PositionCurrentScrollBar.x = Camera.PositionCurrent.x -= scrollIncrementThisFrame;
 							Camera.PositionTarget.x -= scrollIncrementThisFrame;
 						}
 					}
@@ -2641,12 +2641,12 @@ namespace PeepoDrumKit
 						if (*Settings.General.TimelineScrubAutoScrollEnableClamp)
 						{
 							const f32 maxScrollX = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.GetUsedDurationFast()), 0.0f)).x - Regions.ContentHeader.GetWidth() + 1.0f;
-							Camera.PositionCurrent.x = ClampTop(Camera.PositionCurrent.x + scrollIncrementThisFrame, ClampBot(Camera.PositionCurrent.x, maxScrollX));
+							Camera.PositionCurrentScrollBar.x = Camera.PositionCurrent.x = ClampTop(Camera.PositionCurrent.x + scrollIncrementThisFrame, ClampBot(Camera.PositionCurrent.x, maxScrollX));
 							Camera.PositionTarget.x = ClampTop(Camera.PositionTarget.x + scrollIncrementThisFrame, ClampBot(Camera.PositionTarget.x, maxScrollX));
 						}
 						else
 						{
-							Camera.PositionCurrent.x += scrollIncrementThisFrame;
+							Camera.PositionCurrentScrollBar.x = Camera.PositionCurrent.x += scrollIncrementThisFrame;
 							Camera.PositionTarget.x += scrollIncrementThisFrame;
 						}
 					}
@@ -3321,16 +3321,13 @@ namespace PeepoDrumKit
 
 			// BUG: Scrollbar should still be interactable while box selecting
 			static constexpr ImS64 padding = 1;
-			ImS64 inOutScrollValue = static_cast<ImS64>(Camera.PositionCurrent.x - TimelineCameraBaseScrollX);
+			ImS64 inOutScrollValue = static_cast<ImS64>(Camera.PositionCurrentScrollBar.x - TimelineCameraBaseScrollX);
 			const ImS64 inSizeAvail = static_cast<ImS64>(localSpaceVisibleWidth + TimelineCameraBaseScrollX);
 			const ImS64 inContentSize = static_cast<ImS64>(localSpaceTimelineWidth);
 			if (Gui::ScrollbarEx(ImRect(Regions.ContentScrollbarX.TL, Regions.ContentScrollbarX.BR), Gui::GetID("ContentScrollbarX"), ImGuiAxis_X,
 				&inOutScrollValue, inSizeAvail, inContentSize, ImDrawFlags_RoundCornersNone))
 			{
-				// BUG: Only setting PositionTarget results in glitchy behavior when clicking somewhere on the scrollbar for shorter than the animation duration
-				//		however setting both PositionCurrent and PositionTarget means no smooth scrolling while dragging around
-				// Camera.PositionTarget.x = static_cast<f32>(inOutScrollValue);
-				Camera.PositionCurrent.x = Camera.PositionTarget.x = static_cast<f32>(inOutScrollValue) + TimelineCameraBaseScrollX;
+				Camera.PositionCurrentScrollBar.x = Camera.PositionTarget.x = static_cast<f32>(inOutScrollValue) + TimelineCameraBaseScrollX;
 			}
 
 			if (IsCameraMouseGrabActive) Gui::PopStyleColor();

@@ -16,6 +16,7 @@ namespace PeepoDrumKit
 	struct TimelineCamera
 	{
 		vec2 PositionCurrent = vec2(0.0f);
+		vec2 PositionCurrentScrollBar = vec2(0.0f);
 		vec2 PositionTarget = vec2(0.0f);
 
 		vec2 ZoomCurrent = vec2(1.0f);
@@ -27,6 +28,10 @@ namespace PeepoDrumKit
 		{
 			// NOTE: Smooth zooming only looks correct when the smooth scroll and zoom speeds are the same
 			Gui::AnimateExponential(&PositionCurrent, PositionTarget, *Settings.Animation.TimelineSmoothScrollSpeed);
+			for (auto part : { &vec2::x, &vec2::y }) {
+				if (PositionCurrentScrollBar.*part != PositionTarget.*part)
+					PositionCurrentScrollBar.*part = PositionCurrent.*part;
+			}
 			Gui::AnimateExponential(&ZoomCurrent, ZoomTarget, *Settings.Animation.TimelineSmoothScrollSpeed);
 		}
 
@@ -197,7 +202,7 @@ namespace PeepoDrumKit
 
 	struct ChartTimeline
 	{
-		TimelineCamera Camera = []() { TimelineCamera out {}; out.PositionCurrent.x = out.PositionTarget.x = TimelineCameraBaseScrollX; return out; }();
+		TimelineCamera Camera = []() { TimelineCamera out {}; out.PositionCurrentScrollBar.x = out.PositionCurrent.x = out.PositionTarget.x = TimelineCameraBaseScrollX; return out; }();
 
 		// NOTE: All in screen space
 		TimelineRegions Regions = {};
