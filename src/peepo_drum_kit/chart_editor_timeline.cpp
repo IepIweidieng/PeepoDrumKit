@@ -1616,8 +1616,9 @@ namespace PeepoDrumKit
 			changed = true;
 		}
 		for (auto member : { GenericMember::Time_AppearanceOffset, GenericMember::Time_MovementOffset }) {
-			if (Time v; !keepEventValue && TryGet(item, member, v) && v != Time::Zero()) {
-				TrySet(item, member, v * abs(ratio[0] / ratio[1]));
+			if (Time v; !keepTimePos && !keepEventValue && TryGet(item, member, v) && v != Time::Zero()) {
+				if (std::isfinite(v.Seconds))
+					TrySet(item, member, v * abs(ratio[0] / ratio[1]));
 				changed = true;
 			}
 		}
