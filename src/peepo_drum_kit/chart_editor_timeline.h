@@ -155,20 +155,29 @@ namespace PeepoDrumKit
 			(rowType == TimelineRowType::Notes_Master) ? BranchType::Master : BranchType::Count;
 	}
 
+	struct TimelineRegion : Rect
+	{
+		b8 IsHovered = false;
+		b8 IsFocused = false;
+
+		struct Rect& Rect() { return *this; }
+		const struct Rect& Rect() const { return *this; }
+	};
+
 	struct TimelineRegions
 	{
 		// NOTE: Includes the entire window
-		Rect Window;
+		TimelineRegion Window;
 
 		// NOTE: Left side
-		Rect SidebarHeader;
-		Rect Sidebar;
+		TimelineRegion SidebarHeader;
+		TimelineRegion Sidebar;
 
 		// NOTE: Right side
-		Rect ContentHeader;
-		Rect Content;
-		Rect ContentScrollbarX;
-		Rect ContentScrollbarY;
+		TimelineRegion ContentHeader;
+		TimelineRegion Content;
+		TimelineRegion ContentScrollbarX;
+		TimelineRegion ContentScrollbarY;
 	};
 
 	//static_assert((Beat::TicksPerBeat * 4) == 192);
@@ -213,12 +222,6 @@ namespace PeepoDrumKit
 
 		// NOTE: Defined as a fraction of a 4/4 bar
 		i32 CurrentGridBarDivision = 16;
-
-		b8 IsAnyChildWindowFocused = false;
-		b8 IsContentHeaderWindowHovered = false;
-		b8 IsContentWindowHovered = false;
-		b8 IsContentWindowFocused = false;
-		b8 IsSidebarWindowHovered = false;
 
 		vec2 MousePosThisFrame = {};
 		vec2 MousePosLastFrame = {};
@@ -299,7 +302,7 @@ namespace PeepoDrumKit
 		std::vector<TempDrawSelectionBox> TempSelectionBoxesDrawBuffer;
 
 	public:
-		inline b8 HasKeyboardFocus() const { return IsAnyChildWindowFocused; }
+		inline b8 HasKeyboardFocus() const { return Regions.Window.IsFocused; }
 
 		inline Beat FloorBeatToCurrentGrid(Beat beat) const { return FloorBeatToGrid(beat, GetGridBeatSnap(CurrentGridBarDivision)); }
 		inline Beat RoundBeatToCurrentGrid(Beat beat) const { return RoundBeatToGrid(beat, GetGridBeatSnap(CurrentGridBarDivision)); }

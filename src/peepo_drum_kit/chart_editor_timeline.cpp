@@ -1049,13 +1049,13 @@ namespace PeepoDrumKit
 
 		const f32 scrollbarXHeight = Gui::GetStyle().ScrollbarSize * 3.0f;
 		const f32 scrollbarYWidth = Gui::GetStyle().ScrollbarSize;
-		Regions.Window = Rect::FromTLSize(Gui::GetCursorScreenPos(), Gui::GetContentRegionAvail());
-		Regions.SidebarHeader = Rect::FromTLSize(Regions.Window.TL, vec2(sidebarWidth, sidebarHeight));
-		Regions.Sidebar = Rect::FromTLSize(Regions.SidebarHeader.GetBL(), vec2(sidebarWidth, Regions.Window.GetHeight() - sidebarHeight));
-		Regions.ContentHeader = Rect(Regions.SidebarHeader.GetTR(), vec2(Regions.Window.BR.x, Regions.SidebarHeader.BR.y));
-		Regions.Content = Rect::FromTLSize(Regions.ContentHeader.GetBL(), Max(vec2(0.0f), vec2(Regions.Window.GetWidth() - sidebarWidth - scrollbarYWidth, Regions.Window.GetHeight() - sidebarHeight - scrollbarXHeight)));
-		Regions.ContentScrollbarY = Rect::FromTLSize(Regions.Content.GetTR(), vec2(scrollbarYWidth, Regions.Content.GetHeight()));
-		Regions.ContentScrollbarX = Rect::FromTLSize(Regions.Content.GetBL(), vec2(Regions.ContentHeader.GetWidth(), scrollbarXHeight));
+		Regions.Window.Rect() = Rect::FromTLSize(Gui::GetCursorScreenPos(), Gui::GetContentRegionAvail());
+		Regions.SidebarHeader.Rect() = Rect::FromTLSize(Regions.Window.TL, vec2(sidebarWidth, sidebarHeight));
+		Regions.Sidebar.Rect() = Rect::FromTLSize(Regions.SidebarHeader.GetBL(), vec2(sidebarWidth, Regions.Window.GetHeight() - sidebarHeight));
+		Regions.ContentHeader.Rect() = Rect(Regions.SidebarHeader.GetTR(), vec2(Regions.Window.BR.x, Regions.SidebarHeader.BR.y));
+		Regions.Content.Rect() = Rect::FromTLSize(Regions.ContentHeader.GetBL(), Max(vec2(0.0f), vec2(Regions.Window.GetWidth() - sidebarWidth - scrollbarYWidth, Regions.Window.GetHeight() - sidebarHeight - scrollbarXHeight)));
+		Regions.ContentScrollbarY.Rect() = Rect::FromTLSize(Regions.Content.GetTR(), vec2(scrollbarYWidth, Regions.Content.GetHeight()));
+		Regions.ContentScrollbarX.Rect() = Rect::FromTLSize(Regions.Content.GetBL(), vec2(Regions.ContentHeader.GetWidth(), scrollbarXHeight));
 
 		auto timelineRegionBegin = [](const Rect region, cstr name, b8 padding = false)
 		{
@@ -1072,69 +1072,45 @@ namespace PeepoDrumKit
 			Gui::EndChild();
 		};
 
-		IsAnyChildWindowFocused = Gui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
+		Regions.Window.IsFocused = Gui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 
 		timelineRegionBegin(Regions.Window, "TimelineWindow");
 		{
-			TimelineRegionDrawers drawers = {};
-			drawers.DrawTimelineSideBarHeader = [&](auto&& drawRemaining)
-			{
-				timelineRegionBegin(Regions.SidebarHeader, "TimelineSideBarHeader");
-				drawRemaining(Gui::GetWindowDrawList());
-				timelineRegionEnd();
-			};
-
 			const ImGuiHoveredFlags hoveredFlags = BoxSelection.IsActive ? ImGuiHoveredFlags_AllowWhenBlockedByActiveItem : ImGuiHoveredFlags_None;
 
-			drawers.DrawTimelineSideBar = [&](auto&& drawRemaining)
+			TimelineRegionDrawers drawers = {};
+			const auto makeDrawer = [&](TimelineRegion& region, cstr label, auto&& preupdate)
 			{
-				timelineRegionBegin(Regions.Sidebar, "TimelineSideBar");
-				IsSidebarWindowHovered = Gui::IsWindowHovered(hoveredFlags);
-				drawRemaining(Gui::GetWindowDrawList());
-				timelineRegionEnd();
+				return [&, label](auto&& drawRemaining)
+				{
+					timelineRegionBegin(region, label);
+					preupdate();
+					region.IsHovered = Gui::IsWindowHovered(hoveredFlags);
+					region.IsFocused = Gui::IsWindowFocused();
+					drawRemaining(Gui::GetWindowDrawList());
+					timelineRegionEnd();
+				};
 			};
 
-			drawers.DrawTimelineContentHeader = [&](auto&& drawRemaining)
-			{
-				timelineRegionBegin(Regions.ContentHeader, "TimelineContentHeader");
-				IsContentHeaderWindowHovered = Gui::IsWindowHovered(hoveredFlags);
-				drawRemaining(Gui::GetWindowDrawList());
-				timelineRegionEnd();
-			};
+			drawers.DrawTimelineSideBarHeader = makeDrawer(Regions.SidebarHeader, "TimelineSideBarHeader", [] {});
+			drawers.DrawTimelineSideBar = makeDrawer(Regions.Sidebar, "TimelineSideBar", [] {});
+			drawers.DrawTimelineContentHeader = makeDrawer(Regions.ContentHeader, "TimelineContentHeader", [] {});
 
-			drawers.DrawTimelineContent = [&](auto&& drawRemaining)
+			drawers.DrawTimelineContent = makeDrawer(Regions.Content, "TimelineContent", [&]()
 			{
-				timelineRegionBegin(Regions.Content, "TimelineContent");
 				if (Gui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && !Gui::IsWindowFocused())
 				{
 					if (Gui::IsMouseClicked(ImGuiMouseButton_Middle) || Gui::IsMouseClicked(ImGuiMouseButton_Right))
 						Gui::SetWindowFocus();
 				}
+			});
 
-				IsContentWindowHovered = Gui::IsWindowHovered(hoveredFlags);
-				IsContentWindowFocused = Gui::IsWindowFocused();
-
-				drawRemaining(Gui::GetWindowDrawList());
-				timelineRegionEnd();
-			};
-
-			drawers.DrawTimelineContentScrollbarX = [&](auto&& drawRemaining)
-			{
-				timelineRegionBegin(Regions.ContentScrollbarX, "TimelineContentScrollbarX");
-				drawRemaining(Gui::GetWindowDrawList());
-				timelineRegionEnd();
-			};
-
-			drawers.DrawTimelineContentScrollbarY = [&](auto&& drawRemaining)
-			{
-				timelineRegionBegin(Regions.ContentScrollbarY, "TimelineContentScrollbarY");
-				drawRemaining(Gui::GetWindowDrawList());
-				timelineRegionEnd();
-			};
+			drawers.DrawTimelineContentScrollbarX = makeDrawer(Regions.ContentScrollbarX, "TimelineContentScrollbarX", [] {});
+			drawers.DrawTimelineContentScrollbarY = makeDrawer(Regions.ContentScrollbarY, "TimelineContentScrollbarY", [] {});
 
 			drawers.HideTimelineContentScrollbarY = [&]() {
-				Regions.Content = Rect::FromTLSize(Regions.ContentHeader.GetBL(), Max(vec2(0.0f), vec2(Regions.Window.GetWidth() - sidebarWidth, Regions.Window.GetHeight() - sidebarHeight - scrollbarXHeight)));
-				Regions.ContentScrollbarY = Rect::FromTLSize(Regions.Content.GetTR(), vec2(0, Regions.Content.GetHeight()));
+				Regions.Content.Rect() = Rect::FromTLSize(Regions.ContentHeader.GetBL(), Max(vec2(0.0f), vec2(Regions.Window.GetWidth() - sidebarWidth, Regions.Window.GetHeight() - sidebarHeight - scrollbarXHeight)));
+				Regions.ContentScrollbarY.Rect() = Rect::FromTLSize(Regions.Content.GetTR(), vec2(0, Regions.Content.GetHeight()));
 			};
 
 			DrawAllAtEndOfFrame(context, drawers);
@@ -2251,12 +2227,12 @@ namespace PeepoDrumKit
 			if (*Settings.General.TimelineScrollInvertMouseWheel)
 				scrollStep.x *= -1.0f;
 
-			if (IsSidebarWindowHovered)
+			if (Regions.Sidebar.IsHovered || Regions.ContentScrollbarY.IsHovered)
 			{
 				if (!Gui::GetIO().KeyAlt)
 					Camera.PositionTarget.y -= (Gui::GetIO().MouseWheel * scrollStep.y);
 			}
-			else if (IsContentHeaderWindowHovered || IsContentWindowHovered)
+			else if (Regions.ContentHeader.IsHovered || Regions.Content.IsHovered || Regions.ContentScrollbarX.IsHovered)
 			{
 				if (Gui::GetIO().KeyAlt)
 				{
@@ -2276,7 +2252,7 @@ namespace PeepoDrumKit
 
 		// NOTE: Mouse wheel grab scroll
 		{
-			if (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_Middle))
+			if (Regions.Content.IsHovered && Gui::IsMouseClicked(ImGuiMouseButton_Middle))
 				IsCameraMouseGrabActive = true;
 			else if (IsCameraMouseGrabActive && !Gui::IsMouseDown(ImGuiMouseButton_Middle))
 				IsCameraMouseGrabActive = false;
@@ -2331,7 +2307,7 @@ namespace PeepoDrumKit
 				SelectedItemDrag.MouseBeatLastFrame = SelectedItemDrag.MouseBeatThisFrame;
 				SelectedItemDrag.MouseBeatThisFrame = FloorBeatToCurrentGrid(context.TimeToBeat(Camera.LocalSpaceXToTime(ScreenToLocalSpace(MousePosThisFrame).x)));
 
-				if (selectedItemCount > 0 && IsContentWindowHovered && SelectedItemDrag.ActiveTarget == EDragTarget::None)
+				if (selectedItemCount > 0 && Regions.Content.IsHovered && SelectedItemDrag.ActiveTarget == EDragTarget::None)
 				{
 					ForEachTimelineRow(*this, [&](const ForEachRowData& rowIt)
 					{
@@ -2586,7 +2562,7 @@ namespace PeepoDrumKit
 				}
 			}
 
-			if (IsContentWindowHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
+			if (Regions.Content.IsHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
 			{
 				const Time oldCursorTime = context.GetCursorTime();
 				const f32 oldCursorLocalSpaceX = Camera.TimeToLocalSpaceX(oldCursorTime);
@@ -2618,7 +2594,7 @@ namespace PeepoDrumKit
 
 			// NOTE: Header bar cursor scrubbing
 			{
-				if (IsContentHeaderWindowHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
+				if (Regions.ContentHeader.IsHovered && SelectedItemDrag.HoverTarget == EDragTarget::None && Gui::IsMouseClicked(ImGuiMouseButton_Left))
 					IsCursorMouseScrubActive = true;
 
 				if (!Gui::IsMouseDown(ImGuiMouseButton_Left) || !Gui::IsMousePosValid())
@@ -2755,11 +2731,11 @@ namespace PeepoDrumKit
 			}
 
 			// NOTE: Grid snap controls
-			if (IsContentWindowHovered || hasTimelineOrGamePreviewFocus)
+			if (Regions.Content.IsHovered || hasTimelineOrGamePreviewFocus)
 			{
 				const b8 keyboardFocus = hasTimelineOrGamePreviewFocus && !Gui::GetIO().KeyCtrl;
-				const b8 increaseGrid = (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_X2, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_IncreaseGridDivision, true, InputModifierBehavior::Relaxed));
-				const b8 decreaseGrid = (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_X1, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_DecreaseGridDivision, true, InputModifierBehavior::Relaxed));
+				const b8 increaseGrid = (Regions.Content.IsHovered && Gui::IsMouseClicked(ImGuiMouseButton_X2, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_IncreaseGridDivision, true, InputModifierBehavior::Relaxed));
+				const b8 decreaseGrid = (Regions.Content.IsHovered && Gui::IsMouseClicked(ImGuiMouseButton_X1, true)) || (keyboardFocus && Gui::IsAnyPressed(*Settings.Input.Timeline_DecreaseGridDivision, true, InputModifierBehavior::Relaxed));
 
 				const auto& io = Gui::GetIO();
 				const auto& divisions = io.KeyAlt ? Settings.General.GridBarDivisionsPrecise.Value
@@ -3042,7 +3018,7 @@ namespace PeepoDrumKit
 				return (shift && alt) ? BoxSelectionAction::XOR : shift ? BoxSelectionAction::Add : alt ? BoxSelectionAction::Sub : BoxSelectionAction::Clear;
 			};
 
-			if (IsContentWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_Right))
+			if (Regions.Content.IsHovered && Gui::IsMouseClicked(ImGuiMouseButton_Right))
 			{
 				BoxSelection.IsActive = true;
 				BoxSelection.Action = getBoxSelectionAction(Gui::GetIO());
@@ -3260,7 +3236,7 @@ namespace PeepoDrumKit
 						ScrollToTimelinePosition(Camera, Regions, context, context.GetCursorTime() / context.GetUsedDurationFast());
 					}
 					if (Gui::IsItemActiveAsInputText())
-						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
+						Regions.Window.IsFocused = false; // prevent triggering hotkeys
 					else if (Gui::IsItemHovered() || Gui::IsItemActive())
 						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 					Gui::PopStyleColor(isOutOfChart);
@@ -3274,7 +3250,7 @@ namespace PeepoDrumKit
 					if (f32 percent = ToPercent(context.GetPlaybackSpeed()); Gui::DragFloat("##PlaybackSpeed", &percent, 1.0f, 0.0f, 0.0f, "%g%%"))
 						context.SetPlaybackSpeed(FromPercent(percent));
 					if (Gui::IsItemActiveAsInputText())
-						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
+						Regions.Window.IsFocused = false; // prevent triggering hotkeys
 					else if (Gui::IsItemHovered() || Gui::IsItemActive())
 						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 					Gui::PopStyleColor(isStop);
@@ -3287,7 +3263,7 @@ namespace PeepoDrumKit
 						Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
 					Gui::DragInt("##GridBarDivision", &CurrentGridBarDivision, 0.25, 1, INT32_MAX, "1 / %d");
 					if (Gui::IsItemActiveAsInputText())
-						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
+						Regions.Window.IsFocused = false; // prevent triggering hotkeys
 					else if (Gui::IsItemHovered() || Gui::IsItemActive())
 						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 					Gui::PopStyleColor(isDivUnsupported);
@@ -3556,7 +3532,7 @@ namespace PeepoDrumKit
 					{
 						// Too easy to misdrag; only allow dragging on header
 						b8 isHoveredForDrag = false;
-						if (!BarLineDrag.IsActive && SelectedItemDrag.ActiveTarget == EDragTarget::None && !IsCameraMouseGrabActive && IsContentHeaderWindowHovered)
+						if (!BarLineDrag.IsActive && SelectedItemDrag.ActiveTarget == EDragTarget::None && !IsCameraMouseGrabActive && Regions.ContentHeader.IsHovered)
 						{
 							if (Gui::GetIO().KeyCtrl)
 							{
