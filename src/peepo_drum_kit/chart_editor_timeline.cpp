@@ -3246,6 +3246,8 @@ namespace PeepoDrumKit
 					}
 					if (Gui::IsItemActiveAsInputText())
 						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
+					else if (Gui::IsItemHovered() || Gui::IsItemActive())
+						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 					Gui::PopStyleColor(isOutOfChart);
 				}
 				Gui::SameLine(0.0f, 0.0f);
@@ -3258,6 +3260,8 @@ namespace PeepoDrumKit
 						context.SetPlaybackSpeed(FromPercent(percent));
 					if (Gui::IsItemActiveAsInputText())
 						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
+					else if (Gui::IsItemHovered() || Gui::IsItemActive())
+						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 					Gui::PopStyleColor(isStop);
 				}
 				Gui::SameLine(0.0f, 0.0f);
@@ -3269,6 +3273,8 @@ namespace PeepoDrumKit
 					Gui::DragInt("##GridBarDivision", &CurrentGridBarDivision, 0.25, 1, INT32_MAX, "1 / %d");
 					if (Gui::IsItemActiveAsInputText())
 						IsAnyChildWindowFocused = false; // prevent triggering hotkeys
+					else if (Gui::IsItemHovered() || Gui::IsItemActive())
+						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 					Gui::PopStyleColor(isDivUnsupported);
 				}
 				Gui::PopStyleVar();
