@@ -506,6 +506,7 @@ namespace PeepoDrumKit
 		Gui::UpdateSmoothScrollWindow();
 
 		Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Large));
+		Gui::PushTextWrapPos();
 		{
 			// Header with current version
 			{
@@ -658,6 +659,7 @@ namespace PeepoDrumKit
 
 
 		}
+		Gui::PopTextWrapPos();
 		Gui::PopFont();
 	}
 
