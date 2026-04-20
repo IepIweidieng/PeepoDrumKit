@@ -456,20 +456,19 @@ namespace PeepoDrumKit
 		inline auto& GetNotes(BranchType branch) { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
 		inline auto& GetNotes(BranchType branch) const { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
 
-		void RecalculateSENotes() const
+		void RecalculateNoteStates() const
 		{
 			for (BranchType branch = BranchType::Normal; branch < BranchType::Count; IncrementEnum(branch))
-				RecalculateSENotes(branch);
+				RecalculateNoteStates(branch);
+		}
+
+		void RecalculateNoteStates(BranchType branch) const
+		{
+			RecalculateSENotes(branch);
+			RecalculateComboCounts(branch);
 		}
 
 		void RecalculateSENotes(BranchType branch) const; // implemented in chart_editor_widgets_game.cpp
-
-		void RecalculateComboCounts() const
-		{
-			for (BranchType branch = BranchType::Normal; branch < BranchType::Count; IncrementEnum(branch))
-				RecalculateComboCounts(branch);
-		}
-
 		void RecalculateComboCounts(BranchType branch) const; // implemented in chart_editor_widgets_game.cpp
 	};
 

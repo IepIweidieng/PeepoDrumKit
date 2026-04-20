@@ -1067,7 +1067,6 @@ namespace PeepoDrumKit
 
 				if (ComboFontTexture.IsValid())
 				{
-					course->RecalculateComboCounts(branch);
 					const SortedNotesList& notes = course->GetNotes(branch);
 					const Note* lastHitNote = notes.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
 					if (lastHitNote != nullptr && lastHitNote->TempComboCount > 0)

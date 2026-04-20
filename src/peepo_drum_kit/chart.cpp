@@ -275,7 +275,7 @@ namespace PeepoDrumKit
 			outCourse.OtherMetadata = inCourse.CourseMetadata.Others;
 
 			outCourse.TempoMap.RebuildAccelerationStructure();
-			outCourse.RecalculateSENotes();
+			outCourse.RecalculateNoteStates();
 
 			// NOTE: use the non-0 shortest duration to prevent extra measures (editor need to display until max used beat in each difficulty)
 			if (!inCourse.Measures.empty()) {

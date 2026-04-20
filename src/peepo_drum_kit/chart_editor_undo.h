@@ -83,8 +83,8 @@ namespace PeepoDrumKit
 		template <typename TEvent>
 		static void RefreshChart(ChartCourse* Course, ChartCourseListType<TEvent>* Map)
 		{
-			if constexpr (TempoMapMemberPointer<TEvent> != nullptr) { Map->RebuildAccelerationStructure(); Course->RecalculateSENotes(); }
-			else if constexpr (expect_type_v<TEvent, Note>) { Course->RecalculateSENotes(); }
+			if constexpr (TempoMapMemberPointer<TEvent> != nullptr) { Map->RebuildAccelerationStructure(); Course->RecalculateNoteStates(); }
+			else if constexpr (expect_type_v<TEvent, Note>) { Course->RecalculateNoteStates(); }
 		}
 
 		template <typename TEvent>
@@ -579,7 +579,7 @@ namespace PeepoDrumKit
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 				if (UpdateTempoMap || UpdateNotes)
-					Course->RecalculateSENotes();
+					Course->RecalculateNoteStates();
 			}
 
 			void Redo() override
@@ -592,7 +592,7 @@ namespace PeepoDrumKit
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 				if (UpdateTempoMap || UpdateNotes)
-					Course->RecalculateSENotes();
+					Course->RecalculateNoteStates();
 			}
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
@@ -624,7 +624,7 @@ namespace PeepoDrumKit
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 				if (UpdateTempoMap || UpdateNotes)
-					Course->RecalculateSENotes();
+					Course->RecalculateNoteStates();
 			}
 
 			void Redo() override
@@ -634,7 +634,7 @@ namespace PeepoDrumKit
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 				if (UpdateTempoMap || UpdateNotes)
-					Course->RecalculateSENotes();
+					Course->RecalculateNoteStates();
 			}
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override { return Undo::MergeResult::Failed; }
@@ -700,7 +700,7 @@ namespace PeepoDrumKit
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 				if (UpdateTempoMap || UpdateNotes)
-					Course->RecalculateSENotes();
+					Course->RecalculateNoteStates();
 			}
 
 			void Redo() override
@@ -710,7 +710,7 @@ namespace PeepoDrumKit
 				if (UpdateTempoMap)
 					Course->TempoMap.RebuildAccelerationStructure();
 				if (UpdateTempoMap || UpdateNotes)
-					Course->RecalculateSENotes();
+					Course->RecalculateNoteStates();
 			}
 
 			Undo::MergeResult TryMerge(Undo::Command& commandToMerge) override
