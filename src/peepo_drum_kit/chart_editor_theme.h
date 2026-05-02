@@ -144,6 +144,10 @@ namespace PeepoDrumKit
 	inline u32 NoteColorDrumrollHit = 0xFF0000F6;
 	inline u32 NoteBalloonTextColor = 0xFF000000;
 	inline u32 NoteBalloonTextColorShadow = 0xFFFFFFFF;
+	inline u32 NoteComboTextColor = 0xFFFFFFFF;
+	inline u32 NoteComboTextColorShadow = 0xFF1E1E1E;
+	inline u32 NoteComboTextColorNotCombo = 0x7FFFFFFF;
+	inline u32 NoteComboTextColorShadowNotCombo = 0x7F1E1E1E;
 	inline u32* NoteTypeToColorMap[] =
 	{
 		&NoteColorRed,		// Don

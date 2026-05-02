@@ -121,6 +121,10 @@ namespace PeepoDrumKit
 				{ "Note Drumroll Hit", &NoteColorDrumrollHit },
 				{ "Note Balloon Text", &NoteBalloonTextColor },
 				{ "Note Balloon Text (Shadow)", &NoteBalloonTextColorShadow },
+				{ "Note Combo Text", &NoteComboTextColor },
+				{ "Note Combo Text (Shadow)", &NoteComboTextColorShadow },
+				{ "Note Combo Text (Not Combo)", &NoteComboTextColorNotCombo },
+				{ "Note Combo Text (Not Combo) (Shadow)", &NoteComboTextColorShadowNotCombo },
 				NamedColorU32Pointer {},
 				{ "Drag Text (Hovered)", &DragTextHoveredColor },
 				{ "Drag Text (Active)", &DragTextActiveColor },
@@ -468,17 +472,32 @@ namespace PeepoDrumKit
 			gfx.DrawSprite(drawList, split.Quads[i]);
 	}
 
+	static void DrawTimelineNoteText(ChartGraphicsResources& gfx, ImDrawList* drawList, vec2 center, vec2 anchor,
+		ImFont* font, FontBaseSizes fontBaseSize, f32 scale,
+		std::string_view text, u32 textColor, u32 shadowColor, u32 bgColor = 0x00000000)
+	{
+		const f32 fontSize = (fontBaseSize * scale);
+		const vec2 textSize = font->CalcTextSizeA(fontSize, F32Max, -1.0f, Gui::StringViewStart(text), Gui::StringViewEnd(text));
+		const vec2 textPosition = (center - textSize * anchor) - vec2(0.0f, 1.0f);
+
+		if ((bgColor & 0xFF000000) != 0)
+			drawList->AddRectFilled(textPosition, textPosition + textSize, bgColor);
+		Gui::DisableFontPixelSnap(true);
+		Gui::AddTextWithDropShadow(drawList, font, fontSize, textPosition, textColor, text, 0.0f, nullptr, shadowColor);
+		Gui::DisableFontPixelSnap(false);
+	}
+
 	static void DrawTimelineNoteBalloonPopCount(ChartGraphicsResources& gfx, ImDrawList* drawList, vec2 center, f32 scale, i32 popCount)
 	{
-		char buffer[32]; const auto text = std::string_view(buffer, sprintf_s(buffer, "%d", popCount));
-		ImFont* const font = FontMain;
-		const f32 fontSize = (FontBaseSizes::Large * scale);
-		const vec2 textSize = font->CalcTextSizeA(fontSize, F32Max, -1.0f, Gui::StringViewStart(text), Gui::StringViewEnd(text));
-		const vec2 textPosition = (center - (textSize * 0.5f)) - vec2(0.0f, 1.0f);
+		DrawTimelineNoteText(gfx, drawList, center, vec2(0.5f), FontMain, FontBaseSizes::Large, scale, std::to_string(popCount), NoteBalloonTextColor, NoteBalloonTextColorShadow);
+	}
 
-		Gui::DisableFontPixelSnap(true);
-		Gui::AddTextWithDropShadow(drawList, font, fontSize, textPosition, NoteBalloonTextColor, text, 0.0f, nullptr, NoteBalloonTextColorShadow);
-		Gui::DisableFontPixelSnap(false);
+	static void DrawTimelineNoteCombo(ChartGraphicsResources& gfx, ImDrawList* drawList, vec2 center, f32 scale, i32 combo, b8 isComboNote)
+	{
+		DrawTimelineNoteText(gfx, drawList, center, vec2(0.5f, 1), FontMain, FontBaseSizes::Medium, scale, std::to_string(combo),
+			isComboNote ? NoteComboTextColor : NoteComboTextColorNotCombo,
+			isComboNote ? NoteComboTextColorShadow : NoteComboTextColorShadowNotCombo,
+			TimelineBackgroundColor);
 	}
 
 	struct DrawTimelineRectBaseParam { vec2 TL, BR; f32 TriScaleL, TriScaleR; u32 ColorBorder, ColorOuter, ColorInner; b8 selected; };
@@ -654,6 +673,8 @@ namespace PeepoDrumKit
 					timeline.TempSelectionBoxesDrawBuffer.push_back(ChartTimeline::TempDrawSelectionBox { Rect::FromCenterSize(timeline.LocalToScreenSpace(localCenter - vec2(localSpaceTimeOffsetX, 0.0f)), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
 					if (it.BeatDuration > Beat::Zero())
 						timeline.TempSelectionBoxesDrawBuffer.push_back(ChartTimeline::TempDrawSelectionBox{ Rect::FromCenterSize(timeline.LocalToScreenSpace(localCenterEnd - vec2(localSpaceTimeOffsetX, 0.0f)), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
+
+					DrawTimelineNoteCombo(context.Gfx, drawListContent, timeline.LocalToScreenSpace(localCenter - vec2(localSpaceTimeOffsetX, hitBoxSize.y / 2)), noteScaleFactor, it.TempComboCount, IsComboNote(it.Type));
 				}
 			}
 

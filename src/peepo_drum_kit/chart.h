@@ -58,6 +58,7 @@ namespace PeepoDrumKit
 	constexpr b8 IsLongNote(NoteType v) { return IsDrumrollNote(v) || IsBalloonNote(v); }
 	constexpr b8 IsRegularNote(NoteType v) { return !IsLongNote(v); }
 	constexpr b8 IsFuseRoll(NoteType v) { return (v == NoteType::Fuse); }
+	constexpr b8 IsComboNote(NoteType v) { return IsRegularNote(v) && !IsAdlibNote(v) && !IsBombNote(v); } // NOTE: Only regular (non-long) notes and KaDon contribute to combo count
 	constexpr NoteType ToSmallNote(NoteType v)
 	{
 		switch (v)

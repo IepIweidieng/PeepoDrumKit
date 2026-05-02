@@ -611,8 +611,7 @@ namespace PeepoDrumKit
 		i16 comboCount = 0;
 		for (const Note& note : notes)
 		{
-			// NOTE: Only regular (non-long) notes and KaDon contribute to combo count
-			if (IsRegularNote(note.Type) && !IsAdlibNote(note.Type) && !IsBombNote(note.Type))
+			if (IsComboNote(note.Type))
 			{
 				comboCount++;
 				note.TempComboCount = comboCount;
