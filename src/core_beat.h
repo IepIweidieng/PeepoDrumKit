@@ -8,7 +8,7 @@
 struct Beat
 {
 	// NOTE: Meaning a 4/4 bar can be meaningfully subdivided into 192 parts, as is a common convention for rhythm games
-	static constexpr i32 TicksPerBeat = (20160 / 4);//(192 / 4);
+	static constexpr i32 TicksPerBeat = (40320 / 4); //(20160 / 4); //(192 / 4);
 
 	i32 Ticks;
 

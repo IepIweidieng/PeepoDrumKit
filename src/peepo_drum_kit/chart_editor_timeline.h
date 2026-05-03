@@ -180,9 +180,6 @@ namespace PeepoDrumKit
 		TimelineRegion ContentScrollbarY;
 	};
 
-	//static_assert((Beat::TicksPerBeat * 4) == 192);
-	static_assert((Beat::TicksPerBeat * 4) == 20160);
-
 	// NOTE: Nudge the startup camera position and min scrollbar.x slightly to the left
 	//		 so that a line drawn at worldspace position { x = 0.0f } is fully visible
 	static constexpr f32 TimelineCameraBaseScrollX = -32.0f;
