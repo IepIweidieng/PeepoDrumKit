@@ -1074,8 +1074,6 @@ namespace PeepoDrumKit
 					const Note* lastHitNote = notes.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
 					if (lastHitNote != nullptr && lastHitNote->TempComboCount > 0 && !(nLanes > 2 && balloonPopCountDrawn))
 					{
-						drawList->ChannelsSetCurrent((nLanes > 2) ? 2 : 4);
-
 						char comboStr[16];
 						const i32 comboLen = sprintf_s(comboStr, "%d", static_cast<i32>(lastHitNote->TempComboCount));
 
@@ -1108,7 +1106,12 @@ namespace PeepoDrumKit
 							const f32 u1 = ((digit + 1) * digitSrcSize.x) / sheetW;
 							const vec2 p0 = startPos + vec2(digitStep.x * i, 0.0f);
 							const vec2 p1 = p0 + vec2(digitSize.x, digitSize.y);
-							drawList->AddImage(texID, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f));
+
+							const float foreOpacity = 63.0f / 255;
+							drawList->ChannelsSetCurrent(2);
+							drawList->AddImage(texID, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f), Gui::ColorU32WithNewAlpha(IM_COL32_WHITE, 1 - std::pow(foreOpacity, 2))); // due to pre-multiplied alpha
+							drawList->ChannelsSetCurrent(4);
+							drawList->AddImage(texID, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f), Gui::ColorU32WithNewAlpha(IM_COL32_WHITE, foreOpacity));
 						}
 					}
 				}
