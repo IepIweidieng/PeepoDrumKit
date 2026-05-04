@@ -726,6 +726,7 @@ namespace PeepoDrumKit
 			auto laneBorderColor = isFocusedLane ? GameLaneBorderFocusedColor : GameLaneBorderColor;
 
 			Rect stdLaneRectBR = { Camera.LaneRect.TL, vec2{ Camera.LaneRect.TL.x + GameLaneStandardWidth, Camera.LaneRect.BR.y } };
+			Rect stdLaneLeftRect = { Camera.WorldToScreenSpace(stdLaneRectBR.GetTL() - vec2(GameLanePaddingL, 0.0f)), Camera.WorldToScreenSpace(stdLaneRectBR.GetBL()) };
 			// NOTE: Lane background and borders
 			drawList->ChannelsSetCurrent(0);
 			{
@@ -754,20 +755,6 @@ namespace PeepoDrumKit
 					GameLaneFooterBackgroundColor);
 			}
 
-			// NOTE: Lane left / right foreground borders, showing the standard lane size
-			defer
-			{
-				drawList->ChannelsSetCurrent(3);
-				drawList->AddRectFilled(Camera.WorldToScreenSpace(stdLaneRectBR.GetTL()), Camera.WorldToScreenSpace(stdLaneRectBR.GetBL() - vec2(GameLanePaddingL, 0.0f)), laneBorderColor);
-				drawList->AddRectFilled(Camera.WorldToScreenSpace(stdLaneRectBR.GetTR()), Camera.WorldToScreenSpace(stdLaneRectBR.GetBR() + vec2(GameLanePaddingR, 0.0f)), laneBorderColor);
-				if (isFocusedLane) {
-					drawList->AddRect( // NOTE: all-side outline
-						Camera.WorldToScreenSpace(stdLaneRectBR.TL - vec2(GameLanePaddingL, 0.0f)),
-						Camera.WorldToScreenSpace(stdLaneRectBR.BR + vec2(GameLanePaddingR, 0.0f)),
-						GameLaneOutlineFocusedColor);
-				}
-			};
-
 			// click lane to select course
 			Rect laneRectScreen = {
 				Camera.WorldToScreenSpace(stdLaneRectBR.TL - vec2(GameLanePaddingL, 0.0f)),
@@ -778,16 +765,36 @@ namespace PeepoDrumKit
 				context.SetSelectedChart(it->get(), BranchType::Normal);
 			Gui::SetItemAllowOverlap();
 
+			// NOTE: Lane left / right foreground borders, showing the standard lane size
+			defer
+			{
+				drawList->ChannelsSetCurrent(3);
+				drawList->AddRectFilled(stdLaneLeftRect.TL, stdLaneLeftRect.BR, laneBorderColor);
+				drawList->AddRectFilled(Camera.WorldToScreenSpace(stdLaneRectBR.GetTR()), Camera.WorldToScreenSpace(stdLaneRectBR.GetBR() + vec2(GameLanePaddingR, 0.0f)), laneBorderColor);
+				if (isFocusedLane) {
+					drawList->AddRect( // NOTE: all-side outline
+						Camera.WorldToScreenSpace(stdLaneRectBR.TL - vec2(GameLanePaddingL, 0.0f)),
+						Camera.WorldToScreenSpace(stdLaneRectBR.BR + vec2(GameLanePaddingR, 0.0f)),
+						GameLaneOutlineFocusedColor);
+				}
+			};
+
 			// NOTE: Hit indicator circle
-			drawList->ChannelsSetCurrent(1);
 			const vec2 hitCirclePosJPos = Camera.GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
 			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos, GetJPosDistance(context.Chart.JPosDistanceType));
 			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
 			if (gogoFireZoom > 0) {
-				context.Gfx.DrawSprite(drawList, SprID::Game_Lane_GogoFire,
-					SprTransform::FromCenter(hitCirclePos, vec2(Camera.WorldToScreenScale(gogoFireZoom))),
-					Gui::ColorU32WithAlpha(0xFFFFFFFF, gogoFireAlpha));
+				// first draw outside frame space (obscured by left border), second draw only above left border
+				for (const auto& [chan, clipRect] : { std::tuple{ 1, windowClipRect }, std::tuple{ 4, stdLaneLeftRect } }) {
+					drawList->ChannelsSetCurrent(chan);
+					drawList->PushClipRect(clipRect.TL, clipRect.BR);
+					context.Gfx.DrawSprite(drawList, SprID::Game_Lane_GogoFire,
+						SprTransform::FromCenter(hitCirclePos, vec2(Camera.WorldToScreenScale(gogoFireZoom))),
+						Gui::ColorU32WithAlpha(0xFFFFFFFF, gogoFireAlpha));
+					drawList->PopClipRect();
+				}
 			}
+			drawList->ChannelsSetCurrent(1);
 			drawList->AddCircleFilled(
 				hitCirclePos,
 				Camera.WorldToScreenScale(GameHitCircle.InnerFillRadius), isGogo ? GameLaneHitCircleInnerFillColorGogo : GameLaneHitCircleInnerFillColor);
