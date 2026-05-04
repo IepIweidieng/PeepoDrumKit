@@ -1443,6 +1443,10 @@ namespace PeepoDrumKit
 		assert(!filePath.empty());
 		if (!filePath.empty())
 		{
+			// prevent absolute resource path
+			context.Chart.SongFileName = Path::TryMakeRelative(context.Chart.SongFileName, filePath);
+			context.Chart.SongJacket = Path::TryMakeRelative(context.Chart.SongJacket, filePath);
+
 			TJA::ParsedTJA tja;
 			ConvertChartProjectToTJA(context.Chart, tja);
 			std::string tjaText;
