@@ -77,8 +77,12 @@ namespace PeepoDrumKit
 
 		void SetSelectedChart(ChartCourse* course, BranchType branch)
 		{
+			if (course == ChartSelectedCourse && branch == ChartSelectedBranch)
+				return;
+			const Time cursorTime = !ChartSelectedCourse ? Time::Zero() : GetCursorTime();
 			ChartSelectedCourse = course;
 			ChartSelectedBranch = branch;
+			SetCursorTime(cursorTime); // fix time jumping if timing is different
 			if (CompareMode)
 				ChartsCompared[course].insert(branch);
 			else if (!IsChartCompared(course, branch))

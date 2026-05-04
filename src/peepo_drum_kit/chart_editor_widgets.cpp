@@ -577,6 +577,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Add combo display by kam1o (miokamioka)");
 					Gui::TextUnformatted(u8"- Add shorter aliases (without _16bit_44100 or also without taiko_) to sound effects audio files");
 					Gui::TextUnformatted(u8"- Allow use any of .ogg, .wav, .flag, & .mp3 for sound effects audio files");
+					Gui::TextUnformatted(u8"- Fix timeline cursor could jump to different time when switching course or loading different song");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
