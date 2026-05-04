@@ -50,6 +50,10 @@ namespace PeepoDrumKit
 		f32 SongWaveformFadeAnimationCurrent = 0.0f;
 		f32 SongWaveformFadeAnimationTarget = 0.0f;
 
+		CustomDraw::GPUTexture JacketTexture = {};
+		f32 SongJacketFadeAnimationCurrent = 0.0f;
+		f32 SongJacketFadeAnimationTarget = 0.0f;
+
 		Undo::UndoHistory Undo;
 
 	public:

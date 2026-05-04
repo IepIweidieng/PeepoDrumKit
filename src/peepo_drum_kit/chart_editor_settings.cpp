@@ -474,6 +474,7 @@ namespace PeepoDrumKit
 			X(Animation.EnableGuiScaleAnimation, "enable_gui_scale_animation");
 			X(Animation.TimelineSmoothScrollSpeed, "timeline_smooth_scroll_speed");
 			X(Animation.TimelineWaveformFadeSpeed, "timeline_waveform_fade_speed");
+			X(Animation.TimelineJacketFadeSpeed, "timeline_jacket_fade_speed");
 			X(Animation.TimelineRangeSelectionExpansionSpeed, "timeline_range_selection_expansion_speed");
 			X(Animation.TimelineWorldSpaceCursorXSpeed, "timeline_world_space_cursor_x_speed");
 			X(Animation.TimelineGridSnapLineSpeed, "timeline_grid_snap_line_speed");

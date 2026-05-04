@@ -642,7 +642,7 @@ namespace PeepoDrumKit
 			if (const f32 max = GetAspectRatio(*Settings.General.GameViewportAspectRatioMax); max != 0.0f) newAspectRatio = ClampTop(newAspectRatio, max);
 
 			if (newAspectRatio != 0.0f && newAspectRatio != GetAspectRatio(Camera.ScreenSpaceViewportRect))
-				Camera.ScreenSpaceViewportRect = FitInsideFixedAspectRatio(Camera.ScreenSpaceViewportRect, newAspectRatio);
+				Camera.ScreenSpaceViewportRect = FitInside(Camera.ScreenSpaceViewportRect, newAspectRatio, EFitInside::Cover);
 		}
 
 		Rect laneRectBase;
@@ -679,6 +679,15 @@ namespace PeepoDrumKit
 
 		ImDrawList* drawList = Gui::GetWindowDrawList();
 		drawList->ChannelsSplit(5); // 0: lane, 1: judgement mark, 2: bar lines, 3: notes & frame, 4: overlay texts
+		drawList->ChannelsSetCurrent(0);
+
+		// jacket background
+		Rect windowClipRect = { drawList->GetClipRectMin(), drawList->GetClipRectMax() };
+		vec2 jacketSize = context.JacketTexture.GetSizeF32();
+		auto [jacketBoundRect, jacketDrawRect] = FitInside(jacketSize, Rect::FromTLSize({}, jacketSize), Camera.ScreenSpaceViewportRect, EFitInside::Cover);
+		Rect jacketUV = { jacketDrawRect.TL / jacketSize, jacketDrawRect.BR / jacketSize };
+		drawList->AddImage(context.JacketTexture.GetTexID(), jacketBoundRect.TL, jacketBoundRect.BR, jacketUV.TL, jacketUV.BR, Gui::ColorU32WithNewAlpha(IM_COL32_WHITE, context.SongJacketFadeAnimationCurrent));
+
 		drawList->PushClipRect(Camera.ScreenSpaceViewportRect.TL, Camera.ScreenSpaceViewportRect.BR, true);
 
 		i32 iLane = -1;

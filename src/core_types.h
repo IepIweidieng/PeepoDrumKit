@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <complex>
+#include <optional>
 #include <regex>
 
 using i8 = int8_t;
@@ -536,8 +537,9 @@ constexpr f32 GetAspectRatio(f32 width, f32 height) { return (height != 0.0f) ? 
 constexpr f32 GetAspectRatio(vec2 value) { return GetAspectRatio(value.x, value.y); }
 constexpr f32 GetAspectRatio(Rect value) { return GetAspectRatio(value.GetWidth(), value.GetHeight()); }
 
-Rect FitInsideFixedAspectRatio(Rect rectToFitInside, f32 targetAspectRatio);
-Rect FitInsideFixedAspectRatio(Rect rectToFitInside, vec2 targetSize);
+enum class EFitInside { Contain, Cover, Fill, None, ScaleDown };
+std::pair<Rect, Rect> FitInside(vec2 sizeSrc, Rect drawnRectSrc, Rect rectTarget, EFitInside fit, std::optional<f32> aspectRatioTargetGiven = {});
+static inline Rect FitInside(Rect rect, f32 aspectRatioTarget, EFitInside fit) { return FitInside(rect.GetSize(), rect, rect, fit, aspectRatioTarget).first; }
 
 inline f32 Floor(f32 value) { return ::floorf(value); }
 inline f64 Floor(f64 value) { return ::floor(value); }

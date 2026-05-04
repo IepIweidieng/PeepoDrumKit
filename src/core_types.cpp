@@ -1,6 +1,8 @@
 #include "core_types.h"
 #include <stdio.h>
 #include <time.h>
+#include <functional>
+#include <optional>
 
 static_assert(BitsPerByte == 8);
 static_assert((sizeof(u8) * BitsPerByte) == 8 && (sizeof(i8) * BitsPerByte) == 8);
@@ -10,37 +12,48 @@ static_assert((sizeof(u64) * BitsPerByte) == 64 && (sizeof(i64) * BitsPerByte) =
 static_assert((sizeof(f32) * BitsPerByte) == 32 && (sizeof(f64) * BitsPerByte) == 64);
 static_assert((sizeof(b8) * BitsPerByte) == 8);
 
-Rect FitInsideFixedAspectRatio(Rect rectToFitInside, f32 targetAspectRatio)
+// return bounding rect, drawn rect
+std::pair<Rect, Rect> FitInside(vec2 sizeSrc, Rect drawnRectSrc, Rect rectTarget, EFitInside fit, std::optional<f32> aspectRatioTargetGiven)
 {
-	static constexpr f32 roundingAdd = 0.0f; // 0.5f;
+	if (fit == EFitInside::Fill)
+		return { rectTarget, drawnRectSrc };
 
-	const vec2 rectSize = rectToFitInside.GetSize();
-	const f32 rectAspectRatio = (rectSize.x / rectSize.y);
+	constexpr f32 roundingAdd = 0.0f; // 0.5f;
+	const f32 aspectRatioSrc = GetAspectRatio(sizeSrc);
+	const vec2 sizeTarget = rectTarget.GetSize();
+	const f32 aspectRatioTarget = aspectRatioTargetGiven.has_value() ? aspectRatioTargetGiven.value() : GetAspectRatio(sizeTarget);
+	Rect rectRes = rectTarget;
 
-	// NOTE: Taller than wide -> bars on top / bottom
-	if (rectAspectRatio <= targetAspectRatio)
-	{
-		const f32 presentHeight = Round((rectSize.x / targetAspectRatio) + roundingAdd);
-		const f32 barHeight = Round((rectSize.y - presentHeight) / 2.0f);
-		rectToFitInside.TL.y += barHeight;
-		rectToFitInside.BR.y += barHeight;
-		rectToFitInside.BR.y = rectToFitInside.TL.y + presentHeight;
+	if (fit == EFitInside::ScaleDown)
+		fit = (sizeSrc.x > sizeTarget.x || sizeSrc.y > sizeTarget.y) ? EFitInside::Contain : EFitInside::None;
+
+	for (const auto& [u, v, exceedByAspectRatio, getPresentU] : {
+		std::tuple{ &vec2::y, &vec2::x, std::function{ std::less<f32>() },    std::function{ [](f32 v, f32 aspectRatioTarget) { return v / aspectRatioTarget; } } },
+		std::tuple{ &vec2::x, &vec2::y, std::function{ std::greater<f32>() }, std::function{ [](f32 v, f32 aspectRatioTarget) { return v * aspectRatioTarget; } } },
+		}) {
+		b8 exceed = (fit == EFitInside::None && sizeSrc.*u > sizeTarget.*u) || (fit == EFitInside::Cover && exceedByAspectRatio(aspectRatioSrc, aspectRatioTarget));
+		b8 hasGap = (fit == EFitInside::None && sizeSrc.*u < sizeTarget.*u) || (fit == EFitInside::Contain && exceedByAspectRatio(aspectRatioTarget, aspectRatioSrc));
+		if (exceed) {
+			// NOTE: top & bottom bars from target edges to scaled src edges
+			const f32 present = (fit == EFitInside::None) ? sizeTarget.*u : Round(getPresentU(sizeSrc.*v, aspectRatioTarget) + roundingAdd);
+			const f32 bar = Round((sizeSrc.*u - present) / 2.0f);
+			if (bar >= 0) {
+				drawnRectSrc.TL.*u += bar;
+				drawnRectSrc.BR.*u = drawnRectSrc.TL.*u + present;
+			}
+		}
+		else if (hasGap) {
+			// NOTE: top & bottom bars from scaled src edges to target edges
+			const f32 present = (fit == EFitInside::None) ? sizeSrc.*u : Round(getPresentU(sizeTarget.*v, aspectRatioTarget) + roundingAdd);
+			const f32 bar = Round((sizeTarget.*u - present) / 2.0f);
+			if (bar >= 0) {
+				rectTarget.TL.*u += bar;
+				rectTarget.BR.*u = rectTarget.TL.*u + present;
+			}
+		}
 	}
-	else // NOTE: Wider than tall -> bars on left / right
-	{
-		const f32 presentWidth = Floor((rectSize.y * targetAspectRatio) + roundingAdd);
-		const f32 barWidth = Floor((rectSize.x - presentWidth) / 2.0f);
-		rectToFitInside.TL.x += barWidth;
-		rectToFitInside.BR.x += barWidth;
-		rectToFitInside.BR.x = rectToFitInside.TL.x + presentWidth;
-	}
 
-	return rectToFitInside;
-}
-
-Rect FitInsideFixedAspectRatio(Rect rectToFitInside, vec2 targetSize)
-{
-	return FitInsideFixedAspectRatio(rectToFitInside, (targetSize.x / targetSize.y));
+	return { rectRes, drawnRectSrc };
 }
 
 static constexpr Time RoundToMilliseconds(Time value) { return Time::FromSec((value.Seconds * 1000.0 + 0.5) * 0.001); }

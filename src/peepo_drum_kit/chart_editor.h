@@ -39,6 +39,7 @@ namespace PeepoDrumKit
 	struct AsyncLoadJacketResult
 	{
 		std::string JacketFilePath;
+		CustomDraw::GPUTexture JacketTexture = {};
 	};
 
 	struct ChartEditor
@@ -84,6 +85,7 @@ namespace PeepoDrumKit
 		std::future<AsyncLoadSongResult> loadSongFuture {};
 		std::future<AsyncLoadJacketResult> loadJacketFuture {};
 		CPUStopwatch loadSongStopwatch = {};
+		CPUStopwatch loadJacketStopwatch = {};
 		b8 createBackupOfOriginalTJABeforeOverwriteSave = false;
 		b8 wasAudioEngineRunningIdleOnFocusLost = false;
 		b8 tryToCloseApplicationOnNextFrame = false;

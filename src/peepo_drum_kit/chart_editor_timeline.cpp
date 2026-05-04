@@ -3164,6 +3164,7 @@ namespace PeepoDrumKit
 		// BUG: Freaks out when zoomed in too far / the timeline is too long (16min song for example) float precision issue (?)
 		Camera.UpdateAnimations();
 		Gui::AnimateExponential(&context.SongWaveformFadeAnimationCurrent, context.SongWaveformFadeAnimationTarget, *Settings.Animation.TimelineWaveformFadeSpeed);
+		Gui::AnimateExponential(&context.SongJacketFadeAnimationCurrent, context.SongJacketFadeAnimationTarget, *Settings.Animation.TimelineJacketFadeSpeed); // actually displayed in Game Preview
 		Gui::AnimateExponential(&RangeSelectionExpansionAnimationCurrent, RangeSelectionExpansionAnimationTarget, *Settings.Animation.TimelineRangeSelectionExpansionSpeed);
 
 		const f32 worldSpaceCursorXAnimationTarget = Camera.TimeToWorldSpaceX(context.GetCursorTime());

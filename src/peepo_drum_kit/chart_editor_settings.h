@@ -163,6 +163,7 @@ namespace PeepoDrumKit
 			WithDefault<b8> EnableGuiScaleAnimation = true;
 			WithDefault<f32> TimelineSmoothScrollSpeed = 20.0f;
 			WithDefault<f32> TimelineWaveformFadeSpeed = 20.0f;
+			WithDefault<f32> TimelineJacketFadeSpeed = 20.0f;
 			WithDefault<f32> TimelineRangeSelectionExpansionSpeed = 20.0f;
 			WithDefault<f32> TimelineWorldSpaceCursorXSpeed = 35.0f;
 			WithDefault<f32> TimelineGridSnapLineSpeed = 10.0f;

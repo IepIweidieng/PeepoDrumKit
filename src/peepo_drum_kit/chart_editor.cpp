@@ -4,6 +4,7 @@
 #include "chart_editor_widgets.h"
 #include "audio/audio_file_formats.h"
 #include "chart_editor_i18n.h"
+#include <stb/stb_image.h>
 
 namespace PeepoDrumKit
 {
@@ -1543,20 +1544,32 @@ namespace PeepoDrumKit
 		if (loadJacketFuture.valid())
 			loadJacketFuture.get();
 
+		context.SongJacketFadeAnimationTarget = 0.0f;
+		loadJacketStopwatch.Restart();
 		loadJacketFuture = std::async(std::launch::async, [tempPathCopy = std::string(absoluteJacketFilePath)]() ->AsyncLoadJacketResult
+		{
+			AsyncLoadJacketResult result{};
+			result.JacketFilePath = std::move(tempPathCopy);
+
+			auto [fileContent, fileSize] = File::ReadAllBytes(result.JacketFilePath);
+			if (fileContent == nullptr || fileSize == 0)
 			{
-				AsyncLoadJacketResult result{};
-				result.JacketFilePath = std::move(tempPathCopy);
-
-				auto [fileContent, fileSize] = File::ReadAllBytes(result.JacketFilePath);
-				if (fileContent == nullptr || fileSize == 0)
-				{
-					printf("Failed to read file '%.*s'\n", FmtStrViewArgs(result.JacketFilePath));
-					return result;
-				}
-
+				printf("Failed to read file '%.*s'\n", FmtStrViewArgs(result.JacketFilePath));
 				return result;
-			});
+			}
+
+			int w, h, channels;
+			u8* pixels = stbi_load_from_memory(fileContent.get(), fileSize, &w, &h, &channels, 4);
+			if (!pixels) {
+				printf("Failed to decode image file '%.*s'\n", FmtStrViewArgs(result.JacketFilePath));
+				return result;
+			}
+
+			result.JacketTexture.Load(CustomDraw::GPUTextureDesc{ CustomDraw::GPUPixelFormat::RGBA, CustomDraw::GPUAccessType::Static, ivec2(w, h), pixels });
+			stbi_image_free(pixels);
+
+			return result;
+		});
 	}
 
 	void ChartEditor::StartAsyncLoadingSongAudioFile(std::string_view absoluteAudioFilePath)
@@ -1759,11 +1772,16 @@ namespace PeepoDrumKit
 			Audio::Engine.EnsureStreamRunning();
 		}
 
-		if (loadJacketFuture.valid() && loadJacketFuture._Is_ready())
+		static constexpr Time maxJacketFadeOutDelaySafetyLimit = Time::FromSec(0.5);
+		const b8 jacketHasFadedOut = (context.SongJacketFadeAnimationCurrent <= 0.01f || loadJacketStopwatch.GetElapsed() >= maxJacketFadeOutDelaySafetyLimit);
+
+		if (loadJacketFuture.valid() && loadJacketFuture._Is_ready() && jacketHasFadedOut)
 		{
 			AsyncLoadJacketResult loadResult = loadJacketFuture.get();
 
 			context.SongJacketFilePath = std::move(loadResult.JacketFilePath);
+			context.JacketTexture = std::move(loadResult.JacketTexture);
+			context.SongJacketFadeAnimationTarget = !context.JacketTexture.IsValid() ? 0.0f : 1.0f;
 		}
 	}
 }
