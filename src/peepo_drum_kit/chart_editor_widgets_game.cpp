@@ -704,7 +704,7 @@ namespace PeepoDrumKit
 			const Time cursorTimeOrAnimated = isPlayback ? exactCursorBeatAndTime.Time : animatedCursorTime;
 			const Beat cursorBeatOrAnimatedTrunc = isPlayback ? exactCursorBeatAndTime.Beat : course->TempoMap.TimeToBeat(animatedCursorTime, true);
 			const f64 cursorHBScrollBeatOrAnimated = course->TempoMap.BeatAndTimeToHBScrollBeatTick(cursorBeatOrAnimatedTrunc, cursorTimeOrAnimated);
-			const Beat chartBeatDuration = context.GetUsedBeatDurationFast();
+			const Beat chartBeatDuration = context.GetUsedBeatDurationFast(*course);
 
 			const auto* lastGogo = gogoRanges.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
 			const b8 isGogo = (lastGogo != nullptr && cursorBeatOrAnimatedTrunc < lastGogo->GetEnd());

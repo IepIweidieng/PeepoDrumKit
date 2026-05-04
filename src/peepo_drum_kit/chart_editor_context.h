@@ -58,10 +58,15 @@ namespace PeepoDrumKit
 		inline Beat TimeToBeat(Time time, bool truncTo0) const { return ChartSelectedCourse->TempoMap.TimeToBeat(time, truncTo0); }
 		inline f64 BeatAndTimeToHBScrollBeatTick(Beat beat, Time time) const { return ChartSelectedCourse->TempoMap.BeatAndTimeToHBScrollBeatTick(beat, time); }
 
-		Time GetUsedDuration() const { return Chart.GetUsedDuration(*ChartSelectedCourse); }
-		Time GetUsedDurationFast() const { return Chart.GetUsedDurationFast(*ChartSelectedCourse); }
-		Beat GetUsedBeatDuration() const { return Chart.GetUsedBeatDuration(*ChartSelectedCourse); }
-		Beat GetUsedBeatDurationFast() const { return Chart.GetUsedBeatDurationFast(*ChartSelectedCourse); }
+		Time GetUsedDuration() const { return GetUsedDuration(*ChartSelectedCourse); }
+		Time GetUsedDurationFast() const { return GetUsedDurationFast(*ChartSelectedCourse); }
+		Beat GetUsedBeatDuration() const { return GetUsedBeatDuration(*ChartSelectedCourse); }
+		Beat GetUsedBeatDurationFast() const { return GetUsedBeatDurationFast(*ChartSelectedCourse); }
+
+		Time GetUsedDuration(const ChartCourse& course) const { return Chart.GetUsedDuration(course); }
+		Time GetUsedDurationFast(const ChartCourse& course) const { return Chart.GetUsedDurationFast(course); }
+		Beat GetUsedBeatDuration(const ChartCourse& course) const { return Chart.GetUsedBeatDuration(course); }
+		Beat GetUsedBeatDurationFast(const ChartCourse& course) const { return Chart.GetUsedBeatDurationFast(course); }
 
 		void ResetChartsCompared() { ChartsCompared = { { ChartSelectedCourse, { ChartSelectedBranch } } }; CompareMode = false; }
 		b8 IsChartCompared(const ChartCourse* course, BranchType branch) const
