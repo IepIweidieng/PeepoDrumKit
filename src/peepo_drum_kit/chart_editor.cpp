@@ -1242,7 +1242,7 @@ namespace PeepoDrumKit
 				Gui::EndDisabled();
 
 				Gui::SameLine(0.0f, 0.0f);
-				if (Gui::Button(UI_Str("ACT_ZOOM_POPUP_RESET_ZOOM"))) { ZoomResetGuiScale(); zoomPopup.OnChange(); }
+				if (Gui::Button(UI_WindowName("ACT_ZOOM_POPUP_RESET_ZOOM"))) { ZoomResetGuiScale(); zoomPopup.OnChange(); }
 			}
 			Gui::End();
 
@@ -1287,11 +1287,11 @@ namespace PeepoDrumKit
 				}
 				Gui::PopFont();
 
-				const b8 clickedYes = Gui::Button(UI_Str("ACT_MSGBOX_UNSAVED_SAVE_CHANGES"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_YesOrOk, false));
+				const b8 clickedYes = Gui::Button(UI_WindowName("ACT_MSGBOX_UNSAVED_SAVE_CHANGES"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_YesOrOk, false));
 				Gui::SameLine();
-				const b8 clickedNo = Gui::Button(UI_Str("ACT_MSGBOX_UNSAVED_DISCARD_CHANGES"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_No, false));
+				const b8 clickedNo = Gui::Button(UI_WindowName("ACT_MSGBOX_UNSAVED_DISCARD_CHANGES"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_No, false));
 				Gui::SameLine();
-				const b8 clickedCancel = Gui::Button(UI_Str("ACT_MSGBOX_CANCEL"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_Cancel, false));
+				const b8 clickedCancel = Gui::Button(UI_WindowName("ACT_MSGBOX_CANCEL"), buttonSize) | (Gui::IsWindowFocused() && Gui::IsAnyPressed(*Settings.Input.Dialog_Cancel, false));
 
 				if (clickedYes || clickedNo || clickedCancel)
 				{

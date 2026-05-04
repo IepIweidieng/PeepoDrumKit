@@ -1073,7 +1073,7 @@ namespace PeepoDrumKit
 
 			Gui::PushStyleColor(ImGuiCol_Text, Gui::GetStyleColorVec4((Calculator.TapCount > 0) ? ImGuiCol_Text : ImGuiCol_TextDisabled));
 			Gui::PushStyleColor(ImGuiCol_Button, Gui::GetStyleColorVec4(resetDown ? ImGuiCol_ButtonActive : ImGuiCol_Button));
-			if (resetPressed | Gui::Button(UI_Str("ACT_TEMPO_CALCULATOR_RESET"), vec2(-1.0f, Gui::GetFrameHeightWithSpacing() * 1.0f)))
+			if (resetPressed | Gui::Button(UI_WindowName("ACT_TEMPO_CALCULATOR_RESET"), vec2(-1.0f, Gui::GetFrameHeightWithSpacing() * 1.0f)))
 			{
 				if (Calculator.TapCount > 0)
 					context.SfxVoicePool.PlaySound(SoundEffectType::MetronomeBar);
@@ -1361,7 +1361,7 @@ namespace PeepoDrumKit
 		{
 			Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 			Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
-			if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
+			if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
 				v->F32 = timeline.GetRangeSelectionDuration(context).ToSec_F32();
 				result->ValueChanged = true;
 			}
@@ -1532,7 +1532,7 @@ namespace PeepoDrumKit
 				Gui::PushItemFlag(ImGuiItemFlags_Disabled, true);
 				Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
 				Gui::PushStyleColor(ImGuiCol_Button, 0x00000000);
-				Gui::Button(UI_Str("INFO_INSPECTOR_NOTHING_SELECTED"), { Gui::GetContentRegionAvail().x, Gui::GetFrameHeight() * 2.0f });
+				Gui::Button(UI_WindowName("INFO_INSPECTOR_NOTHING_SELECTED"), { Gui::GetContentRegionAvail().x, Gui::GetFrameHeight() * 2.0f });
 				Gui::PopStyleColor(2);
 				Gui::PopItemFlag();
 				Gui::PopFont();
@@ -1896,7 +1896,7 @@ namespace PeepoDrumKit
 							{
 								Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 								Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
-								if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
+								if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
 									v->F32 = timeline.GetRangeSelectionDuration(context).ToMS_F32();
 									result->ValueChanged = true;
 								}
@@ -2048,7 +2048,7 @@ namespace PeepoDrumKit
 							{
 								Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 								Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
-								if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
+								if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
 									auto timeSig = TimeSignature(timeline.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4);
 									v->I32_V[0] = timeSig.Numerator;
 									v->I32_V[1] = timeSig.Denominator;
@@ -2509,7 +2509,7 @@ namespace PeepoDrumKit
 								*inOutValue = ConvertTimeSpace(Time::FromSec(v), displaySpace, storageSpace, context.Chart);
 								valueChanged = true;
 							}
-							else if (i.Index == 1 && Gui::Button(UI_Str("ACT_SYNC_SET_CURSOR"), { Gui::CalcItemWidth(), 0.0f }))
+							else if (i.Index == 1 && Gui::Button(UI_WindowName("ACT_SYNC_SET_CURSOR"), { Gui::CalcItemWidth(), 0.0f }))
 							{
 								*inOutValue = ClampBot(ConvertTimeSpace(context.GetCursorTime(), TimeSpace::Chart, storageSpace, context.Chart), Time::Zero());
 								context.Undo.DisallowMergeForLastCommand();
@@ -2603,19 +2603,19 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.TempoMap.Tempo);
 					if (!disallowRemoveButton && tempoChangeAtCursor != nullptr && tempoChangeAtCursor->Beat == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveTempoChange>(&course, &course.TempoMap, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 							insertOrUpdateCursorTempoChange(tempoAtCursor);
 					}
 					Gui::EndDisabled();
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::TempoChanges)]);
-					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+					if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						timeline.ExecuteConvertSelectionToEvents<GenericList::TempoChanges>(context);
 					Gui::EndDisabled();
 
@@ -2648,26 +2648,26 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.TempoMap.Signature);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!hasRangeSelection);
-					if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+					if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 					{
 						insertOrUpdateCursorSignatureChange(TimeSignature(timeline.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4));
 					}
 					Gui::EndDisabled();
 					if (!disallowRemoveButton && signatureChangeAtCursor != nullptr && signatureChangeAtCursor->Beat == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveTimeSignatureChange>(&course, &course.TempoMap, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 							insertOrUpdateCursorSignatureChange(signatureAtCursor);
 					}
 					Gui::EndDisabled();
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::SignatureChanges)]);
-					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+					if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						timeline.ExecuteConvertSelectionToEvents<GenericList::SignatureChanges>(context);
 					Gui::EndDisabled();
 
@@ -2718,19 +2718,19 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.ScrollChanges);
 					if (!disallowRemoveButton && scrollChangeChangeAtCursor != nullptr && scrollChangeChangeAtCursor->BeatTime == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveScrollChange>(&course, &course.ScrollChanges, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 							insertOrUpdateCursorScrollSpeedChange(scrollSpeedAtCursor);
 					}
 					Gui::EndDisabled();
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::ScrollChanges)]);
-					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+					if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						timeline.ExecuteConvertSelectionToEvents<GenericList::ScrollChanges>(context);
 					Gui::EndDisabled();
 
@@ -2757,19 +2757,19 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.BarLineChanges);
 					if (!disallowRemoveButton && barLineChangeAtCursor != nullptr && barLineChangeAtCursor->BeatTime == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveBarLineChange>(&course, &course.BarLineChanges, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 							insertOrUpdateCursorBarLineChange(isVisible);
 					}
 					Gui::EndDisabled();
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::BarLineChanges)]);
-					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+					if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						timeline.ExecuteConvertSelectionToEvents<GenericList::BarLineChanges>(context);
 					Gui::EndDisabled();
 
@@ -2795,19 +2795,19 @@ namespace PeepoDrumKit
 						Gui::PushID(&course.ScrollTypes);
 						if (!disallowRemoveButton && ScrollTypeAtCursor != nullptr && ScrollTypeAtCursor->BeatTime == cursorBeat)
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+							if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 								context.Undo.Execute<Commands::RemoveScrollType>(&course, &course.ScrollTypes, cursorBeat);
 						}
 						else
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+							if (Gui::Button(UI_WindowName("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 								insertOrUpdateCursorScrollType((ScrollTypeAtCursor != nullptr) ? ScrollTypeAtCursor->Method : FallbackEvent<ScrollType>.Method);
 						}
 						Gui::EndDisabled();
 
 						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 						Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::ScrollType)]);
-						if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 							timeline.ExecuteConvertSelectionToEvents<GenericList::ScrollType>(context);
 						Gui::EndDisabled();
 
@@ -2870,7 +2870,7 @@ namespace PeepoDrumKit
 						Gui::PushID(&course.JPOSScrollChanges);
 						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 						Gui::BeginDisabled(!hasRangeSelection);
-						if (SpriteButton(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						{
 							insertOrUpdateCursorJPOSScrollChange(
 								JPOSScrollMoveAtCursor, Clamp(timeline.GetRangeSelectionDuration(context).ToSec_F32(), MinJPOSScrollDuration, MaxJPOSScrollDuration)
@@ -2879,12 +2879,12 @@ namespace PeepoDrumKit
 						Gui::EndDisabled();
 						if (!disallowRemoveButton && JPOSScrollChangeAtCursor != nullptr && JPOSScrollChangeAtCursor->BeatTime == cursorBeat)
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+							if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 								context.Undo.Execute<Commands::RemoveJPOSScroll>(&course, &course.JPOSScrollChanges, cursorBeat);
 						}
 						else
 						{
-							if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+							if (Gui::Button(UI_WindowName("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 								insertOrUpdateCursorJPOSScrollChange(
 									JPOSScrollMoveAtCursor,
 									JPOSScrollDurationAtCursor);
@@ -2893,7 +2893,7 @@ namespace PeepoDrumKit
 
 						Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 						Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::JPOSScroll)]);
-						if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+						if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 							timeline.ExecuteConvertSelectionToEvents<GenericList::JPOSScroll>(context);
 						Gui::EndDisabled();
 
@@ -2969,19 +2969,19 @@ namespace PeepoDrumKit
 					Gui::PushID(&course.SuddenChanges);
 					if (!disallowRemoveButton && SuddenChangeAtCursor != nullptr && SuddenChangeAtCursor->BeatTime == cursorBeat)
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), { getInsertButtonWidth(), 0.0f }))
 							context.Undo.Execute<Commands::RemoveSudden>(&course, &course.SuddenChanges, cursorBeat);
 					}
 					else
 					{
-						if (Gui::Button(UI_Str("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
+						if (Gui::Button(UI_WindowName("ACT_EVENT_ADD"), { getInsertButtonWidth(), 0.0f }))
 							insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					}
 					Gui::EndDisabled();
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::Sudden)]);
-					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+					if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						timeline.ExecuteConvertSelectionToEvents<GenericList::Sudden>(context);
 					Gui::EndDisabled();
 
@@ -2995,7 +2995,7 @@ namespace PeepoDrumKit
 
 					Gui::PushID(&course.GoGoRanges);
 					Gui::BeginDisabled(!hasRangeSelection);
-					if (Gui::Button(UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION"), { getInsertButtonWidth(), 0.0f }))
+					if (Gui::Button(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), { getInsertButtonWidth(), 0.0f }))
 					{
 						const Beat rangeSelectionMin = timeline.RangeSelection.GetMin();
 						const Beat rangeSelectionMax = timeline.RangeSelection.GetMax();
@@ -3012,12 +3012,12 @@ namespace PeepoDrumKit
 
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					Gui::BeginDisabled(!isAnyItemNotInListSelected[EnumToIndex(GenericList::GoGoRanges)]);
-					if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+					if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						timeline.ExecuteConvertSelectionToEvents<GenericList::GoGoRanges>(context);
 					Gui::EndDisabled();
 
 					Gui::BeginDisabled(gogoRangeAtCursor == nullptr);
-					if (Gui::Button(UI_Str("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
+					if (Gui::Button(UI_WindowName("ACT_EVENT_REMOVE"), vec2(-1.0f, 0.0f)))
 					{
 						if (gogoRangeAtCursor != nullptr)
 							context.Undo.Execute<Commands::RemoveGoGoRange>(&course, &course.GoGoRanges, gogoRangeAtCursor->BeatTime);
@@ -3181,7 +3181,7 @@ namespace PeepoDrumKit
 			Gui::SetNextItemWidth(-1.0f);
 			Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 			Gui::BeginDisabled(!isAnyItemOtherThanLyricsSelected);
-			if (SpriteButton(UI_Str("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
+			if (SpriteButton(UI_WindowName("ACT_EVENT_INSERT_AT_SELECTED_ITEMS"), context, SprID::Timeline_Icon_InsertAtSelectedItems, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 				timeline.ExecuteConvertSelectionToEvents<GenericList::Lyrics>(context);
 			Gui::EndDisabled();
 
