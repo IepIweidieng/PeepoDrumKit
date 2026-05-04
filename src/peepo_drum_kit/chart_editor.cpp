@@ -4,7 +4,7 @@
 #include "chart_editor_widgets.h"
 #include "audio/audio_file_formats.h"
 #include "chart_editor_i18n.h"
-#include <stb/stb_image.h>
+#include <thorvg/thorvg.h>
 
 namespace PeepoDrumKit
 {
@@ -1558,15 +1558,17 @@ namespace PeepoDrumKit
 				return result;
 			}
 
-			int w, h, channels;
-			u8* pixels = stbi_load_from_memory(fileContent.get(), fileSize, &w, &h, &channels, 4);
-			if (!pixels) {
+			auto picture = tvg::Picture::gen();
+			u32 w, h;
+			const u32* pixels = nullptr;
+			if (!(picture->load(reinterpret_cast<char*>(fileContent.get()), fileSize, "", false) == tvg::Result::Success
+				&& (pixels = picture->data(&w, &h))
+				)) {
 				printf("Failed to decode image file '%.*s'\n", FmtStrViewArgs(result.JacketFilePath));
 				return result;
 			}
 
 			result.JacketTexture.Load(CustomDraw::GPUTextureDesc{ CustomDraw::GPUPixelFormat::RGBA, CustomDraw::GPUAccessType::Static, ivec2(w, h), pixels });
-			stbi_image_free(pixels);
 
 			return result;
 		});
