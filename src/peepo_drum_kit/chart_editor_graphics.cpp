@@ -159,12 +159,12 @@ namespace PeepoDrumKit
 		{
 #if PEEPO_DEBUG // DEBUG: ...
 			auto sw = CPUStopwatch::StartNew();
-			defer { auto elapsed = sw.Stop(); printf("Took %g ms to load all SVGs\n", elapsed.ToMS()); };
+			defer { auto elapsed = sw.Stop(); printf("Took %g ms to load all sprites\n", elapsed.ToMS()); };
 #endif
 
 			for (const SprTypeDesc& it : SprDescTable)
 			{
-				auto fileContent = File::ReadAllBytes(it.FilePath);
+				auto [fileContent, extension] = File::ReadAllBytes(it.FilePath, SupportedSpriteFileFormatExtensions);
 #if PEEPO_DEBUG // DEBUG: ...
 				if (fileContent.Content == nullptr)
 					printf("Failed to read sprite file '%s'\n", it.FilePath);
