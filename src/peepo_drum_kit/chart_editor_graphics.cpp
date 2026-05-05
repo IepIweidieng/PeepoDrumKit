@@ -218,7 +218,40 @@ namespace PeepoDrumKit
 		return info;
 	}
 
-	b8 ChartGraphicsResources::GetImageQuad(ImImageQuad& out, SprID spr, SprTransform transform, u32 colorTint, const SprUV* uv) const
+	static b8 GetQuad(ImImageQuad& out, const CustomDraw::GPUTexture& tex, const vec2& scaledPictureSize, const vec2& texSizePadded, const SprUV p, u32 colorTint, const SprUV& uv)
+	{
+		vec2 quadUV[4] = { uv.TL, uv.TR, uv.BR, uv.BL };
+
+		for (vec2& it : quadUV)
+		{
+			it *= scaledPictureSize;
+			it += vec2(PerSideRasterizedTexPadding, PerSideRasterizedTexPadding);
+			it /= texSizePadded;
+		}
+
+		out.TexID = tex.GetTexID();
+		out.Pos[0] = p.TL; out.Pos[1] = p.TR;
+		out.Pos[2] = p.BR; out.Pos[3] = p.BL;
+		out.UV[0] = quadUV[0]; out.UV[1] = quadUV[1];
+		out.UV[2] = quadUV[2]; out.UV[3] = quadUV[3];
+		out.Color = colorTint;
+		return true;
+	}
+
+	b8 ChartGraphicsResources::GetImageQuad(ImImageQuad& out, SprID spr, const vec2& p_min, const vec2& p_max, const vec2& uv_min, const vec2& uv_max, u32 colorTint) const
+	{
+		if (!Data->FinishedLoading || spr >= SprID::Count)
+			return false;
+
+		const f32 rasterScale = Data->PerGroupRasterScale[EnumToIndex(GetSprGroup(spr))];
+		const vec2 scaledPictureSize = Data->PerSprSvg[EnumToIndex(spr)].PictureSize * rasterScale;
+
+		const auto& tex = Data->PerSprTexture[EnumToIndex(spr)];
+		const vec2 texSizePadded = tex.GetSizeF32();
+		return GetQuad(out, tex, scaledPictureSize, texSizePadded, SprUV::FromRect(p_min, p_max), colorTint, SprUV::FromRect(uv_min, uv_max));
+	}
+
+	b8 ChartGraphicsResources::GetImageQuad(ImImageQuad& out, SprID spr, SprTransform transform, u32 colorTint, const SprUV& uv) const
 	{
 		if (!Data->FinishedLoading || spr >= SprID::Count)
 			return false;
@@ -232,51 +265,35 @@ namespace PeepoDrumKit
 		const vec2 size = (transform.Scale * scaledPictureSize);
 		const vec2 pivot = (-transform.Pivot * transform.Scale * scaledPictureSize);
 
-		vec2 tl, tr, bl, br;
+		SprUV p;
 		if (transform.Rotation.Radians == 0.0f)
 		{
 			const vec2 pos = (transform.Position + pivot);
-			tl.x = pos.x;
-			tl.y = pos.y;
-			tr.x = pos.x + size.x;
-			tr.y = pos.y;
-			bl.x = pos.x;
-			bl.y = pos.y + size.y;
-			br.x = pos.x + size.x;
-			br.y = pos.y + size.y;
+			p.TL.x = pos.x;
+			p.TL.y = pos.y;
+			p.TR.x = pos.x + size.x;
+			p.TR.y = pos.y;
+			p.BL.x = pos.x;
+			p.BL.y = pos.y + size.y;
+			p.BR.x = pos.x + size.x;
+			p.BR.y = pos.y + size.y;
 		}
 		else
 		{
 			const vec2 pos = transform.Position;
 			const f32 sin = Sin(transform.Rotation);
 			const f32 cos = Cos(transform.Rotation);
-			tl.x = pos.x + pivot.x * cos - pivot.y * sin;
-			tl.y = pos.y + pivot.x * sin + pivot.y * cos;
-			tr.x = pos.x + (pivot.x + size.x) * cos - pivot.y * sin;
-			tr.y = pos.y + (pivot.x + size.x) * sin + pivot.y * cos;
-			bl.x = pos.x + pivot.x * cos - (pivot.y + size.y) * sin;
-			bl.y = pos.y + pivot.x * sin + (pivot.y + size.y) * cos;
-			br.x = pos.x + (pivot.x + size.x) * cos - (pivot.y + size.y) * sin;
-			br.y = pos.y + (pivot.x + size.x) * sin + (pivot.y + size.y) * cos;
+			p.TL.x = pos.x + pivot.x * cos - pivot.y * sin;
+			p.TL.y = pos.y + pivot.x * sin + pivot.y * cos;
+			p.TR.x = pos.x + (pivot.x + size.x) * cos - pivot.y * sin;
+			p.TR.y = pos.y + (pivot.x + size.x) * sin + pivot.y * cos;
+			p.BL.x = pos.x + pivot.x * cos - (pivot.y + size.y) * sin;
+			p.BL.y = pos.y + pivot.x * sin + (pivot.y + size.y) * cos;
+			p.BR.x = pos.x + (pivot.x + size.x) * cos - (pivot.y + size.y) * sin;
+			p.BR.y = pos.y + (pivot.x + size.x) * sin + (pivot.y + size.y) * cos;
 		}
 
-		vec2 quadUV[4] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
-		if (uv != nullptr) { quadUV[0] = uv->TL; quadUV[1] = uv->TR; quadUV[2] = uv->BR; quadUV[3] = uv->BL; }
-
-		for (vec2& it : quadUV)
-		{
-			it *= scaledPictureSize;
-			it += vec2(PerSideRasterizedTexPadding, PerSideRasterizedTexPadding);
-			it /= texSizePadded;
-		}
-
-		out.TexID = tex.GetTexID();
-		out.Pos[0] = tl; out.Pos[1] = tr;
-		out.Pos[2] = br; out.Pos[3] = bl;
-		out.UV[0] = quadUV[0]; out.UV[1] = quadUV[1];
-		out.UV[2] = quadUV[2]; out.UV[3] = quadUV[3];
-		out.Color = colorTint;
-		return true;
+		return GetQuad(out, tex, scaledPictureSize, texSizePadded, p, colorTint, uv);
 	}
 
 	SprStretchtOut StretchMultiPartSpr(ChartGraphicsResources& gfx, SprID spr, SprTransform transform, u32 color, SprStretchtParam param, size_t splitCount)
@@ -291,7 +308,7 @@ namespace PeepoDrumKit
 		{
 			static constexpr f32 perSplitPercentage = (1.0f / 2.0f);;
 			transform.Scale.x *= (param.Scales[0] + param.Scales[1]) / 2.0f;
-			ImImageQuad baseQuad {}; gfx.GetImageQuad(baseQuad, spr, transform, color, nullptr);
+			ImImageQuad baseQuad {}; gfx.GetImageQuad(baseQuad, spr, transform, color);
 
 			const f32 splitT = param.Scales[0] / (param.Scales[1] + param.Scales[0]);
 			const vec2 topM = Lerp<vec2>(baseQuad.TL(), baseQuad.TR(), splitT);
@@ -312,7 +329,7 @@ namespace PeepoDrumKit
 		{
 			static constexpr f32 perSplitPercentage = (1.0f / 3.0f);;
 			transform.Scale.x *= (param.Scales[0] + param.Scales[1] + param.Scales[2]) / 3.0f;
-			ImImageQuad baseQuad {}; gfx.GetImageQuad(baseQuad, spr, transform, color, nullptr);
+			ImImageQuad baseQuad {}; gfx.GetImageQuad(baseQuad, spr, transform, color);
 
 			const f32 splitLT = param.Scales[0] / (param.Scales[2] + param.Scales[1] + param.Scales[0]);
 			const f32 splitRT = 1.0f - (param.Scales[2] / (param.Scales[2] + param.Scales[1] + param.Scales[0]));

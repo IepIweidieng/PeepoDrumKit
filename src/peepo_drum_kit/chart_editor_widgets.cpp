@@ -1331,7 +1331,7 @@ namespace PeepoDrumKit
 		ImTextureID tex_id = quad.TexID;
 		if (tex_id == 0) {
 			SprUV quadUV = SprUV::FromRect(uv0, uv1);
-			if (context.Gfx.GetImageQuad(quad, sprite_id, { {0, 0}, {0, 0}, {1, 1,}, 0 }, u32_tint_col, &quadUV)) {
+			if (context.Gfx.GetImageQuad(quad, sprite_id, { {0, 0}, {0, 0}, {1, 1,}, 0 }, u32_tint_col, quadUV)) {
 				tex_id = quad.TexID;
 			}
 			else {

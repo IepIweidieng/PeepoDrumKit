@@ -274,10 +274,6 @@ namespace PeepoDrumKit
 
 		b8 IsAnyChildWindowFocused = false;
 
-		// NOTE: Combo font texture loaded from Combo.png
-		CustomDraw::GPUTexture ComboFontTexture = {};
-		b8 ComboFontLoaded = false;
-
 	public:
 		b8 HasKeyboardFocus() const { return IsAnyChildWindowFocused; }
 		void DrawGui(ChartContext& context, Time animatedCursorTime);
