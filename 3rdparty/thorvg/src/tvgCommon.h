@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,9 +19,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #ifndef _TVG_COMMON_H_
 #define _TVG_COMMON_H_
 
+#ifdef _WIN32
+    #if defined(WINAPI_ENTRY)
+        #if (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
+            #include <windows.h>
+        #endif
+    #elif !defined(APIENTRY) && !defined(__CYGWIN__) && !defined(__SCITECH_SNAP__)
+        #include <windows.h>
+    #endif
+#endif
+#include <string>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include "config.h"
 #include "thorvg.h"
 
@@ -33,6 +47,7 @@ using namespace tvg;
     #define TVG_UNUSED
     #define strncasecmp _strnicmp
     #define strcasecmp _stricmp
+    #define strtok_r strtok_s
 #else
     #define TVG_UNUSED __attribute__ ((__unused__))
 #endif
@@ -50,27 +65,40 @@ using namespace tvg;
 
 #if defined(_MSC_VER) && defined(__clang__)
     #define strncpy strncpy_s
-    #define strdup _strdup
 #endif
 
-//TVG class identifier values
-#define TVG_CLASS_ID_UNDEFINED 0
-#define TVG_CLASS_ID_SHAPE     1
-#define TVG_CLASS_ID_SCENE     2
-#define TVG_CLASS_ID_PICTURE   3
-#define TVG_CLASS_ID_LINEAR    4
-#define TVG_CLASS_ID_RADIAL    5
+void* operator new(std::size_t size);
+void operator delete(void* ptr) noexcept;
 
-enum class FileType { Tvg = 0, Svg, Raw, Png, Jpg, Unknown };
+namespace tvg {
 
-#ifdef THORVG_LOG_ENABLED
-    #define TVGLOG(tag, fmt, ...) fprintf(stdout, tag ": " fmt "\n", ##__VA_ARGS__)  //Log Message for notifying user some useful info
-    #define TVGERR(tag, fmt, ...) fprintf(stderr, tag ": " fmt "\n", ##__VA_ARGS__)  //Error Message for us to fix it
-#else
-    #define TVGERR(...)
-    #define TVGLOG(...)
-#endif
+    enum class FileType { Png = 0, Jpg, Webp, Svg, Lot, Ttf, Raw, Gif, Unknown };
 
-uint16_t THORVG_VERSION_NUMBER();
+    #ifdef THORVG_LOG_ENABLED
+        constexpr auto ErrorColor = "\033[31m";  //red
+        constexpr auto ErrorBgColor = "\033[41m";//bg red
+        constexpr auto LogColor = "\033[32m";    //green
+        constexpr auto LogBgColor = "\033[42m";  //bg green
+        constexpr auto GreyColor = "\033[90m";   //grey
+        constexpr auto ResetColors = "\033[0m";  //default
+        #define TVGERR(tag, fmt, ...) fprintf(stderr, "%s[E]%s %s" tag "%s (%s %d): %s" fmt "\n", ErrorBgColor, ResetColors, ErrorColor, GreyColor, __FILE__, __LINE__, ResetColors, ##__VA_ARGS__)
+        #define TVGLOG(tag, fmt, ...) fprintf(stdout, "%s[L]%s %s" tag "%s (%s %d): %s" fmt "\n", LogBgColor, ResetColors, LogColor, GreyColor, __FILE__, __LINE__, ResetColors, ##__VA_ARGS__)
+    #else
+        #define TVGERR(...) do {} while(0)
+        #define TVGLOG(...) do {} while(0)
+    #endif
+
+    template<typename T>
+    static inline T* to(const Paint* p)
+    {
+        return static_cast<T*>(const_cast<Paint*>(p));
+    }
+
+    uint16_t THORVG_VERSION_NUMBER();
+
+    extern int engineInit;
+}
+
+#include "tvgAllocator.h"
 
 #endif //_TVG_COMMON_H_

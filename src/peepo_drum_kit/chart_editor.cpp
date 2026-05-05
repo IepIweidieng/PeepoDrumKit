@@ -1562,17 +1562,12 @@ namespace PeepoDrumKit
 				return result;
 			}
 
-			auto picture = tvg::Picture::gen();
-			u32 w, h;
-			const u32* pixels = nullptr;
-			if (!(picture->load(reinterpret_cast<char*>(fileContent.get()), fileSize, "", false) == tvg::Result::Success
-				&& (pixels = picture->data(&w, &h))
-				)) {
+			SvgRasterizer rasterizer = { };
+			if (!rasterizer.ParseMemory({ reinterpret_cast<char*>(fileContent.get()), fileSize })) {
 				printf("Failed to decode image file '%.*s'\n", FmtStrViewArgs(result.JacketFilePath));
 				return result;
 			}
-
-			result.JacketTexture.Load(CustomDraw::GPUTextureDesc{ CustomDraw::GPUPixelFormat::RGBA, CustomDraw::GPUAccessType::Static, ivec2(w, h), pixels });
+			Rasterize(rasterizer, result.JacketTexture);
 
 			return result;
 		});

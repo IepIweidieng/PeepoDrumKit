@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,42 +19,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #ifndef _TVG_SVG_LOADER_H_
 #define _TVG_SVG_LOADER_H_
 
 #include "tvgTaskScheduler.h"
-#include "tvgSvgLoaderCommon.h"
+#include "tvgSvgCommon.h"
 
-class SvgLoader : public LoadModule, public Task
+struct SvgLoader : ImageLoader, Task
 {
-public:
-    string filePath;
+    SvgParserContext ctx;
     string svgPath = "";
-    const char* content = nullptr;
+    char* content = nullptr;
     uint32_t size = 0;
-
-    SvgLoaderData loaderData;
-    unique_ptr<Scene> root;
-
+    Scene* root = nullptr;
     bool copy = false;
 
     SvgLoader();
     ~SvgLoader();
 
-    using LoadModule::open;
-    bool open(const string& path) override;
-    bool open(const char* data, uint32_t size, bool copy) override;
+    bool open(const char* path, const LoaderOps* ops) override;
+    bool open(const char* data, uint32_t size, const LoaderOps* ops, bool copy) override;
     bool resize(Paint* paint, float w, float h) override;
     bool read() override;
     bool close() override;
-    unique_ptr<Paint> paint() override;
+
+    const AccessorEntity* access(uint32_t id) override;
+    void access(AccessorCallback& cb) override;
+
+    Paint* paint() override;
 
 private:
+    SvgViewFlag viewFlag = SvgViewFlag::None;
     AspectRatioAlign align = AspectRatioAlign::XMidYMid;
     AspectRatioMeetOrSlice meetOrSlice = AspectRatioMeetOrSlice::Meet;
+    Box vbox{};
 
     bool header();
-    void clear();
+    void clear(bool all = true);
     void run(unsigned tid) override;
 };
 

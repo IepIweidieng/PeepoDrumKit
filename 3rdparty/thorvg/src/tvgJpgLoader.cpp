@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2021 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,8 +20,6 @@
  * SOFTWARE.
  */
 
-#include <memory.h>
-#include "tvgLoader.h"
 #include "tvgJpgLoader.h"
 
 /************************************************************************/
@@ -31,10 +29,24 @@
 void JpgLoader::clear()
 {
     jpgdDelete(decoder);
-    if (freeData) free(data);
+    if (freeData) tvg::free(data);
     decoder = nullptr;
     data = nullptr;
     freeData = false;
+}
+
+
+void JpgLoader::run(unsigned tid)
+{
+    surface.cs = ImageLoader::cs;
+    surface.buf8 = jpgdDecompress(decoder, surface.cs);
+    surface.stride = static_cast<uint32_t>(w);
+    surface.w = static_cast<uint32_t>(w);
+    surface.h = static_cast<uint32_t>(h);
+    surface.channelSize = sizeof(uint32_t);
+    surface.premultiplied = true;
+
+    clear();
 }
 
 
@@ -42,36 +54,38 @@ void JpgLoader::clear()
 /* External Class Implementation                                        */
 /************************************************************************/
 
-
-JpgLoader::~JpgLoader()
+JpgLoader::JpgLoader() : ImageLoader(FileType::Jpg)
 {
-    jpgdDelete(decoder);
-    if (freeData) free(data);
-    free(image);
+
 }
 
 
-bool JpgLoader::open(const string& path)
+JpgLoader::~JpgLoader()
 {
+    done();
     clear();
+    tvg::free(surface.buf8);
+}
 
+bool JpgLoader::open(const char* path, TVG_UNUSED const LoaderOps* ops)
+{
+#ifdef THORVG_FILE_IO_SUPPORT
     int width, height;
-    decoder = jpgdHeader(path.c_str(), &width, &height);
-    if (!decoder) return false;
+    if (!(decoder = jpgdHeader(path, &width, &height))) return false;
 
     w = static_cast<float>(width);
     h = static_cast<float>(height);
 
     return true;
+#else
+    return false;
+#endif
 }
 
-
-bool JpgLoader::open(const char* data, uint32_t size, bool copy)
+bool JpgLoader::open(const char* data, uint32_t size, TVG_UNUSED const LoaderOps* ops, bool copy)
 {
-    clear();
-
     if (copy) {
-        this->data = (char *) malloc(size);
+        this->data = tvg::malloc<char>(size);
         if (!this->data) return false;
         memcpy((char *)this->data, data, size);
         freeData = true;
@@ -94,7 +108,9 @@ bool JpgLoader::open(const char* data, uint32_t size, bool copy)
 
 bool JpgLoader::read()
 {
-    if (!decoder || w <= 0 || h <= 0) return false;
+    if (!Loader::read()) return true;
+
+    if (!decoder || w == 0 || h == 0) return false;
 
     TaskScheduler::request(this);
 
@@ -104,34 +120,14 @@ bool JpgLoader::read()
 
 bool JpgLoader::close()
 {
+    if (!Loader::close()) return false;
     this->done();
-    clear();
     return true;
 }
 
 
-unique_ptr<Surface> JpgLoader::bitmap()
+RenderSurface* JpgLoader::bitmap()
 {
     this->done();
-
-    if (!image) return nullptr;
-
-    auto surface = static_cast<Surface*>(malloc(sizeof(Surface)));
-    surface->buffer = (uint32_t*)(image);
-    surface->stride = static_cast<uint32_t>(w);
-    surface->w = static_cast<uint32_t>(w);
-    surface->h = static_cast<uint32_t>(h);
-    surface->cs = SwCanvas::ARGB8888;
-
-    return unique_ptr<Surface>(surface);
-}
-
-
-void JpgLoader::run(unsigned tid)
-{
-    if (image) {
-        free(image);
-        image = nullptr;
-    }
-    image = jpgdDecompress(decoder);
+    return ImageLoader::bitmap();
 }

@@ -9,40 +9,47 @@
 #pragma warning(disable:4334)
 #pragma warning(disable:4267)
 
+#define NOMINMAX
 #include "thorvg.h"
 
-// NOTE: src/lib --------------------------------------------------------------------------------
-#include "src/tvgAccessor.cpp"
+// NOTE: src/common -----------------------------------------------------------------------------
+#include "src/tvgStr.cpp"
 #define _lineLength _tvgBezier_lineLength
-#include "src/tvgBezier.cpp"
+#include "src/tvgMath.cpp"
 #undef _lineLength
+#include "src/tvgCompressor.cpp"
+#include "src/tvgColor.cpp"
+// ----------------------------------------------------------------------------------------------
+
+// NOTE: src/renderer ---------------------------------------------------------------------------
+#include "src/tvgAccessor.cpp"
+#include "src/tvgAnimation.cpp"
 #include "src/tvgCanvas.cpp"
 #include "src/tvgFill.cpp"
-#include "src/tvgGlCanvas.cpp"
 #include "src/tvgInitializer.cpp"
-#include "src/tvgLinearGradient.cpp"
 #define _find _tvgLoader_find
-#include "src/tvgLoader.cpp"
+#include "src/tvgLoaderMgr.cpp"
 #undef _find
-#include "src/tvgLzw.cpp"
 #include "src/tvgPaint.cpp"
 #include "src/tvgPicture.cpp"
-#include "src/tvgRadialGradient.cpp"
 #include "src/tvgRender.cpp"
 #define _lineLength _tvgSaver_lineLength
 #include "src/tvgSaver.cpp"
 #undef _lineLength
 #include "src/tvgScene.cpp"
 #include "src/tvgShape.cpp"
-#include "src/tvgSwCanvas.cpp"
 #include "src/tvgTaskScheduler.cpp"
+#include "src/tvgText.cpp"
 // ----------------------------------------------------------------------------------------------
 
-// NOTE: src/lib/sw_engine ----------------------------------------------------------------------
+// NOTE: src/renderer/cpu_engine ----------------------------------------------------------------
 #include "src/tvgSwFill.cpp"
 #include "src/tvgSwImage.cpp"
 #include "src/tvgSwMath.cpp"
+#define _key _tvgSwMemPool_key
 #include "src/tvgSwMemPool.cpp"
+#undef _key
+#include "src/tvgSwPostEffect.cpp"
 #include "src/tvgSwRaster.cpp"
 #include "src/tvgSwRenderer.cpp"
 #include "src/tvgSwRle.cpp"
@@ -70,7 +77,7 @@
 #define _skipComma _tvgSvgPath_skipComma
 #include "src/tvgSvgPath.cpp"
 #undef _skipComma
-#include "src/tvgSvgSceneBuilder.cpp"
+#include "src/tvgSvgBuilder.cpp"
 #include "src/tvgSvgUtil.cpp"
 #include "src/tvgXmlParser.cpp"
 // ----------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,138 +19,42 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include "tvgSwCommon.h"
 
+#include "tvgSwCommon.h"
 
 /************************************************************************/
 /* Internal Class Implementation                                        */
 /************************************************************************/
 
+static thread_local SwMpool* _pool = nullptr;
+static Array<SwMpool*> _pools;
+static uint32_t _threads = 0;
+static StrictKey _key;
 
 /************************************************************************/
 /* External Class Implementation                                        */
 /************************************************************************/
 
-SwOutline* mpoolReqOutline(SwMpool* mpool, unsigned idx)
+SwMpool* mpoolReq()
 {
-    return &mpool->outline[idx];
-}
-
-
-void mpoolRetOutline(SwMpool* mpool, unsigned idx)
-{
-    mpool->outline[idx].cntrsCnt = 0;
-    mpool->outline[idx].ptsCnt = 0;
-}
-
-
-SwOutline* mpoolReqStrokeOutline(SwMpool* mpool, unsigned idx)
-{
-    return &mpool->strokeOutline[idx];
-}
-
-
-void mpoolRetStrokeOutline(SwMpool* mpool, unsigned idx)
-{
-    mpool->strokeOutline[idx].cntrsCnt = 0;
-    mpool->strokeOutline[idx].ptsCnt = 0;
-}
-
-
-SwMpool* mpoolInit(unsigned threads)
-{
-    if (threads == 0) threads = 1;
-
-    auto mpool = static_cast<SwMpool*>(calloc(sizeof(SwMpool), 1));
-    mpool->outline = static_cast<SwOutline*>(calloc(1, sizeof(SwOutline) * threads));
-    if (!mpool->outline) goto err;
-
-    mpool->strokeOutline = static_cast<SwOutline*>(calloc(1, sizeof(SwOutline) * threads));
-    if (!mpool->strokeOutline) goto err;
-
-    mpool->allocSize = threads;
-
-    return mpool;
-
-err:
-    if (mpool->outline) {
-        free(mpool->outline);
-        mpool->outline = nullptr;
+    if (!_pool) {
+        _pool = new SwMpool(_threads);
+        ScopedLock lock(_key);
+        _pools.push(_pool);
     }
-
-    if (mpool->strokeOutline) {
-        free(mpool->strokeOutline);
-        mpool->strokeOutline = nullptr;
-    }
-    free(mpool);
-    return nullptr;
+    return _pool;
 }
 
-
-bool mpoolClear(SwMpool* mpool)
+void mpoolInit(uint32_t threads)
 {
-    SwOutline* p;
-
-    for (unsigned i = 0; i < mpool->allocSize; ++i) {
-
-        //Outline
-        p = &mpool->outline[i];
-
-        free(p->cntrs);
-        p->cntrs = nullptr;
-
-        free(p->pts);
-        p->pts = nullptr;
-
-        free(p->types);
-        p->types = nullptr;
-
-        free(p->closed);
-        p->closed = nullptr;
-
-        p->cntrsCnt = p->reservedCntrsCnt = 0;
-        p->ptsCnt = p->reservedPtsCnt = 0;
-
-        //StrokeOutline
-        p = &mpool->strokeOutline[i];
-
-        free(p->cntrs);
-        p->cntrs = nullptr;
-
-        free(p->pts);
-        p->pts = nullptr;
-
-        free(p->types);
-        p->types = nullptr;
-
-        free(p->closed);
-        p->closed = nullptr;
-
-        p->cntrsCnt = p->reservedCntrsCnt = 0;
-        p->ptsCnt = p->reservedPtsCnt = 0;
-    }
-
-    return true;
+    _threads = threads;
 }
 
-
-bool mpoolTerm(SwMpool* mpool)
+void mpoolTerm()
 {
-    if (!mpool) return false;
-
-    mpoolClear(mpool);
-
-    if (mpool->outline) {
-        free(mpool->outline);
-        mpool->outline = nullptr;
+    for (auto p : _pools) {
+        delete p;
+        _pool = nullptr;
     }
-
-    if (mpool->strokeOutline) {
-        free(mpool->strokeOutline);
-        mpool->strokeOutline = nullptr;
-    }
-
-    free(mpool);
-
-    return true;
+    _pools.reset();
 }

@@ -190,6 +190,30 @@ namespace PeepoDrumKit
 		inline ImVec2 UV_BL() const { return UV[3]; } inline void UV_BL(ImVec2 v) { UV[3] = v; }
 	};
 
+	struct RasterizedBitmap { std::unique_ptr<u32[]> BGRA; ivec2 Resolution; };
+	struct SvgRasterizer
+	{
+		struct Impl;
+		std::unique_ptr<Impl> pImpl = nullptr;
+		vec2 PictureSize = {};
+		f32 BaseScale;
+
+		SvgRasterizer();
+		~SvgRasterizer();
+
+		bool ParseMemory(std::string_view svgFileContent, f32 baseScale = 1);
+		bool ParseFromPath(std::string imagePath, f32 baseScale = 1);
+		RasterizedBitmap Rasterize(f32 scale = 1);
+	};
+
+	static inline void Rasterize(SvgRasterizer& rasterizer, CustomDraw::GPUTexture& tecture, f32 scale = 1)
+	{
+		auto bitmap = rasterizer.Rasterize(scale);
+		tecture.Unload();
+		if (bitmap.Resolution.x > 0 && bitmap.Resolution.y > 0)
+			tecture.Load(CustomDraw::GPUTextureDesc{ CustomDraw::GPUPixelFormat::BGRA, CustomDraw::GPUAccessType::Static, bitmap.Resolution, bitmap.BGRA.get() });
+	}
+
 	struct ChartGraphicsResources : NonCopyable
 	{
 		ChartGraphicsResources();
@@ -200,7 +224,7 @@ namespace PeepoDrumKit
 		b8 IsAsyncLoading() const;
 
 		// TODO: Only actually rebulid textures after *completeing* a resize (?)
-		void Rasterize(SprGroup group, f32 scale);
+		void Rasterize(SprGroup group, f32 scale = 1);
 
 		SprInfo GetInfo(SprID spr) const;
 		b8 GetImageQuad(ImImageQuad& out, SprID spr, SprTransform transform, u32 colorTint, const SprUV* uv) const;

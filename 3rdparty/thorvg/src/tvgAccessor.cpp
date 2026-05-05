@@ -1,13 +1,16 @@
 /*
- * Copyright (c) 2021 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2021 - 2026 ThorVG project. All rights reserved.
+
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
+
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
+
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -17,68 +20,100 @@
  * SOFTWARE.
  */
 
-#include "tvgIteratorAccessor.h"
+#include "tvgAccessor.h"
+#include "tvgCompressor.h"
+#include "tvgPicture.h"
 
 /************************************************************************/
 /* Internal Class Implementation                                        */
 /************************************************************************/
 
-static bool accessChildren(Iterator* it, bool(*func)(const Paint* paint), IteratorAccessor& itrAccessor)
-{
-    while (auto child = it->next()) {
-        //Access the child
-        if (!func(child)) return false;
+#define IMPL static_cast<AccessorImpl*>(this)
 
-        //Access the children of the child
-        if (auto it2 = itrAccessor.iterator(child)) {
-            if (!accessChildren(it2, func, itrAccessor)) {
+Accessor::Accessor() = default;
+
+struct AccessorImpl : Accessor
+{
+    Paint* paint;
+    AccessorCallback cb;
+    bool accessible = false;  // special searching for picture nested scenes with id maps
+
+    bool access(AccessorIterator* it)
+    {
+        while (auto child = it->next()) {
+            // access the child
+            if (!cb.func(child, cb.data)) return false;
+
+            // access the children of the child
+            if (auto it2 = AccessorIterator::iterator(child)) {
+                if (!access(it2)) {
+                    delete (it2);
+                    return false;
+                }
                 delete(it2);
-                return false;
             }
-            delete(it2);
+        }
+        return true;
+    }
+
+    // pre-order tree search
+    void search()
+    {
+        // root
+        if (!cb.func(paint, cb.data)) return;
+
+        // children
+        if (auto it = AccessorIterator::iterator(paint)) {
+            access(it);
+            delete (it);
         }
     }
-    return true;
-}
-
+};
 
 /************************************************************************/
 /* External Class Implementation                                        */
 /************************************************************************/
 
-unique_ptr<Picture> Accessor::access(unique_ptr<Picture> picture, bool(*func)(const Paint* paint)) noexcept
+Result Accessor::set(Paint* paint, function<bool(const Paint* paint, void* data)> func, void* data) noexcept
 {
-    auto p = picture.get();
-    if (!p || !func) return picture;
+    if (paint && func) {
+        IMPL->paint = paint;
+        IMPL->cb = {func, data};
+        IMPL->accessible = (paint->type() == Type::Picture && static_cast<Picture*>(paint)->accessible);
 
-    //Use the Preorder Tree-Search
+        paint->ref();
 
-    //Root
-    if (!func(p)) return picture;
+        if (IMPL->accessible) to<PictureImpl>(IMPL->paint)->access(IMPL->cb);
+        else IMPL->search();
 
-    //Children
-    IteratorAccessor itrAccessor;
-    if (auto it = itrAccessor.iterator(p)) {
-        accessChildren(it, func, itrAccessor);
-        delete(it);
+        paint->unref(false);
+
+        IMPL->accessible = false;
+
+        return Result::Success;
     }
-    return picture;
+    return Result::InvalidArguments;
 }
 
+const char* Accessor::name(uint32_t id) noexcept
+{
+    if (IMPL->accessible) {
+        auto entity = to<PictureImpl>(IMPL->paint)->access(id);
+        if (entity) return entity->name;
+    } else TVGLOG("RENDERER", "Did you enable Picture::accessible?");
+    return nullptr;
+}
+
+uint32_t Accessor::id(const char* name) noexcept
+{
+    return djb2Encode(name);
+}
 
 Accessor::~Accessor()
 {
-
 }
 
-
-Accessor::Accessor()
+Accessor* Accessor::gen() noexcept
 {
-
-}
-
-
-unique_ptr<Accessor> Accessor::gen() noexcept
-{
-    return unique_ptr<Accessor>(new Accessor);
+    return new AccessorImpl;
 }

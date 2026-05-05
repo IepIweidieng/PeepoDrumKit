@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,30 +19,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include <fstream>
-#include <string.h>
+
 #include "tvgLoader.h"
 #include "tvgRawLoader.h"
 
-/************************************************************************/
-/* Internal Class Implementation                                        */
-/************************************************************************/
 
-/************************************************************************/
-/* External Class Implementation                                        */
-/************************************************************************/
-
-RawLoader::~RawLoader()
+RawLoader::RawLoader() : ImageLoader(FileType::Raw)
 {
-    if (copy && content) {
-        free((void*)content);
-        content = nullptr;
-    }
 }
 
 
-bool RawLoader::open(const uint32_t* data, uint32_t w, uint32_t h, bool copy)
+RawLoader::~RawLoader()
 {
+    if (copy) tvg::free(surface.buf32);
+}
+
+bool RawLoader::open(const uint32_t* data, uint32_t w, uint32_t h, ColorSpace cs, bool copy)
+{
+    if (!Loader::read()) return true;
+
     if (!data || w == 0 || h == 0) return false;
 
     this->w = (float)w;
@@ -50,11 +45,19 @@ bool RawLoader::open(const uint32_t* data, uint32_t w, uint32_t h, bool copy)
     this->copy = copy;
 
     if (copy) {
-        content = (uint32_t*)malloc(sizeof(uint32_t) * w * h);
-        if (!content) return false;
-        memcpy((void*)content, data, sizeof(uint32_t) * w * h);
+        surface.buf32 = tvg::malloc<uint32_t>(sizeof(uint32_t) * w * h);
+        if (!surface.buf32) return false;
+        memcpy((void*)surface.buf32, data, sizeof(uint32_t) * w * h);
     }
-    else content = data;
+    else surface.buf32 = const_cast<uint32_t*>(data);
+
+    //setup the surface
+    surface.stride = w;
+    surface.w = w;
+    surface.h = h;
+    surface.cs = cs;
+    surface.channelSize = sizeof(uint32_t);
+    surface.premultiplied = (cs == ColorSpace::ABGR8888 || cs == ColorSpace::ARGB8888) ? true : false;
 
     return true;
 }
@@ -62,26 +65,7 @@ bool RawLoader::open(const uint32_t* data, uint32_t w, uint32_t h, bool copy)
 
 bool RawLoader::read()
 {
+    Loader::read();
+
     return true;
-}
-
-
-bool RawLoader::close()
-{
-    return true;
-}
-
-
-unique_ptr<Surface> RawLoader::bitmap()
-{
-    if (!content) return nullptr;
-
-    auto surface = static_cast<Surface*>(malloc(sizeof(Surface)));
-    surface->buffer = (uint32_t*)(content);
-    surface->stride = (uint32_t)w;
-    surface->w = (uint32_t)w;
-    surface->h = (uint32_t)h;
-    surface->cs = SwCanvas::ARGB8888;
-
-    return unique_ptr<Surface>(surface);
 }

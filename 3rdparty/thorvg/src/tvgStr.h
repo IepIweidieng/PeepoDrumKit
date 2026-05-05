@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,24 +19,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef _TVG_ITERATOR_ACCESSOR_H_
-#define _TVG_ITERATOR_ACCESSOR_H_
 
-#include "tvgPaint.h"
+#ifndef _TVG_STR_H_
+#define _TVG_STR_H_
+
+#include "tvgCommon.h"
 
 namespace tvg
 {
 
-class IteratorAccessor
+static inline bool equal(const char* a, const char* b)
 {
-public:
-    //Utility Method: Iterator Accessor
-    Iterator* iterator(const Paint* paint)
-    {
-        return paint->pImpl->iterator();
-    }
-};
-
+    return !strcmp(a, b) && strlen(a) == strlen(b);
 }
 
-#endif //_TVG_ITERATOR_ACCESSOR_H_
+char* concat(const char* a, const char* b);
+float toFloat(const char *str, char **end);                    //convert to float
+char* duplicate(const char* str, size_t max = SIZE_MAX, uint32_t* size = nullptr);  // copy the string
+char* append(char* lhs, const char* rhs, size_t n);            //append the rhs to the lhs
+char* dirname(const char* path);                               //return the full directory name
+char* filename(const char* path);                              //return the file name without extension
+const char* fileext(const char* path);                         //return the file extension name
+
+}
+#endif  //_TVG_STR_H_
