@@ -76,11 +76,12 @@ namespace PeepoDrumKit
 		
 		// TODO: Split into individual sprites to correctly handle padding (?)
 		Game_Font_Numerical,
+		Game_Font_Combo,
 
 		Count
 	};
 
-	struct SprTypeDesc { SprID Spr; SprGroup Group; cstr FilePath; f32 BaseScale; };
+	struct SprTypeDesc { SprID Spr; SprGroup Group; cstr FilePath; f32 BaseScale; }; // supports jp(e)g, png, svg
 	constexpr SprTypeDesc SprDescTable[] =
 	{
 		{ SprID::Timeline_Note_Don,					SprGroup::Timeline, u8"assets/graphics/timeline_note_don.svg" },
@@ -145,6 +146,7 @@ namespace PeepoDrumKit
 		{ SprID::Game_Lane_GogoFire,				SprGroup::Game, u8"assets/graphics/game_lane_gogo_fire.svg" },
 		// TODO: ...
 		{ SprID::Game_Font_Numerical,				SprGroup::Game, u8"assets/graphics/game_font_numerical.svg", 0.5f },
+		{ SprID::Game_Font_Combo,					SprGroup::Game, u8"assets/graphics/game_combo_numerical.png" },
 	};
 
 	constexpr SprGroup GetSprGroup(SprID spr) { return (spr < SprID::Count) ? SprDescTable[EnumToIndex(spr)].Group : SprGroup::Count; }
@@ -227,10 +229,20 @@ namespace PeepoDrumKit
 		void Rasterize(SprGroup group, f32 scale = 1);
 
 		SprInfo GetInfo(SprID spr) const;
+		b8 GetImageQuad(ImImageQuad& out, SprID spr, const vec2& p_min, const vec2& p_max, const vec2& uv_min, const vec2& uv_max, u32 colorTint = 0xFFFFFFFF) const;
 		b8 GetImageQuad(ImImageQuad& out, SprID spr, SprTransform transform, u32 colorTint, const SprUV* uv) const;
 
 		inline void DrawSprite(ImDrawList* drawList, const ImImageQuad& quad) { drawList->AddImageQuad(quad.TexID, quad.Pos[0], quad.Pos[1], quad.Pos[2], quad.Pos[3], quad.UV[0], quad.UV[1], quad.UV[2], quad.UV[3], quad.Color); }
-		inline void DrawSprite(ImDrawList* drawList, SprID spr, SprTransform transform, u32 colorTint = 0xFFFFFFFF, const SprUV* uv = nullptr) { if (ImImageQuad quad; GetImageQuad(quad, spr, transform, colorTint, uv)) { DrawSprite(drawList, quad); } }
+		inline void DrawSprite(ImDrawList* drawList, SprID spr, const vec2& p_min, const vec2& p_max, const vec2& uv_min, const vec2& uv_max, u32 colorTint = 0xFFFFFFFF)
+		{
+			if (ImImageQuad quad; GetImageQuad(quad, spr, p_min, p_max, uv_min, uv_max, colorTint))
+				DrawSprite(drawList, quad); 
+		}
+		inline void DrawSprite(ImDrawList* drawList, SprID spr, SprTransform transform, u32 colorTint = 0xFFFFFFFF, const SprUV* uv = nullptr)
+		{
+			if (ImImageQuad quad; GetImageQuad(quad, spr, transform, colorTint, uv))
+				DrawSprite(drawList, quad);
+		}
 
 		struct OpaqueData;
 		std::unique_ptr<OpaqueData> Data;

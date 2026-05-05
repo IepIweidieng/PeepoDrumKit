@@ -1071,64 +1071,50 @@ namespace PeepoDrumKit
 
 			// NOTE: Draw combo count at the hit circle position using Combo.png
 			{
-				// NOTE: Lazy load the combo font texture from Combo.png
-				if (!ComboFontLoaded)
+				const SortedNotesList& notes = course->GetNotes(branch);
+				const Note* lastHitNote = notes.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
+				if (lastHitNote != nullptr && lastHitNote->TempComboCount > 0 && !(nLanes > 2 && balloonPopCountDrawn))
 				{
-					ComboFontLoaded = true;
-					int w, h, channels;
-					unsigned char* pixels = stbi_load("assets/graphics/game_combo_numerical.png", &w, &h, &channels, 4);
-					if (pixels != nullptr)
+					constexpr std::string_view sprFontComboCharSet = "0123456789";
+					constexpr size_t sprFontComboCharCount = sprFontComboCharSet.size();
+					const SprInfo sprInfo = context.Gfx.GetInfo(SprID::Game_Font_Combo);
+					const vec2 digitSrcSize = vec2(sprInfo.SourceSize.x / f32{ sprFontComboCharCount }, sprInfo.SourceSize.y);
+					const f32 sheetW = sprInfo.SourceSize.x;
+
+					char comboStr[16];
+					const i32 comboLen = sprintf_s(comboStr, "%d", static_cast<i32>(lastHitNote->TempComboCount));
+
+					const auto& display = GetGameComboDisplay(nLanes);
+					const f32 digitScale = Camera.WorldToScreenScaleFactor * display.DigitScale;
+					const vec2 digitSize = digitSrcSize * digitScale;
+
+					const vec2 padding = vec2{ display.PaddingX, display.PaddingY } * digitScale;
+					const vec2 digitStep = digitSize + padding;
+					const vec2 comboWorldOffset = (nLanes > 2) ? vec2{ 0, 0 }
+						: (iLane == 1) ? vec2{ 0.0f, GameHitCircle.OuterOutlineRadius + GameLaneSlice.Footer + display.PaddingY }
+					: vec2{ 0.0f, -GameHitCircle.OuterOutlineRadius - display.PaddingY };
+					const vec2 comboWorldPos = Camera.LaneToWorldSpace(hitCirclePosLane.x, hitCirclePosLane.y) + comboWorldOffset;
+					const vec2 totalSize = vec2{ digitStep.x * comboLen, digitStep.y } - padding;
+
+					vec2 comboScreenPos = Camera.WorldToScreenSpace(comboWorldPos);
+					vec2 marginTL = totalSize * vec2{ (nLanes > 2) ? 0.5f : 0.5f, 0.5f };
+					vec2 marginBR = totalSize - marginTL;
+					comboScreenPos = Max(Camera.ScreenSpaceViewportRect.TL + marginTL, Min(comboScreenPos, Camera.ScreenSpaceViewportRect.BR - marginBR));
+					const vec2 startPos = comboScreenPos - marginTL;
+
+					for (i32 i = 0; i < comboLen; i++)
 					{
-						ComboFontTexture.Load(CustomDraw::GPUTextureDesc { CustomDraw::GPUPixelFormat::RGBA, CustomDraw::GPUAccessType::Static, ivec2(w, h), pixels });
-						stbi_image_free(pixels);
-					}
-				}
+						const i32 digit = comboStr[i] - '0';
+						const f32 u0 = (digit * digitSrcSize.x) / sheetW;
+						const f32 u1 = ((digit + 1) * digitSrcSize.x) / sheetW;
+						const vec2 p0 = startPos + vec2(digitStep.x * i, 0.0f);
+						const vec2 p1 = p0 + vec2(digitSize.x, digitSize.y);
 
-				if (ComboFontTexture.IsValid())
-				{
-					const SortedNotesList& notes = course->GetNotes(branch);
-					const Note* lastHitNote = notes.TryFindLastAtBeat(cursorBeatOrAnimatedTrunc);
-					if (lastHitNote != nullptr && lastHitNote->TempComboCount > 0 && !(nLanes > 2 && balloonPopCountDrawn))
-					{
-						char comboStr[16];
-						const i32 comboLen = sprintf_s(comboStr, "%d", static_cast<i32>(lastHitNote->TempComboCount));
-
-						// NOTE: Each digit in Combo.png is 44x51px, 10 digits total (0-9)
-						const auto& display = GetGameComboDisplay(nLanes);
-						constexpr vec2 digitSrcSize = { 44.0f, 51.0f };
-						constexpr f32 sheetW = 440.0f;
-						const f32 digitScale = Camera.WorldToScreenScaleFactor * display.DigitScale;
-						const vec2 digitSize = digitSrcSize * digitScale;
-
-						const vec2 padding = vec2{ display.PaddingX, display.PaddingY } * digitScale;
-						const vec2 digitStep = digitSize + padding;
-						const vec2 comboWorldOffset = (nLanes > 2) ? vec2{ 0, 0 }
-							: (iLane == 1) ? vec2{ 0.0f, GameHitCircle.OuterOutlineRadius + GameLaneSlice.Footer + display.PaddingY }
-							: vec2{ 0.0f, -GameHitCircle.OuterOutlineRadius - display.PaddingY };
-						const vec2 comboWorldPos = Camera.LaneToWorldSpace(hitCirclePosLane.x, hitCirclePosLane.y) + comboWorldOffset;
-						const vec2 totalSize = vec2{ digitStep.x * comboLen, digitStep.y } - padding;
-
-						vec2 comboScreenPos = Camera.WorldToScreenSpace(comboWorldPos);
-						vec2 marginTL = totalSize * vec2{ (nLanes > 2) ? 0.5f : 0.5f, 0.5f };
-						vec2 marginBR = totalSize - marginTL;
-						comboScreenPos = Max(Camera.ScreenSpaceViewportRect.TL + marginTL, Min(comboScreenPos, Camera.ScreenSpaceViewportRect.BR - marginBR));
-						const vec2 startPos = comboScreenPos - marginTL;
-
-						const ImTextureID texID = ComboFontTexture.GetTexID();
-						for (i32 i = 0; i < comboLen; i++)
-						{
-							const i32 digit = comboStr[i] - '0';
-							const f32 u0 = (digit * digitSrcSize.x) / sheetW;
-							const f32 u1 = ((digit + 1) * digitSrcSize.x) / sheetW;
-							const vec2 p0 = startPos + vec2(digitStep.x * i, 0.0f);
-							const vec2 p1 = p0 + vec2(digitSize.x, digitSize.y);
-
-							const float foreOpacity = 63.0f / 255;
-							drawList->ChannelsSetCurrent(2);
-							drawList->AddImage(texID, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f), Gui::ColorU32WithNewAlpha(IM_COL32_WHITE, 1 - std::pow(foreOpacity, 2))); // due to pre-multiplied alpha
-							drawList->ChannelsSetCurrent(4);
-							drawList->AddImage(texID, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f), Gui::ColorU32WithNewAlpha(IM_COL32_WHITE, foreOpacity));
-						}
+						const float foreOpacity = 63.0f / 255;
+						drawList->ChannelsSetCurrent(2);
+						context.Gfx.DrawSprite(drawList, SprID::Game_Font_Combo, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f), Gui::ColorU32WithNewAlpha(IM_COL32_WHITE, 1 - std::pow(foreOpacity, 2))); // due to pre-multiplied alpha
+						drawList->ChannelsSetCurrent(4);
+						context.Gfx.DrawSprite(drawList, SprID::Game_Font_Combo, p0, p1, vec2(u0, 0.0f), vec2(u1, 1.0f), Gui::ColorU32WithNewAlpha(IM_COL32_WHITE, foreOpacity));
 					}
 				}
 			}
