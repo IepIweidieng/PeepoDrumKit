@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -44,7 +44,7 @@
     3. This notice may not be removed or altered from any sourcedistribution.
 */
 
-#include <cstdlib>
+#include "tvgCommon.h"
 #include "tvgLodePng.h"
 
 
@@ -184,7 +184,7 @@ static unsigned ucvector_resize(ucvector* p, size_t size)
 {
     if (size > p->allocsize) {
         size_t newsize = size + (p->allocsize >> 1u);
-        void* data = realloc(p->data, newsize);
+        auto data = tvg::realloc(p->data, newsize);
         if(data) {
             p->allocsize = newsize;
             p->data = (unsigned char*)data;
@@ -456,10 +456,10 @@ static void HuffmanTree_init(HuffmanTree* tree)
 
 static void HuffmanTree_cleanup(HuffmanTree* tree)
 {
-    free(tree->codes);
-    free(tree->lengths);
-    free(tree->table_len);
-    free(tree->table_value);
+    tvg::free(tree->codes);
+    tvg::free(tree->lengths);
+    tvg::free(tree->table_len);
+    tvg::free(tree->table_value);
 }
 
 
@@ -477,7 +477,7 @@ static unsigned HuffmanTree_makeTable(HuffmanTree* tree)
     static const unsigned headsize = 1u << FIRSTBITS; /*size of the first table*/
     static const unsigned mask = (1u << FIRSTBITS) /*headsize*/ - 1u;
     size_t i, numpresent, pointer, size; /*total table size*/
-    unsigned* maxlens = (unsigned*)malloc(headsize * sizeof(unsigned));
+    unsigned* maxlens = tvg::malloc<unsigned>(headsize * sizeof(unsigned));
     if (!maxlens) return 83; /*alloc fail*/
 
     /* compute maxlens: max total bit length of symbols sharing prefix in the first table*/
@@ -497,10 +497,10 @@ static unsigned HuffmanTree_makeTable(HuffmanTree* tree)
         unsigned l = maxlens[i];
         if (l > FIRSTBITS) size += (1u << (l - FIRSTBITS));
     }
-    tree->table_len = (unsigned char*)malloc(size * sizeof(*tree->table_len));
-    tree->table_value = (unsigned short*)malloc(size * sizeof(*tree->table_value));
+    tree->table_len = tvg::malloc<unsigned char>(size * sizeof(*tree->table_len));
+    tree->table_value = tvg::malloc<unsigned short>(size * sizeof(*tree->table_value));
     if (!tree->table_len || !tree->table_value) {
-        free(maxlens);
+        tvg::free(maxlens);
         /* freeing tree->table values is done at a higher scope */
         return 83; /*alloc fail*/
     }
@@ -516,7 +516,7 @@ static unsigned HuffmanTree_makeTable(HuffmanTree* tree)
         tree->table_value[i] = pointer;
         pointer += (1u << (l - FIRSTBITS));
     }
-    free(maxlens);
+    tvg::free(maxlens);
 
     /*fill in the first table for short symbols, or secondary table for long symbols*/
     numpresent = 0;
@@ -600,9 +600,9 @@ static unsigned HuffmanTree_makeFromLengths2(HuffmanTree* tree)
     unsigned error = 0;
     unsigned bits, n;
 
-    tree->codes = (unsigned*)malloc(tree->numcodes * sizeof(unsigned));
-    blcount = (unsigned*)malloc((tree->maxbitlen + 1) * sizeof(unsigned));
-    nextcode = (unsigned*)malloc((tree->maxbitlen + 1) * sizeof(unsigned));
+    tree->codes = tvg::malloc<unsigned>(tree->numcodes * sizeof(unsigned));
+    blcount = tvg::malloc<unsigned>((tree->maxbitlen + 1) * sizeof(unsigned));
+    nextcode = tvg::malloc<unsigned>((tree->maxbitlen + 1) * sizeof(unsigned));
     if (!tree->codes || !blcount || !nextcode) error = 83; /*alloc fail*/
 
     if (!error) {
@@ -623,8 +623,8 @@ static unsigned HuffmanTree_makeFromLengths2(HuffmanTree* tree)
         }
     }
 
-    free(blcount);
-    free(nextcode);
+    tvg::free(blcount);
+    tvg::free(nextcode);
 
     if (!error) error = HuffmanTree_makeTable(tree);
     return error;
@@ -639,7 +639,7 @@ static unsigned HuffmanTree_makeFromLengths2(HuffmanTree* tree)
 static unsigned HuffmanTree_makeFromLengths(HuffmanTree* tree, const unsigned* bitlen, size_t numcodes, unsigned maxbitlen)
 {
     unsigned i;
-    tree->lengths = (unsigned*)malloc(numcodes * sizeof(unsigned));
+    tree->lengths = tvg::malloc<unsigned>(numcodes * sizeof(unsigned));
     if (!tree->lengths) return 83; /*alloc fail*/
     for (i = 0; i != numcodes; ++i) tree->lengths[i] = bitlen[i];
     tree->numcodes = (unsigned)numcodes; /*number of symbols*/
@@ -652,7 +652,7 @@ static unsigned HuffmanTree_makeFromLengths(HuffmanTree* tree, const unsigned* b
 static unsigned generateFixedLitLenTree(HuffmanTree* tree)
 {
     unsigned i, error = 0;
-    unsigned* bitlen = (unsigned*)malloc(NUM_DEFLATE_CODE_SYMBOLS * sizeof(unsigned));
+    unsigned* bitlen = tvg::malloc<unsigned>(NUM_DEFLATE_CODE_SYMBOLS * sizeof(unsigned));
     if (!bitlen) return 83; /*alloc fail*/
 
     /*288 possible codes: 0-255=literals, 256=endcode, 257-285=lengthcodes, 286-287=unused*/
@@ -663,7 +663,7 @@ static unsigned generateFixedLitLenTree(HuffmanTree* tree)
 
     error = HuffmanTree_makeFromLengths(tree, bitlen, NUM_DEFLATE_CODE_SYMBOLS, 15);
 
-    free(bitlen);
+    tvg::free(bitlen);
     return error;
 }
 
@@ -672,14 +672,14 @@ static unsigned generateFixedLitLenTree(HuffmanTree* tree)
 static unsigned generateFixedDistanceTree(HuffmanTree* tree)
 {
     unsigned i, error = 0;
-    unsigned* bitlen = (unsigned*)malloc(NUM_DISTANCE_SYMBOLS * sizeof(unsigned));
+    unsigned* bitlen = tvg::malloc<unsigned>(NUM_DISTANCE_SYMBOLS * sizeof(unsigned));
     if (!bitlen) return 83; /*alloc fail*/
 
     /*there are 32 distance codes, but 30-31 are unused*/
     for (i = 0; i != NUM_DISTANCE_SYMBOLS; ++i) bitlen[i] = 5;
     error = HuffmanTree_makeFromLengths(tree, bitlen, NUM_DISTANCE_SYMBOLS, 15);
 
-    free(bitlen);
+    tvg::free(bitlen);
     return error;
 }
 
@@ -742,7 +742,7 @@ static unsigned getTreeInflateDynamic(HuffmanTree* tree_ll, HuffmanTree* tree_d,
     /*number of code length codes. Unlike the spec, the value 4 is added to it here already*/
     HCLEN = readBits(reader, 4) + 4;
 
-    bitlen_cl = (unsigned*)malloc(NUM_CODE_LENGTH_CODES * sizeof(unsigned));
+    bitlen_cl = tvg::malloc<unsigned>(NUM_CODE_LENGTH_CODES * sizeof(unsigned));
     if(!bitlen_cl) return 83 /*alloc fail*/;
 
     HuffmanTree_init(&tree_cl);
@@ -764,8 +764,8 @@ static unsigned getTreeInflateDynamic(HuffmanTree* tree_ll, HuffmanTree* tree_d,
         if(error) break;
 
         /*now we can use this tree to read the lengths for the tree that this function will return*/
-        bitlen_ll = (unsigned*)malloc(NUM_DEFLATE_CODE_SYMBOLS * sizeof(unsigned));
-        bitlen_d = (unsigned*)malloc(NUM_DISTANCE_SYMBOLS * sizeof(unsigned));
+        bitlen_ll = tvg::malloc<unsigned>(NUM_DEFLATE_CODE_SYMBOLS * sizeof(unsigned));
+        bitlen_d = tvg::malloc<unsigned>(NUM_DISTANCE_SYMBOLS * sizeof(unsigned));
         if (!bitlen_ll || !bitlen_d) ERROR_BREAK(83 /*alloc fail*/);
         lodepng_memset(bitlen_ll, 0, NUM_DEFLATE_CODE_SYMBOLS * sizeof(*bitlen_ll));
         lodepng_memset(bitlen_d, 0, NUM_DISTANCE_SYMBOLS * sizeof(*bitlen_d));
@@ -844,9 +844,9 @@ static unsigned getTreeInflateDynamic(HuffmanTree* tree_ll, HuffmanTree* tree_d,
         break; /*end of error-while*/
     }
 
-    free(bitlen_cl);
-    free(bitlen_ll);
-    free(bitlen_d);
+    tvg::free(bitlen_cl);
+    tvg::free(bitlen_ll);
+    tvg::free(bitlen_d);
     HuffmanTree_cleanup(&tree_cl);
 
     return error;
@@ -1167,7 +1167,7 @@ static unsigned lodepng_crc32_table[256] = {
 };
 
 
-/* Calculate CRC32 of buffer 
+/* Calculate CRC32 of buffer
    Return the CRC of the bytes buf[0..len-1]. */
 static unsigned lodepng_crc32(const unsigned char* data, size_t length)
 {
@@ -1366,7 +1366,7 @@ static void lodepng_color_mode_alloc_palette(LodePNGColorMode* info)
     size_t i;
     /*if the palette is already allocated, it will have size 1024 so no reallocation needed in that case*/
     /*the palette must have room for up to 256 colors with 4 bytes each.*/
-    if (!info->palette) info->palette = (unsigned char*)malloc(1024);
+    if (!info->palette) info->palette = tvg::malloc<unsigned char>(1024);
     if (!info->palette) return; /*alloc fail*/
     for (i = 0; i != 256; ++i) {
         /*Initialize all unused colors with black, the value used for invalid palette indices.
@@ -1381,7 +1381,7 @@ static void lodepng_color_mode_alloc_palette(LodePNGColorMode* info)
 
 static void lodepng_palette_clear(LodePNGColorMode* info)
 {
-    if (info->palette) free(info->palette);
+    if (info->palette) tvg::free(info->palette);
     info->palette = 0;
     info->palettesize = 0;
 }
@@ -1399,7 +1399,7 @@ static unsigned lodepng_color_mode_copy(LodePNGColorMode* dest, const LodePNGCol
     lodepng_color_mode_cleanup(dest);
     lodepng_memcpy(dest, source, sizeof(LodePNGColorMode));
     if (source->palette) {
-        dest->palette = (unsigned char*)malloc(1024);
+        dest->palette = tvg::malloc<unsigned char>(1024);
         if (!dest->palette && source->palettesize) return 83; /*alloc fail*/
         lodepng_memcpy(dest->palette, source->palette, source->palettesize * 4);
     }
@@ -1531,7 +1531,7 @@ static void color_tree_cleanup(ColorTree* tree)
     for (i = 0; i != 16; ++i) {
         if(tree->children[i]) {
             color_tree_cleanup(tree->children[i]);
-            free(tree->children[i]);
+            tvg::free(tree->children[i]);
         }
     }
 }
@@ -1559,7 +1559,7 @@ static unsigned color_tree_add(ColorTree* tree, unsigned char r, unsigned char g
     for (bit = 0; bit < 8; ++bit) {
         int i = 8 * ((r >> bit) & 1) + 4 * ((g >> bit) & 1) + 2 * ((b >> bit) & 1) + 1 * ((a >> bit) & 1);
         if (!tree->children[i]) {
-            tree->children[i] = (ColorTree*)malloc(sizeof(ColorTree));
+            tree->children[i] = tvg::malloc<ColorTree>(sizeof(ColorTree));
             if (!tree->children[i]) return 83; /*alloc fail*/
             color_tree_init(tree->children[i]);
         }
@@ -1571,7 +1571,7 @@ static unsigned color_tree_add(ColorTree* tree, unsigned char r, unsigned char g
 
 /* put a pixel, given its RGBA color, into image of any color type */
 static unsigned rgba8ToPixel(unsigned char* out, size_t i, const LodePNGColorMode* mode, ColorTree* tree /*for palette*/, unsigned char r, unsigned char g, unsigned char b, unsigned char a)
-{  
+{
     if (mode->colortype == LCT_GREY) {
         unsigned char gray = r; /*((unsigned short)r + g + b) / 3u;*/
         if (mode->bitdepth == 8) out[i] = gray;
@@ -1762,11 +1762,7 @@ static void getPixelColorsRGBA8(unsigned char* LODEPNG_RESTRICT buffer, size_t n
     } else if (mode->colortype == LCT_RGB) {
         if (mode->bitdepth == 8) {
             for (i = 0; i != numpixels; ++i, buffer += num_channels) {
-                //lodepng_memcpy(buffer, &in[i * 3], 3);
-                //Convert colortype to LCT_BGR?
-                buffer[0] = in[i * 3 + 2];
-                buffer[1] = in[i * 3 + 1];
-                buffer[2] = in[i * 3 + 0];
+                lodepng_memcpy(buffer, &in[i * 3], 3);
                 buffer[3] = 255;
             }
             if (mode->key_defined) {
@@ -2089,44 +2085,30 @@ static unsigned unfilterScanline(unsigned char* recon, const unsigned char* scan
 
     size_t i;
     switch (filterType) {
-        case 0: {
-            if (bytewidth == 4) {
-                for (i = 0; i < length; i += 4) {
-                    //RGBA -> BGRA
-                    recon[i + 0] = scanline[i + 2];
-                    recon[i + 1] = scanline[i + 1];
-                    recon[i + 2] = scanline[i + 0];
-                    recon[i + 3] = scanline[i + 3];
-                }
-            } else {
-                for (i = 0; i != length; ++i) recon[i] = scanline[i];
-            }
+        case 0:
+            for (i = 0; i != length; ++i) recon[i] = scanline[i];
             break;
-        }
-        case 1: {
+        case 1:
             for (i = 0; i != bytewidth; ++i) recon[i] = scanline[i];
             for (i = bytewidth; i < length; ++i) recon[i] = scanline[i] + recon[i - bytewidth];
             break;
-        }
-        case 2: {
+        case 2:
             if (precon) {
-                for (i = 0; i != length; ++i) recon[i] = scanline[i] + precon[i];
+                for(i = 0; i != length; ++i) recon[i] = scanline[i] + precon[i];
             } else {
-                for (i = 0; i != length; ++i) recon[i] = scanline[i];
+                for(i = 0; i != length; ++i) recon[i] = scanline[i];
             }
             break;
-        }
-        case 3: {
-            if (precon) {
-                for (i = 0; i != bytewidth; ++i) recon[i] = scanline[i] + (precon[i] >> 1u);
-                for (i = bytewidth; i < length; ++i) recon[i] = scanline[i] + ((recon[i - bytewidth] + precon[i]) >> 1u);
-            } else {
-                for (i = 0; i != bytewidth; ++i) recon[i] = scanline[i];
-                for (i = bytewidth; i < length; ++i) recon[i] = scanline[i] + (recon[i - bytewidth] >> 1u);
-            }
-            break;
-        }
-        case 4: {
+        case 3:
+          if (precon) {
+              for (i = 0; i != bytewidth; ++i) recon[i] = scanline[i] + (precon[i] >> 1u);
+              for (i = bytewidth; i < length; ++i) recon[i] = scanline[i] + ((recon[i - bytewidth] + precon[i]) >> 1u);
+          } else {
+              for (i = 0; i != bytewidth; ++i) recon[i] = scanline[i];
+              for (i = bytewidth; i < length; ++i) recon[i] = scanline[i] + (recon[i - bytewidth] >> 1u);
+          }
+          break;
+        case 4:
             if (precon) {
                 for (i = 0; i != bytewidth; ++i) {
                     recon[i] = (scanline[i] + precon[i]); /*paethPredictor(0, precon[i], 0) is always precon[i]*/
@@ -2182,7 +2164,6 @@ static unsigned unfilterScanline(unsigned char* recon, const unsigned char* scan
                 }
             }
             break;
-        }
         default: return 36; /* error: invalid filter type given */
     }
     return 0;
@@ -2405,7 +2386,7 @@ static void decodeGeneric(unsigned char** out, unsigned* w, unsigned* h, LodePNG
     }
 
     /*the input filesize is a safe upper bound for the sum of idat chunks size*/
-    idat = (unsigned char*)malloc(insize);
+    idat = tvg::malloc<unsigned char>(insize);
     if (!idat) CERROR_RETURN(state->error, 83); /*alloc fail*/
 
     chunk = &in[33]; /*first byte of the first chunk after the header*/
@@ -2501,18 +2482,18 @@ static void decodeGeneric(unsigned char** out, unsigned* w, unsigned* h, LodePNG
     }
 
     if (!state->error && scanlines_size != expected_size) state->error = 91; /*decompressed size doesn't match prediction*/
-    free(idat);
+    tvg::free(idat);
 
     if (!state->error) {
         outsize = lodepng_get_raw_size(*w, *h, &state->info_png.color);
-        *out = (unsigned char*)malloc(outsize);
+        *out = tvg::malloc<unsigned char>(outsize);
         if (!*out) state->error = 83; /*alloc fail*/
     }
     if (!state->error) {
         lodepng_memset(*out, 0, outsize);
         state->error = postProcessScanlines(*out, scanlines, *w, *h, &state->info_png);
     }
-    free(scanlines);
+    tvg::free(scanlines);
 }
 
 
@@ -2620,12 +2601,12 @@ unsigned lodepng_decode(unsigned char** out, unsigned* w, unsigned* h, LodePNGSt
         }
 
         outsize = lodepng_get_raw_size(*w, *h, &state->info_raw);
-        *out = (unsigned char*)malloc(outsize);
+        *out = tvg::malloc<unsigned char>(outsize);
         if (!(*out)) {
             state->error = 83; /*alloc fail*/
         }
         else state->error = lodepng_convert(*out, data, &state->info_raw, &state->info_png.color, *w, *h);
-        free(data);
+        tvg::free(data);
     }
     return state->error;
 }

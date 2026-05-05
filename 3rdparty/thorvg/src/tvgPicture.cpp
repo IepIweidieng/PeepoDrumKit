@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,116 +20,116 @@
  * SOFTWARE.
  */
 
-#include "tvgPictureImpl.h"
+#include "tvgPaint.h"
+#include "tvgPicture.h"
 
-/************************************************************************/
-/* External Class Implementation                                        */
-/************************************************************************/
+Picture::Picture() = default;
 
-Picture::Picture() : pImpl(new Impl)
+
+Picture* Picture::gen() noexcept
 {
-    Paint::pImpl->id = TVG_CLASS_ID_PICTURE;
-    Paint::pImpl->method(new PaintMethod<Picture::Impl>(pImpl));
+    return new PictureImpl;
 }
 
 
-Picture::~Picture()
+Type Picture::type() const noexcept
 {
-    delete(pImpl);
+    return Type::Picture;
 }
 
 
-unique_ptr<Picture> Picture::gen() noexcept
+Result Picture::load(const char* filename) noexcept
 {
-    return unique_ptr<Picture>(new Picture);
+#ifdef THORVG_FILE_IO_SUPPORT
+    if (!filename) return Result::InvalidArguments;
+    return to<PictureImpl>(this)->load(filename);
+#else
+    TVGLOG("RENDERER", "FILE IO is disabled!");
+    return Result::NonSupport;
+#endif
 }
 
 
-uint32_t Picture::identifier() noexcept
+Result Picture::load(const char* data, uint32_t size, const char* mimeType, const char* rpath, bool copy) noexcept
 {
-    return TVG_CLASS_ID_PICTURE;
+    return to<PictureImpl>(this)->load(data, size, mimeType, rpath, copy);
 }
 
 
-Result Picture::load(const std::string& path) noexcept
+Result Picture::load(const uint32_t* data, uint32_t w, uint32_t h, ColorSpace cs, bool copy) noexcept
 {
-    if (path.empty()) return Result::InvalidArguments;
-
-    return pImpl->load(path);
+    return to<PictureImpl>(this)->load(data, w, h, cs, copy);
 }
 
 
-Result Picture::load(const char* data, uint32_t size, const string& mimeType, bool copy) noexcept
+Result Picture::resolver(std::function<bool(Paint* paint, const char* src, void* data)> func, void* data) noexcept
 {
-    if (!data || size <= 0) return Result::InvalidArguments;
-
-    return pImpl->load(data, size, mimeType, copy);
-}
-
-
-TVG_DEPRECATED Result Picture::load(const char* data, uint32_t size, bool copy) noexcept
-{
-    return load(data, size, "", copy);
-}
-
-
-Result Picture::load(uint32_t* data, uint32_t w, uint32_t h, bool copy) noexcept
-{
-    if (!data || w <= 0 || h <= 0) return Result::InvalidArguments;
-
-    return pImpl->load(data, w, h, copy);
-}
-
-
-Result Picture::viewbox(float* x, float* y, float* w, float* h) const noexcept
-{
-    if (pImpl->viewbox(x, y, w, h)) return Result::Success;
-    return Result::InsufficientCondition;
+    return to<PictureImpl>(this)->set(func, data);
 }
 
 
 Result Picture::size(float w, float h) noexcept
 {
-    if (pImpl->size(w, h)) return Result::Success;
-    return Result::InsufficientCondition;
+    to<PictureImpl>(this)->size(w, h);
+    return Result::Success;
 }
 
 
 Result Picture::size(float* w, float* h) const noexcept
 {
-    if (!pImpl->loader) return Result::InsufficientCondition;
-    if (w) *w = pImpl->w;
-    if (h) *h = pImpl->h;
+    return to<PictureImpl>(this)->size(w, h);
+}
+
+
+Result Picture::origin(float x, float y) noexcept
+{
+    to<PictureImpl>(this)->origin = {x, y};
+    PAINT(this)->mark(RenderUpdateFlag::Transform);
     return Result::Success;
 }
 
 
-const uint32_t* Picture::data(uint32_t* w, uint32_t* h) const noexcept
+Result Picture::origin(float* x, float* y) const noexcept
 {
-    //Try it, If not loaded yet.
-    pImpl->reload();
+    if (x) *x = to<PictureImpl>(this)->origin.x;
+    if (y) *y = to<PictureImpl>(this)->origin.y;
+    return Result::Success;
+}
 
-    if (pImpl->loader) {
-        if (w) *w = static_cast<uint32_t>(pImpl->loader->w);
-        if (h) *h = static_cast<uint32_t>(pImpl->loader->h);
-    } else {
-        if (w) *w = 0;
-        if (h) *h = 0;
+
+const Paint* Picture::paint(uint32_t id) noexcept
+{
+    if (accessible) {
+        auto entity = to<PictureImpl>(this)->access(id);
+        return entity ? entity->paint : nullptr;
     }
-    if (pImpl->surface) return pImpl->surface->buffer;
-    else return nullptr;
+
+    // TODO: remove at thorvg v2 release (for backward compat)
+    struct Value
+    {
+        uint32_t id;
+        const Paint* ret;
+    } value = {id, nullptr};
+
+    auto cb = [](const tvg::Paint* paint, void* data) -> bool
+    {
+        auto p = static_cast<Value*>(data);
+        if (p->id == paint->id) {
+            p->ret = paint;
+            return false;
+        }
+        return true;
+    };
+
+    auto accessor = tvg::Accessor::gen();
+    accessor->set(this, cb, &value);
+    delete(accessor);
+
+    return value.ret;
 }
 
 
-Result Picture::mesh(const Polygon* triangles, const uint32_t triangleCnt) noexcept
+Result Picture::filter(FilterMethod method) noexcept
 {
-    if (pImpl->mesh(triangles, triangleCnt)) return Result::Success;
-    return Result::Unknown;
-}
-
-
-uint32_t Picture::mesh(const Polygon** triangles) const noexcept
-{
-    if (triangles) *triangles = pImpl->triangles;
-    return pImpl->triangleCnt;
+    return to<PictureImpl>(this)->filterMethod(method);
 }

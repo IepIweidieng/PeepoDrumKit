@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,35 +19,38 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #ifndef _TVG_TASK_SCHEDULER_H_
 #define _TVG_TASK_SCHEDULER_H_
 
-#include <mutex>
-#include <condition_variable>
 #include "tvgCommon.h"
+#include "tvgInlist.h"
 
-namespace tvg
-{
+#ifdef THORVG_THREAD_SUPPORT
+    #include <atomic>
+    #include <thread>
+    #include <mutex>
+    #include <condition_variable>
+#endif
 
-struct Task;
+namespace tvg {
 
-struct TaskScheduler
-{
-    static unsigned threads();
-    static void init(unsigned threads);
-    static void term();
-    static void request(Task* task);
-};
+
+#ifdef THORVG_THREAD_SUPPORT
+
+using ThreadID = std::thread::id;
 
 struct Task
 {
 private:
     mutex                   mtx;
     condition_variable      cv;
-    bool                    ready{true};
-    bool                    pending{false};
+    bool                    ready = true;
+    bool                    pending = false;
 
 public:
+    INLIST_ITEM(Task);
+
     virtual ~Task() = default;
 
     void done()
@@ -78,11 +81,42 @@ private:
         pending = true;
     }
 
-    friend class TaskSchedulerImpl;
+    friend struct TaskSchedulerImpl;
 };
 
+#else  //THORVG_THREAD_SUPPORT
+
+using ThreadID = uint8_t;
+
+struct Task
+{
+public:
+    INLIST_ITEM(Task);
+
+    virtual ~Task() = default;
+    void done() {}
+
+protected:
+    virtual void run(unsigned tid) = 0;
+
+private:
+    friend struct TaskSchedulerImpl;
+};
+
+#endif  //THORVG_THREAD_SUPPORT
 
 
-}
+struct TaskScheduler
+{
+    static uint32_t threads();
+    static void init(uint32_t threads);
+    static void term();
+    static void request(Task* task);
+    static bool onthread();  //figure out whether on worker thread or not
+    static ThreadID tid();
+};
+
+}  //namespace
 
 #endif //_TVG_TASK_SCHEDULER_H_
+ 

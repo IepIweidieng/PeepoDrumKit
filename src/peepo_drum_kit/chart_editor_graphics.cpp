@@ -1,8 +1,8 @@
 #include "chart_editor_graphics.h"
 #include "core_io.h"
-#include <thorvg/thorvg.h>
 #include <thread>
 #include <future>
+#include <thorvg/thorvg.h>
 
 // TODO: Use for packing texture atlases (?)
 // #include "imgui/3rdparty/imstb_rectpack.h"
@@ -21,95 +21,107 @@ namespace PeepoDrumKit
 	static constexpr i32 PerSideRasterizedTexPadding = 2;
 	static constexpr i32 CombinedRasterizedTexPadding = (PerSideRasterizedTexPadding * 2);
 
-	struct RasterizedBitmap { std::unique_ptr<u32[]> BGRA; ivec2 Resolution; };
-	struct SvgRasterizer
-	{
-		std::unique_ptr<tvg::SwCanvas> Canvas = nullptr;
+	struct SvgRasterizer::Impl {
+		tvg::SwCanvas* Canvas = nullptr;
 		tvg::Picture* PictureView = nullptr;
-		vec2 PictureSize = {};
-		f32 BaseScale;
 
-		void ParseSVG(std::string_view svgFileContent, f32 baseScale)
+		Impl::~Impl()
 		{
-			auto picture = tvg::Picture::gen();
-			picture->load(svgFileContent.data(), static_cast<u32>(svgFileContent.size()), "svg", false);
-			picture->size(&PictureSize.x, &PictureSize.y);
-			PictureSize *= baseScale;
-			BaseScale = baseScale;
-			PictureView = picture.get();
-
-			assert(Canvas == nullptr);
-			Canvas = tvg::SwCanvas::gen();
-			Canvas->push(std::move(picture));
-		}
-
-		void ParseFromPath(std::string imagePath, f32 baseScale)
-		{
-			auto picture = tvg::Picture::gen();
-			picture->load(imagePath);
-			picture->size(&PictureSize.x, &PictureSize.y);
-			PictureSize *= baseScale;
-			BaseScale = baseScale;
-			PictureView = picture.get();
-
-			assert(Canvas == nullptr);
-			Canvas = tvg::SwCanvas::gen();
-			Canvas->push(std::move(picture));
-		}
-
-
-		// TODO: Rasterize directly into final atlas using stride
-		RasterizedBitmap Rasterize(f32 scale)
-		{
-			const vec2 scaledPictureSize = (PictureSize * scale);
-			const ivec2 resolutionWithoutPadding = { static_cast<i32>(Ceil(scaledPictureSize.x)), static_cast<i32>(Ceil(scaledPictureSize.y)) };
-			const ivec2 resolution = resolutionWithoutPadding + ivec2(CombinedRasterizedTexPadding);
-			RasterizedBitmap out { std::make_unique<u32[]>(resolution.x * resolution.y), resolution };
-			if (resolutionWithoutPadding.x <= 0 || resolutionWithoutPadding.y <= 0)
-				return out;
-
-			const vec2 position = vec2(PerSideRasterizedTexPadding, PerSideRasterizedTexPadding);
-			PictureView->scale(scale * BaseScale);
-			PictureView->translate(position.x, position.y);
-
-			Canvas->target(out.BGRA.get(), resolution.x, resolution.x, resolution.y, tvg::SwCanvas::ARGB8888/*_STRAIGHT*/);
-			Canvas->update(PictureView);
-			Canvas->draw();
-			Canvas->sync();
-
-			if constexpr (PerSideRasterizedTexPadding > 0)
-			{
-				auto pixelAt = [&](i32 x, i32 y) -> u32& { return out.BGRA[(y * resolution.x) + x]; };
-				auto pixelAtWithoutPadding = [&](i32 x, i32 y) -> u32& { return pixelAt(x + PerSideRasterizedTexPadding, y + PerSideRasterizedTexPadding); };
-
-				for (i32 x = 0; x < PerSideRasterizedTexPadding; x++)
-					for (i32 y = 0; y < PerSideRasterizedTexPadding; y++) // NOTE: Top-left / bottom-left / top-right / bottom-right corner
-					{
-						const ivec2 tl = ivec2(x, y);
-						const ivec2 br = ivec2(x, y) + (resolutionWithoutPadding + ivec2(PerSideRasterizedTexPadding));
-						pixelAt(tl.x, tl.y) = pixelAtWithoutPadding(0, 0);
-						pixelAt(tl.x, br.y) = pixelAtWithoutPadding(0, resolutionWithoutPadding.y - 1);
-						pixelAt(br.x, tl.y) = pixelAtWithoutPadding(resolutionWithoutPadding.x - 1, 0);
-						pixelAt(br.x, br.y) = pixelAtWithoutPadding(resolutionWithoutPadding.x - 1, resolutionWithoutPadding.y - 1);
-					}
-
-				for (i32 y = 0; y < PerSideRasterizedTexPadding; y++)
-					for (i32 x = 0; x < resolutionWithoutPadding.x; x++) // NOTE: Top / bottom row
-					{
-						pixelAt(PerSideRasterizedTexPadding + x, y) = pixelAtWithoutPadding(x, 0);
-						pixelAt(PerSideRasterizedTexPadding + x, resolutionWithoutPadding.y + y + PerSideRasterizedTexPadding) = pixelAtWithoutPadding(x, resolutionWithoutPadding.y - 1);
-					}
-				for (i32 y = 0; y < resolutionWithoutPadding.y; y++)
-					for (i32 x = 0; x < PerSideRasterizedTexPadding; x++) // NOTE: Left / right row
-					{
-						pixelAt(x, PerSideRasterizedTexPadding + y) = pixelAtWithoutPadding(0, y);
-						pixelAt(resolutionWithoutPadding.x + x + PerSideRasterizedTexPadding, PerSideRasterizedTexPadding + y) = pixelAtWithoutPadding(resolutionWithoutPadding.x - 1, y);
-					}
+			if (Canvas != nullptr) {
+				Canvas->remove();
+				Canvas->~SwCanvas(); // PictureView freed by canvas
 			}
-
-			return out;
+			else if (PictureView != nullptr)
+				PictureView->unref();
 		}
 	};
+
+	SvgRasterizer::SvgRasterizer() : pImpl{ std::make_unique<Impl>() } { }
+	SvgRasterizer::~SvgRasterizer() = default;
+
+	static bool Parse(SvgRasterizer& rasterizer, std::function<tvg::Result(tvg::Picture*)> load, f32 baseScale)
+	{
+		auto* picture = tvg::Picture::gen();
+		if (load(picture) != tvg::Result::Success) {
+			picture->unref(true);
+			return false;
+		}
+
+		picture->size(&rasterizer.PictureSize.x, &rasterizer.PictureSize.y);
+		rasterizer.PictureSize *= baseScale;
+		rasterizer.BaseScale = baseScale;
+		rasterizer.pImpl->PictureView = picture;
+
+		assert(rasterizer.pImpl->Canvas == nullptr);
+		auto* canvas = rasterizer.pImpl->Canvas = tvg::SwCanvas::gen();
+		canvas->add(picture);
+		return true;
+	}
+
+	bool SvgRasterizer::ParseMemory(std::string_view svgFileContent, f32 baseScale)
+	{
+		return Parse(*this, { [&](tvg::Picture* picture) { return picture->load(svgFileContent.data(), static_cast<u32>(svgFileContent.size()), ""); } }, baseScale);
+	}
+
+	bool SvgRasterizer::ParseFromPath(std::string imagePath, f32 baseScale)
+	{
+		return Parse(*this, { [&](tvg::Picture* picture) { return picture->load(imagePath.c_str()); } }, baseScale);
+	}
+
+
+	// TODO: Rasterize directly into final atlas using stride
+	RasterizedBitmap SvgRasterizer::Rasterize(f32 scale)
+	{
+		const vec2 scaledPictureSize = (PictureSize * scale);
+		const ivec2 resolutionWithoutPadding = { static_cast<i32>(Ceil(scaledPictureSize.x)), static_cast<i32>(Ceil(scaledPictureSize.y)) };
+		const ivec2 resolution = resolutionWithoutPadding + ivec2(CombinedRasterizedTexPadding);
+		RasterizedBitmap out { std::make_unique<u32[]>(resolution.x * resolution.y), resolution };
+		if (resolutionWithoutPadding.x <= 0 || resolutionWithoutPadding.y <= 0)
+			return out;
+
+		const vec2 position = vec2(PerSideRasterizedTexPadding, PerSideRasterizedTexPadding);
+		auto* pictureView = pImpl->PictureView;
+		pictureView->scale(scale * BaseScale);
+		pictureView->translate(position.x, position.y);
+
+		auto* canvas = pImpl->Canvas;
+		canvas->target(out.BGRA.get(), resolution.x, resolution.x, resolution.y, tvg::ColorSpace::ARGB8888/*S*/);
+		canvas->update();
+		canvas->draw();
+		canvas->sync();
+
+		if constexpr (PerSideRasterizedTexPadding > 0)
+		{
+			auto pixelAt = [&](i32 x, i32 y) -> u32& { return out.BGRA[(y * resolution.x) + x]; };
+			auto pixelAtWithoutPadding = [&](i32 x, i32 y) -> u32& { return pixelAt(x + PerSideRasterizedTexPadding, y + PerSideRasterizedTexPadding); };
+
+			for (i32 x = 0; x < PerSideRasterizedTexPadding; x++)
+				for (i32 y = 0; y < PerSideRasterizedTexPadding; y++) // NOTE: Top-left / bottom-left / top-right / bottom-right corner
+				{
+					const ivec2 tl = ivec2(x, y);
+					const ivec2 br = ivec2(x, y) + (resolutionWithoutPadding + ivec2(PerSideRasterizedTexPadding));
+					pixelAt(tl.x, tl.y) = pixelAtWithoutPadding(0, 0);
+					pixelAt(tl.x, br.y) = pixelAtWithoutPadding(0, resolutionWithoutPadding.y - 1);
+					pixelAt(br.x, tl.y) = pixelAtWithoutPadding(resolutionWithoutPadding.x - 1, 0);
+					pixelAt(br.x, br.y) = pixelAtWithoutPadding(resolutionWithoutPadding.x - 1, resolutionWithoutPadding.y - 1);
+				}
+
+			for (i32 y = 0; y < PerSideRasterizedTexPadding; y++)
+				for (i32 x = 0; x < resolutionWithoutPadding.x; x++) // NOTE: Top / bottom row
+				{
+					pixelAt(PerSideRasterizedTexPadding + x, y) = pixelAtWithoutPadding(x, 0);
+					pixelAt(PerSideRasterizedTexPadding + x, resolutionWithoutPadding.y + y + PerSideRasterizedTexPadding) = pixelAtWithoutPadding(x, resolutionWithoutPadding.y - 1);
+				}
+			for (i32 y = 0; y < resolutionWithoutPadding.y; y++)
+				for (i32 x = 0; x < PerSideRasterizedTexPadding; x++) // NOTE: Left / right row
+				{
+					pixelAt(x, PerSideRasterizedTexPadding + y) = pixelAtWithoutPadding(0, y);
+					pixelAt(resolutionWithoutPadding.x + x + PerSideRasterizedTexPadding, PerSideRasterizedTexPadding + y) = pixelAtWithoutPadding(resolutionWithoutPadding.x - 1, y);
+				}
+		}
+
+		return out;
+	}
 
 	struct ChartGraphicsResources::OpaqueData
 	{
@@ -129,7 +141,7 @@ namespace PeepoDrumKit
 	ChartGraphicsResources::ChartGraphicsResources()
 	{
 		const u32 threadCount = static_cast<u32>(ClampBot(static_cast<i32>(std::thread::hardware_concurrency()) - 1, 0));
-		tvg::Initializer::init(tvg::CanvasEngine::Sw, threadCount);
+		tvg::Initializer::init(threadCount);
 
 		Data = std::make_unique<OpaqueData>();
 	}
@@ -158,7 +170,7 @@ namespace PeepoDrumKit
 					printf("Failed to read sprite file '%s'\n", it.FilePath);
 #endif
 
-				Data->PerSprSvg[EnumToIndex(it.Spr)].ParseSVG(fileContent.AsString(), (it.BaseScale != 0.0f) ? it.BaseScale : 1.0f);
+				Data->PerSprSvg[EnumToIndex(it.Spr)].ParseMemory(fileContent.AsString(), (it.BaseScale != 0.0f) ? it.BaseScale : 1.0f);
 			}
 		});
 	}
@@ -191,10 +203,7 @@ namespace PeepoDrumKit
 			if (GetSprGroup(static_cast<SprID>(sprIndex)) != group)
 				continue;
 
-			auto bitmap = Data->PerSprSvg[sprIndex].Rasterize(currentRasterScale);
-			Data->PerSprTexture[sprIndex].Unload();
-			if (bitmap.Resolution.x > 0 && bitmap.Resolution.y > 0)
-				Data->PerSprTexture[sprIndex].Load(CustomDraw::GPUTextureDesc { CustomDraw::GPUPixelFormat::BGRA, CustomDraw::GPUAccessType::Static, bitmap.Resolution, bitmap.BGRA.get() });
+			PeepoDrumKit::Rasterize(Data->PerSprSvg[sprIndex], Data->PerSprTexture[sprIndex], currentRasterScale);
 		}
 	}
 

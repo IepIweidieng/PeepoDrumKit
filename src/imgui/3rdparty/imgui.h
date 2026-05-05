@@ -2837,9 +2837,9 @@ struct ImGuiStoragePair
 {
     ImGuiID     key;
     union       { int val_i; float val_f; void* val_p; };
-    ImGuiStoragePair(ImGuiID _key, int _val)    { key = _key; val_i = _val; }
-    ImGuiStoragePair(ImGuiID _key, float _val)  { key = _key; val_f = _val; }
-    ImGuiStoragePair(ImGuiID _key, void* _val)  { key = _key; val_p = _val; }
+    ImGuiStoragePair(ImGuiID _key_mempool, int _val)    { key = _key_mempool; val_i = _val; }
+    ImGuiStoragePair(ImGuiID _key_mempool, float _val)  { key = _key_mempool; val_f = _val; }
+    ImGuiStoragePair(ImGuiID _key_mempool, void* _val)  { key = _key_mempool; val_p = _val; }
 };
 
 // Helper: Key->Value storage

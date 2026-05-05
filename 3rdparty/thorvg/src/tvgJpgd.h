@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2021 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,8 +20,6 @@
  * SOFTWARE.
  */
 
-// jpgd.h - C++ class for JPEG decompression.
-// Public domain, Rich Geldreich <richgel99@gmail.com>
 #ifndef _TVG_JPGD_H_
 #define _TVG_JPGD_H_
 
@@ -29,7 +27,7 @@ class jpeg_decoder;
 
 jpeg_decoder* jpgdHeader(const char* data, int size, int* width, int* height);
 jpeg_decoder* jpgdHeader(const char* filename, int* width, int* height);
-unsigned char* jpgdDecompress(jpeg_decoder* decoder);
+unsigned char* jpgdDecompress(jpeg_decoder* decoder, ColorSpace cs);
 void jpgdDelete(jpeg_decoder* decoder);
 
 #endif //_TVG_JPGD_H_

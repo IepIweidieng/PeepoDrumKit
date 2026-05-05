@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,30 +19,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef _TVG_BEZIER_H_
-#define _TVG_BEZIER_H_
 
-#include "tvgCommon.h"
+#ifndef _TVG_LOADER_MGR_H_
+#define _TVG_LOADER_MGR_H_
+
+#include "tvgLoader.h"
 
 namespace tvg
 {
 
-#define BEZIER_EPSILON 1e-4f
-
-struct Bezier
+struct LoaderMgr
 {
-    Point start;
-    Point ctrl1;
-    Point ctrl2;
-    Point end;
+    static bool init();
+    static bool term();
+    static Loader* loader(const char* filename, const LoaderOps* ops, bool* invalid);
+    static Loader* loader(const char* data, uint32_t size, const char* mimeType, const LoaderOps* ops, bool copy);
+    static Loader* loader(const uint32_t* data, uint32_t w, uint32_t h, ColorSpace cs, bool copy);
+    static Loader* loader(const char* name, const char* data, uint32_t size, const char* mimeType, const LoaderOps* ops, bool copy);
+    static Loader* font(const char* name);
+    static Loader* anyfont();
+    static bool retrieve(const char* filename);
+    static bool retrieve(Loader* loader);
 };
 
-void bezSplit(const Bezier&cur, Bezier& left, Bezier& right);
-float bezLength(const Bezier& cur);
-void bezSplitLeft(Bezier& cur, float at, Bezier& left);
-float bezAt(const Bezier& bz, float at);
-void bezSplitAt(const Bezier& cur, float at, Bezier& left, Bezier& right);
+}  // namespace tvg
 
-}
-
-#endif //_TVG_BEZIER_H_
+#endif  //_TVG_LOADER_MGR_H_

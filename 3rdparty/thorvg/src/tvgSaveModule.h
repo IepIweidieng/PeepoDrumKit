@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2021 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,20 +19,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #ifndef _TVG_SAVE_MODULE_H_
 #define _TVG_SAVE_MODULE_H_
 
-#include "tvgIteratorAccessor.h"
+#include "tvgCommon.h"
 
 namespace tvg
 {
 
-class SaveModule : public IteratorAccessor
+struct SaveModule
 {
-public:
     virtual ~SaveModule() {}
-
-    virtual bool save(Paint* paint, const string& path, bool compress) = 0;
+    virtual bool save(Paint* paint, Paint* bg, const char* filename, uint32_t quality) = 0;
+    virtual bool save(Animation* animation, Paint* bg, const char* filename, uint32_t quality, uint32_t fps) = 0;
     virtual bool close() = 0;
 };
 

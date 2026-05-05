@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,6 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #ifndef _TVG_SW_RENDERER_H_
 #define _TVG_SW_RENDERER_H_
 
@@ -32,49 +33,60 @@ struct SwMpool;
 namespace tvg
 {
 
-class SwRenderer : public RenderMethod
+struct SwRenderer : RenderMethod
 {
-public:
-    RenderData prepare(const Shape& shape, RenderData data, const RenderTransform* transform, uint32_t opacity, Array<RenderData>& clips, RenderUpdateFlag flags) override;
-    RenderData prepare(Surface* image, Polygon* triangles, uint32_t triangleCnt, RenderData data, const RenderTransform* transform, uint32_t opacity, Array<RenderData>& clips, RenderUpdateFlag flags) override;
+    //main features
+    bool preUpdate() override;
+    RenderData prepare(const RenderShape& rshape, RenderData data, const Matrix& transform, const Array<RenderData>& clips, uint8_t opacity, RenderUpdateFlag flags, bool clipper) override;
+    RenderData prepare(RenderSurface* surface, RenderData data, const Matrix& transform, const Array<RenderData>& clips, uint8_t opacity, FilterMethod filter, RenderUpdateFlag flags) override;
+    bool postUpdate() override;
     bool preRender() override;
     bool renderShape(RenderData data) override;
     bool renderImage(RenderData data) override;
-    bool renderImageMesh(RenderData data) override;
     bool postRender() override;
-    bool dispose(RenderData data) override;
+    void dispose(RenderData data) override;
     RenderRegion region(RenderData data) override;
-    RenderRegion viewport() override;
-    bool viewport(const RenderRegion& vp) override;
-
+    bool bounds(RenderData data, Point* pt4, const Matrix& m) override;
+    bool blend(BlendMethod method) override;
+    ColorSpace colorSpace() override;
+    const RenderSurface* mainSurface() override;
     bool clear() override;
     bool sync() override;
-    bool target(uint32_t* buffer, uint32_t stride, uint32_t w, uint32_t h, uint32_t cs);
-    bool mempool(bool shared);
+    bool intersectsShape(RenderData data, const RenderRegion& region) override;
+    bool intersectsImage(RenderData data, const RenderRegion& region) override;
+    bool target(pixel_t* data, uint32_t stride, uint32_t w, uint32_t h, ColorSpace cs);
 
-    Compositor* target(const RenderRegion& region) override;
-    bool beginComposite(Compositor* cmp, CompositeMethod method, uint32_t opacity) override;
-    bool endComposite(Compositor* cmp) override;
+    //composition
+    SwSurface* request(int channelSize, bool square);
+    RenderCompositor* target(const RenderRegion& region, ColorSpace cs, CompositionFlag flags) override;
+    bool beginComposite(RenderCompositor* cmp, MaskMethod method, uint8_t opacity) override;
+    bool endComposite(RenderCompositor* cmp) override;
     void clearCompositors();
 
-    static SwRenderer* gen();
-    static bool init(uint32_t threads);
-    static int32_t init();
+    //post effects
+    void prepare(RenderEffect* effect, const Matrix& transform) override;
+    bool region(RenderEffect* effect) override;
+    bool render(RenderCompositor* cmp, const RenderEffect* effect, bool direct) override;
+    void dispose(RenderEffect* effect) override;
+
+    //partial rendering
+    void damage(RenderData rd, const RenderRegion& region) override;
+    bool partial(bool disable) override;
+
+    SwRenderer(uint32_t threads, EngineOption op);
     static bool term();
 
 private:
     SwSurface*           surface = nullptr;           //active surface
     Array<SwTask*>       tasks;                       //async task list
     Array<SwSurface*>    compositors;                 //render targets cache list
-    SwMpool*             mpool;                       //private memory pool
-    RenderRegion         vport;                       //viewport
+    RenderDirtyRegion    dirtyRegion;                 //partial rendering support
+    SwMpool* mpool;                                   // designated memory pool
+    bool                 fulldraw = true;             //buffer is cleared (need to redraw full screen)
 
-    bool                 sharedMpool = true;          //memory-pool behavior policy
-
-    SwRenderer();
     ~SwRenderer();
 
-    RenderData prepareCommon(SwTask* task, const RenderTransform* transform, uint32_t opacity, const Array<RenderData>& clips, RenderUpdateFlag flags);
+    SwTask* prepareCommon(SwTask* task, const Matrix& transform, const Array<RenderData>& clips, uint8_t opacity, RenderUpdateFlag flags, bool ready);
 };
 
 }

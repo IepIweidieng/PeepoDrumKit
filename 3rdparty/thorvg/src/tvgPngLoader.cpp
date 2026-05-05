@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2021 - 2026 ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,6 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #include <memory.h>
 #include "tvgLoader.h"
 #include "tvgPngLoader.h"
@@ -28,34 +29,23 @@
 /* Internal Class Implementation                                        */
 /************************************************************************/
 
-
-static inline uint32_t PREMULTIPLY(uint32_t c)
+void PngLoader::run(unsigned tid)
 {
-    auto a = (c >> 24);
-    return (c & 0xff000000) + ((((c >> 8) & 0xff) * a) & 0xff00) + ((((c & 0x00ff00ff) * a) >> 8) & 0x00ff00ff);
-}
+    auto width = static_cast<unsigned>(w);
+    auto height = static_cast<unsigned>(h);
 
+    state.info_raw.colortype = LCT_RGBA;   //request this image format
 
-static void _premultiply(uint32_t* data, uint32_t w, uint32_t h)
-{
-    auto buffer = data;
-    for (uint32_t y = 0; y < h; ++y, buffer += w) {
-        auto src = buffer;
-        for (uint32_t x = 0; x < w; ++x, ++src) {
-            *src = PREMULTIPLY(*src);
-        }
+    if (lodepng_decode(&surface.buf8, &width, &height, &state, data, size)) {
+        TVGERR("PNG", "Failed to decode image");
     }
-}
 
-
-void PngLoader::clear()
-{
-    lodepng_state_cleanup(&state);
-
-    if (freeData) free(data);
-    data = nullptr;
-    size = 0;
-    freeData = false;
+    //setup the surface
+    surface.stride = width;
+    surface.w = width;
+    surface.h = height;
+    surface.cs = ColorSpace::ABGR8888S;
+    surface.channelSize = sizeof(uint32_t);
 }
 
 
@@ -63,7 +53,7 @@ void PngLoader::clear()
 /* External Class Implementation                                        */
 /************************************************************************/
 
-PngLoader::PngLoader()
+PngLoader::PngLoader() : ImageLoader(FileType::Png)
 {
     lodepng_state_init(&state);
 }
@@ -71,63 +61,37 @@ PngLoader::PngLoader()
 
 PngLoader::~PngLoader()
 {
-    if (freeData) free(data);
-    free(image);
+    done();
+    if (freeData) tvg::free(data);
+    tvg::free(surface.buf8);
+    lodepng_state_cleanup(&state);
 }
 
-
-bool PngLoader::open(const string& path)
+bool PngLoader::open(const char* path, TVG_UNUSED const LoaderOps* ops)
 {
-    clear();
-
-    auto pngFile = fopen(path.c_str(), "rb");
-    if (!pngFile) return false;
-
-    auto ret = false;
-
-    //determine size
-    if (fseek(pngFile, 0, SEEK_END) < 0) goto finalize;
-    if (((size = ftell(pngFile)) < 1)) goto finalize;
-    if (fseek(pngFile, 0, SEEK_SET)) goto finalize;
-
-    data = (unsigned char *) malloc(size);
-    if (!data) goto finalize;
-
-    freeData = true;
-
-    if (fread(data, size, 1, pngFile) < 1) goto failure;
+#ifdef THORVG_FILE_IO_SUPPORT
+    if (!(data = (unsigned char*)Loader::open(path, size))) return false;
 
     lodepng_state_init(&state);
 
     unsigned int width, height;
-    if (lodepng_inspect(&width, &height, &state, data, size) > 0) goto failure;
-
+    if (lodepng_inspect(&width, &height, &state, data, size) > 0) return false;
     w = static_cast<float>(width);
     h = static_cast<float>(height);
-    ret = true;
-
-    goto finalize;
-
-failure:
-    clear();
-
-finalize:
-    fclose(pngFile);
-    return ret;
+    freeData = true;
+    return true;
+#else
+    return false;
+#endif
 }
 
-
-bool PngLoader::open(const char* data, uint32_t size, bool copy)
+bool PngLoader::open(const char* data, uint32_t size, TVG_UNUSED const LoaderOps* ops, bool copy)
 {
-    clear();
-
-    lodepng_state_init(&state);
-
     unsigned int width, height;
     if (lodepng_inspect(&width, &height, &state, (unsigned char*)(data), size) > 0) return false;
 
     if (copy) {
-        this->data = (unsigned char *) malloc(size);
+        this->data = tvg::malloc<unsigned char>(size);
         if (!this->data) return false;
         memcpy((unsigned char *)this->data, data, size);
         freeData = true;
@@ -146,7 +110,9 @@ bool PngLoader::open(const char* data, uint32_t size, bool copy)
 
 bool PngLoader::read()
 {
-    if (!data || w <= 0 || h <= 0) return false;
+    if (!data || w == 0 || h == 0) return false;
+
+    if (!Loader::read()) return true;
 
     TaskScheduler::request(this);
 
@@ -154,41 +120,8 @@ bool PngLoader::read()
 }
 
 
-bool PngLoader::close()
+RenderSurface* PngLoader::bitmap()
 {
     this->done();
-    clear();
-    return true;
-}
-
-
-unique_ptr<Surface> PngLoader::bitmap()
-{
-    this->done();
-
-    if (!image) return nullptr;
-
-    auto surface = static_cast<Surface*>(malloc(sizeof(Surface)));
-    surface->buffer = (uint32_t*)(image);
-    surface->stride = static_cast<uint32_t>(w);
-    surface->w = static_cast<uint32_t>(w);
-    surface->h = static_cast<uint32_t>(h);
-    surface->cs = SwCanvas::ARGB8888;
-
-    return unique_ptr<Surface>(surface);
-}
-
-
-void PngLoader::run(unsigned tid)
-{
-    if (image) {
-        free(image);
-        image = nullptr;
-    }
-    auto width = static_cast<unsigned>(w);
-    auto height = static_cast<unsigned>(h);
-
-    lodepng_decode(&image, &width, &height, &state, data, size);
-
-    _premultiply((uint32_t*)(image), width, height);
+    return ImageLoader::bitmap();
 }
