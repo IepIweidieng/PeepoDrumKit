@@ -145,8 +145,8 @@ namespace PeepoDrumKit
 		{ SprID::Game_NoteTxt_Fuse,					SprGroup::Game, u8"assets/graphics/game_note_txt_fuse.svg" },
 		{ SprID::Game_Lane_GogoFire,				SprGroup::Game, u8"assets/graphics/game_lane_gogo_fire.svg" },
 		// TODO: ...
-		{ SprID::Game_Font_Numerical,				SprGroup::Game, u8"assets/graphics/game_font_numerical.svg", 0.5f },
-		{ SprID::Game_Font_Combo,					SprGroup::Game, u8"assets/graphics/game_combo_numerical.png" },
+		{ SprID::Game_Font_Numerical,				SprGroup::Game, u8"assets/graphics/game_font_numerical.svg" },
+		{ SprID::Game_Font_Combo,					SprGroup::Game, u8"assets/graphics/game_combo_numerical.png", 1.5f }, // maximum GameComboDisplay scale
 	};
 
 	constexpr SprGroup GetSprGroup(SprID spr) { return (spr < SprID::Count) ? SprDescTable[EnumToIndex(spr)].Group : SprGroup::Count; }

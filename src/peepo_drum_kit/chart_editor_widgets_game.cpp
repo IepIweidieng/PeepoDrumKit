@@ -340,7 +340,7 @@ namespace PeepoDrumKit
 	{
 		// TODO: Make more generic by taking in an array of glyph rects as lookup table (?)
 		static constexpr std::string_view sprFontNumericalCharSet = "0123456789+-./%";
-		static constexpr f32 advanceX = 13.0f;
+		static constexpr f32 advanceX = 26.0f;
 		const SprInfo sprInfo = gfx.GetInfo(SprID::Game_Font_Numerical);
 		const vec2 perCharSprSize = vec2(sprInfo.SourceSize.x, sprInfo.SourceSize.y / static_cast<f32>(sprFontNumericalCharSet.size()));
 
@@ -830,7 +830,7 @@ namespace PeepoDrumKit
 					drawList->AddLine(Camera.WorldToScreenSpace(tl), Camera.WorldToScreenSpace(br), GameLaneBarLineColor, Camera.WorldToScreenScale(GameLaneBarLineThickness));
 
 					char barLineStr[32];
-					DrawGamePreviewNumericText(context.Gfx, Camera, drawList, SprTransform::FromTL(tl + vec2(5.0f, 1.0f), vec2(1.0f)),
+					DrawGamePreviewNumericText(context.Gfx, Camera, drawList, SprTransform::FromTL(tl + vec2(5.0f, 1.0f), vec2(0.5f)),
 						std::string_view(barLineStr, sprintf_s(barLineStr, "%d", it.BarIndex)));
 				}
 			});
@@ -994,7 +994,7 @@ namespace PeepoDrumKit
 						DrawGamePreviewNoteSEText(context.Gfx, Camera, drawList, Camera.LaneToWorldSpace(headPos.x, headPos.y), {}, it->Tempo, it->ScrollSpeed, it->OriginalNote->TempSEType, it->HasHead || afterHit, it->HasEnd, it->HasBody);
 						if (afterHit) {
 							drawList->ChannelsSetCurrent(4);
-							DrawGamePreviewNumericText(context.Gfx, Camera, drawList, SprTransform::FromCenter(Camera.LaneToWorldSpace(headPos.x, headPos.y), vec2(2)),
+							DrawGamePreviewNumericText(context.Gfx, Camera, drawList, SprTransform::FromCenter(Camera.LaneToWorldSpace(headPos.x, headPos.y)),
 								std::to_string(it->OriginalNote->BalloonPopCount).c_str(), 0xFFFFFFFF);
 							balloonPopCountDrawn = true;
 							drawList->ChannelsSetCurrent(3);
@@ -1077,6 +1077,7 @@ namespace PeepoDrumKit
 				{
 					constexpr std::string_view sprFontComboCharSet = "0123456789";
 					constexpr size_t sprFontComboCharCount = sprFontComboCharSet.size();
+					constexpr f32 sprBaseScale = SprDescTable[EnumToIndex(SprID::Game_Font_Combo)].BaseScale;
 					const SprInfo sprInfo = context.Gfx.GetInfo(SprID::Game_Font_Combo);
 					const vec2 digitSrcSize = vec2(sprInfo.SourceSize.x / f32{ sprFontComboCharCount }, sprInfo.SourceSize.y);
 					const f32 sheetW = sprInfo.SourceSize.x;
@@ -1085,7 +1086,7 @@ namespace PeepoDrumKit
 					const i32 comboLen = sprintf_s(comboStr, "%d", static_cast<i32>(lastHitNote->TempComboCount));
 
 					const auto& display = GetGameComboDisplay(nLanes);
-					const f32 digitScale = Camera.WorldToScreenScaleFactor * display.DigitScale;
+					const f32 digitScale = Camera.WorldToScreenScaleFactor * display.DigitScale / sprBaseScale;
 					const vec2 digitSize = digitSrcSize * digitScale;
 
 					const vec2 padding = vec2{ display.PaddingX, display.PaddingY } * digitScale;
