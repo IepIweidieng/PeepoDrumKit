@@ -676,7 +676,7 @@ namespace PeepoDrumKit
 		drawList->ChannelsSetCurrent(0);
 
 		// jacket background
-		Rect windowClipRect = { drawList->GetClipRectMin(), drawList->GetClipRectMax() };
+		const Rect windowClipRect = { drawList->GetClipRectMin(), drawList->GetClipRectMax() };
 		vec2 jacketSize = context.JacketTexture.GetSizeF32();
 		auto [jacketBoundRect, jacketDrawRect] = FitInside(jacketSize, Rect::FromTLSize({}, jacketSize), Camera.ScreenSpaceViewportRect, EFitInside::Cover);
 		Rect jacketUV = { jacketDrawRect.TL / jacketSize, jacketDrawRect.BR / jacketSize };
@@ -837,9 +837,9 @@ namespace PeepoDrumKit
 			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
 			if (gogoFireZoom > 0) {
 				// first draw outside frame space (obscured by left border), second draw only above left border
-				for (const auto& [chan, clipRect] : { std::tuple{ 1, windowClipRect }, std::tuple{ 4, stdLaneLeftRect } }) {
+				for (const auto& [chan, clipRect, intersect] : { std::tuple{ 1, windowClipRect, false }, std::tuple{ 4, stdLaneLeftRect, true } }) {
 					drawList->ChannelsSetCurrent(chan);
-					drawList->PushClipRect(clipRect.TL, clipRect.BR);
+					drawList->PushClipRect(clipRect.TL, clipRect.BR, intersect);
 					context.Gfx.DrawSprite(drawList, SprID::Game_Lane_GogoFire,
 						SprTransform::FromCenter(hitCirclePos, vec2(Camera.WorldToScreenScale(gogoFireZoom))),
 						Gui::ColorU32WithAlpha(0xFFFFFFFF, gogoFireAlpha));
