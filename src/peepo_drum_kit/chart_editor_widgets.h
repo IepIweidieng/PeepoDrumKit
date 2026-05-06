@@ -141,6 +141,9 @@ namespace PeepoDrumKit
 
 	struct GameCamera
 	{
+		static constexpr f32 JPosMoveCoordHeight = 720.0f;
+		static constexpr f32 ScaleFrom720p = 1080 / 720.0f;
+
 		Rect ScreenSpaceViewportRect {};
 		f32 WorldToScreenScaleFactor = 1.0f;
 		vec2 WorldSpaceSize {};
@@ -155,10 +158,8 @@ namespace PeepoDrumKit
 
 		constexpr vec2 JPOSScrollToLaneSpace(const vec2& jPosCoord, f64 pxJPosDistance) const
 		{
-			constexpr f32 jposMoveCoordHeight = 720.0f;
-			constexpr f32 scaleFrom720p = 1080 / 720.0f;
-			f32 coordRatio = GameWorldStandardHeight / jposMoveCoordHeight;
-			f32 simulatorRatio = GameLaneStandardWidth / (pxJPosDistance * scaleFrom720p);
+			f32 coordRatio = GameWorldStandardHeight / JPosMoveCoordHeight;
+			f32 simulatorRatio = GameLaneStandardWidth / (pxJPosDistance * ScaleFrom720p);
 			return jPosCoord * coordRatio * simulatorRatio;
 		}
 
@@ -263,11 +264,20 @@ namespace PeepoDrumKit
 	{
 		GameCamera Camera = {};
 
-		struct DeferredNoteDrawData {
-			vec2 LaneHead, LaneTail;
-			Tempo Tempo; Complex ScrollSpeed;
+		struct NoteAttr {
+			Beat Beat;
+			Time Time;
+			Tempo Tempo;
+			Complex ScrollSpeed;
+			Complex ScrollSpeedView;
+			ScrollMethod ScrollType;
+			TJA::SuddenParams Sudden;
+		};
+
+		struct DeferredNoteDrawData : NoteAttr {
 			const Note* OriginalNote;
-			Time NoteStartTime, NoteEndTime;
+			NoteAttr Tail;
+			vec2 LaneHead, LaneTail;
 			b8 HasHead, HasEnd, HasBody;
 		};
 		std::vector<DeferredNoteDrawData> ReverseNoteDrawBuffer;

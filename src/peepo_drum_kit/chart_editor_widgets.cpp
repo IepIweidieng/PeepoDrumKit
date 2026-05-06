@@ -583,6 +583,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Migrate to ThorVG 1.0.4 and fix ABGR image loading problems");
 					Gui::TextUnformatted(u8"- Fix blurry balloon pop count text");
 					Gui::TextUnformatted(u8"- Allow use any of .svg, .png, .jpg & .jpeg for sprite image files");
+					Gui::TextUnformatted(u8"- Add hitbox around selected note and show display attributes if hovered in Game Preview");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();

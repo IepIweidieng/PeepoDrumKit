@@ -652,6 +652,8 @@ constexpr std::pair<T, T> ConvertRangeInterval(S oldStart, S oldEnd, T newStart,
 	};
 };
 
+constexpr Rect Intersect(const Rect& a, const Rect& b) { return Rect{ Max(a.TL, b.TL), Min(a.BR, b.BR) }; }
+
 constexpr void AnimateExponentialF32(f32* inOutCurrent, f32 target, f32 animationSpeed, f32 deltaTime)
 {
 	// NOTE: If no time elapsed then no animation should take place

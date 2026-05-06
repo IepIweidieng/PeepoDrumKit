@@ -124,4 +124,35 @@ namespace ASCII
 		in >> out;
 		return static_cast<bool>(in); // allow eof, reject fail & bad
 	}
+
+	constexpr size_t MaxToStringSize = 256;
+
+	template <typename T>
+	constexpr std::string ToStringPrimitive(const T& in)
+	{
+		std::string string;
+		for (size_t size = 8;;) {
+			string.resize(size);
+			const std::to_chars_result result = std::to_chars(string.data(), string.data() + string.size(), in);
+			if (result.ec == std::errc::value_too_large && size < MaxToStringSize) {
+				size *= 2;
+				continue;
+			}
+			if (result.ec == std::errc{})
+				string.resize(result.ptr - string.data());
+			else
+				string = ""; // empty for error
+			break;
+		}
+
+		return string;
+	}
+
+	std::string ToString(const u32& in) { return ToStringPrimitive(in); }
+	std::string ToString(const i32& in) { return ToStringPrimitive(in); }
+	std::string ToString(const u64& in) { return ToStringPrimitive(in); }
+	std::string ToString(const i64& in) { return ToStringPrimitive(in); }
+	std::string ToString(const f32& in) { return ToStringPrimitive(in); }
+	std::string ToString(const f64& in) { return ToStringPrimitive(in); }
+	std::string ToString(const Complex& in) { return in.toStringCompat(); }
 }

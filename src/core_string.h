@@ -178,6 +178,14 @@ namespace ASCII
 	b8 TryParse(std::string_view string, f64& out);
 	b8 TryParse(std::string_view string, Complex& out);
 
+	std::string ToString(const u32& in);
+	std::string ToString(const i32& in);
+	std::string ToString(const u64& in);
+	std::string ToString(const i64& in);
+	std::string ToString(const f32& in);
+	std::string ToString(const f64& in);
+	std::string ToString(const Complex& in);
+
 	// https://stackoverflow.com/questions/7035825/regular-expression-for-a-language-tag-as-defined-by-bcp47
 #define IETF_ "_" // delim
 #define IETF_REGULAR "(art" IETF_ "lojban|cel" IETF_ "gaulish|no" IETF_ "bok|no" IETF_ "nyn|zh" IETF_ "guoyu|zh" IETF_ "hakka|zh" IETF_ "min|zh" IETF_ "min" IETF_ "nan|zh" IETF_ "xiang)"

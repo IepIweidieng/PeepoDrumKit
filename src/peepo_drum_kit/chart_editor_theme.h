@@ -56,6 +56,9 @@ namespace PeepoDrumKit
 	} GameComboDisplay, GameComboDisplay3UpLanes = { 1, -14.0f, 90.0f };
 	constexpr const decltype(GameComboDisplay)& GetGameComboDisplay(i32 nLanes) { return (nLanes > 2) ? GameComboDisplay3UpLanes : GameComboDisplay; }
 
+	inline f32 GameSelectedNoteHitBoxSizeSmall = ((GameHitCircle.InnerOutlineRadius + 8) * 2.0f) + 2.0f;
+	inline f32 GameSelectedNoteHitBoxSizeBig = ((GameHitCircle.OuterOutlineRadius + 8) * 2.0f) + 2.0f;
+
 	inline u32 DragTextHoveredColor = 0xFFBCDDDB;
 	inline u32 DragTextActiveColor = 0xFFC3F5F2;
 	inline u32 InputTextWarningTextColor = 0xFF4C4CFF;

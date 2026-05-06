@@ -223,6 +223,19 @@ namespace PeepoDrumKit
 		Count
 	};
 
+	constexpr static std::string_view ToI18nString(ScrollMethod method) {
+		switch (method)
+		{
+		case ScrollMethod::HBSCROLL:
+			return "SCROLL_TYPE_HBSCROLL";
+		case ScrollMethod::BMSCROLL:
+			return "SCROLL_TYPE_BMSCROLL";
+		case ScrollMethod::NMSCROLL:
+		default:
+			return "SCROLL_TYPE_NMSCROLL";
+		}
+	}
+
 	constexpr std::string_view PluralSuffixDefault = "s"; // unfortunately cannot just pass the string literal for now
 
 	template <typename TEvent>
@@ -300,18 +313,6 @@ namespace PeepoDrumKit
 		ScrollMethod Method;
 		b8 IsSelected;
 
-		std::string Method_ToString() const {
-			switch (Method)
-			{
-				case ScrollMethod::HBSCROLL:
-					return "HBSCROLL";
-				case ScrollMethod::BMSCROLL:
-					return "BMSCROLL";
-				case ScrollMethod::NMSCROLL:
-				default:
-					return "Normal";
-			}
-		}
 	};
 	template <> constexpr std::string_view DisplayNameOfChartEvent<ScrollType> = "Scroll Type";
 
@@ -407,6 +408,8 @@ namespace PeepoDrumKit
 	using SortedScrollTypesList = BeatSortedList<ScrollType>;
 
 	constexpr Tempo ScrollSpeedToTempo(f32 scrollSpeed, Tempo baseTempo) { return Tempo(scrollSpeed * baseTempo.BPM); }
+	constexpr f32 ScrollSpeedToBPM(f32 scrollSpeed, Tempo baseTempo) { return ScrollSpeedToTempo(scrollSpeed, baseTempo).BPM; }
+	constexpr Complex ScrollSpeedToBPM(Complex scrollSpeed, Tempo baseTempo) { return Complex(ScrollSpeedToBPM(scrollSpeed.GetRealPart(), baseTempo), ScrollSpeedToBPM(scrollSpeed.GetImaginaryPart(), baseTempo)); }
 	constexpr f32 ScrollTempoToSpeed(Tempo scrollTempo, Tempo baseTempo) { return (baseTempo.BPM == 0.0f) ? 0.0f : (scrollTempo.BPM / baseTempo.BPM); }
 
 	constexpr b8 VisibleOrDefault(const BarLineChange* v) { return (v == nullptr) ? true : v->IsVisible; }
