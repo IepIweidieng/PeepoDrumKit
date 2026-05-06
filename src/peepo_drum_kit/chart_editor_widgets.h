@@ -156,6 +156,8 @@ namespace PeepoDrumKit
 		constexpr vec2 WorldToScreenScale(vec2 worldScale) const { return worldScale * WorldToScreenScaleFactor; }
 		constexpr vec2 WorldToScreenSpace(vec2 worldSpace) const { return ScreenSpaceViewportRect.TL + (worldSpace * WorldToScreenScaleFactor); }
 
+		constexpr vec2 ScreenToWorldSpace(vec2 screenSpace) const { return (screenSpace - ScreenSpaceViewportRect.TL) / WorldToScreenScaleFactor; }
+
 		constexpr vec2 JPOSScrollToLaneSpace(const vec2& jPosCoord, f64 pxJPosDistance) const
 		{
 			f32 coordRatio = GameWorldStandardHeight / JPosMoveCoordHeight;
@@ -256,6 +258,8 @@ namespace PeepoDrumKit
 		constexpr vec2 LaneToWorldSpace(f32 laneX, f32 laneY) const { return (LaneRect.TL + GameHitCircle.Center + vec2(laneX, laneY)); }
 		constexpr vec2 LaneToScreenSpace(const vec2& laneCoord) const { return WorldToScreenSpace(LaneToWorldSpace(laneCoord.x, laneCoord.y)); }
 
+		constexpr vec2 WorldToLaneSpace(f32 worldX, f32 worldY) const { return vec2(worldX, worldY) - GameHitCircle.Center - LaneRect.TL; }
+
 		constexpr b8 IsPointVisibleOnLane(f32 laneX, f32 threshold = 280.0f) const { return (laneX >= -threshold) && (laneX <= (LaneWidth() + threshold)); }
 		constexpr b8 IsRangeVisibleOnLane(f32 laneHeadX, f32 laneTailX, f32 threshold = 280.0f) const { return (laneTailX >= -threshold) && (laneHeadX <= (LaneWidth() + threshold)); }
 	};
@@ -275,7 +279,7 @@ namespace PeepoDrumKit
 		};
 
 		struct DeferredNoteDrawData : NoteAttr {
-			const Note* OriginalNote;
+			Note* OriginalNote;
 			NoteAttr Tail;
 			vec2 LaneHead, LaneTail;
 			b8 HasHead, HasEnd, HasBody;
@@ -283,6 +287,9 @@ namespace PeepoDrumKit
 		std::vector<DeferredNoteDrawData> ReverseNoteDrawBuffer;
 
 		b8 IsAnyChildWindowFocused = false;
+
+		using BoxSelectionAction = ChartTimeline::BoxSelectionAction;
+		ChartTimeline::BoxSelectionData BoxSelection = {};
 
 	public:
 		b8 HasKeyboardFocus() const { return IsAnyChildWindowFocused; }

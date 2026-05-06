@@ -34,6 +34,22 @@ namespace PeepoDrumKit
 		// NOTE: Specifically to skip hit animations for notes before this time point
 		Time CursorTimeOnPlaybackStart = Time::Zero();
 
+		struct RangeSelectionData
+		{
+			Beat Start, End;
+			b8 HasEnd;
+			b8 IsActive;
+			inline b8 IsActiveAndHasEnd() const { return (IsActive && HasEnd); }
+			inline Beat GetMin() const { return ClampBot(Min(Start, End), Beat::Zero()); }
+			inline Beat GetMax() const { return ClampBot(Max(Start, End), Beat::Zero()); }
+			Beat GetDuration() const { return GetMax() - GetMin(); }
+		} RangeSelection = {};
+
+		Time GetRangeSelectionDuration() const
+		{
+			return BeatToTime(RangeSelection.GetMax()) - BeatToTime(RangeSelection.GetMin());
+		}
+
 		// NOTE: Specifically for animations, accumulated program delta time, unrelated to GetCursorTime() etc.
 		Time ElapsedProgramTimeSincePlaybackStarted = Time::Zero();
 		Time ElapsedProgramTimeSincePlaybackStopped = Time::Zero();

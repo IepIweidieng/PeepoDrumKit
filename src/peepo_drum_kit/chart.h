@@ -460,20 +460,20 @@ namespace PeepoDrumKit
 		inline auto& GetNotes(BranchType branch) { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
 		inline auto& GetNotes(BranchType branch) const { assert(branch < BranchType::Count); return (&Notes_Normal)[EnumToIndex(branch)]; }
 
-		void RecalculateNoteStates() const
+		void RecalculateNoteStates()
 		{
 			for (BranchType branch = BranchType::Normal; branch < BranchType::Count; IncrementEnum(branch))
 				RecalculateNoteStates(branch);
 		}
 
-		void RecalculateNoteStates(BranchType branch) const
+		void RecalculateNoteStates(BranchType branch)
 		{
 			RecalculateSENotes(branch);
 			RecalculateComboCounts(branch);
 		}
 
-		void RecalculateSENotes(BranchType branch) const; // implemented in chart_editor_widgets_game.cpp
-		void RecalculateComboCounts(BranchType branch) const; // implemented in chart_editor_widgets_game.cpp
+		void RecalculateSENotes(BranchType branch); // implemented in chart_editor_widgets_game.cpp
+		void RecalculateComboCounts(BranchType branch); // implemented in chart_editor_widgets_game.cpp
 	};
 
 	Beat FindCourseMaxUsedBeat(const ChartCourse& course);

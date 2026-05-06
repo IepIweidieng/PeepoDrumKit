@@ -583,7 +583,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Migrate to ThorVG 1.0.4 and fix ABGR image loading problems");
 					Gui::TextUnformatted(u8"- Fix blurry balloon pop count text");
 					Gui::TextUnformatted(u8"- Allow use any of .svg, .png, .jpg & .jpeg for sprite image files");
-					Gui::TextUnformatted(u8"- Add hitbox around selected note and show display attributes if hovered in Game Preview");
+					Gui::TextUnformatted(u8"- Add box selection, hitbox around selected note, & note attributes display when hovered in Game Preview");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
@@ -1365,9 +1365,9 @@ namespace PeepoDrumKit
 		return [&](Gui::InputScalarWithButtonsResult* result, auto type, MultiEditDataUnion* v)
 		{
 			Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
-			Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
+			Gui::BeginDisabled(!context.RangeSelection.IsActiveAndHasEnd());
 			if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
-				v->F32 = timeline.GetRangeSelectionDuration(context).ToSec_F32();
+				v->F32 = context.GetRangeSelectionDuration().ToSec_F32();
 				result->ValueChanged = true;
 			}
 			Gui::EndDisabled();
@@ -1900,9 +1900,9 @@ namespace PeepoDrumKit
 							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), [&](Gui::InputScalarWithButtonsResult* result, auto type, MultiEditDataUnion* v)
 							{
 								Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
-								Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
+								Gui::BeginDisabled(!context.RangeSelection.IsActiveAndHasEnd());
 								if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
-									v->F32 = timeline.GetRangeSelectionDuration(context).ToMS_F32();
+									v->F32 = context.GetRangeSelectionDuration().ToMS_F32();
 									result->ValueChanged = true;
 								}
 								Gui::EndDisabled();
@@ -2052,9 +2052,9 @@ namespace PeepoDrumKit
 							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), [&](Gui::InputScalarWithButtonsResult* result, auto type, MultiEditDataUnion* v)
 							{
 								Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
-								Gui::BeginDisabled(!timeline.RangeSelection.IsActiveAndHasEnd());
+								Gui::BeginDisabled(!context.RangeSelection.IsActiveAndHasEnd());
 								if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
-									auto timeSig = TimeSignature(timeline.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4);
+									auto timeSig = TimeSignature(context.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4);
 									v->I32_V[0] = timeSig.Numerator;
 									v->I32_V[1] = timeSig.Denominator;
 									result->ValueChanged = true;
@@ -2631,7 +2631,7 @@ namespace PeepoDrumKit
 				{
 					const TimeSignatureChange* signatureChangeAtCursor = course.TempoMap.Signature.TryFindLastAtBeat(cursorBeat);
 					const TimeSignature signatureAtCursor = (signatureChangeAtCursor != nullptr) ? signatureChangeAtCursor->Signature : FallbackEvent<TimeSignatureChange>.Signature;
-					const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
+					const b8 hasRangeSelection = context.RangeSelection.IsActiveAndHasEnd();
 					auto insertOrUpdateCursorSignatureChange = [&](TimeSignature newSignature)
 					{
 						// TODO: Also floor cursor beat to next whole bar (?)
@@ -2655,7 +2655,7 @@ namespace PeepoDrumKit
 					Gui::BeginDisabled(!hasRangeSelection);
 					if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 					{
-						insertOrUpdateCursorSignatureChange(TimeSignature(timeline.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4));
+						insertOrUpdateCursorSignatureChange(TimeSignature(context.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4));
 					}
 					Gui::EndDisabled();
 					if (!disallowRemoveButton && signatureChangeAtCursor != nullptr && signatureChangeAtCursor->Beat == cursorBeat)
@@ -2841,7 +2841,7 @@ namespace PeepoDrumKit
 					});
 				Gui::Property::Value([&]
 					{
-						const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
+						const b8 hasRangeSelection = context.RangeSelection.IsActiveAndHasEnd();
 
 						Gui::BeginDisabled(disableEditingAtPlayCursor);
 						Gui::SetNextItemWidth(-1.0f); Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
@@ -2878,7 +2878,7 @@ namespace PeepoDrumKit
 						if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						{
 							insertOrUpdateCursorJPOSScrollChange(
-								JPOSScrollMoveAtCursor, Clamp(timeline.GetRangeSelectionDuration(context).ToSec_F32(), MinJPOSScrollDuration, MaxJPOSScrollDuration)
+								JPOSScrollMoveAtCursor, Clamp(context.GetRangeSelectionDuration().ToSec_F32(), MinJPOSScrollDuration, MaxJPOSScrollDuration)
 							);
 						}
 						Gui::EndDisabled();
@@ -2927,7 +2927,7 @@ namespace PeepoDrumKit
 				});
 				Gui::Property::Value([&]
 				{
-					const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
+					const b8 hasRangeSelection = context.RangeSelection.IsActiveAndHasEnd();
 
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 
@@ -2944,7 +2944,7 @@ namespace PeepoDrumKit
 					if (SpriteButton((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenAppearanceOffsetSetFromRange")).c_str(),
 						context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })
 						) {
-						insertOrUpdateCursorSudden(timeline.GetRangeSelectionDuration(context), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
+						insertOrUpdateCursorSudden(context.GetRangeSelectionDuration(), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					}
 					Gui::EndDisabled();
 					Gui::PopID();
@@ -2962,7 +2962,7 @@ namespace PeepoDrumKit
 					if (SpriteButton((UI_Str("ACT_EVENT_SET_FROM_RANGE_SELECTION") + std::string("##SuddenMovementOffsetSetFromRange")).c_str(),
 						context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })
 						) {
-						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, timeline.GetRangeSelectionDuration(context), SuddenHideRollAtCursor);
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, context.GetRangeSelectionDuration(), SuddenHideRollAtCursor);
 					}
 					Gui::EndDisabled();
 					Gui::PopID();
@@ -2996,14 +2996,14 @@ namespace PeepoDrumKit
 				Gui::Property::PropertyTextValueFunc(UI_Str("EVENT_GO_GO_TIME"), [&]
 				{
 					const GoGoRange* gogoRangeAtCursor = course.GoGoRanges.TryFindOverlappingBeat(cursorBeat, cursorBeat);
-					const b8 hasRangeSelection = timeline.RangeSelection.IsActiveAndHasEnd();
+					const b8 hasRangeSelection = context.RangeSelection.IsActiveAndHasEnd();
 
 					Gui::PushID(&course.GoGoRanges);
 					Gui::BeginDisabled(!hasRangeSelection);
 					if (Gui::Button(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), { getInsertButtonWidth(), 0.0f }))
 					{
-						const Beat rangeSelectionMin = timeline.RangeSelection.GetMin();
-						const Beat rangeSelectionMax = timeline.RangeSelection.GetMax();
+						const Beat rangeSelectionMin = context.RangeSelection.GetMin();
+						const Beat rangeSelectionMax = context.RangeSelection.GetMax();
 						auto gogoIntersectsSelection = [&](const GoGoRange& gogo) { return (gogo.GetStart() < rangeSelectionMax) && (gogo.GetEnd() > rangeSelectionMin); };
 
 						// TODO: Try to shorten/move intersecting gogo ranges instead of removing them outright

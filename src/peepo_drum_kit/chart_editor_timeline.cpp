@@ -1141,20 +1141,20 @@ namespace PeepoDrumKit
 
 	void ChartTimeline::StartEndRangeSelectionAtCursor(ChartContext& context)
 	{
-		if (!RangeSelection.IsActive || RangeSelection.HasEnd)
+		if (!context.RangeSelection.IsActive || context.RangeSelection.HasEnd)
 		{
-			RangeSelection.Start = RangeSelection.End = RoundBeatToCurrentGrid(context.GetCursorBeat());
-			RangeSelection.HasEnd = false;
-			RangeSelection.IsActive = true;
+			context.RangeSelection.Start = context.RangeSelection.End = RoundBeatToCurrentGrid(context.GetCursorBeat());
+			context.RangeSelection.HasEnd = false;
+			context.RangeSelection.IsActive = true;
 			RangeSelectionExpansionAnimationTarget = 0.0f;
 		}
 		else
 		{
-			RangeSelection.End = RoundBeatToCurrentGrid(context.GetCursorBeat());
-			RangeSelection.HasEnd = true;
+			context.RangeSelection.End = RoundBeatToCurrentGrid(context.GetCursorBeat());
+			context.RangeSelection.HasEnd = true;
 			RangeSelectionExpansionAnimationTarget = 1.0f;
-			if (RangeSelection.End == RangeSelection.Start)
-				RangeSelection = {};
+			if (context.RangeSelection.End == context.RangeSelection.Start)
+				context.RangeSelection = {};
 		}
 	}
 
@@ -1521,10 +1521,10 @@ namespace PeepoDrumKit
 			break;
 		case SelectionAction::SelectAllWithinRangeSelection:
 		{
-			if (RangeSelection.IsActiveAndHasEnd())
+			if (context.RangeSelection.IsActiveAndHasEnd())
 			{
-				const Beat rangeSelectionMin = RoundBeatToCurrentGrid(RangeSelection.GetMin());
-				const Beat rangeSelectionMax = RoundBeatToCurrentGrid(RangeSelection.GetMax());
+				const Beat rangeSelectionMin = RoundBeatToCurrentGrid(context.RangeSelection.GetMin());
+				const Beat rangeSelectionMax = RoundBeatToCurrentGrid(context.RangeSelection.GetMax());
 				ForEachChartItem(course, [&](const ForEachChartItemData& it)
 				{
 					const Beat itStart = GetBeat(it, course);
@@ -2022,7 +2022,7 @@ namespace PeepoDrumKit
 			assert(param.TimeRatio[1] != 0);
 			if (param.TimeRatio[0] == param.TimeRatio[1])
 				break;
-			if (!RangeSelection.IsActiveAndHasEnd())
+			if (!context.RangeSelection.IsActiveAndHasEnd())
 				return;
 
 			auto [byTempo, keepTimePos, keepItemDur, ratioBeat, ratioBeatAbs, reverseBeat] = GetScaleChartItemRatios(param);
@@ -2030,7 +2030,7 @@ namespace PeepoDrumKit
 			enum RangeSide : u8 { Past, Present, Future, Count };
 			static constexpr auto scale = [](const auto& now, const auto& first, const auto& ratio) { return (((now - first) / ratio[1]) * ratio[0]) + first; };
 
-			const Beat firstBeat = RangeSelection.GetMin(), latestBeat = RangeSelection.GetMax();
+			const Beat firstBeat = context.RangeSelection.GetMin(), latestBeat = context.RangeSelection.GetMax();
 			Beat minBeatAfter = firstBeat, maxBeatAfter = scale(latestBeat, firstBeat, ratioBeat);
 			if (minBeatAfter > maxBeatAfter)
 				std::swap(minBeatAfter, maxBeatAfter);
@@ -2218,7 +2218,7 @@ namespace PeepoDrumKit
 					}
 				}
 
-				std::pair selectedRange = { &RangeSelection.Start, &RangeSelection.End };
+				std::pair selectedRange = { &context.RangeSelection.Start, &context.RangeSelection.End };
 				std::pair newRange = { minBeatAfter, maxBeatAfter };
 
 				if (reverseBeat)
@@ -2865,10 +2865,10 @@ namespace PeepoDrumKit
 					ChartCourse& course = *context.ChartSelectedCourse;
 					SortedNotesList& notes = course.GetNotes(context.ChartSelectedBranch);
 
-					if (Gui::GetIO().KeyShift && RangeSelection.IsActiveAndHasEnd())
+					if (Gui::GetIO().KeyShift && context.RangeSelection.IsActiveAndHasEnd())
 					{
-						const Beat startTick = RoundBeatToCurrentGrid(RangeSelection.GetMin());
-						const Beat endTick = RoundBeatToCurrentGrid(RangeSelection.GetMax());
+						const Beat startTick = RoundBeatToCurrentGrid(context.RangeSelection.GetMin());
+						const Beat endTick = RoundBeatToCurrentGrid(context.RangeSelection.GetMax());
 						const Beat beatPerNote = GetGridBeatSnap(CurrentGridBarDivision);
 						const i32 maxExpectedNoteCountToAdd = ((endTick - startTick).Ticks / beatPerNote.Ticks) + 1;
 
@@ -2888,7 +2888,7 @@ namespace PeepoDrumKit
 
 						if (!newNotesToAdd.empty())
 						{
-							SetNotesWaveAnimationTimes(newNotesToAdd, (RangeSelection.Start < RangeSelection.End) ? +1 : -1);
+							SetNotesWaveAnimationTimes(newNotesToAdd, (context.RangeSelection.Start < context.RangeSelection.End) ? +1 : -1);
 							PlaySoundEffectTypeForNoteType(context, newNotesToAdd.front().Type);
 							context.Undo.Execute<Commands::AddMultipleNotes>(&course, &notes, std::move(newNotesToAdd));
 						}
@@ -2996,7 +2996,7 @@ namespace PeepoDrumKit
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ToggleNoteSize, false)) ExecuteTransformAction(context, TransformAction::ToggleNoteSize, param);
 
 				// NOTE: tentatively use the same set of keybinds for item and range scale
-				TransformAction scaleAction = RangeSelection.IsActiveAndHasEnd() ? TransformAction::ScaleRangeTime : TransformAction::ScaleItemTime;;
+				TransformAction scaleAction = context.RangeSelection.IsActiveAndHasEnd() ? TransformAction::ScaleRangeTime : TransformAction::ScaleItemTime;;
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_2To1, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(2, 1));
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_3To2, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(3, 2));
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_ExpandItemTime_4To3, false)) ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(4, 3));
@@ -3033,28 +3033,22 @@ namespace PeepoDrumKit
 
 		// NOTE: Mouse selection box
 		{
-			static constexpr auto getBoxSelectionAction = [](const ImGuiIO& io)
-			{
-				const b8 shift = io.KeyShift, alt = io.KeyAlt;
-				return (shift && alt) ? BoxSelectionAction::XOR : shift ? BoxSelectionAction::Add : alt ? BoxSelectionAction::Sub : BoxSelectionAction::Clear;
-			};
-
 			if (Regions.Content.IsHovered && Gui::IsMouseClicked(ImGuiMouseButton_Right))
 			{
 				BoxSelection.IsActive = true;
-				BoxSelection.Action = getBoxSelectionAction(Gui::GetIO());
+				BoxSelection.Action = GetBoxSelectionAction(Gui::GetIO());
 				BoxSelection.WorldSpaceRect.TL = BoxSelection.WorldSpaceRect.BR = Camera.LocalToWorldSpace(ScreenToLocalSpace(Gui::GetMousePos()));
 			}
 			else if (BoxSelection.IsActive && Gui::IsMouseDown(ImGuiMouseButton_Right))
 			{
 				BoxSelection.WorldSpaceRect.BR = Camera.LocalToWorldSpace(ScreenToLocalSpace(Gui::GetMousePos()));
-				BoxSelection.Action = getBoxSelectionAction(Gui::GetIO());
-				RangeSelection = {};
+				BoxSelection.Action = GetBoxSelectionAction(Gui::GetIO());
+				context.RangeSelection = {};
 			}
 			else
 			{
 				if (BoxSelection.IsActive)
-					BoxSelection.Action = getBoxSelectionAction(Gui::GetIO());
+					BoxSelection.Action = GetBoxSelectionAction(Gui::GetIO());
 
 				if (BoxSelection.IsActive && Gui::IsMouseReleased(ImGuiMouseButton_Right))
 				{
@@ -3672,16 +3666,16 @@ namespace PeepoDrumKit
 		}
 
 		// NOTE: Range selection rect
-		if (RangeSelection.IsActive)
+		if (context.RangeSelection.IsActive)
 		{
 			DrawListContentHeader->ChannelsSetCurrent(1);
 			DrawListContent->ChannelsSetCurrent(0);
 
-			vec2 localTL = vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(RangeSelection.Start)), 1.0f);
-			vec2 localBR = vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(RangeSelection.End)), Regions.Content.GetHeight() - 1.0f);
+			vec2 localTL = vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(context.RangeSelection.Start)), 1.0f);
+			vec2 localBR = vec2(Camera.TimeToLocalSpaceX(context.BeatToTime(context.RangeSelection.End)), Regions.Content.GetHeight() - 1.0f);
 			localBR.x = LerpClamped(localTL.x, localBR.x, RangeSelectionExpansionAnimationCurrent);
-			const vec2 screenSpaceTL = LocalToScreenSpace(localTL) + vec2(!RangeSelection.HasEnd ? -1.0f : 0.0f, 0.0f);
-			const vec2 screenSpaceBR = LocalToScreenSpace(localBR) + vec2(!RangeSelection.HasEnd ? +1.0f : 0.0f, 0.0f);
+			const vec2 screenSpaceTL = LocalToScreenSpace(localTL) + vec2(!context.RangeSelection.HasEnd ? -1.0f : 0.0f, 0.0f);
+			const vec2 screenSpaceBR = LocalToScreenSpace(localBR) + vec2(!context.RangeSelection.HasEnd ? +1.0f : 0.0f, 0.0f);
 
 			if ((TimelineRangeSelectionHeaderHighlightColor & IM_COL32_A_MASK) > 0)
 			{

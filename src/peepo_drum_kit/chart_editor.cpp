@@ -165,7 +165,7 @@ namespace PeepoDrumKit
 
 			if (Gui::BeginMenu(UI_Str("MENU_SELECTION")))
 			{
-				const b8 setRangeSelectionStartNext = (!timeline.RangeSelection.IsActive || timeline.RangeSelection.HasEnd);
+				const b8 setRangeSelectionStartNext = (!context.RangeSelection.IsActive || context.RangeSelection.HasEnd);
 				if (Gui::MenuItem(setRangeSelectionStartNext ? UI_Str("ACT_SELECTION_START_RANGE") : UI_Str("ACT_SELECTION_END_RANGE"), ToShortcutString(*Settings.Input.Timeline_StartEndRangeSelection).Data))
 					timeline.StartEndRangeSelectionAtCursor(context);
 				Gui::Separator();
@@ -179,7 +179,7 @@ namespace PeepoDrumKit
 					timeline.ExecuteSelectionAction(context, SelectionAction::InvertAll, param);
 				if (Gui::MenuItem(UI_Str("ACT_SELECTION_SELECT_TO_CHART_END"), ToShortcutString(*Settings.Input.Timeline_SelectToChartEnd).Data))
 					timeline.ExecuteSelectionAction(context, SelectionAction::SelectToEnd, param.SetBeatCursor(context.GetCursorBeat()));
-				if (Gui::MenuItem(UI_Str("ACT_SELECTION_FROM_RANGE"), ToShortcutString(*Settings.Input.Timeline_SelectAllWithinRangeSelection).Data, nullptr, timeline.RangeSelection.IsActiveAndHasEnd()))
+				if (Gui::MenuItem(UI_Str("ACT_SELECTION_FROM_RANGE"), ToShortcutString(*Settings.Input.Timeline_SelectAllWithinRangeSelection).Data, nullptr, context.RangeSelection.IsActiveAndHasEnd()))
 					timeline.ExecuteSelectionAction(context, SelectionAction::SelectAllWithinRangeSelection, param);
 				Gui::Separator();
 
@@ -383,7 +383,7 @@ namespace PeepoDrumKit
 				}
 
 				if (Gui::BeginMenu(UI_Str("ACT_TRANSFORM_SCALE_RANGE"))) {
-					scaleMenu(TransformAction::ScaleRangeTime, timeline.RangeSelection.IsActiveAndHasEnd());
+					scaleMenu(TransformAction::ScaleRangeTime, context.RangeSelection.IsActiveAndHasEnd());
 					Gui::EndMenu();
 				}
 

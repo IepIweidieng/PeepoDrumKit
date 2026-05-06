@@ -437,12 +437,12 @@ namespace PeepoDrumKit
 
 	struct ForEachNoteLaneData : ChartGamePreview::NoteAttr
 	{
-		const Note* OriginalNote;
+		Note* OriginalNote;
 		struct NoteAttr Tail;
 	};
 
 	template <typename Func>
-	static void ForEachNoteOnNoteLane(const ChartCourse& course, BranchType branch, std::function<Complex(Complex)> scrollSpeedToView, Func perNoteFunc)
+	static void ForEachNoteOnNoteLane(ChartCourse& course, BranchType branch, std::function<Complex(Complex)> scrollSpeedToView, Func perNoteFunc)
 	{
 		BeatSortedForwardIterator<TempoChange> tempoChangeIt {};
 		BeatSortedForwardIterator<ScrollChange> scrollChangeIt {};
@@ -450,7 +450,7 @@ namespace PeepoDrumKit
 		BeatSortedForwardIterator<JPOSScrollChange> JPOSscrollChangeIt {};
 		BeatSortedForwardIterator<SuddenChange> SuddenChangeIt{};
 
-		for (const Note& note : course.GetNotes(branch))
+		for (Note& note : course.GetNotes(branch))
 		{
 			const Beat beat = note.BeatTime;
 			const Time head = (course.TempoMap.BeatToTime(beat) + note.TimeOffset);
@@ -478,7 +478,7 @@ namespace PeepoDrumKit
 		}
 	}
 
-	void ChartCourse::RecalculateSENotes(BranchType branch) const
+	void ChartCourse::RecalculateSENotes(BranchType branch)
 	{
 		enum class SEFormType { Long, Short, Alternate, Final };
 
@@ -598,7 +598,7 @@ namespace PeepoDrumKit
 		}
 	}
 
-	void ChartCourse::RecalculateComboCounts(BranchType branch) const
+	void ChartCourse::RecalculateComboCounts(BranchType branch)
 	{
 		const SortedNotesList& notes = GetNotes(branch);
 		i16 comboCount = 0;
@@ -620,6 +620,7 @@ namespace PeepoDrumKit
 	void ChartGamePreview::DrawGui(ChartContext& context, Time animatedCursorTime)
 	{
 		IsAnyChildWindowFocused = Gui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
+		const b8 IsAnyChildWindowHovered = Gui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
 
 		const i32 nLanes = size(context.ChartsCompared);
 
@@ -683,9 +684,67 @@ namespace PeepoDrumKit
 
 		drawList->PushClipRect(Camera.ScreenSpaceViewportRect.TL, Camera.ScreenSpaceViewportRect.BR, true);
 
+
+		const auto MousePosThisFrame = Gui::GetMousePos();
+
+		// NOTE: Mouse selection box
+
+		b8 doBoxSelectThisFrame = false;
+		b8 clearBoxSelectThisFrame = false;
+		if (IsAnyChildWindowHovered && Gui::IsMouseClicked(ImGuiMouseButton_Right))
+		{
+			BoxSelection.IsActive = true;
+			BoxSelection.Action = ChartTimeline::GetBoxSelectionAction(Gui::GetIO());
+			BoxSelection.WorldSpaceRect.TL = BoxSelection.WorldSpaceRect.BR = Camera.ScreenToWorldSpace(Gui::GetMousePos());
+		}
+		else if (BoxSelection.IsActive && Gui::IsMouseDown(ImGuiMouseButton_Right))
+		{
+			BoxSelection.WorldSpaceRect.BR = Camera.ScreenToWorldSpace(Gui::GetMousePos());
+			BoxSelection.Action = ChartTimeline::GetBoxSelectionAction(Gui::GetIO());
+			context.RangeSelection = {};
+		}
+		else
+		{
+			if (BoxSelection.IsActive)
+				BoxSelection.Action = ChartTimeline::GetBoxSelectionAction(Gui::GetIO());
+
+			if (BoxSelection.IsActive && Gui::IsMouseReleased(ImGuiMouseButton_Right)) {
+				static constexpr f32 minBoxSizeThreshold = 4.0f;
+				const Rect screenSpaceRect = Rect(Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.TL), Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.BR));
+				if (Absolute(screenSpaceRect.GetWidth()) >= minBoxSizeThreshold && Absolute(screenSpaceRect.GetHeight()) >= minBoxSizeThreshold) {
+					doBoxSelectThisFrame = true;
+
+					if (BoxSelection.Action == BoxSelectionAction::Clear) {
+						// clear all selection
+						auto& course = *context.ChartSelectedCourse;
+						for (TimelineRowType rowType = {}; rowType < TimelineRowType::Count; IncrementEnum(rowType)) {
+							const GenericList list = TimelineRowToGenericList(rowType);
+							for (size_t i = 0; i < GetGenericListCount(course, list); ++i)
+								TrySet<GenericMember::B8_IsSelected>(course, list, i, false);
+						}
+					}
+				}
+			}
+
+			clearBoxSelectThisFrame = true;
+		}
+
+		defer {
+			if (clearBoxSelectThisFrame) {
+				BoxSelection.IsActive = false;
+				BoxSelection.WorldSpaceRect.TL = BoxSelection.WorldSpaceRect.BR = vec2(0.0f);
+			}
+			// TODO: Animate notes when including them in selection box (?)
+			if (BoxSelection.IsActive)
+			{
+				// BUG: Doesn't work perfectly (mostly with the scrollbar) but need to prevent other window widgets from being interactable
+				Gui::SetActiveID(Gui::GetID(&BoxSelection), Gui::GetCurrentWindow());
+			}
+		};
+
 		i32 iLane = -1;
 		for (auto it = cbegin(context.Chart.Courses); it != cend(context.Chart.Courses); ++it) {
-			const auto* course = it->get();
+			auto* course = it->get();
 			auto branch = BranchType::Normal;
 			if (!context.IsChartCompared(course, branch))
 				continue;
@@ -1065,75 +1124,93 @@ namespace PeepoDrumKit
 				}
 
 				// Select box
-				if ((!context.CompareMode || isFocusedLane) && it->OriginalNote->IsSelected) {
-					drawList->ChannelsSetCurrent(4); // above notes
-
+				if ((!context.CompareMode || isFocusedLane) && (it->OriginalNote->IsSelected || doBoxSelectThisFrame)) {
 					const auto hitBoxSize = vec2(Camera.WorldToScreenScale((IsBigNote(it->OriginalNote->Type) ? GameSelectedNoteHitBoxSizeBig : GameSelectedNoteHitBoxSizeSmall)));
+					const auto hitBoxHead = Rect::FromCenterSize(Camera.LaneToScreenSpace(laneHeadDisplay), hitBoxSize);
+					const auto hitBoxTail = Rect::FromCenterSize(Camera.LaneToScreenSpace(laneTailDisplay), hitBoxSize);
 
-					auto drawBox = [&](const ChartTimeline::TempDrawSelectionBox& box, b8 isHead = true)
-					{
-						drawList->AddRectFilled(box.ScreenSpaceRect.TL, box.ScreenSpaceRect.BR, box.FillColor);
-						drawList->AddRect(box.ScreenSpaceRect.TL, box.ScreenSpaceRect.BR, box.BorderColor);
+					if (doBoxSelectThisFrame) {
+						const Rect screenSelection = { Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.GetMin()), Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.GetMax()) };
+						const b8 isInsideSelectionBox = screenSelection.Overlaps(hitBoxHead) || screenSelection.Overlaps(hitBoxTail);
 
-						const auto buttonRect = Intersect(box.ScreenSpaceRect, Camera.ScreenSpaceViewportRect);
-						if (buttonRect.GetWidth() <= 0 || buttonRect.GetHeight() <= 0)
-							return;
-
-						Gui::SetCursorScreenPos(buttonRect.TL);
-						char buffer[32]; std::string_view(buffer, sprintf_s(buffer, isHead ? "Selected_%p" : "SelectedEnd_%p", it->OriginalNote));
-						Gui::InvisibleButton(buffer, buttonRect.GetSize(), ImGuiButtonFlags_AllowOverlap);
-						if (ImGui::BeginItemTooltip()) {
-							const b8 isLong = (it->OriginalNote->BeatDuration > Beat::Zero());
-							const auto relLaneHead = (it->LaneHead - hitCirclePosLane) / GameCamera::ScaleFrom720p;
-							const auto relLaneTail = (it->LaneTail - hitCirclePosLane) / GameCamera::ScaleFrom720p;
-							auto fmt = [&](auto&& format)
-							{
-								std::string res = format(*it, relLaneHead);
-								if (isLong) {
-									std::string right = format(it->Tail, relLaneTail);
-									if (right != res)
-										res += " - " + right;
-								}
-								return res;
-							};
-							ImGui::TextUnformatted("Position: " + fmt([&](const NoteAttr& attr, const vec2& pos)
-							{ return "(" + ASCII::ToString(pos.x) + ", " + ASCII::ToString(pos.y) + ") px @ 720p"; }));
-							ImGui::TextUnformatted("Time: " + fmt([&](const NoteAttr& attr, const vec2& pos) -> std::string
-							{ return attr.Time.ToString().Data; }));
-							ImGui::TextUnformatted("Internal Beat: " + fmt([&](const NoteAttr& attr, const vec2& pos)
-							{ return ASCII::ToString(attr.Beat.Ticks / f32{ Beat::TicksPerBeat }) + " beats"; }));
-							ImGui::TextUnformatted("HBScroll Beat: " + fmt([&](const NoteAttr& attr, const vec2& pos)
-							{
-								f32 ticksHBScrollBeat = tempoChanges.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(attr.Beat, attr.Time);
-								return ASCII::ToString(ticksHBScrollBeat / Beat::TicksPerBeat) + " beats";
-							}));
-							ImGui::TextUnformatted("Tempo: " + fmt([&](const NoteAttr& attr, const vec2& pos)
-							{ return ASCII::ToString(attr.Tempo.BPM) + " BPM"; }));
-							ImGui::TextUnformatted("Scroll: " + fmt([&](const NoteAttr& attr, const vec2& pos)
-							{ return attr.ScrollSpeed.toStringCompat("x") + "x (" + ScrollSpeedToBPM(attr.ScrollSpeed, attr.Tempo).toStringCompat(" BPM") + " BPM)"; }));
-							ImGui::TextUnformatted("ScrollType: " + fmt([&](const NoteAttr& attr, const vec2& pos)
-							{ return UI_StrRuntime(ToI18nString(attr.ScrollType)); }));
-							ImGui::TextUnformatted("Sudden: " + fmt([&](const NoteAttr& attr, const vec2& pos)
-							{
-								std::string res = ASCII::ToString(attr.Sudden.AppearanceOffset.Seconds) + "s (show), " + ASCII::ToString(attr.Sudden.MovementOffset.Seconds) + "s (move)";
-								if (attr.Sudden.HideRoll)
-									res += ", hide roll";
-								return res;
-							}));
-
-							if (IsBalloonNote(it->OriginalNote->Type))
-								ImGui::TextUnformatted("Pop count: " + ASCII::ToString(it->OriginalNote->BalloonPopCount)
-									+ " (" + ASCII::ToString(it->OriginalNote->BalloonPopCount / (it->Tail.Time - it->Time).Seconds) + " hits/s)");
-
-							ImGui::EndTooltip();
+						b8 isSelected = it->OriginalNote->IsSelected;
+						switch (BoxSelection.Action) {
+						case BoxSelectionAction::Clear: { isSelected = isInsideSelectionBox; } break;
+						case BoxSelectionAction::Add: { if (isInsideSelectionBox) isSelected = true; } break;
+						case BoxSelectionAction::Sub: { if (isInsideSelectionBox) isSelected = false; } break;
+						case BoxSelectionAction::XOR: { isSelected ^= isInsideSelectionBox; } break;
 						}
-					};
+						it->OriginalNote->IsSelected = isSelected;
+					}
 
-					drawBox({ Rect::FromCenterSize(Camera.LaneToScreenSpace(laneHeadDisplay), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
-					if (it->OriginalNote->BeatDuration > Beat::Zero())
-						drawBox({ Rect::FromCenterSize(Camera.LaneToScreenSpace(laneTailDisplay), hitBoxSize), TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor}, false);
+					if (it->OriginalNote->IsSelected) {
+						drawList->ChannelsSetCurrent(4); // above notes
 
-					drawList->ChannelsSetCurrent(3);
+						auto drawBox = [&](const ChartTimeline::TempDrawSelectionBox& box, b8 isHead = true)
+						{
+							drawList->AddRectFilled(box.ScreenSpaceRect.TL, box.ScreenSpaceRect.BR, box.FillColor);
+							drawList->AddRect(box.ScreenSpaceRect.TL, box.ScreenSpaceRect.BR, box.BorderColor);
+
+							const auto buttonRect = Intersect(box.ScreenSpaceRect, Camera.ScreenSpaceViewportRect);
+							if (buttonRect.GetWidth() <= 0 || buttonRect.GetHeight() <= 0)
+								return;
+
+							Gui::SetCursorScreenPos(buttonRect.TL);
+							char buffer[32]; std::string_view(buffer, sprintf_s(buffer, isHead ? "Selected_%p" : "SelectedEnd_%p", it->OriginalNote));
+							Gui::InvisibleButton(buffer, buttonRect.GetSize(), ImGuiButtonFlags_AllowOverlap);
+							if (ImGui::BeginItemTooltip()) {
+								const b8 isLong = (it->OriginalNote->BeatDuration > Beat::Zero());
+								const auto relLaneHead = (it->LaneHead - hitCirclePosLane) / GameCamera::ScaleFrom720p;
+								const auto relLaneTail = (it->LaneTail - hitCirclePosLane) / GameCamera::ScaleFrom720p;
+								auto fmt = [&](auto&& format)
+								{
+									std::string res = format(*it, relLaneHead);
+									if (isLong) {
+										std::string right = format(it->Tail, relLaneTail);
+										if (right != res)
+											res += " - " + right;
+									}
+									return res;
+								};
+								ImGui::TextUnformatted("Position: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{ return "(" + ASCII::ToString(pos.x) + ", " + ASCII::ToString(pos.y) + ") px @ 720p"; }));
+								ImGui::TextUnformatted("Time: " + fmt([&](const NoteAttr& attr, const vec2& pos) -> std::string
+								{ return attr.Time.ToString().Data; }));
+								ImGui::TextUnformatted("Internal Beat: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{ return ASCII::ToString(attr.Beat.Ticks / f32{ Beat::TicksPerBeat }) + " beats"; }));
+								ImGui::TextUnformatted("HBScroll Beat: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{
+									f32 ticksHBScrollBeat = tempoChanges.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(attr.Beat, attr.Time);
+									return ASCII::ToString(ticksHBScrollBeat / Beat::TicksPerBeat) + " beats";
+								}));
+								ImGui::TextUnformatted("Tempo: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{ return ASCII::ToString(attr.Tempo.BPM) + " BPM"; }));
+								ImGui::TextUnformatted("Scroll: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{ return attr.ScrollSpeed.toStringCompat("x") + "x (" + ScrollSpeedToBPM(attr.ScrollSpeed, attr.Tempo).toStringCompat(" BPM") + " BPM)"; }));
+								ImGui::TextUnformatted("ScrollType: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{ return UI_StrRuntime(ToI18nString(attr.ScrollType)); }));
+								ImGui::TextUnformatted("Sudden: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{
+									std::string res = ASCII::ToString(attr.Sudden.AppearanceOffset.Seconds) + "s (show), " + ASCII::ToString(attr.Sudden.MovementOffset.Seconds) + "s (move)";
+									if (attr.Sudden.HideRoll)
+										res += ", hide roll";
+									return res;
+								}));
+
+								if (IsBalloonNote(it->OriginalNote->Type))
+									ImGui::TextUnformatted("Pop count: " + ASCII::ToString(it->OriginalNote->BalloonPopCount)
+										+ " (" + ASCII::ToString(it->OriginalNote->BalloonPopCount / (it->Tail.Time - it->Time).Seconds) + " hits/s)");
+
+								ImGui::EndTooltip();
+							}
+						};
+
+						drawBox({ hitBoxHead, TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor });
+						if (it->OriginalNote->BeatDuration > Beat::Zero())
+							drawBox({ hitBoxTail, TimelineSelectedNoteBoxBackgroundColor, TimelineSelectedNoteBoxBorderColor }, false);
+
+						drawList->ChannelsSetCurrent(3);
+					}
 				}
 			}
 			ReverseNoteDrawBuffer.clear();
@@ -1189,6 +1266,49 @@ namespace PeepoDrumKit
 				}
 			}
 		}
+
 		drawList->PopClipRect();
+
+		// NOTE: Mouse selection box, draw outside frame space
+		if (BoxSelection.IsActive)
+		{
+			drawList->ChannelsSetCurrent(4);
+
+			drawList->AddRectFilled(
+				Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.TL),
+				Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.BR), TimelineBoxSelectionBackgroundColor);
+			drawList->AddRect(
+				Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.TL),
+				Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.BR), TimelineBoxSelectionBorderColor);
+
+			if (BoxSelection.Action != BoxSelectionAction::Clear)
+			{
+				const f32 radius = GuiScale(TimelineBoxSelectionRadius);
+				const f32 linePadding = GuiScale(TimelineBoxSelectionLinePadding);
+				const f32 lineThickness = ClampBot(Round(TimelineBoxSelectionLineThickness * GuiScaleFactorCurrent / 2.0f) * 2.0f, TimelineBoxSelectionLineThickness);
+
+				const vec2 center = Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.TL);
+				drawList->AddCircleFilled(center, radius, TimelineBoxSelectionFillColor);
+				drawList->AddCircle(center, radius, TimelineBoxSelectionBorderColor);
+				{
+					const Rect horizontal = Rect::FromCenterSize(center, vec2((radius - linePadding) * 2.0f, lineThickness));
+					const Rect vertical = Rect::FromCenterSize(center, vec2(lineThickness, (radius - linePadding) * 2.0f));
+
+					if (BoxSelection.Action == BoxSelectionAction::Add)
+					{
+						drawList->AddRectFilled(horizontal.TL, horizontal.BR, TimelineBoxSelectionInnerColor);
+						drawList->AddRectFilled(vertical.TL, vertical.BR, TimelineBoxSelectionInnerColor);
+					}
+					else if (BoxSelection.Action == BoxSelectionAction::Sub)
+					{
+						drawList->AddRectFilled(horizontal.TL, horizontal.BR, TimelineBoxSelectionInnerColor);
+					}
+					else if (BoxSelection.Action == BoxSelectionAction::XOR)
+					{
+						drawList->AddCircleFilled(center, GuiScale(TimelineBoxSelectionXorDotRadius), TimelineBoxSelectionInnerColor);
+					}
+				}
+			}
+		}
 	}
 }
