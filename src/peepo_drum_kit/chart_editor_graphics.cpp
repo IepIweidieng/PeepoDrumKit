@@ -85,7 +85,7 @@ namespace PeepoDrumKit
 		pictureView->translate(position.x, position.y);
 
 		auto* canvas = pImpl->Canvas;
-		canvas->target(out.BGRA.get(), resolution.x, resolution.x, resolution.y, tvg::ColorSpace::ARGB8888/*S*/);
+		canvas->target(out.BGRA.get(), resolution.x, resolution.x, resolution.y, tvg::ColorSpace::ARGB8888S); // ImGui backend expects straight alpha
 		canvas->update();
 		canvas->draw();
 		canvas->sync();

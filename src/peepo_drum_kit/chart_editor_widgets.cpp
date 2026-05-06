@@ -584,6 +584,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Fix blurry balloon pop count text");
 					Gui::TextUnformatted(u8"- Allow use any of .svg, .png, .jpg & .jpeg for sprite image files");
 					Gui::TextUnformatted(u8"- Add box selection, hitbox around selected note, & note attributes display when hovered in Game Preview");
+					Gui::TextUnformatted(u8"- Fix ThorVG-rendered sprites' semi-transparent part was too dark due to incorrect transparency format");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
