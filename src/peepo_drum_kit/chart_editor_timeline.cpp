@@ -953,18 +953,30 @@ namespace PeepoDrumKit
 
 		if (playbackSoundsEnabled)
 		{
-			auto checkAndPlayNoteSound = [&](Time noteTime, NoteType noteType, f32 pan)
+			auto checkNoteSound = [&](Time noteTime)
 			{
 				const Time offsetNoteTime = noteTime - futureOffset;
-				if (offsetNoteTime >= nonSmoothCursorLastFrame && offsetNoteTime < nonSmoothCursorThisFrame)
-				{
-					// NOTE: Don't wanna cause any audio cutoffs. If this happens the future threshold is either set too low for the current frame time
-					//		 or playback was started on top of an existing note
-					const Time startTime = Min((nonSmoothCursorThisFrame - noteTime), Time::Zero());
-					const Time externalClock = noteTime;
+				if (offsetNoteTime < nonSmoothCursorLastFrame)
+					return -1; // too early
+				if (offsetNoteTime >= nonSmoothCursorThisFrame)
+					return 1; // too late
+				return 0;
+			};
+			auto PlayNoteSound = [&](Time noteTime, NoteType noteType, f32 pan)
+			{
+				// NOTE: Don't wanna cause any audio cutoffs. If this happens the future threshold is either set too low for the current frame time
+				//		 or playback was started on top of an existing note
+				const Time startTime = Min((nonSmoothCursorThisFrame - noteTime), Time::Zero());
+				const Time externalClock = noteTime;
 
-					PlaySoundEffectTypeForNoteType(context, noteType, startTime, externalClock, pan);
-				}
+				PlaySoundEffectTypeForNoteType(context, noteType, startTime, externalClock, pan);
+			};
+			auto checkAndPlayNoteSound = [&](Time noteTime, NoteType noteType, f32 pan)
+			{
+				if (auto res = checkNoteSound(noteTime); res != 0)
+					return res;
+				PlayNoteSound(noteTime, noteType, pan);
+				return 0;
 			};
 
 			auto handleNotePlayback = [&](const ChartCourse* course, BranchType branch, const Note& note, i32 nLanes, i32 iLane)
@@ -972,18 +984,34 @@ namespace PeepoDrumKit
 				f32 pan = (nLanes <= 1) ? 0 : 2.0 * iLane / (nLanes - 1) - 1;
 				if (note.BeatDuration > Beat::Zero())
 				{
+					auto checkLongNoteHits = [&](i32 nHits, auto&& getHitTime)
+					{
+						auto checkHitTime = [&](i32 iHit) { return checkNoteSound(getHitTime(iHit)); };
+						auto range = Range(0, nHits, checkHitTime);
+						const b8 inBound = (checkHitTime(0) <= 0 && checkHitTime(nHits) >= 0); // inclusive check to prevent missing hits
+						if (!inBound)
+							return;
+
+						// binary search for playing hits
+						auto [iHitMin, iHitLimit] = std::equal_range(range.begin(), range.end(), 0);
+						// skip unhearable voices due to simultaneous voice limit
+						for (i32 iHit = std::max(iHitMin.Idx, iHitLimit.Idx - i32{ Audio::AudioEngine::MaxSimultaneousVoices }); iHit < iHitLimit.Idx; ++iHit)
+							PlayNoteSound(getHitTime(iHit), note.Type, pan);
+					};
+
 					if (IsBalloonNote(note.Type))
 					{
 						const Time timeHead = course->TempoMap.BeatToTime(note.BeatTime);
 						const Time timeEnd = course->TempoMap.BeatToTime(note.GetEnd());
-						for (i32 iPop = 0; iPop < note.BalloonPopCount; ++iPop)
-							checkAndPlayNoteSound(ConvertRange(0, i32{ note.BalloonPopCount }, timeHead, timeEnd, iPop) + note.TimeOffset, note.Type, pan);
+						auto getHitTime = [&](i32 iHit) { return ConvertRange(0, i32{ note.BalloonPopCount }, timeHead, timeEnd, iHit) + note.TimeOffset; };
+						checkLongNoteHits(note.BalloonPopCount, getHitTime);
 					}
 					else
 					{
+						// assume positive beat progression during roll
 						const Beat drummrollBeatInterval = GetGridBeatSnap(*Settings.General.DrumrollAutoHitBarDivision);
-						for (Beat subBeat = Beat::Zero(); subBeat <= note.BeatDuration; subBeat += drummrollBeatInterval)
-							checkAndPlayNoteSound(course->TempoMap.BeatToTime(note.BeatTime + subBeat) + note.TimeOffset, note.Type, pan);
+						auto getHitTime = [&](i32 iHit) { return course->TempoMap.BeatToTime(note.BeatTime + iHit * drummrollBeatInterval) + note.TimeOffset; };
+						checkLongNoteHits(note.BeatDuration / drummrollBeatInterval + 1, getHitTime);
 					}
 				}
 				else
@@ -1328,7 +1356,7 @@ namespace PeepoDrumKit
 						newItemValue.BeatTime.Ticks = parsedParams[0].I32;
 						newItemValue.BeatDuration.Ticks = parsedParams[1].I32;
 						newItemValue.Type = static_cast<NoteType>(parsedParams[2].I32);
-						newItemValue.BalloonPopCount = static_cast<i16>(parsedParams[3].I32);
+						newItemValue.BalloonPopCount = parsedParams[3].I32;
 						newItemValue.TimeOffset = Time::FromMS(parsedParams[4].F32);
 					}
 					else if (itemType == "ScrollSpeed")

@@ -203,8 +203,8 @@ namespace PeepoDrumKit
 	static constexpr f32 MaxBPM = 60000.0f;
 
 	// practically no limits
-	static constexpr i16 MinBalloonCount = 0;
-	static constexpr i16 MaxBalloonCount = I16Max;
+	static constexpr i32 MinBalloonCount = 0;
+	static constexpr i32 MaxBalloonCount = I32Max;
 	static constexpr f32 MinScrollSpeed = -F32Max;
 	static constexpr f32 MaxScrollSpeed = +F32Max;
 	static constexpr f32 MinScrollBPM = -F32Max;

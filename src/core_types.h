@@ -265,6 +265,63 @@ constexpr __forceinline i32 ArrayItToIndexI32(const T* itemWithinArray, const T*
 // Note: Only to be used for evaluating an unpacked parameter pack in unspecified order
 constexpr __forceinline void EvalUnpackedParamsUnordered(...) { }
 
+// Note: Virtual container for integer range with mapped values
+template <typename T>
+const T& RangeDefaultMap(const T& idx) { return idx; }
+
+template <typename T, typename F>
+struct Range {
+	struct iterator {
+		using iterator_category = std::random_access_iterator_tag;
+		using value_type = std::invoke_result_t<F, T>;
+		using difference_type = T;
+		using pointer = T;
+		using reference = value_type;
+
+		Range* Container;
+		T Idx;
+
+		constexpr iterator(Range* container, T start) : Container{ container }, Idx { start } { }
+		constexpr T operator*() const { return Container->Map(Idx); }
+		constexpr iterator& operator++() { ++Idx; return *this; }
+		constexpr iterator operator++(int) { return { Container, Idx++ }; }
+		constexpr iterator& operator+=(T n) { Idx += n; return *this; }
+		constexpr iterator& operator-=(T n) { Idx -= n; return *this; }
+		constexpr iterator operator+(T n) { return { Container, Idx + n }; }
+		constexpr friend iterator operator+(T n, const iterator& it) { return it + n; }
+		constexpr iterator operator-(T n) { return { Container, Idx - n }; }
+		constexpr T operator-(const iterator& other) { return Idx - other.Idx; }
+
+		constexpr std::tuple<Range*, T> as_tuple() const { return { Container, Idx }; }
+		// constexpr b8 operator<=>(const iterator& other) const { return as_tuple() <=> other.as_tuple(); } // replaces the following in C++20
+		constexpr b8 operator<(const iterator& other) const { return as_tuple() < other.as_tuple(); }
+		constexpr b8 operator>(const iterator& other) const { return other < *this; }
+		constexpr b8 operator<=(const iterator& other) const { return !(*this > other); }
+		constexpr b8 operator>=(const iterator& other) const { return !(*this < other); }
+		constexpr b8 operator==(const iterator& other) const { return as_tuple() == other.as_tuple(); }
+		constexpr b8 operator!=(const iterator& other) const { return !(*this == other); }
+	};
+
+	iterator Begin, End;
+	F Map;
+
+	constexpr iterator begin() const { return Begin; }
+	constexpr iterator end() const { return End; }
+	constexpr Range(const T& begin, const T& end) : Begin{ this, begin }, End{ this, end }
+	{
+		if constexpr (std::is_same_v<F, std::decay_t<decltype(RangeDefaultMap<T>)>>)
+			Map = RangeDefaultMap<T>;
+	}
+	template <typename FT>
+	constexpr Range(const T& begin, const T& end, FT&& map) : Begin{ this, begin }, End{ this, end }, Map{ map } { }
+};
+
+// deduction guides for optional mapping function
+template <typename T>
+Range(const T& begin, const T& end) -> Range<T, std::decay_t<decltype(RangeDefaultMap<T>)>>;
+template <typename T, typename FT>
+Range(const T& begin, const T& end, FT&& map) -> Range<T, std::decay_t<FT>>;
+
 // NOTE: Only to be used for temporary POD* function arguments
 template<typename T>
 struct PtrArg

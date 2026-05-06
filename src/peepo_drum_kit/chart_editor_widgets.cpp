@@ -585,6 +585,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Allow use any of .svg, .png, .jpg & .jpeg for sprite image files");
 					Gui::TextUnformatted(u8"- Add box selection, hitbox around selected note, & note attributes display when hovered in Game Preview");
 					Gui::TextUnformatted(u8"- Fix ThorVG-rendered sprites' semi-transparent part was too dark due to incorrect transparency format");
+					Gui::TextUnformatted(u8"- Increase balloon pop count's range to 32-bit integer and fix lags for playing roll-type notes' hitsound");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
@@ -1464,7 +1465,7 @@ namespace PeepoDrumKit
 						{
 						case GenericMember::B8_IsSelected:
 						case GenericMember::B8_BarLineVisible:
-						case GenericMember::I16_BalloonPopCount:
+						case GenericMember::I32_BalloonPopCount:
 						case GenericMember::Beat_Start:
 						case GenericMember::Beat_Duration:
 						case GenericMember::Time_Offset:
@@ -1476,7 +1477,7 @@ namespace PeepoDrumKit
 							ApplySingleGenericMember(member,
 								[&](auto&& typedV, auto&& typedMin, auto&& typedMax)
 								{
-									if constexpr (!expect_type_v<decltype(typedV), b8, i16, f32, Beat, Time>) {
+									if constexpr (!expect_type_v<decltype(typedV), b8, i16, i32, f32, Beat, Time>) {
 										return false;
 									} else {
 										typedMin = Min(typedMin, typedV);
@@ -1609,7 +1610,7 @@ namespace PeepoDrumKit
 
 					b8 disableChangePropertiesCommandMerge = false;
 					GenericMemberFlags outModifiedMembers = GenericMemberFlags_None;
-					for (const GenericMember member : { GenericMember::NoteType_V, GenericMember::I16_BalloonPopCount, GenericMember::Time_Offset,
+					for (const GenericMember member : { GenericMember::NoteType_V, GenericMember::I32_BalloonPopCount, GenericMember::Time_Offset,
 						GenericMember::Tempo_V, GenericMember::TimeSignature_V, GenericMember::F32_ScrollSpeed, GenericMember::B8_BarLineVisible,
 						GenericMember::I8_ScrollType, GenericMember::F32_JPOSScroll, GenericMember::F32_JPOSScrollDuration,
 						GenericMember::Time_AppearanceOffset, GenericMember::Time_MovementOffset, GenericMember::B8_SuddenHideRoll,
@@ -1643,30 +1644,30 @@ namespace PeepoDrumKit
 								}
 							});
 						} break;
-						case GenericMember::I16_BalloonPopCount:
+						case GenericMember::I32_BalloonPopCount:
 						{
 							cstr label = UI_Str("EVENT_PROP_BALLOON_POP_COUNT");
 							MultiEditWidgetParam widgetIn = {};
-							widgetIn.DataType = ImGuiDataType_S16;
-							widgetIn.Value.I16 = sharedValues.BalloonPopCount();
+							widgetIn.DataType = ImGuiDataType_S32;
+							widgetIn.Value.I32 = sharedValues.BalloonPopCount();
 							widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
-							widgetIn.MixedValuesMin.I16 = mixedValuesMin.BalloonPopCount();
-							widgetIn.MixedValuesMax.I16 = mixedValuesMax.BalloonPopCount();
+							widgetIn.MixedValuesMin.I32 = mixedValuesMin.BalloonPopCount();
+							widgetIn.MixedValuesMax.I32 = mixedValuesMax.BalloonPopCount();
 							widgetIn.EnableStepButtons = true;
-							widgetIn.ButtonStep.I16 = 1;
-							widgetIn.ButtonStepFast.I16 = 4;
+							widgetIn.ButtonStep.I32 = 1;
+							widgetIn.ButtonStepFast.I32 = 4;
 							widgetIn.FormatString = "%d";
 							widgetIn.EnableDragLabel = true;
 							widgetIn.DragLabelSpeed = 0.05f;
 							widgetIn.EnableClamp = true;
-							widgetIn.ValueClampMin.I16 = MinBalloonCount;
-							widgetIn.ValueClampMax.I16 = MaxBalloonCount;
+							widgetIn.ValueClampMin.I32 = MinBalloonCount;
+							widgetIn.ValueClampMax.I32 = MaxBalloonCount;
 							Gui::BeginDisabled(!isAnyBalloonNoteSelected);
 							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn);
 							Gui::EndDisabled();
 
 							auto getV = [](const TempChartItem& item, ...) { return item.MemberValues.BalloonPopCount(); };
-							auto setV = [](TempChartItem& item, i16 v, ...) { if (IsBalloonNote(item.MemberValues.NoteType())) item.MemberValues.BalloonPopCount() = v; };
+							auto setV = [](TempChartItem& item, auto v, ...) { if (IsBalloonNote(item.MemberValues.NoteType())) item.MemberValues.BalloonPopCount() = v; };
 							if (SetPropertyMultiSelection(SelectedItems, widgetIn, widgetOut, getV, setV))
 								valueWasChanged = true;
 							sprintf_s(labelBuffer, UI_Str("EVENT_PROP_INTERPOLATE_%s"), label);

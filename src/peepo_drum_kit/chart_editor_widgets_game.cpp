@@ -1229,7 +1229,7 @@ namespace PeepoDrumKit
 					const f32 sheetW = sprInfo.SourceSize.x;
 
 					char comboStr[16];
-					const i32 comboLen = sprintf_s(comboStr, "%d", static_cast<i32>(lastHitNote->TempComboCount));
+					const i32 comboLen = sprintf_s(comboStr, "%d", lastHitNote->TempComboCount);
 
 					const auto& display = GetGameComboDisplay(nLanes);
 					const f32 digitScale = Camera.WorldToScreenScaleFactor * display.DigitScale / sprBaseScale;

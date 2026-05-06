@@ -256,22 +256,25 @@ namespace PeepoDrumKit
 		Beat BeatTime;
 		Beat BeatDuration;
 		Time TimeOffset;
-		NoteType Type;
-		b8 IsSelected;
-		i16 BalloonPopCount;
 		f32 ClickAnimationTimeRemaining;
 		f32 ClickAnimationTimeDuration;
-		// NOTE: Temp inline storage for rendering
+		i32 BalloonPopCount;
+		// NOTE: mutable: temp inline storage for rendering
+		mutable i32 TempComboCount;
 		mutable NoteSEType TempSEType;
-		mutable i16 TempComboCount;
+		NoteType Type;
+		b8 IsSelected;
 
 		constexpr Beat GetStart() const { return BeatTime; }
 		constexpr Beat GetEnd() const { return BeatTime + BeatDuration; }
+
+	private:
+		char _pad[5];
 	};
 	template <> constexpr std::string_view DisplayNameOfChartEvent<Note> = "Note";
 	template <> constexpr std::string_view DisplayNameOfLongChartEvent<Note> = "Long Note";
 
-	static_assert(sizeof(Note) == 32, "Accidentally introduced padding to Note struct (?)");
+	static_assert(sizeof(Note) == 40, "Accidentally introduced padding to Note struct (?)");
 
 	template <typename TEvent>
 	TEvent FallbackEvent = std::declval<TEvent>(); // Forbid usage unless specialized
@@ -591,7 +594,7 @@ namespace PeepoDrumKit
 	{
 		B8_IsSelected,
 		B8_BarLineVisible,
-		I16_BalloonPopCount,
+		I32_BalloonPopCount,
 		F32_ScrollSpeed,
 		Beat_Start,
 		Beat_Duration,
@@ -616,7 +619,7 @@ namespace PeepoDrumKit
 		GenericMemberFlags_None = 0,
 		GenericMemberFlags_IsSelected = EnumToFlag(GenericMember::B8_IsSelected),
 		GenericMemberFlags_BarLineVisible = EnumToFlag(GenericMember::B8_BarLineVisible),
-		GenericMemberFlags_BalloonPopCount = EnumToFlag(GenericMember::I16_BalloonPopCount),
+		GenericMemberFlags_BalloonPopCount = EnumToFlag(GenericMember::I32_BalloonPopCount),
 		GenericMemberFlags_ScrollSpeed = EnumToFlag(GenericMember::F32_ScrollSpeed),
 		GenericMemberFlags_Start = EnumToFlag(GenericMember::Beat_Start),
 		GenericMemberFlags_Duration = EnumToFlag(GenericMember::Beat_Duration),
@@ -656,6 +659,7 @@ namespace PeepoDrumKit
 	{
 		b8 B8;
 		i16 I16;
+		i32 I32;
 		f32 F32;
 		Beat Beat;
 		Time Time;
@@ -681,7 +685,7 @@ namespace PeepoDrumKit
 	{
 		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<GenericMemberUnionT>(values).B8);
 		else if constexpr (Member == GenericMember::B8_BarLineVisible) return (std::forward<GenericMemberUnionT>(values).B8);
-		else if constexpr (Member == GenericMember::I16_BalloonPopCount) return (std::forward<GenericMemberUnionT>(values).I16);
+		else if constexpr (Member == GenericMember::I32_BalloonPopCount) return (std::forward<GenericMemberUnionT>(values).I32);
 		else if constexpr (Member == GenericMember::F32_ScrollSpeed) return (std::forward<GenericMemberUnionT>(values).CPX);
 		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<GenericMemberUnionT>(values).Beat);
 		else if constexpr (Member == GenericMember::Beat_Duration) return (std::forward<GenericMemberUnionT>(values).Beat);
@@ -718,7 +722,7 @@ namespace PeepoDrumKit
 
 		constexpr auto& IsSelected() { return get<GenericMember::B8_IsSelected>(*this); }
 		constexpr auto& BarLineVisible() { return get<GenericMember::B8_BarLineVisible>(*this); }
-		constexpr auto& BalloonPopCount() { return get<GenericMember::I16_BalloonPopCount>(*this); }
+		constexpr auto& BalloonPopCount() { return get<GenericMember::I32_BalloonPopCount>(*this); }
 		constexpr auto& ScrollSpeed() { return get<GenericMember::F32_ScrollSpeed>(*this); }
 		constexpr auto& BeatStart() { return get<GenericMember::Beat_Start>(*this); }
 		constexpr auto& BeatDuration() { return get<GenericMember::Beat_Duration>(*this); }
@@ -735,7 +739,7 @@ namespace PeepoDrumKit
 		constexpr auto& SuddenHideRoll() { return get<GenericMember::B8_SuddenHideRoll>(*this); }
 		constexpr const auto& IsSelected() const { return get<GenericMember::B8_IsSelected>(*this); }
 		constexpr const auto& BarLineVisible() const { return get<GenericMember::B8_BarLineVisible>(*this); }
-		constexpr const auto& BalloonPopCount() const { return get<GenericMember::I16_BalloonPopCount>(*this); }
+		constexpr const auto& BalloonPopCount() const { return get<GenericMember::I32_BalloonPopCount>(*this); }
 		constexpr const auto& ScrollSpeed() const { return get<GenericMember::F32_ScrollSpeed>(*this); }
 		constexpr const auto& BeatStart() const { return get<GenericMember::Beat_Start>(*this); }
 		constexpr const auto& BeatDuration() const { return get<GenericMember::Beat_Duration>(*this); }
@@ -775,7 +779,7 @@ namespace PeepoDrumKit
 	constexpr decltype(auto) get(NoteT&& event)
 	{
 		if constexpr (Member == GenericMember::B8_IsSelected) return (std::forward<NoteT>(event).IsSelected);
-		else if constexpr (Member == GenericMember::I16_BalloonPopCount) return (std::forward<NoteT>(event).BalloonPopCount);
+		else if constexpr (Member == GenericMember::I32_BalloonPopCount) return (std::forward<NoteT>(event).BalloonPopCount);
 		else if constexpr (Member == GenericMember::Beat_Start) return (std::forward<NoteT>(event).BeatTime);
 		else if constexpr (Member == GenericMember::Beat_Duration) return (std::forward<NoteT>(event).BeatDuration);
 		else if constexpr (Member == GenericMember::Time_Offset) return (std::forward<NoteT>(event).TimeOffset);
@@ -888,7 +892,7 @@ namespace PeepoDrumKit
 		}
 		X(GenericMember::B8_IsSelected)
 		X(GenericMember::B8_BarLineVisible)
-		X(GenericMember::I16_BalloonPopCount)
+		X(GenericMember::I32_BalloonPopCount)
 		X(GenericMember::F32_ScrollSpeed)
 		X(GenericMember::Beat_Start)
 		X(GenericMember::Beat_Duration)
