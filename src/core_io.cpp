@@ -109,6 +109,15 @@ namespace Path
 		return !CHECK_EC(ec) ? relativePath.u8string() : "";
 	}
 
+	std::string TryRemakeRelative(std::string_view path, std::string_view oldBaseFileOrDirectory, std::string_view newBaseFileOrDirectory)
+	{
+		std::string absPath = Path::TryMakeAbsolute(path, oldBaseFileOrDirectory);
+		if (!absPath.empty())
+			path = absPath;
+		std::string relPath = Path::TryMakeRelative(path, newBaseFileOrDirectory);
+		return relPath.empty() ? "" : relPath;
+	}
+
 	static std::string& NormalizeInPlace(std::string& inOutFilePath, char DirectorySeparatorReplaced, char DirectorySeparatorNormalized)
 	{
 		std::replace(inOutFilePath.begin(), inOutFilePath.end(), DirectorySeparatorReplaced, DirectorySeparatorNormalized);

@@ -31,6 +31,7 @@ namespace Path
 
 	std::string TryMakeAbsolute(std::string_view relativePath, std::string_view baseFileOrDirectory);
 	std::string TryMakeRelative(std::string_view absolutePath, std::string_view baseFileOrDirectory);
+	std::string TryRemakeRelative(std::string_view path, std::string_view oldBaseFileOrDirectory, std::string_view newBaseFileOrDirectory);
 
 	// NOTE: Replace '\\' -> '/' etc.
 	std::string& NormalizeInPlace(std::string& inOutFilePath);

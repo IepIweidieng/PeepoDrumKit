@@ -1441,9 +1441,13 @@ namespace PeepoDrumKit
 		assert(!filePath.empty());
 		if (!filePath.empty())
 		{
-			// prevent absolute resource path
-			context.Chart.SongFileName = Path::TryMakeRelative(context.Chart.SongFileName, filePath);
-			context.Chart.SongJacket = Path::TryMakeRelative(context.Chart.SongJacket, filePath);
+			if (filePath != context.ChartFilePath) {
+				// prevent absolute or wrong relative resource path
+				if (auto path = Path::TryRemakeRelative(context.Chart.SongFileName, context.ChartFilePath, filePath); !path.empty())
+					context.Chart.SongFileName = Path::NormalizeInPlace(path);
+				if (auto path = Path::TryRemakeRelative(context.Chart.SongJacket, context.ChartFilePath, filePath); !path.empty())
+					context.Chart.SongJacket = Path::NormalizeInPlace(path);
+			}
 
 			TJA::ParsedTJA tja;
 			ConvertChartProjectToTJA(context.Chart, tja);

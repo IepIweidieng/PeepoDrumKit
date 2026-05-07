@@ -579,7 +579,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Allow use any of .ogg, .wav, .flag, & .mp3 for sound effects audio files");
 					Gui::TextUnformatted(u8"- Fix timeline cursor could jump to different time when switching course or loading different song");
 					Gui::TextUnformatted(u8"- Display song jacket as background in Game Preview");
-					Gui::TextUnformatted(u8"- Prevent absolute resource (song audio or jacket) paths when saving chart");
+					Gui::TextUnformatted(u8"- Properly update resources' (song audio or jacket) path to be relative to chart file when saving (as) new chart");
 					Gui::TextUnformatted(u8"- Migrate to ThorVG 1.0.4 and fix ABGR image loading problems");
 					Gui::TextUnformatted(u8"- Fix blurry balloon pop count text");
 					Gui::TextUnformatted(u8"- Allow use any of .svg, .png, .jpg & .jpeg for sprite image files");
