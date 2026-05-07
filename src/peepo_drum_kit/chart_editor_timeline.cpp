@@ -3301,11 +3301,13 @@ namespace PeepoDrumKit
 				}
 				Gui::SameLine(0.0f, 0.0f);
 				{
+					static i32 div = CurrentGridBarDivision;
 					Gui::SetNextItemWidth(perButtonSize.x);
-					b8 isDivUnsupported = !IsTimeSignatureSupported({ 1, CurrentGridBarDivision });
+					b8 isDivUnsupported = !IsTimeSignatureSupported({ 1, div });
 					if (isDivUnsupported)
 						Gui::PushStyleColor(ImGuiCol_Text, TimelineItemTextColorWarning);
-					Gui::DragInt("##GridBarDivision", &CurrentGridBarDivision, 0.25, 1, INT32_MAX, "1 / %d");
+					if (div = CurrentGridBarDivision; Gui::DragInt("##GridBarDivision", &div, 0.25, 1, INT32_MAX, "1 / %d") && div != 0)
+						div = CurrentGridBarDivision = std::abs(div);
 					if (Gui::IsItemActiveAsInputText())
 						Regions.Window.IsFocused = false; // prevent triggering hotkeys
 					else if (Gui::IsItemHovered() || Gui::IsItemActive())
