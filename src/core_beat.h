@@ -133,6 +133,8 @@ struct TimeSignature
 
 	constexpr TimeSignature operator+() const { return *this; }
 	constexpr TimeSignature operator-() const { return { -Numerator, Denominator }; }
+
+	std::string ToString() const { return std::to_string(Numerator) + '/' + std::to_string(Denominator); }
 };
 
 constexpr i32 Sign(TimeSignature value) { return Sign(value.Numerator) * ((value.Denominator < 0) ? -1 : 1); }

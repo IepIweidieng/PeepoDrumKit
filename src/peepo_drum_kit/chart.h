@@ -31,7 +31,14 @@ namespace PeepoDrumKit
 		// ...
 		Count
 	};
+}
 
+// EnumNames<> is global
+template <>
+constexpr std::string_view EnumNames<PeepoDrumKit::NoteType>[EnumCount<PeepoDrumKit::NoteType>] = { "Don", "DonBig", "Ka", "KaBig", "Drumroll", "DrumrollBig", "Balloon", "BalloonSpecial", "DonBigHand", "KaBigHand", "KaDon", "Bomb", "Adlib", "Fuse" };
+
+namespace PeepoDrumKit
+{
 	enum class NoteSEType : u8
 	{
 		Do, Ko, Don, DonBig, DonHand,
@@ -477,6 +484,9 @@ namespace PeepoDrumKit
 
 		void RecalculateSENotes(BranchType branch); // implemented in chart_editor_widgets_game.cpp
 		void RecalculateComboCounts(BranchType branch); // implemented in chart_editor_widgets_game.cpp
+
+		enum struct OmitLevel : u8 { None, Diff, PlayerCount, PlayerSide };
+		std::string ToString(OmitLevel omitLevel = OmitLevel::None) const;
 	};
 
 	Beat FindCourseMaxUsedBeat(const ChartCourse& course);
@@ -564,8 +574,8 @@ namespace PeepoDrumKit
 	constexpr Time ConvertTimeSpace(Time v, TimeSpace in, TimeSpace out, Time songOffset) { v = (in == out) ? v : (in == TimeSpace::Chart) ? (v - songOffset) : (v + songOffset); return (v == Time { -0.0 }) ? Time {} : v; }
 	constexpr Time ConvertTimeSpace(Time v, TimeSpace in, TimeSpace out, const ChartProject& chart) { return ConvertTimeSpace(v, in, out, chart.SongOffset); }
 
-	using DebugCompareChartsOnMessageFunc = void(*)(std::string_view message, void* userData);
-	void DebugCompareCharts(const ChartProject& chartA, const ChartProject& chartB, DebugCompareChartsOnMessageFunc onMessageFunc, void* userData = nullptr);
+	using DebugCompareChartsOnMessageFunc = std::function<void(std::string_view message, b8 isError)>;
+	void DebugCompareCharts(const ChartProject& chartA, const ChartProject& chartB, DebugCompareChartsOnMessageFunc onMessageFunc);
 
 	b8 CreateChartProjectFromTJA(const TJA::ParsedTJA& inTJA, ChartProject& out);
 	b8 ConvertChartProjectToTJA(const ChartProject& in, TJA::ParsedTJA& out, b8 includePeepoDrumKitComment = true);
@@ -639,10 +649,16 @@ namespace PeepoDrumKit
 
 	static_assert(GenericMemberFlags_All & (1u << (static_cast<u32>(GenericMember::Count) - 1)));
 	static_assert(!(GenericMemberFlags_All & (1u << static_cast<u32>(GenericMember::Count))));
+}
 
-	constexpr cstr GenericListNames[] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", "ScrollType", "JPOSScroll", "Sudden",};
-	constexpr cstr GenericMemberNames[] = { "IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "Start", "Duration", "Offset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScroll", "JPOSScrollDuration", "SuddenAppearanceOffset", "SuddenMovementOffset", "SuddenHideRoll"};
+// EnumNames<> is global
+template <>
+constexpr std::string_view EnumNames<PeepoDrumKit::GenericList>[EnumCount<PeepoDrumKit::GenericList>] = { "TempoChanges", "SignatureChanges", "Notes_Normal", "Notes_Expert", "Notes_Master", "ScrollChanges", "BarLineChanges", "GoGoRanges", "Lyrics", "ScrollType", "JPOSScroll", "Sudden",};
+template <>
+constexpr std::string_view EnumNames<PeepoDrumKit::GenericMember>[EnumCount<PeepoDrumKit::GenericMember>] = {"IsSelected", "BarLineVisible", "BalloonPopCount", "ScrollSpeed", "BeatStart", "BeatDuration", "TimeOffset", "NoteType", "Tempo", "TimeSignature", "Lyric", "ScrollType", "JPOSScrollMove", "JPOSScrollDuration", "SuddenAppearanceOffset", "SuddenMovementOffset", "SuddenHideRoll"};
 
+namespace PeepoDrumKit
+{
 	// Member availability queries
 	template <typename T, GenericMember Member>
 	extern constexpr b8 IsMemberAvailable; // defined later

@@ -127,13 +127,13 @@ namespace ASCII
 
 	constexpr size_t MaxToStringSize = 256;
 
-	template <typename T>
-	constexpr std::string ToStringPrimitive(const T& in)
+	template <typename T, typename... Args>
+	constexpr std::string ToStringPrimitive(const T& in, Args&&... args)
 	{
 		std::string string;
 		for (size_t size = 8;;) {
 			string.resize(size);
-			const std::to_chars_result result = std::to_chars(string.data(), string.data() + string.size(), in);
+			const std::to_chars_result result = std::to_chars(string.data(), string.data() + string.size(), in, std::forward<Args>(args)...);
 			if (result.ec == std::errc::value_too_large && size < MaxToStringSize) {
 				size *= 2;
 				continue;
@@ -154,5 +154,6 @@ namespace ASCII
 	std::string ToString(const i64& in) { return ToStringPrimitive(in); }
 	std::string ToString(const f32& in) { return ToStringPrimitive(in); }
 	std::string ToString(const f64& in) { return ToStringPrimitive(in); }
+	std::string ToString(const void* in) { return ToStringPrimitive(reinterpret_cast<uintptr_t>(in), 16); }
 	std::string ToString(const Complex& in) { return in.toStringCompat(); }
 }

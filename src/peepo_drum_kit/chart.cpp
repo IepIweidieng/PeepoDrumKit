@@ -1,32 +1,37 @@
 ﻿#include "chart.h"
 #include "core_build_info.h"
 #include <algorithm>
+#include <array>
 
 namespace PeepoDrumKit
 {
-	void DebugCompareCharts(const ChartProject& chartA, const ChartProject& chartB, DebugCompareChartsOnMessageFunc onMessageFunc, void* userData)
+	void DebugCompareCharts(const ChartProject& chartA, const ChartProject& chartB, DebugCompareChartsOnMessageFunc onMessageFunc)
 	{
-		auto logf = [onMessageFunc, userData](cstr fmt, ...)
+		using ASCII::ToString;
+		auto logf = [&](b8 isError, cstr fmt, auto&&... args)
 		{
 			char buffer[512];
-			va_list args;
-			va_start(args, fmt);
-			onMessageFunc(std::string_view(buffer, _vsnprintf_s(buffer, ArrayCount(buffer), fmt, args)), userData);
-			va_end(args);
+			onMessageFunc(std::string_view(buffer, sprintf_s(buffer, ArrayCount(buffer), fmt, std::forward<decltype(args)>(args)...)), isError);
 		};
+		auto logErr = [&](cstr fmt, auto&&... args) { logf(true, fmt, std::forward<decltype(args)>(args)...); };
+		auto logInfo = [&](cstr fmt, auto&&... args) { logf(false, fmt, std::forward<decltype(args)>(args)...); };
 
-		if (chartA.Courses.size() != chartB.Courses.size()) { logf("Course count mismatch (%zu != %zu)", chartA.Courses.size(), chartB.Courses.size()); return; }
+		if (chartA.Courses.size() != chartB.Courses.size()) { logErr("Course count mismatch (%zu != %zu)", chartA.Courses.size(), chartB.Courses.size()); return; }
 
 		for (size_t i = 0; i < chartA.Courses.size(); i++)
 		{
 			const ChartCourse& courseA = *chartA.Courses[i];
 			const ChartCourse& courseB = *chartB.Courses[i];
+			if (i > 0)
+				logInfo(""); // empty line
+			logInfo("Course #%d: %.*s vs %.*s", i, FmtStrViewArgs(courseA.ToString()), FmtStrViewArgs(courseB.ToString()));
 
 			for (GenericList list = {}; list < GenericList::Count; IncrementEnum(list))
 			{
 				const size_t countA = GetGenericListCount(courseA, list);
 				const size_t countB = GetGenericListCount(courseB, list);
-				if (countA != countB) { logf("%s count mismatch (%zu != %zu)", GenericListNames[EnumToIndex(list)], countA, countB); continue; }
+				const auto listName = ToString(list);
+				if (countA != countB) { logErr("%.*s count mismatch (%zu != %zu)", FmtStrViewArgs(listName), countA, countB); continue; }
 
 				for (size_t itemIndex = 0; itemIndex < countA; itemIndex++)
 				{
@@ -39,26 +44,32 @@ namespace PeepoDrumKit
 						if (!hasValueA || member == GenericMember::B8_IsSelected)
 							continue;
 
-						static constexpr auto safeCStrAreSame = [](cstr a, cstr b) -> b8 { if ((a == nullptr) || (b == nullptr) && a != b) return false; return (strcmp(a, b) == 0); };
-						cstr memberName = ""; b8 isSame = false;
-						switch (member)
+						const auto memberName = ToString(member);
+						TryDo([&](auto&& typedValueA, auto&& typedValueB)
 						{
-						case GenericMember::B8_IsSelected: { memberName = "IsSelected"; isSame = (valueA.B8 == valueB.B8); } break;
-						case GenericMember::B8_BarLineVisible: { memberName = "IsVisible"; isSame = (valueA.B8 == valueB.B8); } break;
-						case GenericMember::I32_BalloonPopCount: { memberName = "BalloonPopCount"; isSame = (valueA.I32 == valueB.I32); } break;
-						case GenericMember::F32_ScrollSpeed: { memberName = "ScrollSpeed"; isSame = ApproxmiatelySame(valueA.CPX, valueB.CPX); } break;
-						case GenericMember::Beat_Start: { memberName = "BeatStart"; isSame = (valueA.Beat == valueB.Beat); } break;
-						case GenericMember::Beat_Duration: { memberName = "BeatDuration"; isSame = (valueA.Beat == valueB.Beat); } break;
-						case GenericMember::Time_Offset: { memberName = "TimeOffset"; isSame = ApproxmiatelySame(valueA.Time.Seconds, valueB.Time.Seconds); } break;
-						case GenericMember::NoteType_V: { memberName = "NoteType"; isSame = (valueA.NoteType == valueB.NoteType); } break;
-						case GenericMember::Tempo_V: { memberName = "Tempo"; isSame = ApproxmiatelySame(valueA.Tempo.BPM, valueB.Tempo.BPM); } break;
-						case GenericMember::TimeSignature_V: { memberName = "TimeSignature"; isSame = (valueA.TimeSignature == valueB.TimeSignature); } break;
-						case GenericMember::CStr_Lyric: { memberName = "Lyric"; isSame = safeCStrAreSame(valueA.CStr, valueB.CStr); } break;
-						case GenericMember::I8_ScrollType: { memberName = "ScrollType"; isSame = (valueA.I16 == valueB.I16); } break;
-						}
-
-						if (!isSame)
-							logf("%s[%zu].%s value mismatch", GenericListNames[EnumToIndex(list)], itemIndex, memberName);
+							auto checkMatch = [&](b8 match, auto&& a, auto&& b)
+							{
+								if (!match) {
+									auto strA = ToString(a);
+									auto strB = ToString(b);
+									logErr("%.*s[%zu].%.*s value mismatch: %.*s vs. %.*s", FmtStrViewArgs(listName), itemIndex, FmtStrViewArgs(memberName), FmtStrViewArgs(strA), FmtStrViewArgs(strB));
+								}
+							};
+							using T = decltype(typedValueA);
+							if constexpr (expect_type_v<T, cstr>) {
+								checkMatch((!typedValueA && !typedValueB) || (typedValueA && typedValueB && strcmp(typedValueA, typedValueB) == 0), typedValueA, typedValueB);
+							} else if constexpr (expect_type_v<T, Complex>) {
+								checkMatch(ApproxmiatelySame(typedValueA, typedValueB), typedValueA, typedValueB);
+							} else if constexpr (expect_type_v<T, Time>) {
+								checkMatch(ApproxmiatelySame(typedValueA.Seconds, typedValueB.Seconds), typedValueA.Seconds, typedValueB.Seconds);
+							} else if constexpr (expect_type_v<T, Tempo>) {
+								checkMatch(ApproxmiatelySame(typedValueA.BPM, typedValueB.BPM), typedValueA.BPM, typedValueB.BPM);
+							} else if constexpr (expect_type_v<T, Beat>) {
+								checkMatch(typedValueA == typedValueB, typedValueA.Ticks, typedValueB.Ticks);
+							} else {
+								checkMatch(typedValueA == typedValueB, typedValueA, typedValueB);
+							}
+						}, valueA, member, valueB);
 					}
 				}
 			}
@@ -120,6 +131,22 @@ namespace PeepoDrumKit
 		case NoteType::Bomb: return TJA::NoteType::Bomb;
 		default: return TJA::NoteType::None;
 		}
+	}
+
+	std::string ChartCourse::ToString(OmitLevel omitLevel) const
+	{
+		constexpr cstr fmts[] = { u8"%s ★%d%s %s", u8"%.0s★%d%s %s", u8"%.0s★%d%s%.0s" };
+		cstr fmt = fmts[std::array{ 0, 1, 1, 2 } [EnumToIndex(omitLevel)] ];
+
+		std::string buffer;
+		buffer.resize(96);
+		int len = sprintf_s(buffer.data(), buffer.size(), fmt,
+			UI_StrRuntime(DifficultyTypeNames[EnumToIndex(Type)]),
+			static_cast<i32>(Level),
+			(Decimal == DifficultyLevelDecimal::None) ? "" : ((Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
+			GetStyleName(Style, PlayerSide, omitLevel >= ChartCourse::OmitLevel::PlayerCount).data());
+		buffer.resize(std::max(0, len)); // set to empty if -1
+		return buffer;
 	}
 
 	Beat FindCourseMaxUsedBeat(const ChartCourse& course)

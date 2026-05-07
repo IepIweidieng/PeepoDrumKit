@@ -2,10 +2,21 @@
 #include "core_types.h"
 #include <string>
 #include <string_view>
+#include <utility>
 
 // NOTE: Runs the danger of double evaluating the string expression but I'm starting to get really tired of manually typing out the size cast
 #define StrViewFmtString "%.*s"
-#define FmtStrViewArgs(stringView) static_cast<i32>(stringView.size()), stringView.data()
+#define FmtStrViewArgs(stringView) static_cast<i32>(Size(stringView)), Data(stringView)
+
+template <typename CharT, expect_type_t<CharT, char> = true>
+size_t Size(CharT* str) { return std::strlen(str); }
+template <typename StrT, expect_type_t<StrT, std::string_view, std::string> = true>
+size_t Size(StrT&& str) { return std::size(str); }
+
+template <typename CharT, expect_type_t<CharT, char> = true>
+auto Data(CharT* str) { return str; }
+template <typename StrT, expect_type_t<StrT, std::string_view, std::string> = true>
+auto Data(StrT&& str) { return std::data(str); }
 
 constexpr cstr BoolToCStr(b8 value) { return value ? "true" : "false"; }
 
@@ -184,7 +195,20 @@ namespace ASCII
 	std::string ToString(const i64& in);
 	std::string ToString(const f32& in);
 	std::string ToString(const f64& in);
+	std::string ToString(const void* in);
 	std::string ToString(const Complex& in);
+
+	// method ToString()
+	template <typename T, typename... Args, typename = decltype(std::declval<T>().ToString(std::declval<Args>()...))>
+	decltype(auto) ToString(const T& in, Args&&... args) { return in.ToString(std::forward<Args>(args)...); }
+
+	// enum to string
+	template <typename EnumType, typename = std::enable_if_t<std::is_enum_v<EnumType>>>
+	constexpr decltype(auto) ToString(EnumType enumValue) { return IndexOr(EnumToIndex(enumValue), EnumNames<EnumType>, ""); }
+
+	// no-op
+	template <typename StrT, expect_type_t<StrT, cstr, std::string_view, std::string> = true>
+	StrT ToString(StrT&& in) { return in; }
 
 	// https://stackoverflow.com/questions/7035825/regular-expression-for-a-language-tag-as-defined-by-bcp47
 #define IETF_ "_" // delim

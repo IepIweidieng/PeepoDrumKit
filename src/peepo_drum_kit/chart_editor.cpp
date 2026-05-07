@@ -671,27 +671,16 @@ namespace PeepoDrumKit
 						i32 lastPlayerSide = -1;
 						for (std::unique_ptr<ChartCourse>& course : context.Chart.Courses)
 						{
-							enum OmitLevel { None, Diff, PlayerCount, PlayerSide };
 							auto diffType = course->Type;
 							i32 playerCount = course->Style;
 							i32 playerSide = course->PlayerSide;
-							OmitLevel omitLevel = (diffType != lastDiffType) ? None
-								: (playerCount != lastPlayerCount) ? Diff
-								: (playerSide != lastPlayerSide) ? PlayerCount
-								: PlayerSide;
+							auto omitLevel = (diffType != lastDiffType) ? ChartCourse::OmitLevel::None
+								: (playerCount != lastPlayerCount) ? ChartCourse::OmitLevel::Diff
+								: (playerSide != lastPlayerSide) ? ChartCourse::OmitLevel::PlayerCount
+								: ChartCourse::OmitLevel::PlayerSide;
 							lastDiffType = diffType;
 							lastPlayerCount = playerCount;
 							lastPlayerSide = playerSide;
-
-							constexpr cstr fmts[] = {u8"%s ★%d%s %s###Course_%p", u8"%.0s★%d%s %s###Course_%p", u8"%.0s★%d%s%.0s###Course_%p"};
-							cstr fmt = fmts[std::array{ 0, 1, 1, 2 }[omitLevel]];
-
-							char buffer[96]; sprintf_s(buffer, fmt,
-								UI_StrRuntime(DifficultyTypeNames[EnumToIndex(course->Type)]),
-								static_cast<i32>(course->Level), 
-								(course->Decimal == DifficultyLevelDecimal::None) ? "" : ((course->Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
-								GetStyleName(course->Style, course->PlayerSide, omitLevel >= PlayerCount).data(),
-								course.get());
 							const b8 isSelected = (course.get() == thisFrameSelectedCoursePtrID);
 							const b8 setSelectedThisFrame = (isSelected && isSelectedCourseSetThisFrame);
 
@@ -711,7 +700,7 @@ namespace PeepoDrumKit
 							}
 
 							// NOTE: ImGuiTabItemFlags_SetSelected applies at the next frame
-							if (Gui::BeginTabItem(buffer, nullptr, setSelectedThisFrame ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None))
+							if (Gui::BeginTabItem((course.get()->ToString(omitLevel) + "###Course_" + ASCII::ToString(course.get())).c_str(), nullptr, setSelectedThisFrame ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None))
 							{
 								// TODO: Selecting a course should also be an undo command so that there isn't ever any confusion (?)
 								if (!isSelectedCourseSetThisFrame || setSelectedThisFrame) {
@@ -1192,8 +1181,17 @@ namespace PeepoDrumKit
 							std::vector<TJA::Token> tempTokens = TJA::TokenizeLines(TJA::SplitLines(exportDebugViewData.Text));
 							TJA::ErrorList tempErrors;
 							TJA::ParsedTJA tempTJA = TJA::ParseTokens(tempTokens, tempErrors);
-							exportDebugViewData.DebugChart = {}; CreateChartProjectFromTJA(tempTJA, exportDebugViewData.DebugChart); exportDebugViewData.DebugLog.clear();
-							DebugCompareCharts(context.Chart, exportDebugViewData.DebugChart, [](std::string_view message, void*) { exportDebugViewData.DebugLog += message; exportDebugViewData.DebugLog += '\n'; });
+							b8 hasErrors = !tempErrors.Errors.empty();
+							exportDebugViewData.DebugChart = {}; CreateChartProjectFromTJA(tempTJA, exportDebugViewData.DebugChart);
+							exportDebugViewData.DebugLog.clear();
+							DebugCompareCharts(context.Chart, exportDebugViewData.DebugChart, [&](std::string_view message, b8 isError)
+							{
+								(exportDebugViewData.DebugLog += message) += '\n';
+								hasErrors |= isError;
+							});
+							if (!hasErrors)
+								exportDebugViewData.DebugLog.clear();
+							exportDebugViewData.DebugLog.shrink_to_fit();
 						}
 					}
 					const f32 buttonHeight = Gui::GetFrameHeight();

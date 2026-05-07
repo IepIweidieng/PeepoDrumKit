@@ -108,7 +108,7 @@ constexpr std::string_view ConstevalStrJoined = {ConstevalStrJoinedArr<Strs...>.
 template <typename TTested, typename... TExpected>
 constexpr b8 expect_type_v = (... || std::is_same_v<TExpected, std::remove_cv_t<std::remove_reference_t<TTested>>>);
 
-// NOTE: Example: template <..., expect_type_t<TTested, TExpected>>; for SFINAE (template substitution programming)
+// NOTE: Example: template <..., expect_type_t<TTested, TExpected> = true>; for SFINAE (template substitution programming)
 template <typename TTested, typename... TExpected>
 using expect_type_t = std::enable_if_t<expect_type_v<TTested, TExpected...>, bool>;
 
@@ -190,6 +190,11 @@ constexpr EnumType FirstMatchEnumToType(enum_sequence<EnumType, Values...>)
 template <template <auto> typename EnumToType, typename T, typename EnumType>
 constexpr EnumType TypeToEnum = FirstMatchEnumToType<EnumToType, T>(make_enum_sequence<EnumType>{});
 
+// can omit definition in C++26: https://isocpp.org/files/papers/P2996R4.html#enum-to-string
+// NOTE: Name of enum members, define yourself
+template <typename EnumType>
+constexpr std::string_view EnumNames[EnumCount<EnumType>] = std::declval<decltype(EnumNames)>(); // Forbid usage unless specialized
+
 // for creating overloaded function set of lambdas
 template <typename... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
@@ -228,18 +233,18 @@ template <typename IndexType, typename ArrayType>
 constexpr __forceinline b8 InBounds(const IndexType index, const ArrayType& array)
 {
 	static_assert(std::is_integral_v<IndexType>);
-	using SizeType = decltype(array.size());
+	using SizeType = decltype(std::size(array));
 
 	if constexpr (std::is_signed_v<IndexType>)
-		return (index >= 0 && static_cast<SizeType>(index) < array.size());
+		return (index >= 0 && static_cast<SizeType>(index) < std::size(array));
 	else
-		return (index < array.size());
+		return (index < std::size(array));
 }
 
 template <typename IndexType, typename ArrayType, typename DefaultType>
-constexpr __forceinline auto IndexOr(const IndexType index, ArrayType& array, DefaultType defaultValue)
+constexpr __forceinline decltype(auto) IndexOr(const IndexType index, ArrayType&& array, DefaultType&& defaultValue)
 {
-	return InBounds(index, array) ? array[index] : defaultValue;
+	return InBounds(index, array) ? array[index] : std::forward<DefaultType>(defaultValue);
 }
 
 template <typename IndexType, typename ArrayType>
