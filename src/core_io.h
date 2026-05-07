@@ -33,11 +33,11 @@ namespace Path
 	std::string TryMakeRelative(std::string_view absolutePath, std::string_view baseFileOrDirectory);
 
 	// NOTE: Replace '\\' -> '/' etc.
-	std::string CopyAndNormalize(std::string_view filePath);
 	std::string& NormalizeInPlace(std::string& inOutFilePath);
+	inline std::string CopyAndNormalize(std::string_view filePath) { auto copy = std::string{ filePath }; return NormalizeInPlace(copy); }
 	// NOTE: Replace '/' -> '\\' etc.
-	std::string CopyAndNormalizeWin32(std::string_view filePath);
 	std::string& NormalizeInPlaceWin32(std::string& inOutFilePath);
+	inline std::string CopyAndNormalizeWin32(std::string_view filePath) { auto copy = std::string{ filePath }; return NormalizeInPlaceWin32(copy); }
 }
 
 namespace File
@@ -83,7 +83,7 @@ namespace Directory
 	std::string GetExecutablePath();
 	std::string GetExecutableDirectory();
 	std::string GetWorkingDirectory();
-	void SetWorkingDirectory(std::string_view directoryPath);
+	b8 SetWorkingDirectory(std::string_view directoryPath);
 }
 
 namespace CommandLine

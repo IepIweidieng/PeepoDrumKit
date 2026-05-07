@@ -6,7 +6,19 @@
 #include <shobjidl.h>
 #include <Windows.h>
 #include <wrl.h>
+#include <filesystem>
 using Microsoft::WRL::ComPtr;
+using std::filesystem::u8path;
+
+#define CHECK_EC(_ec) check_ec(_ec, __FILE__, __LINE__, __func__)
+static b8 check_ec(const std::error_code& ec, std::string_view file, i32 line, std::string_view func)
+{
+	if (ec) {
+		auto msg = ec.message();
+		printf("%.*s:%d, in %.*s: %.*s", FmtStrViewArgs(file), line, FmtStrViewArgs(func), FmtStrViewArgs(msg));
+	}
+	return b8{ ec };
+}
 
 namespace Path
 {
@@ -60,18 +72,19 @@ namespace Path
 
 	std::string_view GetDirectoryName(std::string_view filePath)
 	{
-		const std::string_view fileName = GetFileName(filePath);
-		return fileName.empty() ? filePath : filePath.substr(0, filePath.size() - fileName.size() - 1);
+		const size_t lastDirectoryIndex = filePath.find_last_of(DirectorySeparators);
+		return (lastDirectoryIndex == std::string_view::npos) ? ""
+			: filePath.substr(0, (lastDirectoryIndex == 0) ? 1 : lastDirectoryIndex); // root or normal folder
 	}
 
 	b8 IsRelative(std::string_view filePath)
 	{
-		return ::PathIsRelativeW(UTF8::WideArg(filePath).c_str());
+		return u8path(filePath).is_relative();
 	}
 
 	b8 IsDirectory(std::string_view filePath)
 	{
-		return ::PathIsDirectoryW(UTF8::WideArg(filePath).c_str());
+		return std::filesystem::is_directory(u8path(filePath));
 	}
 
 	std::string TryMakeAbsolute(std::string_view relativePath, std::string_view baseFileOrDirectory)
@@ -86,42 +99,24 @@ namespace Path
 
 	std::string TryMakeRelative(std::string_view absolutePath, std::string_view baseFileOrDirectory)
 	{
-		auto basePathU16 = UTF8::WideArg(CopyAndNormalizeWin32(baseFileOrDirectory));
-		auto absolutePathU16 = UTF8::WideArg(CopyAndNormalizeWin32(absolutePath));
+		std::error_code ec;
+		auto basePath = u8path(baseFileOrDirectory);
+		if (!std::filesystem::is_directory(basePath, ec))
+			basePath = basePath.parent_path();
 
-		wchar_t outRelative[MAX_PATH] = L"";
-		const BOOL success = ::PathRelativePathToW(outRelative,
-			basePathU16.c_str(), ::PathIsDirectoryW(basePathU16.c_str()) ? FILE_ATTRIBUTE_DIRECTORY : 0,
-			absolutePathU16.c_str(), ::PathIsDirectoryW(absolutePathU16.c_str()) ? FILE_ATTRIBUTE_DIRECTORY : 0);
-
-		return success ? std::string { ASCII::TrimPrefix(UTF8::Narrow(FixedBufferWStringView(outRelative)), Win32CurrentDirectoryPrefix) } : "";
+		auto absoluteFsPath = u8path(absolutePath);
+		auto relativePath = std::filesystem::relative(absoluteFsPath, basePath, ec);
+		return !CHECK_EC(ec) ? relativePath.u8string() : "";
 	}
 
-	std::string CopyAndNormalize(std::string_view filePath)
+	static std::string& NormalizeInPlace(std::string& inOutFilePath, char DirectorySeparatorReplaced, char DirectorySeparatorNormalized)
 	{
-		std::string normalizedCopy { filePath };
-		std::replace(normalizedCopy.begin(), normalizedCopy.end(), DirectorySeparatorWin32, DirectorySeparator);
-		return normalizedCopy;
-	}
-
-	std::string& NormalizeInPlace(std::string& inOutFilePath)
-	{
-		std::replace(inOutFilePath.begin(), inOutFilePath.end(), DirectorySeparatorWin32, DirectorySeparator);
+		std::replace(inOutFilePath.begin(), inOutFilePath.end(), DirectorySeparatorReplaced, DirectorySeparatorNormalized);
 		return inOutFilePath;
 	}
 
-	std::string CopyAndNormalizeWin32(std::string_view filePath)
-	{
-		std::string normalizedCopy { filePath };
-		std::replace(normalizedCopy.begin(), normalizedCopy.end(), DirectorySeparator, DirectorySeparatorWin32);
-		return normalizedCopy;
-	}
-
-	std::string& NormalizeInPlaceWin32(std::string& inOutFilePath)
-	{
-		std::replace(inOutFilePath.begin(), inOutFilePath.end(), DirectorySeparator, DirectorySeparatorWin32);
-		return inOutFilePath;
-	}
+	std::string& NormalizeInPlace(std::string& inOutFilePath) { return NormalizeInPlace(inOutFilePath, DirectorySeparatorWin32, DirectorySeparator); }
+	std::string& NormalizeInPlaceWin32(std::string& inOutFilePath) { return NormalizeInPlace(inOutFilePath, DirectorySeparator, DirectorySeparatorWin32); }
 }
 
 namespace File
@@ -189,13 +184,21 @@ namespace File
 
 	b8 Exists(std::string_view filePath)
 	{
-		const DWORD attributes = ::GetFileAttributesW(UTF8::WideArg(filePath).c_str());
-		return (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY));
+		std::error_code ec;
+		auto path = u8path(filePath);
+		return std::filesystem::exists(path, ec) && !std::filesystem::is_directory(path, ec);
 	}
 
 	b8 Copy(std::string_view source, std::string_view destination, b8 overwriteExisting)
 	{
-		return ::CopyFileW(UTF8::WideArg(source).c_str(), UTF8::WideArg(destination).c_str(), !overwriteExisting);
+		using copy_options = std::filesystem::copy_options;
+		auto options = overwriteExisting ? copy_options::overwrite_existing : copy_options::none;
+		std::error_code ec;
+		if (!std::filesystem::copy_file(u8path(source), u8path(destination), options, ec)) {
+			CHECK_EC(ec);
+			return false;
+		}
+		return true;
 	}
 }
 
@@ -230,19 +233,17 @@ namespace Directory
 {
 	b8 Create(std::string_view directoryPath)
 	{
-		if (directoryPath.empty())
+		std::error_code ec;
+		if (!std::filesystem::create_directories(u8path(directoryPath), ec)) {
+			CHECK_EC(ec);
 			return false;
-
-		return ::CreateDirectoryW(UTF8::WideArg(directoryPath).c_str(), 0);
+		}
+		return true;
 	}
 
 	b8 Exists(std::string_view directoryPath)
 	{
-		if (directoryPath.empty())
-			return false;
-
-		const DWORD attributes = ::GetFileAttributesW(UTF8::WideArg(directoryPath).c_str());
-		return (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY));
+		return std::filesystem::is_directory(u8path(directoryPath));
 	}
 
 
@@ -251,7 +252,7 @@ namespace Directory
 		// TODO: First ask for size then resize dynamic buffer accordingly
 		wchar_t buffer[MAX_PATH] = L"";
 		::GetModuleFileNameW(NULL, buffer, MAX_PATH);
-		return UTF8::Narrow(FixedBufferWStringView(buffer));
+		return std::filesystem::path(buffer).u8string();
 	}
 
 	std::string GetExecutableDirectory()
@@ -261,15 +262,17 @@ namespace Directory
 
 	std::string GetWorkingDirectory()
 	{
-		// TODO: First ask for size then resize dynamic buffer accordingly
-		wchar_t buffer[MAX_PATH] = L"";
-		::GetCurrentDirectoryW(MAX_PATH, buffer);
-		return UTF8::Narrow(FixedBufferWStringView(buffer));
+		std::error_code ec;
+		auto path = std::filesystem::current_path(ec);
+		CHECK_EC(ec);
+		return path.u8string();
 	}
 
-	void SetWorkingDirectory(std::string_view directoryPath)
+	b8 SetWorkingDirectory(std::string_view directoryPath)
 	{
-		::SetCurrentDirectoryW(UTF8::WideArg(directoryPath).c_str());
+		std::error_code ec;
+		std::filesystem::current_path(u8path(directoryPath), ec);
+		return !CHECK_EC(ec);
 	}
 }
 
@@ -280,15 +283,15 @@ namespace Shell
 		if (filePath.empty())
 			return;
 
+		auto path = u8path(filePath);
 		if (Path::IsRelative(filePath))
 		{
-			std::string absolutePath = Directory::GetWorkingDirectory(); absolutePath += "/"; absolutePath += filePath;
-			::ShellExecuteW(NULL, L"open", UTF8::WideArg(Path::NormalizeInPlaceWin32(absolutePath)).c_str(), NULL, NULL, SW_SHOWDEFAULT);
+			std::error_code ec;
+			auto absolutePath = std::filesystem::absolute(path, ec);
+			if (!CHECK_EC(ec))
+				path = absolutePath;
 		}
-		else
-		{
-			::ShellExecuteW(NULL, L"open", UTF8::WideArg(Path::CopyAndNormalizeWin32(filePath)).c_str(), NULL, NULL, SW_SHOWDEFAULT);
-		}
+		::ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
 	}
 
 	MessageBoxResult ShowMessageBox(std::string_view message, std::string_view title, MessageBoxButtons buttons, MessageBoxIcon icon, void* parentWindowHandle)
