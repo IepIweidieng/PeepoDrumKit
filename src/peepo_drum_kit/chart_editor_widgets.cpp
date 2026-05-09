@@ -996,7 +996,7 @@ namespace PeepoDrumKit
 
 				// TODO: Display as formatted local time instead of time relative to program startup (?)
 				Gui::TableSetColumnIndex(1);
-				Gui::TextDisabled("%s", CPUTime::DeltaTime(CPUTime {}, creationTime).ToString().Data);
+				Gui::TextDisabled("%s", CPUTime::DeltaTime(CPUTime {}, creationTime).ToString().c_str());
 				return clicked;
 			};
 
@@ -1571,11 +1571,11 @@ namespace PeepoDrumKit
 						Gui::AlignTextToFramePadding();
 						if (SelectedItems.size() == 1)
 							Gui::TextDisabled("%s",
-								chartToDisplaySpace(context.BeatToTime(mixedValuesMin.BeatStart())).ToString().Data);
+								chartToDisplaySpace(context.BeatToTime(mixedValuesMin.BeatStart())).ToString().c_str());
 						else
 							Gui::TextDisabled("(%s ... %s)",
-								chartToDisplaySpace(context.BeatToTime(mixedValuesMin.BeatStart())).ToString().Data,
-								chartToDisplaySpace(context.BeatToTime(mixedValuesMax.BeatStart())).ToString().Data);
+								chartToDisplaySpace(context.BeatToTime(mixedValuesMin.BeatStart())).ToString().c_str(),
+								chartToDisplaySpace(context.BeatToTime(mixedValuesMax.BeatStart())).ToString().c_str());
 					});
 
 					if (commonListType >= GenericList::Count)
@@ -2513,7 +2513,7 @@ namespace PeepoDrumKit
 						Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
 						{
 							if (i.Index == 0 && Gui::DragFloat("##DragTime", &v, TimelineDragScalarSpeedAtZoomSec(camera), min.ToSec_F32(), max.ToSec_F32(),
-								(*inOutValue <= Time::Zero()) ? "n/a" : Time::FromSec(v).ToString().Data, ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat | ImGuiSliderFlags_NoInput))
+								(*inOutValue <= Time::Zero()) ? "n/a" : Time::FromSec(v).ToString().c_str(), ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat | ImGuiSliderFlags_NoInput))
 							{
 								*inOutValue = ConvertTimeSpace(Time::FromSec(v), displaySpace, storageSpace, context.Chart);
 								valueChanged = true;
@@ -3046,7 +3046,7 @@ namespace PeepoDrumKit
 		// TODO: Maybe format as some existing subtitle format and visually show syntax errors somehow (?)
 		for (const auto& lyricChange : in.Sorted)
 		{
-			out += ConvertTimeSpace(tempoMap.BeatToTime(lyricChange.BeatTime), TimeSpace::Chart, timeSpace, songOffset).ToString().Data;
+			out += ConvertTimeSpace(tempoMap.BeatToTime(lyricChange.BeatTime), TimeSpace::Chart, timeSpace, songOffset).ToString();
 			out += " > ";
 			ConvertToEscapeSequences(lyricChange.Lyric, out, EscapeSequenceFlags::NewLines);
 			out += "\n";
@@ -3055,11 +3055,9 @@ namespace PeepoDrumKit
 
 	static void ConvertAllLyricsFromString(TimeSpace timeSpace, Time songOffset, const SortedTempoMap& tempoMap, std::string_view in, SortedLyricsList& out)
 	{
+		Beat lastParsedBeat = Beat::Zero();
 		ASCII::ForEachLineInMultiLineString(in, false, [&](std::string_view line)
 		{
-			if (line.size() < ArrayCount("00:00.000"))
-				return;
-
 			const size_t timeLyricSplitIndex = in.find_first_of('>');
 			if (timeLyricSplitIndex == std::string_view::npos || timeLyricSplitIndex + 1 >= line.size())
 				return;
@@ -3068,9 +3066,8 @@ namespace PeepoDrumKit
 			const std::string_view lyricSubStr = ASCII::TrimSuffix(ASCII::Trim(line.substr(timeLyricSplitIndex + 1)), "\n");
 
 			// BUG: Time round-trip conversion not lossless
-			Time::FormatBuffer zeroTerminatedTimeBuffer; CopyStringViewIntoFixedBuffer(zeroTerminatedTimeBuffer.Data, timeSubStr);
-			const Time parsedTime = ConvertTimeSpace(Time::FromString(zeroTerminatedTimeBuffer.Data), timeSpace, TimeSpace::Chart, songOffset);
-			const Beat parsedBeat = tempoMap.TimeToBeat(parsedTime);
+			const Time parsedTime = ConvertTimeSpace(Time::FromString(std::string{ timeSubStr }.c_str()), timeSpace, TimeSpace::Chart, songOffset);
+			const Beat parsedBeat = std::isfinite(parsedTime.Seconds) ? tempoMap.TimeToBeat(parsedTime) : lastParsedBeat;
 
 			b8 isOnlyWhitespace = true;
 			for (const char c : lyricSubStr)

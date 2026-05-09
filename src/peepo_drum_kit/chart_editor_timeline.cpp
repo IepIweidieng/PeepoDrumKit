@@ -3274,7 +3274,6 @@ namespace PeepoDrumKit
 		drawers.DrawTimelineSideBarHeader([&](ImDrawList* drawList)
 		{
 			DrawListSidebarHeader = drawList;
-			char buffer[64];
 
 			// TODO: ...
 			static constexpr f32 textAlpha = 0.5f;
@@ -3293,26 +3292,63 @@ namespace PeepoDrumKit
 					Time displayTime = context.GetCursorTime() + cursorTimeOffset;
 					Time displayTimeMin = Min(cursorTimeOffset, Time::Zero());
 					Time displayTimeMax = context.GetUsedDurationFast() + cursorTimeOffset;
-					displayTime.ToString(buffer, sizeof(buffer));
+					std::string strDisplayTime = displayTime.ToString();
 
 					Gui::SetNextItemWidth(perButtonSize.x);
 					b8 isOutOfChart = !((displayTime >= displayTimeMin) && (displayTime <= displayTimeMax));
 					if (isOutOfChart)
 						Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
-					if (f32 v = displayTime.Seconds;
-						Gui::DragFloat("##DisplayTime", &v, 1, 0, 0, buffer) && !(context.GetIsPlayback() && Gui::IsItemBeingEditedAsText())
-						) {
-						Time newTime = Time::FromSec(v);
+
+					static b8 editedAsText = false;
+					auto setDisplayTime = [&](const Time& newTime)
+					{
 						if (*Settings.General.DisplayTimeInSongSpace)
 							context.SetCursorTime(newTime + context.Chart.SongOffset);
 						else
 							context.SetCursorTime(newTime);
 						ScrollToTimelinePosition(Camera, Regions, context, context.GetCursorTime());
-					}
-					if (Gui::IsItemActiveAsInputText())
+					};
+					if (f32 v = displayTime.Seconds; Gui::DragFloat("##DisplayTime", &v, 1, 0, 0, strDisplayTime.c_str()) && !Gui::IsItemBeingEditedAsText())
+						setDisplayTime(Time::FromSec(v));
+
+					// text input update
+					if (Gui::IsItemActiveAsInputText()) {
 						Regions.Window.IsFocused = false; // prevent triggering hotkeys
+						auto id = Gui::GetItemID();
+						auto* state = Gui::GetInputTextState(id);
+						if (!editedAsText || context.GetIsPlayback()) {
+							std::string strDisplayTime = displayTime.ToString() + '\0';
+							auto bufSize = state->TextA.size();
+							// text input init and/or update time for canceling edit
+							for (auto* p : { &state->TextToRevertTo, &state->CallbackTextBackup, !editedAsText ? &state->TextA : nullptr }) {
+								if (!p)
+									break;
+								p->resize(strDisplayTime.size());
+								std::copy(strDisplayTime.begin(), strDisplayTime.end(), p->begin());
+							}
+							if (!editedAsText) { // text input init; re-select all
+								state->TextLen = strDisplayTime.size() - 1; // exclude ending '\0'
+								if (state->TextA.size() < bufSize)
+									state->TextA.resize(bufSize); // re-increase to buffer limit
+								state->SelectAll();
+							}
+						}
+					}
 					else if (Gui::IsItemHovered() || Gui::IsItemActive())
 						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+					// text input done
+					if (editedAsText && Gui::IsItemDeactivatedAfterEdit()) {
+						auto id = Gui::GetItemID();
+						Gui::InputTextDeactivateHook(id);
+						if (auto g = ImGui::GetCurrentContext(); g && g->InputTextDeactivatedState.ID == id && !g->InputTextDeactivatedState.TextA.empty()) {
+							std::string strNewTime = { g->InputTextDeactivatedState.TextA.begin(), g->InputTextDeactivatedState.TextA.end() };
+							auto newTime = Time::FromString(strNewTime.c_str());
+							if (std::isfinite(newTime.Seconds))
+								setDisplayTime(newTime);
+						}
+					}
+					editedAsText = Gui::IsItemBeingEditedAsText();
+
 					Gui::PopStyleColor(isOutOfChart);
 				}
 				Gui::SameLine(0.0f, 0.0f);
@@ -3580,7 +3616,7 @@ namespace PeepoDrumKit
 			DrawListContentHeader->ChannelsSetCurrent(1);
 			DrawListContent->ChannelsSetCurrent(0);
 
-			const f32 screenSpaceTimeTextWidth = Gui::CalcTextSize(Time::Zero().ToString().Data).x;
+			const f32 screenSpaceTimeTextWidth = Gui::CalcTextSize(Time::Zero().ToString()).x;
 			vec2 lastDrawnScreenSpaceTextTL = vec2(F32Min);
 
 			const vec2 screenSpaceTextOffsetBarIndex = GuiScale(vec2(4.0f, 1.0f));
@@ -3647,7 +3683,7 @@ namespace PeepoDrumKit
 						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarIndex, Gui::GetColorU32(colorKey),
 							std::string_view(buffer, sprintf_s(buffer, "%d", gridIt.BarIndex)));
 						Gui::AddTextWithDropShadow(DrawListContentHeader, headerScreenSpaceTL + screenSpaceTextOffsetBarTime, Gui::GetColorU32(colorKey, timeAlphaMul),
-							(gridIt.Time + timeLabelDisplayOffset).ToString().Data);
+							(gridIt.Time + timeLabelDisplayOffset).ToString());
 
 						lastDrawnScreenSpaceTextTL = headerScreenSpaceTL;
 						Gui::DisableFontPixelSnap(false);

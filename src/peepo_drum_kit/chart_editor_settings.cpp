@@ -315,7 +315,7 @@ namespace PeepoDrumKit
 		Ini::IniWriter writer { out };
 		char b[512], keyBuffer[64];
 
-		writer.LineComment(std::string_view(b, sprintf_s(b, "PeepoDrumKit %s", BuildInfo::CompilationDateParsed.ToString().Data)));
+		writer.LineComment("PeepoDrumKit " + BuildInfo::CompilationDateParsed.ToString());
 		writer.LineKeyValue_Str("file_version", std::string_view(b, sprintf_s(b, "%d.%d.%d", 1, 0, 0)));
 		writer.Line();
 
@@ -388,7 +388,7 @@ namespace PeepoDrumKit
 		char b[512];
 		std::string strBuffer; strBuffer.reserve(256);
 
-		writer.LineComment(std::string_view(b, sprintf_s(b, "PeepoDrumKit %s", BuildInfo::CompilationDateParsed.ToString().Data)));
+		writer.LineComment("PeepoDrumKit " + BuildInfo::CompilationDateParsed.ToString());
 		writer.LineKeyValue_Str("file_version", std::string_view(b, sprintf_s(b, "%d.%d.%d", 1, 0, 0)));
 		cstr lastSection = nullptr;
 

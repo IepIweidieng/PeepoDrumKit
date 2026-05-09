@@ -177,9 +177,9 @@ namespace PeepoDrumKit
 				Gui::TableNextRow();
 				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetName());
 				Gui::TableNextColumn(); Gui::Text("%d", voiceIt.GetSoundGroup());
-				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPosition().ToString().Data);
-				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPositionSmooth().ToString().Data);
-				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetSourceDuration().ToString().Data);
+				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPosition().ToString());
+				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetPositionSmooth().ToString());
+				Gui::TableNextColumn(); Gui::TextUnformatted(voiceIt.GetSourceDuration().ToString());
 				Gui::TableNextColumn(); Gui::Text("%.0f%%", ToPercent(voiceIt.GetVolume()));
 				Gui::TableNextColumn(); Gui::Text("%.0f%%", ToPercent(voiceIt.GetPan()));
 				Gui::TableNextColumn(); Gui::Text("%.0f%%", ToPercent(voiceIt.GetPlaybackSpeed()));
@@ -266,7 +266,7 @@ namespace PeepoDrumKit
 				Gui::TableNextColumn(); Gui::Text("%d", sourceItInstanceCount);
 				Gui::TableNextColumn(); (sourceItSampleBuffer != nullptr) ? Gui::Text("%d", sourceItSampleBuffer->ChannelCount) : Gui::TextDisabled("n/a");
 				Gui::TableNextColumn(); (sourceItSampleBuffer != nullptr) ? Gui::Text("%d", sourceItSampleBuffer->SampleRate) : Gui::TextDisabled("n/a");
-				Gui::TableNextColumn(); Gui::TextUnformatted(sourceItDuration.ToString().Data);
+				Gui::TableNextColumn(); Gui::TextUnformatted(sourceItDuration.ToString());
 
 				if (pushTextColor) Gui::PopStyleColor();
 				Gui::PopID();

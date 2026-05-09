@@ -853,10 +853,8 @@ struct Time
 	constexpr Time operator+() const { return Time(+Seconds); }
 	constexpr Time operator-() const { return Time(-Seconds); }
 
-	// NOTE: Enough to store "(-)mm:ss.fff"
-	struct FormatBuffer { char Data[12]; };
 	i32 ToString(char* outBuffer, size_t bufferSize) const;
-	FormatBuffer ToString() const;
+	std::string ToString() const;
 	static Time FromString(cstr inBuffer);
 };
 
@@ -881,11 +879,9 @@ struct Date
 
 	static Date GetToday();
 
-	// NOTE: Enough to store "yyyy/MM/dd"
-	struct FormatBuffer { char Data[12]; };
 	i32 ToString(char* outBuffer, size_t bufferSize, char separator) const;
-	FormatBuffer ToString(char separator = '/') const;
-	static Date FromString(cstr inBuffer, char separator = '/');
+	std::string ToString(char separator = '/') const;
+	static Date FromString(cstr inBuffer);
 };
 
 static_assert(sizeof(Date) == sizeof(u32));

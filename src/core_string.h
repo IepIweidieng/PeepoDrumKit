@@ -1,5 +1,6 @@
 #pragma once
 #include "core_types.h"
+#include <charconv>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -188,6 +189,49 @@ namespace ASCII
 	b8 TryParse(std::string_view string, f32& out);
 	b8 TryParse(std::string_view string, f64& out);
 	b8 TryParse(std::string_view string, Complex& out);
+
+	constexpr size_t MaxToStringBufferSize = 256;
+
+	// for F returning std::to_chars_result
+	template <typename F, expect_type_t<std::invoke_result_t<F, char*, char*>, std::to_chars_result> = true>
+	constexpr std::string ToStringWithFixedBufferInput(F&& to_string)
+	{
+		std::string string;
+		for (size_t size = 8;;) {
+			string.resize(size);
+			// will reattempt, do not std::move
+			const std::to_chars_result result = to_string(string.data(), string.data() + string.size());
+			if (result.ec == std::errc::value_too_large && size < MaxToStringBufferSize) {
+				size *= 2;
+				continue;
+			}
+			if (result.ec == std::errc{})
+				string.resize(result.ptr - string.data());
+			else
+				string = ""; // empty for error
+			break;
+		}
+
+		return string;
+	}
+
+	// for F returning string length if success and negative if failure
+	template <typename F, std::enable_if_t<std::is_signed_v<std::invoke_result_t<F, char*, char*>>, bool> = true>
+	constexpr std::string ToStringWithFixedBufferInput(F&& to_string)
+	{
+		return ASCII::ToStringWithFixedBufferInput([&](auto&& begin, auto&& end)
+		{
+			std::to_chars_result result = {};
+			if (auto res = to_string(begin, end); res < 0) {
+				result.ec = std::errc::value_too_large;
+				result.ptr = begin;
+			}
+			else {
+				result.ptr = begin + res;
+			}
+			return result;
+		});
+	}
 
 	std::string ToString(const u32& in);
 	std::string ToString(const i32& in);

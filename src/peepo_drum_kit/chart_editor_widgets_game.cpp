@@ -1174,8 +1174,8 @@ namespace PeepoDrumKit
 								};
 								ImGui::TextUnformatted("Position: " + fmt([&](const NoteAttr& attr, const vec2& pos)
 								{ return "(" + ASCII::ToString(pos.x) + ", " + ASCII::ToString(pos.y) + ") px @ 720p"; }));
-								ImGui::TextUnformatted("Time: " + fmt([&](const NoteAttr& attr, const vec2& pos) -> std::string
-								{ return attr.Time.ToString().Data; }));
+								ImGui::TextUnformatted("Time: " + fmt([&](const NoteAttr& attr, const vec2& pos)
+								{ return attr.Time.ToString(); }));
 								ImGui::TextUnformatted("Internal Beat: " + fmt([&](const NoteAttr& attr, const vec2& pos)
 								{ return ASCII::ToString(attr.Beat.Ticks / f32{ Beat::TicksPerBeat }) + " beats"; }));
 								ImGui::TextUnformatted("HBScroll Beat: " + fmt([&](const NoteAttr& attr, const vec2& pos)

@@ -125,27 +125,10 @@ namespace ASCII
 		return static_cast<bool>(in); // allow eof, reject fail & bad
 	}
 
-	constexpr size_t MaxToStringSize = 256;
-
 	template <typename T, typename... Args>
-	constexpr std::string ToStringPrimitive(const T& in, Args&&... args)
+	constexpr std::string ToStringPrimitive(T&& in, Args&&... args)
 	{
-		std::string string;
-		for (size_t size = 8;;) {
-			string.resize(size);
-			const std::to_chars_result result = std::to_chars(string.data(), string.data() + string.size(), in, std::forward<Args>(args)...);
-			if (result.ec == std::errc::value_too_large && size < MaxToStringSize) {
-				size *= 2;
-				continue;
-			}
-			if (result.ec == std::errc{})
-				string.resize(result.ptr - string.data());
-			else
-				string = ""; // empty for error
-			break;
-		}
-
-		return string;
+		return ToStringWithFixedBufferInput([&](const auto& begin, const auto& end) { return std::to_chars(begin, end, in, args...); });
 	}
 
 	std::string ToString(const u32& in) { return ToStringPrimitive(in); }

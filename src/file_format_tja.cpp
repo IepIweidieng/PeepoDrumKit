@@ -519,11 +519,7 @@ namespace TJA
 					comment = ASCII::Trim(comment);
 					comment = ASCII::TrimSuffix(ASCII::TrimPrefix(comment, "("), ")");
 					if (!comment.empty())
-					{
-						Date::FormatBuffer dateBuffer {};
-						CopyStringViewIntoFixedBuffer(dateBuffer.Data, comment);
-						outTJA.PeepoDrumKitCommentDate = Date::FromString(dateBuffer.Data, '/');
-					}
+						outTJA.PeepoDrumKitCommentDate = Date::FromString(std::string{ comment }.c_str());
 				}
 			} break;
 
@@ -1143,7 +1139,7 @@ namespace TJA
 			if (inContent.PeepoDrumKitCommentDate != Date::Zero())
 			{
 				out += " ";
-				out += inContent.PeepoDrumKitCommentDate.ToString().Data;
+				out += inContent.PeepoDrumKitCommentDate.ToString();
 			}
 			out += '\n';
 		}

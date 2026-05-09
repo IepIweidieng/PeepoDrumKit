@@ -1,6 +1,8 @@
 #include "core_types.h"
+#include "core_string.h"
 #include <stdio.h>
 #include <time.h>
+#include <charconv>
 #include <functional>
 #include <optional>
 
@@ -56,56 +58,63 @@ std::pair<Rect, Rect> FitInside(vec2 sizeSrc, Rect drawnRectSrc, Rect rectTarget
 	return { rectRes, drawnRectSrc };
 }
 
-static constexpr Time RoundToMilliseconds(Time value) { return Time::FromSec((value.Seconds * 1000.0 + 0.5) * 0.001); }
-
 i32 Time::ToString(char* outBuffer, size_t bufferSize) const
 {
-	assert(outBuffer != nullptr && bufferSize >= sizeof(FormatBuffer::Data));
+	assert(outBuffer != nullptr);
 
-	static constexpr Time maxDisplayableTime = Time::FromSec(3599.999999);
 	static constexpr const char invalidFormatString[] = "--:--.---";
 
-	const f64 msRoundSeconds = RoundToMilliseconds(Time::FromSec(Absolute(Seconds))).Seconds;
-	if (::isnan(msRoundSeconds) || ::isinf(msRoundSeconds))
+	const f64 msRoundSeconds = Time::FromMS(std::abs(std::round(ToMS()))).Seconds;
+	if (!::isfinite(msRoundSeconds))
 	{
 		// NOTE: Array count of a string literal char array already accounts for the null terminator
 		memcpy(outBuffer, invalidFormatString, ArrayCount(invalidFormatString));
 		return static_cast<i32>(ArrayCount(invalidFormatString) - 1);
 	}
 
-	const f64 msRoundSecondsAbs = Min(msRoundSeconds, maxDisplayableTime.ToSec());
-	const f64 min = Floor(Mod(msRoundSecondsAbs, 3600.0) / 60.0);
-	const f64 sec = Mod(msRoundSecondsAbs, 60.0);
-	const f64 ms = (sec - Floor(sec)) * 1000.0;
+	const f64 hour = Floor(msRoundSeconds / 3600.0);
+	const f64 min = Floor(Mod(msRoundSeconds, 3600.0) / 60.0);
+	f64 sec;
+	const f64 ms = std::modf(Mod(msRoundSeconds, 60.0), &sec) * 1000.0;
 
-	const char signPrefix[2] = { (Seconds < 0.0) ? '-' : '\0', '\0' };
-	return sprintf_s(outBuffer, bufferSize, "%s%02d:%02d.%03d", signPrefix, static_cast<i32>(min), static_cast<i32>(sec), static_cast<i32>(ms));
+	const char signPrefix[2] = { (Seconds < 0.0 && !(static_cast<i32>(hour) < 0)) ? '-' : '\0', '\0' }; // in case hour overflows to negative
+	auto outStrLen = snprintf(outBuffer, bufferSize, (hour >= 1) ? "%s%02d:%02d:%02d.%03d" : "%s%.0d%02d:%02d.%03d", signPrefix, static_cast<i32>(hour), static_cast<i32>(min), static_cast<i32>(sec), static_cast<i32>(ms));
+	if (outStrLen >= bufferSize) // too large to fit inside buffer, including ending '\0'
+		return -1;
+	return outStrLen;
 }
 
-Time::FormatBuffer Time::ToString() const
+std::string Time::ToString() const
 {
-	FormatBuffer buffer;
-	ToString(buffer.Data, ArrayCount(buffer.Data));
-	return buffer;
+	return ASCII::ToStringWithFixedBufferInput([&](auto&& begin, auto&& end) { return ToString(begin, end - begin); });
 }
 
+// return NaN if invalid
 Time Time::FromString(cstr inBuffer)
 {
 	if (inBuffer == nullptr || inBuffer[0] == '\0')
-		return Time::Zero();
+		return Time::FromSec(std::nan(""));
 
 	b8 isNegative = false;
 	if (inBuffer[0] == '-') { isNegative = true; inBuffer++; }
 	else if (inBuffer[0] == '+') { isNegative = false; inBuffer++; }
 
-	i32 min = 0, sec = 0, ms = 0;
-	sscanf_s(inBuffer, "%02d:%02d.%03d", &min, &sec, &ms);
+	f64 hour = 0, min = 0, sec = 0;
+	if (i32 hour_i, min_i; sscanf_s(inBuffer, "%d:%d:%lf", &hour_i, &min_i, &sec) == 3) {
+		hour = hour_i;
+		min = std::clamp(min_i, 0, 59);
+		sec = std::clamp(sec, 0.0, std::nextafter(60.0, 0));
+	} else if (sscanf_s(inBuffer, "%d:%lf", &min_i, &sec) == 2) {
+		hour = 0;
+		min = min_i;
+		sec = std::clamp(sec, 0.0, std::nextafter(60.0, 0));
+	} else if (sscanf_s(inBuffer, "%lf", &sec) == 1) {
+		hour = min = 0;
+	} else {
+		return Time::FromSec(std::nan(""));
+	}
 
-	min = Clamp(min, 0, 59);
-	sec = Clamp(sec, 0, 59);
-	ms = Clamp(ms, 0, 999);
-
-	const f64 outSeconds = (static_cast<f64>(min) * 60.0) + static_cast<f64>(sec) + (static_cast<f64>(ms) * 0.001);
+	const f64 outSeconds = ((hour * 60 + min) * 60) + sec;
 	return Time::FromSec(isNegative ? -outSeconds : outSeconds);
 }
 
@@ -127,34 +136,31 @@ Date TestDateToday = Date::GetToday();
 
 i32 Date::ToString(char* outBuffer, size_t bufferSize, char separator) const
 {
-	assert(outBuffer != nullptr && bufferSize >= sizeof(FormatBuffer::Data));
-	const u32 yyyy = Clamp<u32>(Year, 0, 9999);
-	const u32 mm = Clamp<u32>(Month, 0, 12);
-	const u32 dd = Clamp<u32>(Day, 0, 31);
-	return sprintf_s(outBuffer, bufferSize, "%04u%c%02u%c%02u", yyyy, separator, mm, separator, dd);
+	assert(outBuffer != nullptr);
+	const i32 yyyy = Year;
+	const u32 mm = Clamp<u32>(Month, 1, 12);
+	const u32 dd = Clamp<u32>(Day, 1, 31);
+	auto outStrLen = snprintf(outBuffer, bufferSize, "%04d%c%02u%c%02u", yyyy, separator, mm, separator, dd);
+	if (outStrLen >= bufferSize) // too large to fit inside buffer, including ending '\0'
+		return -1;
+	return outStrLen;
 }
 
-Date::FormatBuffer Date::ToString(char separator) const
+std::string Date::ToString(char separator) const
 {
-	FormatBuffer buffer;
-	ToString(buffer.Data, ArrayCount(buffer.Data), separator);
-	return buffer;
+	return ASCII::ToStringWithFixedBufferInput([&](auto&& begin, auto&& end) { return ToString(begin, end - begin, separator); });
 }
 
-Date Date::FromString(cstr inBuffer, char separator)
+Date Date::FromString(cstr inBuffer)
 {
-	assert(separator == '/' || separator == '-' || separator == '_');
-	char formatString[] = "%04u_%02u_%02u";
-	formatString[4] = separator;
-	formatString[9] = separator;
-
-	u32 yyyy = 0, mm = 0, dd = 0;
-	sscanf_s(inBuffer, formatString, &yyyy, &mm, &dd);
-
 	Date result = {};
-	result.Year = static_cast<i16>(Clamp<u32>(yyyy, 0, 9999));
-	result.Month = static_cast<i8>(Clamp<u32>(mm, 0, 12));
-	result.Day = static_cast<i8>(Clamp<u32>(dd, 0, 31));
+	i32 yyyy = 0;
+	u32 mm = 0, dd = 0;
+	if (sscanf_s(inBuffer, "%d%*c%u%*c%u", &yyyy, &mm, &dd) == 3) {
+		result.Year = static_cast<i16>(yyyy);
+		result.Month = static_cast<i8>(Clamp<u32>(mm, 1, 12));
+		result.Day = static_cast<i8>(Clamp<u32>(dd, 1, 31));
+	}
 	return result;
 }
 
