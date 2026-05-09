@@ -131,12 +131,18 @@ namespace ASCII
 		return ToStringWithFixedBufferInput([&](const auto& begin, const auto& end) { return std::to_chars(begin, end, in, args...); });
 	}
 
+	template <typename T>
+	constexpr std::string ToStringFloating(T&& in, b8 roundTrip = true, int minPreDigits = 0, int minPostDigits = 0)
+	{
+		return ToStringWithFixedBufferInput([&](auto&& begin, auto&& end) { return ToCharsFloating(begin, end, in, roundTrip, minPreDigits, minPostDigits); });
+	}
+
 	std::string ToString(const u32& in) { return ToStringPrimitive(in); }
 	std::string ToString(const i32& in) { return ToStringPrimitive(in); }
 	std::string ToString(const u64& in) { return ToStringPrimitive(in); }
 	std::string ToString(const i64& in) { return ToStringPrimitive(in); }
-	std::string ToString(const f32& in) { return ToStringPrimitive(in); }
-	std::string ToString(const f64& in) { return ToStringPrimitive(in); }
+	std::string ToString(const f32& in, b8 roundTrip, int minPreDigits, int minPostDigits) { return ToStringFloating(in, roundTrip, minPreDigits, minPostDigits); }
+	std::string ToString(const f64& in, b8 roundTrip, int minPreDigits, int minPostDigits) { return ToStringFloating(in, roundTrip, minPreDigits, minPostDigits); }
 	std::string ToString(const void* in) { return ToStringPrimitive(reinterpret_cast<uintptr_t>(in), 16); }
 	std::string ToString(const Complex& in) { return in.toStringCompat(); }
 }

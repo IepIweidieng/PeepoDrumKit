@@ -58,35 +58,37 @@ std::pair<Rect, Rect> FitInside(vec2 sizeSrc, Rect drawnRectSrc, Rect rectTarget
 	return { rectRes, drawnRectSrc };
 }
 
-i32 Time::ToString(char* outBuffer, size_t bufferSize) const
+i32 Time::ToString(char* outBuffer, size_t bufferSize, b8 roundTrip, int minSecPostDigits) const
 {
-	assert(outBuffer != nullptr);
+	assert(outBuffer != nullptr && minSecPostDigits >= 0);
 
 	static constexpr const char invalidFormatString[] = "--:--.---";
 
-	const f64 msRoundSeconds = Time::FromMS(std::abs(std::round(ToMS()))).Seconds;
-	if (!::isfinite(msRoundSeconds))
+	const auto seconds = std::abs(Seconds);
+	if (!::isfinite(seconds))
 	{
 		// NOTE: Array count of a string literal char array already accounts for the null terminator
 		memcpy(outBuffer, invalidFormatString, ArrayCount(invalidFormatString));
 		return static_cast<i32>(ArrayCount(invalidFormatString) - 1);
 	}
 
-	const f64 hour = Floor(msRoundSeconds / 3600.0);
-	const f64 min = Floor(Mod(msRoundSeconds, 3600.0) / 60.0);
-	f64 sec;
-	const f64 ms = std::modf(Mod(msRoundSeconds, 60.0), &sec) * 1000.0;
+	const f64 hour = Floor(seconds / 3600.0);
+	const f64 min = Floor(Mod(seconds, 3600.0) / 60.0);
+	const f64 sec = Mod(seconds, 60.0);
 
-	const char signPrefix[2] = { (Seconds < 0.0 && !(static_cast<i32>(hour) < 0)) ? '-' : '\0', '\0' }; // in case hour overflows to negative
-	auto outStrLen = snprintf(outBuffer, bufferSize, (hour >= 1) ? "%s%02d:%02d:%02d.%03d" : "%s%.0d%02d:%02d.%03d", signPrefix, static_cast<i32>(hour), static_cast<i32>(min), static_cast<i32>(sec), static_cast<i32>(ms));
-	if (outStrLen >= bufferSize) // too large to fit inside buffer, including ending '\0'
+	const char signPrefix[2] = { (seconds < 0.0 && !(static_cast<i32>(hour) < 0)) ? '-' : '\0', '\0' }; // in case hour overflows to negative
+	// print the second separately for finer formatting
+	i32 outStrLen = snprintf(outBuffer, bufferSize, (hour >= 1) ? "%s%02d:%02d:" : "%s%.0d%02d:",
+		signPrefix, static_cast<i32>(hour), static_cast<i32>(min));
+	if (outStrLen >= bufferSize) // too large to fit inside buffer? including ending '\0'
 		return -1;
-	return outStrLen;
+	std::to_chars_result result = ASCII::ToCharsFloating(outBuffer + outStrLen, outBuffer + bufferSize, sec, roundTrip, 2, minSecPostDigits);
+	return (result.ec != std::errc{}) ? -1 : static_cast<i32>(result.ptr - outBuffer);
 }
 
-std::string Time::ToString() const
+std::string Time::ToString(b8 roundTrip, int minSecPostDigits) const
 {
-	return ASCII::ToStringWithFixedBufferInput([&](auto&& begin, auto&& end) { return ToString(begin, end - begin); });
+	return ASCII::ToStringWithFixedBufferInput([&](auto&& begin, auto&& end) { return ToString(begin, end - begin, roundTrip, minSecPostDigits); });
 }
 
 // return NaN if invalid
@@ -141,9 +143,7 @@ i32 Date::ToString(char* outBuffer, size_t bufferSize, char separator) const
 	const u32 mm = Clamp<u32>(Month, 1, 12);
 	const u32 dd = Clamp<u32>(Day, 1, 31);
 	auto outStrLen = snprintf(outBuffer, bufferSize, "%04d%c%02u%c%02u", yyyy, separator, mm, separator, dd);
-	if (outStrLen >= bufferSize) // too large to fit inside buffer, including ending '\0'
-		return -1;
-	return outStrLen;
+	return (outStrLen >= bufferSize) ? -1 : outStrLen; // too large to fit inside buffer? including ending '\0'
 }
 
 std::string Date::ToString(char separator) const

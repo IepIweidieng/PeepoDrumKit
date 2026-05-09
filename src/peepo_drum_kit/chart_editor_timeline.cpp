@@ -3317,7 +3317,7 @@ namespace PeepoDrumKit
 						auto id = Gui::GetItemID();
 						auto* state = Gui::GetInputTextState(id);
 						if (!editedAsText || context.GetIsPlayback()) {
-							std::string strDisplayTime = displayTime.ToString() + '\0';
+							std::string strDisplayTime = displayTime.ToString(true) + '\0';
 							auto bufSize = state->TextA.size();
 							// text input init and/or update time for canceling edit
 							for (auto* p : { &state->TextToRevertTo, &state->CallbackTextBackup, !editedAsText ? &state->TextA : nullptr }) {

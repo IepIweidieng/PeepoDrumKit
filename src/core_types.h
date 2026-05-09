@@ -853,8 +853,8 @@ struct Time
 	constexpr Time operator+() const { return Time(+Seconds); }
 	constexpr Time operator-() const { return Time(-Seconds); }
 
-	i32 ToString(char* outBuffer, size_t bufferSize) const;
-	std::string ToString() const;
+	i32 ToString(char* outBuffer, size_t bufferSize, b8 roundTrip = false, int minSecPostDigits = 3) const;
+	std::string ToString(b8 roundTrip = false, int minSecPostDigits = 3) const;
 	static Time FromString(cstr inBuffer);
 };
 

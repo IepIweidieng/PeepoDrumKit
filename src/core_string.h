@@ -233,12 +233,77 @@ namespace ASCII
 		});
 	}
 
+	// { sign, whole, point, exp, end }
+	template <typename CharT, expect_type_t<CharT, char> = true>
+	auto DecomposeCharsFloating(CharT* begin, CharT* end)
+	{
+		if (end <= begin || tolower(*begin) == 'i' || tolower(*begin) == 'n') // inf, nan
+			return std::tuple{ end, end, end, end, end };
+		// decompose into (sign) + pre-digits + (point + (post-digits)) + (e + exponential)
+		auto* beg = (*begin == '+' || *begin == '-') ? begin + 1 : begin;
+		auto* point = static_cast<CharT*>(memchr(begin, '.', end - begin));
+		auto* exp = static_cast<CharT*>(memchr(begin, 'e', end - begin));
+		if (!exp)
+			exp = end;
+		if (!point)
+			point = exp;
+		return std::tuple{ begin, beg, point, exp, end };
+	}
+
+	template <typename T>
+	std::to_chars_result ToCharsFloating(char* begin, char* end, const T& in, b8 roundTrip = true, int minPreDigits = 0, int minPostDigits = 0)
+	{
+		int precision = -1;
+		for (;;) {
+			std::to_chars_result result = (precision < 0) ? std::to_chars(begin, end, in)
+				: std::to_chars(begin, end, in, std::chars_format::general, precision);
+			if (result.ec != std::errc{} || !std::isfinite(in) || (roundTrip && minPreDigits <= 1 && minPostDigits <= 0))
+				return result; // error or non-digit
+
+			// decompose into (sign) + pre-digits + (point + (post-digits)) + (e + exponential)
+			auto [sign, beg, point, exp, pEnd] = DecomposeCharsFloating(begin, result.ptr);
+			if (sign == pEnd) // non-digit
+				return result;
+			const auto prePointDigits = point - beg;
+			const auto postPointDigits = std::max(static_cast<ptrdiff_t>(0), exp - point - 1);
+
+			// fill or (for post digits) truncate
+			for (auto& [pBase, fillRaw] : { std::tuple{ &exp, minPostDigits - postPointDigits }, std::tuple{ &beg, minPreDigits - prePointDigits} }) {
+				auto fill = fillRaw;
+				if (!(pBase == &exp && !roundTrip))
+					fill = std::max(static_cast<ptrdiff_t>(0), fill);
+				if (precision < 0 && fill < 0) { // re-convert with rounding for the correct post digits
+					precision = std::max(static_cast<ptrdiff_t>(0), point - beg + std::max(static_cast<ptrdiff_t>(0), exp - point - 1 + fill));
+					goto continue_rounded;
+				}
+				b8 fillDot = (pBase == &exp && point == exp && fill > 0);
+				if (result.ptr + fill + fillDot > end) {
+					result.ec = std::errc::value_too_large;
+					return result;
+				}
+				std::move(*pBase, result.ptr, *pBase + fill + fillDot);
+				if (fillDot)
+					**pBase = '.';
+				if (fill > 0)
+					std::fill(*pBase + fillDot, *pBase + fill + fillDot, '0');
+				for (auto** pp : { &result.ptr, &exp, &point }) {
+					if (*pp < *pBase)
+						break;
+					*pp += fill + fillDot;
+				}
+			}
+			return result;
+		continue_rounded:
+			;
+		}
+	}
+
 	std::string ToString(const u32& in);
 	std::string ToString(const i32& in);
 	std::string ToString(const u64& in);
 	std::string ToString(const i64& in);
-	std::string ToString(const f32& in);
-	std::string ToString(const f64& in);
+	std::string ToString(const f32& in, b8 roundTrip = true, int minPreDigits = 0, int minPostDigits = 0);
+	std::string ToString(const f64& in, b8 roundTrip = true, int minPreDigits = 0, int minPostDigits = 0);
 	std::string ToString(const void* in);
 	std::string ToString(const Complex& in);
 
