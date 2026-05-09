@@ -347,23 +347,53 @@ namespace PeepoDrumKit
 	static b8 IsTimelineCursorVisibleOnScreen(const TimelineCamera& camera, const TimelineRegions& regions, const Time cursorTime, const f32 edgePixelThreshold = 0.0f)
 	{
 		assert(edgePixelThreshold >= 0.0f);
-		const f32 cursorLocalSpaceX = camera.TimeToLocalSpaceX(cursorTime);
-		return (cursorLocalSpaceX >= edgePixelThreshold && cursorLocalSpaceX <= ClampBot(regions.Content.GetWidth() - edgePixelThreshold, edgePixelThreshold));
+		for (auto getCursorLocalSpaceX : { &TimelineCamera::TimeToLocalSpaceX, &TimelineCamera::TimeToLocalSpaceX_AtTarget }) {
+			const auto cursorLocalSpaceX = std::invoke(getCursorLocalSpaceX, camera, cursorTime);
+			if (cursorLocalSpaceX >= edgePixelThreshold && cursorLocalSpaceX <= ClampBot(regions.Content.GetWidth() - edgePixelThreshold, edgePixelThreshold))
+				return true;
+		}
+		return false;
 	}
 
-	static void ScrollToTimelinePosition(TimelineCamera& camera, const TimelineRegions& regions, const ChartProject& chart, const ChartCourse& course, f32 normalizedTargetPosition)
+	static Time GetDisplayedTimelineDuration(TimelineCamera& camera, const TimelineRegions& regions, const ChartProject& chart, const ChartCourse& course, std::optional<Time> targetChartDuration = std::nullopt)
 	{
 		const f32 visibleWidth = regions.Content.GetWidth();
-		const f32 totalTimelineWidth = camera.WorldToLocalSpaceScale(vec2(camera.TimeToWorldSpaceX(chart.GetUsedDurationFast(course)), 0.0f)).x + 2.0f;
+		const Time noScrollDuration = camera.WorldSpaceXToTime(camera.LocalToWorldSpaceScale(vec2{ visibleWidth + 2 * TimelineCameraBaseScrollX, 0 }).x);
+		return std::max(targetChartDuration.has_value() ? targetChartDuration.value() : chart.GetUsedDurationFast(course), noScrollDuration);
+	}
 
-		const f32 cameraTargetPosition = totalTimelineWidth * normalizedTargetPosition
-			+ LerpClamped(TimelineCameraBaseScrollX, -visibleWidth - TimelineCameraBaseScrollX, normalizedTargetPosition);
+	static Time GetDisplayedTimelineDuration(TimelineCamera& camera, const TimelineRegions& regions, const ChartContext& context, std::optional<Time> targetChartDuration = std::nullopt)
+	{
+		return GetDisplayedTimelineDuration(camera, regions, context.Chart, *context.ChartSelectedCourse, targetChartDuration);
+	}
+
+	static void ScrollToTimelinePosition(TimelineCamera& camera, const TimelineRegions& regions, const ChartProject& chart, const ChartCourse& course, Time targetTime, std::optional<Time> targetChartDuration = std::nullopt)
+	{
+		const f32 visibleWidth = regions.Content.GetWidth();
+
+		const Time noScrollDuration = camera.WorldSpaceXToTime(camera.LocalToWorldSpaceScale(vec2{ visibleWidth + 2 * TimelineCameraBaseScrollX, 0}).x);
+		const Time targetTimelineDuration = GetDisplayedTimelineDuration(camera, regions, chart, course, targetChartDuration);
+
+		const f32 targetTimelineX = camera.WorldToLocalSpaceScale(vec2(camera.TimeToWorldSpaceX(targetTime), 0.0f)).x + 2.0f;
+		const f32 targetTimelineOffset = ConvertRangeRClampInput(Time::Zero(), targetTimelineDuration, TimelineCameraBaseScrollX, -visibleWidth - TimelineCameraBaseScrollX, targetTime);
+		const f32 cameraTargetPosition = targetTimelineX + targetTimelineOffset;
 		camera.PositionTarget.x = cameraTargetPosition;
 	}
 
-	static void ScrollToTimelinePosition(TimelineCamera& camera, const TimelineRegions& regions, const ChartContext& context, f32 normalizedTargetPosition)
+	static void ScrollToTimelinePosition(TimelineCamera& camera, const TimelineRegions& regions, const ChartContext& context, Time targetTime, std::optional<Time> targetChartDuration = std::nullopt)
 	{
-		ScrollToTimelinePosition(camera, regions, context.Chart, *context.ChartSelectedCourse, normalizedTargetPosition);
+		ScrollToTimelinePosition(camera, regions, context.Chart, *context.ChartSelectedCourse, targetTime, targetChartDuration);
+	}
+
+	static void ScrollToTimelinePositionNormalized(TimelineCamera& camera, const TimelineRegions& regions, const ChartProject& chart, const ChartCourse& course, f32 normalizedTargetPosition)
+	{
+		const Time chartDuration = chart.GetUsedDurationFast(course);
+		ScrollToTimelinePosition(camera, regions, chart, course, normalizedTargetPosition * chartDuration, chartDuration);
+	}
+
+	static void ScrollToTimelinePositionNormalized(TimelineCamera& camera, const TimelineRegions& regions, const ChartContext& context, f32 normalizedTargetPosition)
+	{
+		ScrollToTimelinePositionNormalized(camera, regions, context.Chart, *context.ChartSelectedCourse, normalizedTargetPosition);
 	}
 
 	static f32 GetNotesWaveAnimationTimeAtIndex(i32 noteIndex, i32 notesCount, i32 direction)
@@ -2680,7 +2710,7 @@ namespace PeepoDrumKit
 						const f32 scrollIncrementThisFrame = ConvertRange(0.0f, threshold, speedMin, speedMax, mouseLocalSpaceX - right) * modifier * Gui::DeltaTime();
 						if (*Settings.General.TimelineScrubAutoScrollEnableClamp)
 						{
-							const f32 maxScrollX = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.GetUsedDurationFast()), 0.0f)).x - Regions.ContentHeader.GetWidth() + 1.0f;
+							const f32 maxScrollX = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(GetDisplayedTimelineDuration(Camera, Regions, context)), 0.0f)).x - Regions.ContentHeader.GetWidth() + 1.0f;
 							Camera.PositionCurrentScrollBar.x = Camera.PositionCurrent.x = ClampTop(Camera.PositionCurrent.x + scrollIncrementThisFrame, ClampBot(Camera.PositionCurrent.x, maxScrollX));
 							Camera.PositionTarget.x = ClampTop(Camera.PositionTarget.x + scrollIncrementThisFrame, ClampBot(Camera.PositionTarget.x, maxScrollX));
 						}
@@ -2774,8 +2804,8 @@ namespace PeepoDrumKit
 					}
 				}
 
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineStart, false)) ScrollToTimelinePosition(Camera, Regions, context, 0.0f);
-				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineEnd, false)) ScrollToTimelinePosition(Camera, Regions, context, 1.0f);
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineStart, false)) ScrollToTimelinePositionNormalized(Camera, Regions, context, 0.0f);
+				if (Gui::IsAnyPressed(*Settings.Input.Timeline_JumpToTimelineEnd, false)) ScrollToTimelinePositionNormalized(Camera, Regions, context, 1.0f);
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_StartEndRangeSelection, false)) StartEndRangeSelectionAtCursor(context);
 			}
 
@@ -3277,7 +3307,7 @@ namespace PeepoDrumKit
 							context.SetCursorTime(newTime + context.Chart.SongOffset);
 						else
 							context.SetCursorTime(newTime);
-						ScrollToTimelinePosition(Camera, Regions, context, context.GetCursorTime() / context.GetUsedDurationFast());
+						ScrollToTimelinePosition(Camera, Regions, context, context.GetCursorTime());
 					}
 					if (Gui::IsItemActiveAsInputText())
 						Regions.Window.IsFocused = false; // prevent triggering hotkeys
@@ -3352,7 +3382,7 @@ namespace PeepoDrumKit
 			// NOTE: Waveform and cursor on top of scrollbar!
 			{
 				const Time cursorTime = context.GetCursorTime();
-				const Time chartDuration = context.GetUsedDurationFast();
+				const Time chartDuration = GetDisplayedTimelineDuration(Camera, Regions, context);
 				const b8 isPlayback = context.GetIsPlayback();
 
 				if (!context.SongWaveformL.IsEmpty())
@@ -3375,13 +3405,14 @@ namespace PeepoDrumKit
 			if (IsCameraMouseGrabActive) Gui::PushStyleColor(ImGuiCol_ScrollbarGrab, Gui::GetStyleColorVec4(ImGuiCol_ScrollbarGrabHovered));
 
 			const f32 localSpaceVisibleWidth = Regions.Content.GetWidth();
-			const f32 localSpaceTimelineWidth = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(context.GetUsedDurationFast()), 0.0f)).x + 2.0f;
+			const f32 localSpaceTimelineWidth = Camera.WorldToLocalSpaceScale(vec2(Camera.TimeToWorldSpaceX(GetDisplayedTimelineDuration(Camera, Regions, context)), 0.0f)).x + 2.0f;
 
 			// BUG: Scrollbar should still be interactable while box selecting
 			static constexpr ImS64 padding = 1;
 			ImS64 inOutScrollValue = static_cast<ImS64>(Camera.PositionCurrentScrollBar.x - TimelineCameraBaseScrollX);
-			const ImS64 inSizeAvail = static_cast<ImS64>(localSpaceVisibleWidth + TimelineCameraBaseScrollX);
+			const ImS64 scrollValueEnd = inOutScrollValue + localSpaceVisibleWidth;
 			const ImS64 inContentSize = static_cast<ImS64>(localSpaceTimelineWidth);
+			const ImS64 inSizeAvail = Clamp(scrollValueEnd, 0LL, inContentSize) - Clamp(inOutScrollValue, 0LL, inContentSize);
 			if (Gui::ScrollbarEx(ImRect(Regions.ContentScrollbarX.TL, Regions.ContentScrollbarX.BR), Gui::GetID("ContentScrollbarX"), ImGuiAxis_X,
 				&inOutScrollValue, inSizeAvail, inContentSize, ImDrawFlags_RoundCornersNone))
 			{

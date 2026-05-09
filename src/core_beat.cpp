@@ -42,7 +42,7 @@ Beat TempoMapAccelerationStructure::ConvertTimeToBeatUsingLookupTableBinarySearc
 	const i32 beatTickToTimesCount = static_cast<i32>(BeatTickToTimes.size());
 	const Time lastTime = GetLastCalculatedTime();
 
-	if (time < Time::FromSec(0.0)) // NOTE: Negative time
+	if (time < Time::FromSec(0.0) || std::isnan(time.Seconds)) // NOTE: Negative time
 	{
 		// NOTE: Calculate the duration of a Beat at the first tempo
 		const Time firstTickDuration = Time::FromSec((60.0 / abs(FirstTempoBPM)) / Beat::TicksPerBeat);

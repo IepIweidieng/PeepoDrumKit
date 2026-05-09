@@ -586,6 +586,8 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Add box selection, hitbox around selected note, & note attributes display when hovered in Game Preview");
 					Gui::TextUnformatted(u8"- Fix ThorVG-rendered sprites' semi-transparent part was too dark due to incorrect transparency format");
 					Gui::TextUnformatted(u8"- Increase balloon pop count's range to 32-bit integer and fix lags for playing roll-type notes' hitsound");
+					Gui::TextUnformatted(u8"- Fix unnecessary scrolling when scroll-seeking the chart while the chart fits in screen on Chart Timeline");
+					Gui::TextUnformatted(u8"- Fix wrong horizontal scroll bar position and length when scrolled outside of scrollable range in Chart Timeline");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
