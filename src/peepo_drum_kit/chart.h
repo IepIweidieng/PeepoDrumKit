@@ -154,6 +154,20 @@ namespace PeepoDrumKit
 		Count
 	};
 
+	constexpr b8 IsExtendedLevel(DifficultyType type, f64 level)
+	{
+		switch (type) {
+		case DifficultyType::Easy:
+			return level >= 5 + 1;
+		case DifficultyType::Normal:
+			return level >= 7 + 1;
+		case DifficultyType::Hard:
+			return level >= 8 + 1;
+		default:
+			return level >= 10 + 1;
+		}
+	}
+
 	enum class Side : u8
 	{
 		Normal,
@@ -483,6 +497,8 @@ namespace PeepoDrumKit
 
 		enum struct OmitLevel : u8 { None, Diff, PlayerCount, PlayerSide };
 		std::string ToString(OmitLevel omitLevel = OmitLevel::None) const;
+
+		b8 IsExtendedLevel() const { return PeepoDrumKit::IsExtendedLevel(Type, Level); }
 	};
 
 	Beat FindCourseMaxUsedBeat(const ChartCourse& course);

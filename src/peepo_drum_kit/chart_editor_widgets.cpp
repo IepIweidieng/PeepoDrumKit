@@ -112,11 +112,10 @@ namespace PeepoDrumKit
 		return anyValueChanged;
 	}
 
-	static b8 GuiDifficultyLevelStarSliderWidget(cstr label, decltype(ChartCourse::Level)* inOutLevel, decltype(ChartCourse::LevelDecimalPlaces)* inOutPlaces, b8& inOutFitOnScreenLastFrame, std::array<b8, 2>& inOutHoveredLastFrame)
+	static b8 GuiDifficultyLevelStarSliderWidget(cstr label, DifficultyType type, decltype(ChartCourse::Level)* inOutLevel, decltype(ChartCourse::LevelDecimalPlaces)* inOutPlaces, b8& inOutFitOnScreenLastFrame, std::array<b8, 2>& inOutHoveredLastFrame)
 	{
-		auto getStarColor = [](f64 level, unsigned int def) -> unsigned int {
-			if (level >= 11) return IM_COL32(255, 122, 122, 255);
-			return def;
+		auto getStarColor = [](DifficultyType type, f64 level, unsigned int def) -> unsigned int {
+			return IsExtendedLevel(type, level) ? IM_COL32(255, 122, 122, 255) : def;
 		};
 
 		auto _defaultColor = Gui::GetColorU32(ImGuiCol_Text);
@@ -151,7 +150,7 @@ namespace PeepoDrumKit
 					return std::min(floored, Round(floored, std::pow(10, -*inOutPlaces)));
 				};
 				if (inOutFitOnScreenLastFrame) Gui::PushStyleColor(ImGuiCol_Text, 0x00000000);
-				else Gui::PushStyleColor(ImGuiCol_Text, getStarColor(*inOutLevel, _defaultColor));
+				else Gui::PushStyleColor(ImGuiCol_Text, getStarColor(type, *inOutLevel, _defaultColor));
 				if (f64 v = roundLevel(*inOutLevel), min = DifficultyLevel::Min, max = DifficultyLevel::Max + 1 - std::pow(10, -*inOutPlaces);
 					Gui::SliderScalar(label, ImGuiDataType_Double, &v, &min, &max, (u8"★ %." + ASCII::ToString(*inOutPlaces) + "lf").c_str())
 					) {
@@ -188,7 +187,7 @@ namespace PeepoDrumKit
 					{
 						const Rect starRect = Rect::FromCenterSize({ availableRect.TL.x + i * starDistance, availableRect.GetCenter().y }, vec2(starSize));
 						const auto star = (i >= static_cast<i32>(levelWhole)) ? fontSizedStarParamOutline : fontSizedStarParamFilled;
-						Gui::DrawStar(drawList, starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(i + 1, _defaultColor), star.Thickness);
+						Gui::DrawStar(drawList, starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(type, i + 1, _defaultColor), star.Thickness);
 						if ((i == std::min(static_cast<i32>(levelWhole), DifficultyLevel::Max - 1))) {
 							drawList->ChannelsSetCurrent(1);
 							std::string strStarFrac = ASCII::ToString(levelFrac, false, 0, *inOutPlaces);
@@ -196,7 +195,7 @@ namespace PeepoDrumKit
 								strStarFrac += " (+)";
 							const std::string_view strStar = ASCII::TrimPrefix(strStarFrac, "0");
 							const Rect textRect = { { std::max(starRect.TL.x, prevStarRect.BR.x), starRect.TL.y }, { std::max(starRect.BR.x, prevStarRect.BR.x), starRect.BR.y } };
-							Gui::DrawStarDecimals(drawList, textRect, starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(i, _defaultColor), star.Thickness, strStar);
+							Gui::DrawStarDecimals(drawList, textRect, starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(type, i, _defaultColor), star.Thickness, strStar);
 							drawList->ChannelsSetCurrent(0);
 						}
 						prevStarRect = starRect;
@@ -2416,7 +2415,7 @@ namespace PeepoDrumKit
 				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_LEVEL_PRECISION"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (GuiDifficultyLevelStarSliderWidget("##DifficultyLevel", &course.Level, &course.LevelDecimalPlaces, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
+					if (GuiDifficultyLevelStarSliderWidget("##DifficultyLevel", course.Type, &course.Level, &course.LevelDecimalPlaces, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
 						context.Undo.NotifyChangesWereMade();
 				});
 				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_PLAYER_SIDE_COUNT"), [&]

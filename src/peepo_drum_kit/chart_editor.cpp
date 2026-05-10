@@ -687,7 +687,7 @@ namespace PeepoDrumKit
 							Gui::PushID(course.get());
 
 							i32 nPushedStyleColorI = 0;
-							if ((i32)course->Level >= 11) {
+							if (course->IsExtendedLevel()) {
 								Gui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 122, 122, 255));
 								++nPushedStyleColorI;
 							}
