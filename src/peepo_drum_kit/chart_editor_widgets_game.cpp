@@ -623,6 +623,7 @@ namespace PeepoDrumKit
 		const b8 IsAnyChildWindowHovered = Gui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
 
 		const i32 nLanes = size(context.ChartsCompared);
+		const ImGuiID guiID = Gui::GetItemID();
 
 		static constexpr vec2 buttonMargin = vec2(8.0f);
 		vec2 minContentRectSize = vec2(128.0f, nLanes * 72.0f);
@@ -695,12 +696,14 @@ namespace PeepoDrumKit
 		{
 			BoxSelection.IsActive = true;
 			BoxSelection.Action = ChartTimeline::GetBoxSelectionAction(Gui::GetIO());
+			ChartTimeline::ItemOwnKeysForBoxSelectionAction(Gui::GetIO(), guiID);
 			BoxSelection.WorldSpaceRect.TL = BoxSelection.WorldSpaceRect.BR = Camera.ScreenToWorldSpace(Gui::GetMousePos());
 		}
 		else if (BoxSelection.IsActive && Gui::IsMouseDown(ImGuiMouseButton_Right))
 		{
 			BoxSelection.WorldSpaceRect.BR = Camera.ScreenToWorldSpace(Gui::GetMousePos());
 			BoxSelection.Action = ChartTimeline::GetBoxSelectionAction(Gui::GetIO());
+			ChartTimeline::ItemOwnKeysForBoxSelectionAction(Gui::GetIO(), guiID);
 			context.RangeSelection = {};
 		}
 		else
@@ -709,6 +712,8 @@ namespace PeepoDrumKit
 				BoxSelection.Action = ChartTimeline::GetBoxSelectionAction(Gui::GetIO());
 
 			if (BoxSelection.IsActive && Gui::IsMouseReleased(ImGuiMouseButton_Right)) {
+				ChartTimeline::ItemOwnKeysForBoxSelectionAction(Gui::GetIO(), guiID);
+
 				static constexpr f32 minBoxSizeThreshold = 4.0f;
 				const Rect screenSpaceRect = Rect(Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.TL), Camera.WorldToScreenSpace(BoxSelection.WorldSpaceRect.BR));
 				if (Absolute(screenSpaceRect.GetWidth()) >= minBoxSizeThreshold && Absolute(screenSpaceRect.GetHeight()) >= minBoxSizeThreshold) {

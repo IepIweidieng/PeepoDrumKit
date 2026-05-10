@@ -2308,23 +2308,29 @@ namespace PeepoDrumKit
 
 			if (Regions.Sidebar.IsHovered || Regions.ContentScrollbarY.IsHovered)
 			{
-				if (!Gui::GetIO().KeyAlt)
+				if (!Gui::GetIO().KeyAlt) {
+					Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
 					Camera.PositionTarget.y -= (Gui::GetIO().MouseWheel * scrollStep.y);
+				}
 			}
 			else if (Regions.ContentHeader.IsHovered || Regions.Content.IsHovered || Regions.ContentScrollbarX.IsHovered)
 			{
 				if (Gui::GetIO().KeyAlt)
 				{
+					Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
 					const f32 zoomFactorX = *Settings.General.TimelineZoomFactorPerMouseWheelTick;
 					const f32 newZoomX = (Gui::GetIO().MouseWheel > 0.0f) ? (Camera.ZoomTarget.x * zoomFactorX) : (Camera.ZoomTarget.x / zoomFactorX);
 					Camera.SetZoomTargetAroundLocalPivot(vec2(newZoomX, Camera.ZoomTarget.y), ScreenToLocalSpace(Gui::GetMousePos()));
 				}
 				else
 				{
-					if (Gui::GetIO().KeyCtrl)
+					if (Gui::GetIO().KeyCtrl) {
+						Gui::SetKeyOwner(ImGuiKey_ModCtrl, Gui::GetItemID());
 						Camera.PositionTarget.y -= (Gui::GetIO().MouseWheel * scrollStep.y);
-					else
+					}
+					else {
 						Camera.PositionTarget.x += (Gui::GetIO().MouseWheel * scrollStep.x);
+					}
 				}
 			}
 		}
@@ -2690,6 +2696,8 @@ namespace PeepoDrumKit
 					const f32 speedMin = *Settings.General.TimelineScrubAutoScrollSpeedMin, speedMax = *Settings.General.TimelineScrubAutoScrollSpeedMax;
 
 					const f32 modifier = Gui::GetIO().KeyAlt ? 0.25f : Gui::GetIO().KeyShift ? 2.0f : 1.0f;
+					Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
+					Gui::SetKeyOwner(ImGuiKey_ModShift, Gui::GetItemID());
 					if (const f32 left = threshold; mouseLocalSpaceX < left)
 					{
 						const f32 scrollIncrementThisFrame = ConvertRange(threshold, 0.0f, speedMin, speedMax, mouseLocalSpaceX) * modifier * Gui::DeltaTime();
@@ -2786,6 +2794,9 @@ namespace PeepoDrumKit
 							Camera.PositionTarget.x += (cursorLocalSpaceX - Camera.TimeToLocalSpaceX(oldCursorBeatAndTime.Time));
 							WorldSpaceCursorXAnimationCurrent = Camera.LocalToWorldSpace(vec2(cursorLocalSpaceX, 0.0f)).x;
 						}
+
+						Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
+						Gui::SetKeyOwner(ImGuiKey_ModShift, Gui::GetItemID());
 					};
 
 					// TODO: Maybe refine further...
@@ -2829,6 +2840,8 @@ namespace PeepoDrumKit
 						auto itLower = std::upper_bound(std::begin(divisions), std::end(divisions), CurrentGridBarDivision);
 						i32 idxLower = (itLower == std::end(divisions)) ? std::size(divisions) : ArrayItToIndexI32(&*itLower, divisions.data());
 						CurrentGridBarDivision = divisions[Clamp(idxLower, 0, i32( std::size(divisions) ) - 1)];
+						Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
+						Gui::SetKeyOwner(ImGuiKey_ModShift, Gui::GetItemID());
 					}
 				}
 				if (decreaseGrid) {
@@ -2838,6 +2851,8 @@ namespace PeepoDrumKit
 						auto itUpper = std::lower_bound(std::begin(divisions), std::end(divisions), CurrentGridBarDivision);
 						i32 idxUpper = (itUpper == std::end(divisions)) ? std::size(divisions) : ArrayItToIndexI32(&*itUpper, divisions.data());
 						CurrentGridBarDivision = divisions[Clamp(idxUpper - 1, 0, i32( std::size(divisions) ) - 1)];
+						Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
+						Gui::SetKeyOwner(ImGuiKey_ModShift, Gui::GetItemID());
 					}
 				}
 			}
@@ -2887,10 +2902,16 @@ namespace PeepoDrumKit
 					const f32 currentPlaybackSpeed = context.GetPlaybackSpeed();
 					f32 closetPlaybackSpeedIndex = std::round(ToPercent(currentPlaybackSpeed)) / stepPercent;
 
-					if (Gui::IsAnyPressed(*Settings.Input.Timeline_IncreasePlaybackSpeed, true, InputModifierBehavior::Relaxed))
+					if (Gui::IsAnyPressed(*Settings.Input.Timeline_IncreasePlaybackSpeed, true, InputModifierBehavior::Relaxed)) {
+						Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
+						Gui::SetKeyOwner(ImGuiKey_ModShift, Gui::GetItemID());
 						context.SetPlaybackSpeed(FromPercent(stepPercent * (std::floor(closetPlaybackSpeedIndex) + 1)));
-					if (Gui::IsAnyPressed(*Settings.Input.Timeline_DecreasePlaybackSpeed, true, InputModifierBehavior::Relaxed))
+					}
+					if (Gui::IsAnyPressed(*Settings.Input.Timeline_DecreasePlaybackSpeed, true, InputModifierBehavior::Relaxed)) {
+						Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
+						Gui::SetKeyOwner(ImGuiKey_ModShift, Gui::GetItemID());
 						context.SetPlaybackSpeed(FromPercent(stepPercent * (std::ceil(closetPlaybackSpeedIndex) - 1)));
+					}
 				}
 
 				if (Gui::IsAnyPressed(*Settings.Input.Timeline_SetPlaybackSpeed_100, false)) context.SetPlaybackSpeed(FromPercent(100.0f));
@@ -2988,7 +3009,9 @@ namespace PeepoDrumKit
 							PlaySoundEffectTypeForNoteType(context, noteTypeToInsert);
 						}
 					}
+					return true;
 				}
+				return false;
 			};
 
 			PlaceBalloonBindingDownLastFrame = PlaceBalloonBindingDownThisFrame;
@@ -2997,8 +3020,10 @@ namespace PeepoDrumKit
 			PlaceDrumrollBindingDownThisFrame = hasTimelineOrGamePreviewFocus && Gui::IsAnyDown(*Settings.Input.Timeline_PlaceNoteDrumroll, InputModifierBehavior::Relaxed);
 			if (hasTimelineOrGamePreviewFocus)
 			{
-				updateNotePlacementBinding(*Settings.Input.Timeline_PlaceNoteDon, ToBigNoteIf(NoteType::Don, Gui::GetIO().KeyAlt));
-				updateNotePlacementBinding(*Settings.Input.Timeline_PlaceNoteKa, ToBigNoteIf(NoteType::Ka, Gui::GetIO().KeyAlt));
+				if (updateNotePlacementBinding(*Settings.Input.Timeline_PlaceNoteDon, ToBigNoteIf(NoteType::Don, Gui::GetIO().KeyAlt)))
+					Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
+				if (updateNotePlacementBinding(*Settings.Input.Timeline_PlaceNoteKa, ToBigNoteIf(NoteType::Ka, Gui::GetIO().KeyAlt)))
+					Gui::SetKeyOwner(ImGuiKey_ModAlt, Gui::GetItemID());
 
 				if (PlaceBalloonBindingDownThisFrame || PlaceDrumrollBindingDownThisFrame)
 				{
@@ -3095,12 +3120,14 @@ namespace PeepoDrumKit
 			{
 				BoxSelection.IsActive = true;
 				BoxSelection.Action = GetBoxSelectionAction(Gui::GetIO());
+				ItemOwnKeysForBoxSelectionAction(Gui::GetIO());
 				BoxSelection.WorldSpaceRect.TL = BoxSelection.WorldSpaceRect.BR = Camera.LocalToWorldSpace(ScreenToLocalSpace(Gui::GetMousePos()));
 			}
 			else if (BoxSelection.IsActive && Gui::IsMouseDown(ImGuiMouseButton_Right))
 			{
 				BoxSelection.WorldSpaceRect.BR = Camera.LocalToWorldSpace(ScreenToLocalSpace(Gui::GetMousePos()));
 				BoxSelection.Action = GetBoxSelectionAction(Gui::GetIO());
+				ItemOwnKeysForBoxSelectionAction(Gui::GetIO());
 				context.RangeSelection = {};
 			}
 			else
@@ -3110,6 +3137,8 @@ namespace PeepoDrumKit
 
 				if (BoxSelection.IsActive && Gui::IsMouseReleased(ImGuiMouseButton_Right))
 				{
+					ItemOwnKeysForBoxSelectionAction(Gui::GetIO());
+
 					static constexpr f32 minBoxSizeThreshold = 4.0f;
 					const Rect screenSpaceRect = Rect(Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.TL), Camera.WorldToLocalSpace(BoxSelection.WorldSpaceRect.BR));
 					if (Absolute(screenSpaceRect.GetWidth()) >= minBoxSizeThreshold && Absolute(screenSpaceRect.GetHeight()) >= minBoxSizeThreshold)

@@ -263,7 +263,15 @@ namespace PeepoDrumKit
 		{
 			const b8 shift = io.KeyShift, alt = io.KeyAlt;
 			return (shift && alt) ? BoxSelectionAction::XOR : shift ? BoxSelectionAction::Add : alt ? BoxSelectionAction::Sub : BoxSelectionAction::Clear;
-		};
+		}
+
+		static void ItemOwnKeysForBoxSelectionAction(const ImGuiIO& io, ImGuiID owner = ImGuiKeyOwner_NoOwner)
+		{
+			if (owner == ImGuiKeyOwner_NoOwner)
+				owner = Gui::GetItemID();
+			Gui::SetKeyOwner(ImGuiKey_ModShift, owner);
+			Gui::SetKeyOwner(ImGuiKey_ModAlt, owner);
+		}
 
 		struct BoxSelectionData
 		{
