@@ -615,6 +615,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Fix unnecessary scrolling when scroll-seeking the chart while the chart fits in screen on Chart Timeline");
 					Gui::TextUnformatted(u8"- Fix wrong horizontal scroll bar position and length when scrolled outside of scrollable range in Chart Timeline");
 					Gui::TextUnformatted(u8"- Support editing difficulty decimal places with adjustable number of digits (use Ctrl-click instead of sliding to put the precise value)");
+					Gui::TextUnformatted(u8"- Make previously uneditable metadata editable as other metadata");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
@@ -2278,7 +2279,7 @@ namespace PeepoDrumKit
 			data->EventChar = ASCII::IETFLangTagToTJALangTag(data->EventChar); // TJA-ize
 			return 0;
 		};
-		static constexpr auto keyFilter = [](std::string_view in) { return !in.empty() && (TJA::GetKeyColonValueTokenKey(in) == TJA::Key::Course_Unknown); };
+		static constexpr auto keyFilter = [](std::string_view in) { return !in.empty() && TJA::IsUnknownKeyColonValue(in); };
 		PropertyMapCollapsingHeader(context, label, otherMetadata, UI_Str("ACT_ADD_NEW_METADATA"), pNewMetadataKey, charFilter, keyFilter, "");
 	}
 

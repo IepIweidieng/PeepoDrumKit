@@ -185,17 +185,17 @@ namespace PeepoDrumKit
 		out.ChartSubtitle = inTJA.Metadata.SUBTITLE;
 		out.ChartSubtitleLocalized = inTJA.Metadata.SUBTITLE_localized;
 		out.ChartCreator = inTJA.Metadata.MAKER;
-		out.ChartGenre = inTJA.Metadata.GENRE;
-		out.ChartLyricsFileName = inTJA.Metadata.LYRICS;
+		// out.ChartGenre = inTJA.Metadata.GENRE;
+		// out.ChartLyricsFileName = inTJA.Metadata.LYRICS;
 		out.SongOffset = inTJA.Metadata.OFFSET;
 		out.SongDemoStartTime = inTJA.Metadata.DEMOSTART;
 		out.SongFileName = inTJA.Metadata.WAVE;
 		out.SongJacket = inTJA.Metadata.PREIMAGE;
 		out.SongVolume = inTJA.Metadata.SONGVOL;
 		out.SoundEffectVolume = inTJA.Metadata.SEVOL;
-		out.BackgroundImageFileName = inTJA.Metadata.BGIMAGE;
-		out.BackgroundMovieFileName = inTJA.Metadata.BGMOVIE;
-		out.MovieOffset = inTJA.Metadata.MOVIEOFFSET;
+		// out.BackgroundImageFileName = inTJA.Metadata.BGIMAGE;
+		// out.BackgroundMovieFileName = inTJA.Metadata.BGMOVIE;
+		// out.MovieOffset = inTJA.Metadata.MOVIEOFFSET;
 		out.OtherMetadata = inTJA.Metadata.Others;
 		for (size_t i = 0; i < inTJA.Courses.size(); i++)
 		{
@@ -298,8 +298,8 @@ namespace PeepoDrumKit
 			//outCourse.TempoMap.SetTempoChange(TempoChange());
 			//outCourse.TempoMap = inCourse.GoGoRanges;
 
-			outCourse.ScoreInit = inCourse.CourseMetadata.SCOREINIT;
-			outCourse.ScoreDiff = inCourse.CourseMetadata.SCOREDIFF;
+			// outCourse.ScoreInit = inCourse.CourseMetadata.SCOREINIT;
+			// outCourse.ScoreDiff = inCourse.CourseMetadata.SCOREDIFF;
 
 			outCourse.OtherMetadata = inCourse.CourseMetadata.Others;
 
@@ -329,17 +329,17 @@ namespace PeepoDrumKit
 		out.Metadata.SUBTITLE = in.ChartSubtitle;
 		out.Metadata.SUBTITLE_localized = in.ChartSubtitleLocalized;
 		out.Metadata.MAKER = in.ChartCreator;
-		out.Metadata.GENRE = in.ChartGenre;
-		out.Metadata.LYRICS = in.ChartLyricsFileName;
+		// out.Metadata.GENRE = in.ChartGenre;
+		// out.Metadata.LYRICS = in.ChartLyricsFileName;
 		out.Metadata.OFFSET = in.SongOffset;
 		out.Metadata.DEMOSTART = in.SongDemoStartTime;
 		out.Metadata.WAVE = in.SongFileName;
 		out.Metadata.PREIMAGE = in.SongJacket;
 		out.Metadata.SONGVOL = in.SongVolume;
 		out.Metadata.SEVOL = in.SoundEffectVolume;
-		out.Metadata.BGIMAGE = in.BackgroundImageFileName;
-		out.Metadata.BGMOVIE = in.BackgroundMovieFileName;
-		out.Metadata.MOVIEOFFSET = in.MovieOffset;
+		// out.Metadata.BGIMAGE = in.BackgroundImageFileName;
+		// out.Metadata.BGMOVIE = in.BackgroundMovieFileName;
+		// out.Metadata.MOVIEOFFSET = in.MovieOffset;
 		out.Metadata.Others = in.OtherMetadata;
 
 		if (includePeepoDrumKitComment)
@@ -371,8 +371,8 @@ namespace PeepoDrumKit
 			outCourse.Metadata.START_PLAYERSIDE = inCourse.PlayerSide;
 			outCourse.Metadata.NOTESDESIGNER = inCourse.CourseCreator;
 			for (const Note& inNote : inCourse.Notes_Normal) if (IsBalloonNote(inNote.Type)) { outCourse.Metadata.BALLOON.push_back(inNote.BalloonPopCount); }
-			outCourse.Metadata.SCOREINIT = inCourse.ScoreInit;
-			outCourse.Metadata.SCOREDIFF = inCourse.ScoreDiff;
+			// outCourse.Metadata.SCOREINIT = inCourse.ScoreInit;
+			// outCourse.Metadata.SCOREDIFF = inCourse.ScoreDiff;
 
 			outCourse.Metadata.LIFE = static_cast<i32>(inCourse.Life);
 			outCourse.Metadata.SIDE = static_cast<TJA::SongSelectSide>(inCourse.Side);

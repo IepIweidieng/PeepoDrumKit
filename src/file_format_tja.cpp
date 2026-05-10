@@ -137,6 +137,42 @@ namespace TJA
 		return Key::Chart_Unknown; // already matched; should never be reached
 	}
 
+	b8 IsUnknownKeyColonValue(std::string_view str)
+	{
+		switch (GetKeyColonValueTokenKey(str)) {
+		case Key::Main_Unknown:
+		// with READ_AS_OTHER()
+		case Key::Main_GENRE:
+		case Key::Main_SCOREMODE:
+		case Key::Main_LYRICS:
+		case Key::Main_GAME:
+		case Key::Main_HEADSCROLL:
+		case Key::Main_BGIMAGE:
+		case Key::Main_BGMOVIE:
+		case Key::Main_MOVIEOFFSET:
+
+		case Key::Course_Unknown:
+		// with READ_AS_OTHER()
+		case Key::Course_SCOREINIT:
+		case Key::Course_SCOREDIFF:
+		case Key::Course_BALLOONNOR:
+		case Key::Course_BALLOONEXP:
+		case Key::Course_BALLOONMAS:
+		case Key::Course_EXPLICIT:
+		case Key::Course_EXAMs:
+		case Key::Course_GAUGEINCR:
+		case Key::Course_TOTAL:
+		case Key::Course_HIDDENBRANCH:
+			return true;
+		}
+		return false;
+	}
+
+	b8 IsUnknownHashCommand(std::string_view str)
+	{
+		return GetHashCommandTokenKey(str) == TJA::Key::Chart_Unknown;
+	}
+
 	struct LinePrefixCommentSuffixSplit { std::string_view LinePrefix, CommentSuffix; };
 
 	static constexpr LinePrefixCommentSuffixSplit SplitLineIntoPrefixAndCommentSuffix(std::string_view line)
@@ -541,6 +577,7 @@ namespace TJA
 					ParsedMainMetadata& out = outTJA.Metadata;
 					switch (token.Key)
 					{
+#define READ_AS_OTHER(...) do { ParsedMainMetadata::Other out; { __VA_ARGS__ } goto main_other; } while (0)
 					case Key::Main_TITLE: { out.TITLE = in; } break;
 					case Key::Main_TITLE_localized:
 					{
@@ -562,20 +599,22 @@ namespace TJA
 					case Key::Main_PREIMAGE: { out.PREIMAGE = in; } break;
 					case Key::Main_OFFSET: { if (!tryParseTime(in, &out.OFFSET)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_DEMOSTART: { if (!tryParseTime(in, &out.DEMOSTART)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_GENRE: { out.GENRE = in; } break;
-					case Key::Main_SCOREMODE: { if (!tryParseScoreMode(in, &out.SCOREMODE)) { outErrors.Push(lineIndex, "Unknown score mode '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Main_GENRE: READ_AS_OTHER({ out.GENRE = in; }); break;
+					case Key::Main_SCOREMODE: READ_AS_OTHER({ if (!tryParseScoreMode(in, &out.SCOREMODE)) { outErrors.Push(lineIndex, "Unknown score mode '%.*s'", FmtStrViewArgs(in)); } }); break;
 					case Key::Main_MAKER: { out.MAKER = in; } break;
-					case Key::Main_LYRICS: { out.LYRICS = in; } break;
+					case Key::Main_LYRICS: READ_AS_OTHER({ out.LYRICS = in; }); break;
 					case Key::Main_SONGVOL: { if (!tryParsePercent(in, &out.SONGVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Main_SEVOL: { if (!tryParsePercent(in, &out.SEVOL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_GAME: { if (!tryParseGameType(in, &out.GAME)) { outErrors.Push(lineIndex, "Unknown game type '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_HEADSCROLL: { if (!ASCII::TryParse(in, out.HEADSCROLL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Main_BGIMAGE: { out.BGIMAGE = in; } break;
-					case Key::Main_BGMOVIE: { out.BGMOVIE = in; } break;
-					case Key::Main_MOVIEOFFSET: { if (!tryParseTime(in, &out.MOVIEOFFSET)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Main_GAME: READ_AS_OTHER({ if (!tryParseGameType(in, &out.GAME)) { outErrors.Push(lineIndex, "Unknown game type '%.*s'", FmtStrViewArgs(in)); } }); break;
+					case Key::Main_HEADSCROLL: READ_AS_OTHER({ if (!ASCII::TryParse(in, out.HEADSCROLL)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } }); break;
+					case Key::Main_BGIMAGE: READ_AS_OTHER({ out.BGIMAGE = in; }); break;
+					case Key::Main_BGMOVIE: READ_AS_OTHER({ out.BGMOVIE = in; }); break;
+					case Key::Main_MOVIEOFFSET: READ_AS_OTHER({ if (!tryParseTime(in, &out.MOVIEOFFSET)) { outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in)); } }); break;
 					case Key::Main_Unknown: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Unknown file-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					case Key::Main_Invalid: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					main_other: { out.Others.emplace(token.KeyString, token.ValueString); } break;
 					default: { assert(!"Unhandled Key::Main_ switch case despite (Key::Main_First to Key::Main_Last) range check"); } break;
+#undef READ_AS_OTHER
 					}
 				}
 				else if (token.Key == Key::Course_COURSE) { // special case of Key::Course_
@@ -600,6 +639,7 @@ namespace TJA
 					ParsedCourseMetadata& out = getCurrentCourse()->Metadata;
 					switch (token.Key)
 					{
+#define READ_AS_OTHER(...) do { ParsedCourseMetadata::Other out; { __VA_ARGS__ } goto course_other; } while (0)
 					case Key::Course_LEVEL: 
 					{ 
 						f64 _level;
@@ -622,13 +662,13 @@ namespace TJA
 						break;
 					} 
 					case Key::Course_BALLOON: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SCOREINIT: { if (!tryParseDefaultForEmpty(in, &out.SCOREINIT, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_SCOREDIFF: { if (!tryParseDefaultForEmpty(in, &out.SCOREDIFF, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_BALLOONNOR: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Normal)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_BALLOONEXP: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Expert)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_BALLOONMAS: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Master)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_SCOREINIT: READ_AS_OTHER({ if (!tryParseDefaultForEmpty(in, &out.SCOREINIT, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } }); break;
+					case Key::Course_SCOREDIFF: READ_AS_OTHER({ if (!tryParseDefaultForEmpty(in, &out.SCOREDIFF, 0)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } }); break;
+					case Key::Course_BALLOONNOR: READ_AS_OTHER({ if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Normal)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } }); break;
+					case Key::Course_BALLOONEXP: READ_AS_OTHER({ if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Expert)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } }); break;
+					case Key::Course_BALLOONMAS: READ_AS_OTHER({ if (!tryParseCommaSeparatedValues(in, &out.BALLOON_Master)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } }); break;
 					case Key::Course_STYLE: { if (!tryParseStyleMode(in, &out.STYLE)) { outErrors.Push(lineIndex, "Unknown or invalid style mode '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_EXPLICIT: { if (!ASCII::TryParse(in, out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_EXPLICIT: READ_AS_OTHER({ if (!ASCII::TryParse(in, out.EXPLICIT)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } }); break;
 					case Key::Course_NOTESDESIGNERs:
 					{
 						DifficultyType diff;
@@ -646,22 +686,24 @@ namespace TJA
 						}
 					}
 					break;
-					case Key::Course_EXAMs:
+					case Key::Course_EXAMs: READ_AS_OTHER(
 					{
 						i32 index;
 						if (std::string key; !tryParseExamSuffix(token.KeyString, KeyStrings[EnumToIndex(token.Key)], &key, &index))
 							outErrors.Push(lineIndex, "Invalid exam key '%.*s', expected 'n' ('1', '2', ...) or 'GAUGE'", FmtStrViewArgs(key));
 						out.EXAMs.insert_or_assign(index, in);
-					}
+					});
 					break;
-					case Key::Course_GAUGEINCR: { if (!tryParseGaugeIncrementMethod(in, &out.GAUGEINCR)) { outErrors.Push(lineIndex, "Unknown gauge increment method '%.*s'", FmtStrViewArgs(in)); } } break;
-					case Key::Course_TOTAL: { out.TOTAL; } break;
-					case Key::Course_HIDDENBRANCH: { if (!ASCII::TryParse(in, out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
+					case Key::Course_GAUGEINCR: READ_AS_OTHER({ if (!tryParseGaugeIncrementMethod(in, &out.GAUGEINCR)) { outErrors.Push(lineIndex, "Unknown gauge increment method '%.*s'", FmtStrViewArgs(in)); } }); break;
+					case Key::Course_TOTAL: READ_AS_OTHER({ out.TOTAL; }); break;
+					case Key::Course_HIDDENBRANCH: READ_AS_OTHER({ if (!ASCII::TryParse(in, out.HIDDENBRANCH)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } }); break;
 					case Key::Course_LIFE: { if (!ASCII::TryParse(in, out.LIFE)) { outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_SIDE: { if (!tryParseSongSelectSide(in, &out.SIDE)) { outErrors.Push(lineIndex, "Invalid SIDE '%.*s'", FmtStrViewArgs(in)); } } break;
 					case Key::Course_Unknown: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Unknown course-scoped (?) header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
 					case Key::Course_Invalid: { out.Others.emplace(token.KeyString, token.ValueString); outErrors.Push(lineIndex, "Invalid header '%.*s'", FmtStrViewArgs(token.KeyString)); } break;
+					course_other: { out.Others.emplace(token.KeyString, token.ValueString); } break;
 					default: { assert(!"Unhandled Key::Course_ switch case despite (Key::Course_First to Key::Course_Last) range check"); } break;
+#undef READ_AS_OTHER
 					}
 				}
 				else
@@ -1172,28 +1214,28 @@ namespace TJA
 			appendProperyLine(out, Key::Main_OFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.OFFSET.Seconds)));
 		if (shouldEmitMainMetadata(&ParsedMainMetadata::DEMOSTART))
 			appendProperyLine(out, Key::Main_DEMOSTART, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.DEMOSTART.Seconds)));
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::GENRE))
-			appendProperyLine(out, Key::Main_GENRE, inContent.Metadata.GENRE);
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::SCOREMODE))
-			appendProperyLine(out, Key::Main_SCOREMODE, std::string_view(buffer, sprintf_s(buffer, "%d", static_cast<i32>(inContent.Metadata.SCOREMODE))));
+		// if (shouldEmitMainMetadata(&ParsedMainMetadata::GENRE))
+		// 	appendProperyLine(out, Key::Main_GENRE, inContent.Metadata.GENRE);
+		// if (shouldEmitMainMetadata(&ParsedMainMetadata::SCOREMODE))
+		// 	appendProperyLine(out, Key::Main_SCOREMODE, std::string_view(buffer, sprintf_s(buffer, "%d", static_cast<i32>(inContent.Metadata.SCOREMODE))));
 		if (shouldEmitMainMetadata(&ParsedMainMetadata::MAKER))
 			appendProperyLine(out, Key::Main_MAKER, inContent.Metadata.MAKER);
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::LYRICS))
-			appendProperyLine(out, Key::Main_LYRICS, inContent.Metadata.LYRICS);
+		// if (shouldEmitMainMetadata(&ParsedMainMetadata::LYRICS))
+		// 	appendProperyLine(out, Key::Main_LYRICS, inContent.Metadata.LYRICS);
 		if (shouldEmitMainMetadata(&ParsedMainMetadata::SONGVOL))
 			appendProperyLine(out, Key::Main_SONGVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SONGVOL))));
 		if (shouldEmitMainMetadata(&ParsedMainMetadata::SEVOL))
 			appendProperyLine(out, Key::Main_SEVOL, std::string_view(buffer, sprintf_s(buffer, "%g", ToPercent(inContent.Metadata.SEVOL))));
 		// TODO: Key::Main_SIDE;
 		// TODO: Key::Main_GAME;
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::HEADSCROLL))
-			appendProperyLine(out, Key::Main_HEADSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.HEADSCROLL)));
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE))
-			appendProperyLine(out, Key::Main_BGIMAGE, inContent.Metadata.BGIMAGE);
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGMOVIE))
-			appendProperyLine(out, Key::Main_BGMOVIE, inContent.Metadata.BGMOVIE);
-		if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE, &ParsedMainMetadata::BGMOVIE, &ParsedMainMetadata::MOVIEOFFSET)) // Better to be explicit if bg is given
-			appendProperyLine(out, Key::Main_MOVIEOFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.MOVIEOFFSET.Seconds)));
+		// if (shouldEmitMainMetadata(&ParsedMainMetadata::HEADSCROLL))
+		// 	appendProperyLine(out, Key::Main_HEADSCROLL, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.HEADSCROLL)));
+		// if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE))
+		// 	appendProperyLine(out, Key::Main_BGIMAGE, inContent.Metadata.BGIMAGE);
+		// if (shouldEmitMainMetadata(&ParsedMainMetadata::BGMOVIE))
+		// 	appendProperyLine(out, Key::Main_BGMOVIE, inContent.Metadata.BGMOVIE);
+		// if (shouldEmitMainMetadata(&ParsedMainMetadata::BGIMAGE, &ParsedMainMetadata::BGMOVIE, &ParsedMainMetadata::MOVIEOFFSET)) // Better to be explicit if bg is given
+		// 	appendProperyLine(out, Key::Main_MOVIEOFFSET, std::string_view(buffer, sprintf_s(buffer, "%g", inContent.Metadata.MOVIEOFFSET.Seconds)));
 
 		if (shouldEmitMainMetadata(&ParsedMainMetadata::Others)) {
 			for (const auto& [header, val] : inContent.Metadata.Others)
@@ -1268,19 +1310,19 @@ namespace TJA
 			}
 
 			// Better to be explicit
-			if (!course.Metadata.BALLOON.empty() || !course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
+			if (!course.Metadata.BALLOON.empty() /* || !course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty() */)
 				appendBalloonProperyLine(out, Key::Course_BALLOON, course.Metadata.BALLOON); // necessary for branched charts as branched BALLOON headers are not handled consistently across all simulators
-			if (!course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
-			{
-				appendBalloonProperyLine(out, Key::Course_BALLOONNOR, course.Metadata.BALLOON_Normal);
-				appendBalloonProperyLine(out, Key::Course_BALLOONEXP, course.Metadata.BALLOON_Expert);
-				appendBalloonProperyLine(out, Key::Course_BALLOONMAS, course.Metadata.BALLOON_Master);
-			}
+			// if (!course.Metadata.BALLOON_Normal.empty() || !course.Metadata.BALLOON_Expert.empty() || !course.Metadata.BALLOON_Master.empty())
+			// {
+			// 	appendBalloonProperyLine(out, Key::Course_BALLOONNOR, course.Metadata.BALLOON_Normal);
+			// 	appendBalloonProperyLine(out, Key::Course_BALLOONEXP, course.Metadata.BALLOON_Expert);
+			// 	appendBalloonProperyLine(out, Key::Course_BALLOONMAS, course.Metadata.BALLOON_Master);
+			// }
 
-			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::SCOREINIT, &ParsedCourseMetadata::SCOREDIFF)) {
-				appendProperyLine(out, Key::Course_SCOREINIT, (course.Metadata.SCOREINIT == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREINIT)));
-				appendProperyLine(out, Key::Course_SCOREDIFF, (course.Metadata.SCOREDIFF == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREDIFF)));
-			}
+			// if (shouldEmitCourseMetadata(&ParsedCourseMetadata::SCOREINIT, &ParsedCourseMetadata::SCOREDIFF)) {
+			// 	appendProperyLine(out, Key::Course_SCOREINIT, (course.Metadata.SCOREINIT == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREINIT)));
+			// 	appendProperyLine(out, Key::Course_SCOREDIFF, (course.Metadata.SCOREDIFF == 0) ? "" : std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.SCOREDIFF)));
+			// }
 
 			if (shouldEmitCourseMetadata(&ParsedCourseMetadata::NOTESDESIGNER))
 				appendSuffixedPropertyLine(out, Key::Course_NOTESDESIGNERs, std::to_string(EnumToIndex(course.Metadata.COURSE)), course.Metadata.NOTESDESIGNER);

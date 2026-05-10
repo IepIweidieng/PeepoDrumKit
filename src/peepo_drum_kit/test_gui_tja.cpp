@@ -284,22 +284,22 @@ namespace PeepoDrumKit
 					for (const auto& [locale, val] : metadata.SUBTITLE_localized)
 						row("Subtitle (" + locale + ")", val);
 					row("Song File Name", metadata.WAVE);
-					if (!metadata.BGIMAGE.empty()) row("Background Image File Name", metadata.BGIMAGE);
-					if (!metadata.BGMOVIE.empty()) row("Background Movie File Name", metadata.BGMOVIE);
-					if (!metadata.LYRICS.empty()) row("Lyrics File Name", metadata.LYRICS);
+					// if (!metadata.BGIMAGE.empty()) row("Background Image File Name", metadata.BGIMAGE);
+					// if (!metadata.BGMOVIE.empty()) row("Background Movie File Name", metadata.BGMOVIE);
+					// if (!metadata.LYRICS.empty()) row("Lyrics File Name", metadata.LYRICS);
 					row("Chart Creator", metadata.MAKER);
 					row("Initial Tempo", std::string_view(b, sprintf_s(b, "%g BPM", metadata.BPM.BPM)));
-					row("Initial Scroll Speed", std::string_view(b, sprintf_s(b, "%gx", metadata.HEADSCROLL)));
+					// row("Initial Scroll Speed", std::string_view(b, sprintf_s(b, "%gx", metadata.HEADSCROLL)));
 					row("Song Offset", std::string_view(b, sprintf_s(b, "%g sec", metadata.OFFSET.Seconds)));
-					row("Movie Offset", std::string_view(b, sprintf_s(b, "%g sec", metadata.MOVIEOFFSET.Seconds)));
+					// row("Movie Offset", std::string_view(b, sprintf_s(b, "%g sec", metadata.MOVIEOFFSET.Seconds)));
 					row("Demo Start Time", std::string_view(b, sprintf_s(b, "%g sec", metadata.DEMOSTART.Seconds)));
 					row("Song Volume", std::string_view(b, sprintf_s(b, "%g %%", ToPercent(metadata.SONGVOL))));
 					row("Sound Effect Volume", std::string_view(b, sprintf_s(b, "%g %%", ToPercent(metadata.SEVOL))));
-					row("Score Mode", TJAScoreModeNames[EnumToIndex(metadata.SCOREMODE)]);
+					// row("Score Mode", TJAScoreModeNames[EnumToIndex(metadata.SCOREMODE)]);
 					//row("Side", TJASongSelectSideNames[EnumToIndex(metadata.SIDE)]);
 					//row("Life", (metadata.LIFE == 0) ? "" : std::string_view(b, sprintf_s(b, "%d", metadata.LIFE)));
-					row("Genre", metadata.GENRE);
-					row("Game", TJAGameTypeNames[EnumToIndex(metadata.GAME)]);
+					// row("Genre", metadata.GENRE);
+					// row("Game", TJAGameTypeNames[EnumToIndex(metadata.GAME)]);
 					for (const auto& [header, value] : metadata.Others)
 						row(header.c_str(), value.c_str());
 				}
@@ -355,8 +355,8 @@ namespace PeepoDrumKit
 							row("Style", GetTJAStyleModeName(metadata.STYLE));
 							row("Player Side", std::string_view(b, sprintf_s(b, "%d", metadata.START_PLAYERSIDE)));
 
-							row("Score Init", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREINIT)));
-							row("Score Diff", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREDIFF)));
+							// row("Score Init", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREINIT)));
+							// row("Score Diff", std::string_view(b, sprintf_s(b, "%d", metadata.SCOREDIFF)));
 
 							auto rowBalloonPops = [](std::string_view propertyKey, const std::vector<i32>& i32s)
 							{
@@ -371,9 +371,9 @@ namespace PeepoDrumKit
 							};
 
 							rowBalloonPops("Balloon Pop Counts", metadata.BALLOON);
-							rowBalloonPops("Balloon Pop Counts (Normal)", metadata.BALLOON_Normal);
-							rowBalloonPops("Balloon Pop Counts (Expert)", metadata.BALLOON_Expert);
-							rowBalloonPops("Balloon Pop Counts (Master)", metadata.BALLOON_Master);
+							// rowBalloonPops("Balloon Pop Counts (Normal)", metadata.BALLOON_Normal);
+							// rowBalloonPops("Balloon Pop Counts (Expert)", metadata.BALLOON_Expert);
+							// rowBalloonPops("Balloon Pop Counts (Master)", metadata.BALLOON_Master);
 
 							for (const auto& [header, value] : metadata.Others)
 								row(header.c_str(), value.c_str());

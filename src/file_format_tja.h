@@ -142,6 +142,9 @@ namespace TJA
 	Key GetKeyColonValueTokenKey(std::string_view str);
 	Key GetHashCommandTokenKey(std::string_view str);
 
+	b8 IsUnknownKeyColonValue(std::string_view str);
+	b8 IsUnknownHashCommand(std::string_view str);
+
 	struct Token
 	{
 		TokenType Type;
@@ -298,21 +301,32 @@ namespace TJA
 		std::map<std::string, std::string> SUBTITLE_localized;
 		std::string WAVE;
 		std::string PREIMAGE;
-		std::string BGIMAGE;
-		std::string BGMOVIE;
-		std::string LYRICS;
+		// std::string BGIMAGE;
+		// std::string BGMOVIE;
+		// std::string LYRICS;
 		std::string MAKER;
 		Tempo BPM = DefaultTempo;
-		f32 HEADSCROLL = 1.0f;
+		// f32 HEADSCROLL = 1.0f;
 		Time OFFSET = Time::Zero();
-		Time MOVIEOFFSET = Time::Zero();
+		// Time MOVIEOFFSET = Time::Zero();
 		Time DEMOSTART = Time::Zero();
 		f32 SONGVOL = 1.0f;
 		f32 SEVOL = 1.0f;
-		ScoreMode SCOREMODE = ScoreMode::AC1_To_AC14;
-		std::string GENRE;
-		GameType GAME = GameType::Taiko;
+		// ScoreMode SCOREMODE = ScoreMode::AC1_To_AC14;
+		// std::string GENRE;
+		// GameType GAME = GameType::Taiko;
 		std::map<std::string, std::string> Others;
+
+		struct Other { // stored as other metadata
+			std::string BGIMAGE;
+			std::string BGMOVIE;
+			std::string LYRICS;
+			f32 HEADSCROLL = 1.0f;
+			Time MOVIEOFFSET = Time::Zero();
+			ScoreMode SCOREMODE = ScoreMode::AC1_To_AC14;
+			std::string GENRE;
+			GameType GAME = GameType::Taiko;
+		};
 	};
 
 	struct ParsedCourseMetadata
@@ -323,20 +337,33 @@ namespace TJA
 		i32 STYLE = 1;
 		i32 START_PLAYERSIDE = 0;
 		std::vector<i32> BALLOON;
-		std::vector<i32> BALLOON_Normal;
-		std::vector<i32> BALLOON_Expert;
-		std::vector<i32> BALLOON_Master;
-		i32 SCOREINIT = 0;
-		i32 SCOREDIFF = 0;
-		i32 EXPLICIT = 0;
+		// std::vector<i32> BALLOON_Normal;
+		// std::vector<i32> BALLOON_Expert;
+		// std::vector<i32> BALLOON_Master;
+		// i32 SCOREINIT = 0;
+		// i32 SCOREDIFF = 0;
+		// i32 EXPLICIT = 0;
 		i32 LIFE = 5;
 		SongSelectSide SIDE = SongSelectSide::Both;
 		std::string NOTESDESIGNER;
-		std::map<i32, std::string> EXAMs; // 0: EXAMGAUGE
-		GaugeIncrementMethod GAUGEINCR = GaugeIncrementMethod::Normal;
-		i32 TOTAL = 0;
-		i32 HIDDENBRANCH = 0;
+		// std::map<i32, std::string> EXAMs; // 0: EXAMGAUGE
+		// GaugeIncrementMethod GAUGEINCR = GaugeIncrementMethod::Normal;
+		// i32 TOTAL = 0;
+		// i32 HIDDENBRANCH = 0;
 		std::map<std::string, std::string> Others;
+
+		struct Other { // stored as other metadata
+			std::vector<i32> BALLOON_Normal;
+			std::vector<i32> BALLOON_Expert;
+			std::vector<i32> BALLOON_Master;
+			i32 SCOREINIT = 0;
+			i32 SCOREDIFF = 0;
+			i32 EXPLICIT = 0;
+			std::map<i32, std::string> EXAMs; // 0: EXAMGAUGE
+			GaugeIncrementMethod GAUGEINCR = GaugeIncrementMethod::Normal;
+			i32 TOTAL = 0;
+			i32 HIDDENBRANCH = 0;
+		};
 	};
 
 	enum class ParsedChartCommandType : u8

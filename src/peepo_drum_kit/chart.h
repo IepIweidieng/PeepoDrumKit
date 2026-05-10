@@ -468,8 +468,8 @@ namespace PeepoDrumKit
 		SortedSuddenChangesList SuddenChanges;
 		SortedJPOSScrollChangesList JPOSScrollChanges;
 
-		i32 ScoreInit = 0;
-		i32 ScoreDiff = 0;
+		// i32 ScoreInit = 0;
+		// i32 ScoreDiff = 0;
 
 		// Tower specific
 		TowerLives Life = TowerLives{ 5 };
@@ -515,8 +515,8 @@ namespace PeepoDrumKit
 		std::string ChartSubtitle;
 		std::map<std::string, std::string> ChartSubtitleLocalized;
 		std::string ChartCreator;
-		std::string ChartGenre;
-		std::string ChartLyricsFileName;
+		// std::string ChartGenre;
+		// std::string ChartLyricsFileName;
 
 		Time SongOffset = {};
 		Time SongDemoStartTime = {};
@@ -526,9 +526,9 @@ namespace PeepoDrumKit
 		f32 SongVolume = 1.0f;
 		f32 SoundEffectVolume = 1.0f;
 
-		std::string BackgroundImageFileName;
-		std::string BackgroundMovieFileName;
-		Time MovieOffset = {};
+		// std::string BackgroundImageFileName;
+		// std::string BackgroundMovieFileName;
+		// Time MovieOffset = {};
 
 		EScrollSpeedViewType ScrollSpeedViewType = EScrollSpeedViewType::TJAP3;
 		EJPosDistanceType JPosDistanceType = EJPosDistanceType::PDK;
@@ -566,17 +566,17 @@ namespace PeepoDrumKit
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartSubtitle> = "Chart Subtitle";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartSubtitleLocalized> = "Chart Subtitle Localized";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartCreator> = "Chart Creator";
-	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartGenre> = "Chart Genre";
-	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartLyricsFileName> = "Chart Lyrics File";
+	// template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartGenre> = "Chart Genre";
+	// template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::ChartLyricsFileName> = "Chart Lyrics File";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongOffset> = "Song Offset";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongDemoStartTime> = "Song Demo Start";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongFileName> = "Song File";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongJacket> = "Song Jacket";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SongVolume> = "Song Volume";
 	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::SoundEffectVolume> = "Sound Effect Volume";
-	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::BackgroundImageFileName> = "Background Image";
-	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::BackgroundMovieFileName> = "Background Movie";
-	template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::MovieOffset> = "Movie Offset";
+	// template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::BackgroundImageFileName> = "Background Image";
+	// template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::BackgroundMovieFileName> = "Background Movie";
+	// template <> constexpr std::string_view DisplayNameOfChartProjectAttr<&ChartProject::MovieOffset> = "Movie Offset";
 
 	// NOTE: Chart Space -> Starting at 00:00.000 (as most internal calculations are done in)
 	//		  Song Space -> Starting relative to Song Offset (sometimes useful for displaying to the user)
