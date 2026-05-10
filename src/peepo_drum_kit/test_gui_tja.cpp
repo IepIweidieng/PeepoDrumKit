@@ -313,12 +313,14 @@ namespace PeepoDrumKit
 			for (size_t courseIndex = 0; courseIndex < LoadedTJAFile.Parsed.Courses.size(); courseIndex++)
 			{
 				const TJA::ParsedCourse& course = LoadedTJAFile.Parsed.Courses[courseIndex];
+				f64 levelRound = Round(course.Metadata.LEVEL, std::pow(10, -course.Metadata.LEVEL_DECIMALPLACES));
+				f64 levelWhole, levelFrac = std::modf(levelRound, &levelWhole);
 
 				char tabNameBuffer[64];
-				sprintf_s(tabNameBuffer, "%s x%d%s (%s)###Course[%zu]",
+				sprintf_s(tabNameBuffer, "%s x%.0f%s (%s)###Course[%zu]",
 					TJADifficultyTypeNames[EnumToIndex(course.Metadata.COURSE)],
-					course.Metadata.LEVEL,
-					(course.Metadata.LEVEL_DECIMALTAG == -1) ? "" : ((course.Metadata.LEVEL_DECIMALTAG >= 5) ? "+" : ""),
+					levelWhole,
+					(course.Metadata.LEVEL_DECIMALPLACES == 0) ? "" : (10 * levelFrac >= 5) ? "+" : "",
 					GetTJAStyleModeName(course.Metadata.STYLE).c_str(),
 					courseIndex);
 
@@ -349,7 +351,7 @@ namespace PeepoDrumKit
 
 							char b[256];
 							row("Difficulty Type", TJADifficultyTypeNames[EnumToIndex(metadata.COURSE)]);
-							row("Difficulty Level", std::string_view(b, sprintf_s(b, "%d", metadata.LEVEL)));
+							row("Difficulty Level", std::string_view(b, sprintf_s(b, "%.*f", metadata.LEVEL_DECIMALPLACES, metadata.LEVEL)));
 							row("Style", GetTJAStyleModeName(metadata.STYLE));
 							row("Player Side", std::string_view(b, sprintf_s(b, "%d", metadata.START_PLAYERSIDE)));
 

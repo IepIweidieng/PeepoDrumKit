@@ -602,22 +602,23 @@ namespace TJA
 					{
 					case Key::Course_LEVEL: 
 					{ 
-						f32 _level;
-						bool containsDot = (in.find('.') != std::string_view::npos);
+						f64 _level;
 						if (!ASCII::TryParse(in, _level))
 						{ 
 							outErrors.Push(lineIndex, "Invalid float '%.*s'", FmtStrViewArgs(in));
 							break;
 						} 
-						out.LEVEL = static_cast<int>(_level);
-						if (containsDot) {
-							std::string_view devpart = in.substr(in.find('.') + 1, 1);
-							if (!tryParseDefaultForEmpty(devpart, &out.LEVEL_DECIMALTAG, 0))
-							{
-								outErrors.Push(lineIndex, "Invalid int '%.*s'", FmtStrViewArgs(devpart));
-								break;
-							}
-						}
+						out.LEVEL = _level;
+						out.LEVEL_DECIMALPLACES = 0;
+						auto [pSign, pWhole, pPoint, pExp, pEnd] = ASCII::DecomposeCharsFloating(in.data(), in.data() + in.size());
+						if (pSign == pEnd) // non-digit
+							break;
+						i32 exp = 0;
+						if (i32 v; pExp != pEnd && ASCII::TryParse({ pExp, static_cast<size_t>(std::max(static_cast<ptrdiff_t>(0), pEnd - pExp))}, v))
+							exp = v;
+						auto fracExp = exp - std::max(static_cast<ptrdiff_t>(0), pExp - pPoint - 1);
+						if (fracExp < 0)
+							out.LEVEL_DECIMALPLACES = std::min(static_cast<ptrdiff_t>(U8Max), std::abs(fracExp));
 						break;
 					} 
 					case Key::Course_BALLOON: { if (!tryParseCommaSeparatedValues(in, &out.BALLOON)) { outErrors.Push(lineIndex, "Invalid int in comma separated list '%.*s'", FmtStrViewArgs(in)); } } break;
@@ -1257,12 +1258,8 @@ namespace TJA
 			}
 
 			// Unspecified default value
-			if (firstInGroup || shouldEmitCourseMetadata(&ParsedCourseMetadata::LEVEL, &ParsedCourseMetadata::LEVEL_DECIMALTAG)) {
-				if (course.Metadata.LEVEL_DECIMALTAG == -1)
-					appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%d", course.Metadata.LEVEL)));
-				else
-					appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%.1f", course.Metadata.LEVEL + static_cast<float>(course.Metadata.LEVEL_DECIMALTAG) / 10.)));
-			}
+			if (firstInGroup || shouldEmitCourseMetadata(&ParsedCourseMetadata::LEVEL, &ParsedCourseMetadata::LEVEL_DECIMALPLACES))
+				appendProperyLine(out, Key::Course_LEVEL, std::string_view(buffer, sprintf_s(buffer, "%.*f", course.Metadata.LEVEL_DECIMALPLACES, course.Metadata.LEVEL)));
 
 			// Better to be explicit
 			if (course.Metadata.COURSE == DifficultyType::Tower) {

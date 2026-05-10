@@ -121,6 +121,7 @@ namespace ImGui
 	}
 
 	void DrawStar(ImDrawList* drawList, vec2 center, f32 outerRadius, f32 innerRadius, u32 color, f32 thicknessOrZeroToFill = 1.0f);
+	void DrawStarDecimals(ImDrawList* drawList, Rect availRect, f32 outerRadius, f32 innerRadius, u32 color, f32 thicknessOrZeroToFill = 1.0f, std::string_view text = "");
 
 	namespace Property
 	{

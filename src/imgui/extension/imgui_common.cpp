@@ -1,5 +1,6 @@
 #include "imgui_common.h"
 #include "core_io.h"
+#include <array>
 
 namespace ImGui
 {
@@ -417,16 +418,22 @@ namespace ImGui
 		return result;
 	}
 
-	void DrawStar(ImDrawList* drawList, vec2 center, f32 outerRadius, f32 innerRadius, u32 color, f32 thicknessOrZeroToFill)
+	static auto GetStarPoints(vec2 center, f32 outerRadius, f32 innerRadius)
 	{
-		vec2 outer[5], inner[5];
-		for (i32 i = 0; i < ArrayCountI32(outer); i++)
+		constexpr i32 nPoints = 5;
+		std::array<vec2, nPoints> outer, inner;
+		for (i32 i = 0; i < nPoints; i++)
 		{
-			static constexpr f32 step = (360.0f / 5.0f), stepHalf = (step * 0.5f);
+			static constexpr f32 step = (360.0f / nPoints), stepHalf = (step * 0.5f);
 			outer[i] = center + (Rotate(vec2(0.0f, -1.0f), Angle::FromDegrees(step * i)) * outerRadius);
 			inner[i] = center + (Rotate(vec2(0.0f, -1.0f), Angle::FromDegrees(stepHalf + (step * i))) * innerRadius);
 		}
+		return std::tuple{ outer, inner };
+	}
 
+	void DrawStar(ImDrawList* drawList, vec2 center, f32 outerRadius, f32 innerRadius, u32 color, f32 thicknessOrZeroToFill)
+	{
+		auto [outer, inner] = GetStarPoints(center, outerRadius, innerRadius);
 		if (thicknessOrZeroToFill <= 0.0f)
 		{
 			// NOTE: Inner pentagon
@@ -452,5 +459,35 @@ namespace ImGui
 			drawList->PathLineTo(outer[4]); drawList->PathLineTo(inner[4]);
 			drawList->PathStroke(color, ImDrawFlags_Closed, thicknessOrZeroToFill);
 		}
+	}
+
+	void DrawStarDecimals(ImDrawList* drawList, Rect availRect, f32 outerRadius, f32 innerRadius, u32 color, f32 thicknessOrZeroToFill, std::string_view text)
+	{
+		if (text.empty())
+			return;
+
+		constexpr f32 imGuiBgAlphaMul = 1.4;
+		ImU32 textColor, textBgColor;
+		auto [outer, inner] = GetStarPoints(availRect.GetCenter(), outerRadius, innerRadius);
+
+		vec2 textSize = CalcTextSize(text);
+		Rect textSpaceRect = { { inner[3].x, inner[0].y }, { inner[1].x, inner[2].y } };
+		Rect textRect = Rect::FromCenterSize(textSpaceRect.GetCenter(), textSize);
+
+		if (thicknessOrZeroToFill <= 0.0f) { // only if rightmost
+			textColor = ColorU32WithNewAlpha(GetColorU32(ImGuiCol_FrameBg), ColorConvertU32ToFloat4(color).w);
+			textBgColor = ColorU32WithNewAlpha(color, GetStyleColorVec4(ImGuiCol_FrameBg).w * imGuiBgAlphaMul);
+			if (textRect.BR.x > availRect.BR.x) // prevent from exceeding right border (all stars filled and need not care)
+				textRect += vec2(availRect.BR.x - textRect.BR.x, 0);
+		}
+		else {
+			textColor = color;
+			textBgColor = GetColorU32(ImGuiCol_FrameBg, imGuiBgAlphaMul);
+			if (textRect.TL.x < availRect.TL.x) // prevent from overlapping left stars or border
+				textRect += vec2(availRect.TL.x - textRect.TL.x, 0);
+		}
+		vec2 padSize = { GetStyle().FramePadding.x, 0 };
+		drawList->AddRectFilled(textRect.TL - padSize, textRect.BR + padSize, textBgColor);
+		drawList->AddText(textRect.TL, textColor, text.data(), text.data() + text.size());
 	}
 }

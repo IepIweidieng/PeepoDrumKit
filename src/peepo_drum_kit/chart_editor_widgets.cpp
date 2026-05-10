@@ -112,94 +112,121 @@ namespace PeepoDrumKit
 		return anyValueChanged;
 	}
 
-	static b8 GuiDifficultyDecimalLevelStarSliderWidget(cstr label, DifficultyLevelDecimal* inOutLevel, b8& inOutFitOnScreenLastFrame, b8& inOutHoveredLastFrame)
+	static b8 GuiDifficultyLevelStarSliderWidget(cstr label, decltype(ChartCourse::Level)* inOutLevel, decltype(ChartCourse::LevelDecimalPlaces)* inOutPlaces, b8& inOutFitOnScreenLastFrame, std::array<b8, 2>& inOutHoveredLastFrame)
 	{
-		b8 valueWasChanged = false;
-
-		Gui::PushStyleColor(ImGuiCol_SliderGrab, Gui::GetStyleColorVec4(inOutHoveredLastFrame ? ImGuiCol_ButtonHovered : ImGuiCol_Button));
-		Gui::PushStyleColor(ImGuiCol_SliderGrabActive, Gui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-		Gui::PushStyleColor(ImGuiCol_FrameBgHovered, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
-		Gui::PushStyleColor(ImGuiCol_FrameBgActive, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
-
-		
-		if (i32 v = static_cast<i32>(*inOutLevel); 
-			Gui::SliderInt(label, &v,
-			static_cast<i32>(DifficultyLevelDecimal::None), 
-			static_cast<i32>(DifficultyLevelDecimal::Max), 
-			(v == static_cast <i32>(DifficultyLevelDecimal::None))
-				? u8"None"
-				: (v >= static_cast <i32>(DifficultyLevelDecimal::PlusThreshold))
-				? u8"%d (+)"
-				: u8"%d",
-			ImGuiSliderFlags_AlwaysClamp))
-		{
-			*inOutLevel = static_cast<DifficultyLevelDecimal>(v);
-			valueWasChanged = true;
-		}
-		Gui::PopStyleColor(4);
-
-		const Rect sliderRect = Gui::GetItemRect();
-		const f32 availableWidth = sliderRect.GetWidth();
-		const vec2 starSize = vec2(availableWidth / static_cast<f32>(DifficultyLevelDecimal::Max), Gui::GetFrameHeight());
-
-		inOutHoveredLastFrame = Gui::IsItemHovered();
-		return valueWasChanged;
-	}
-
-	static b8 GuiDifficultyLevelStarSliderWidget(cstr label, DifficultyLevel* inOutLevel, b8& inOutFitOnScreenLastFrame, b8& inOutHoveredLastFrame)
-	{
-		b8 valueWasChanged = false;
-
-		auto getStarColor = [](int level, unsigned int def) -> unsigned int {
+		auto getStarColor = [](f64 level, unsigned int def) -> unsigned int {
 			if (level >= 11) return IM_COL32(255, 122, 122, 255);
 			return def;
 		};
 
 		auto _defaultColor = Gui::GetColorU32(ImGuiCol_Text);
 
-		// NOTE: Make text transparent instead of using an empty slider format string 
-		//		 so that the slider can still convert the input to a string on the same frame it is turned into an InputText (due to the frame delayed starsFitOnScreen)
-		if (inOutFitOnScreenLastFrame) Gui::PushStyleColor(ImGuiCol_Text, 0x00000000);
-		else Gui::PushStyleColor(ImGuiCol_Text, getStarColor((i32)(*inOutLevel), _defaultColor));
-		Gui::PushStyleColor(ImGuiCol_SliderGrab, Gui::GetStyleColorVec4(inOutHoveredLastFrame ? ImGuiCol_ButtonHovered : ImGuiCol_Button));
-		Gui::PushStyleColor(ImGuiCol_SliderGrabActive, Gui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-		Gui::PushStyleColor(ImGuiCol_FrameBgHovered, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
-		Gui::PushStyleColor(ImGuiCol_FrameBgActive, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
-		if (i32 v = static_cast<i32>(*inOutLevel); Gui::SliderInt(label, &v,
-			static_cast<i32>(DifficultyLevel::Min), static_cast<i32>(DifficultyLevel::MaxSoft), u8"★ %d"))
+		constexpr i32 components = 2;
+		constexpr std::string_view divisionText = "/";
+		const f32 divisionLabelWidth = Gui::CalcTextSize(Gui::StringViewStart(divisionText), Gui::StringViewEnd(divisionText)).x;
+		const f32 componentsWidth = getInsertButtonWidth(0) - divisionLabelWidth;
+		const f32 placesWeight = 0.2;
+		f32 perComponentInputFloatWidth[components] = { Floor((1 - placesWeight) * componentsWidth) };
+		perComponentInputFloatWidth[1] = componentsWidth - perComponentInputFloatWidth[0];
+
+		b8 anyValueChanged = false;
+		for (i32 c = 0; c < components; c++)
 		{
-			*inOutLevel = static_cast<DifficultyLevel>(Clamp(v, static_cast<i32>(DifficultyLevel::Min), static_cast<i32>(DifficultyLevel::Max)));
-			valueWasChanged = true;
-		}
-		Gui::PopStyleColor(5);
+			Gui::PushID(std::array<void*, components>{inOutLevel, inOutPlaces}[c]);
 
-		const Rect sliderRect = Gui::GetItemRect();
-		const f32 availableWidth = sliderRect.GetWidth();
-		const vec2 starSize = vec2(availableWidth / static_cast<f32>(DifficultyLevel::MaxSoft), Gui::GetFrameHeight());
+			const b8 isLastComponent = ((c + 1) == components);
+			Gui::SetNextItemWidth(perComponentInputFloatWidth[c]);
 
-		const b8 starsFitOnScreen = (starSize.x >= Gui::GetFrameHeight()) && !Gui::IsItemBeingEditedAsText() && ((*inOutLevel) <= DifficultyLevel::MaxSoft);
+			Gui::PushStyleColor(ImGuiCol_SliderGrab, Gui::GetStyleColorVec4(inOutHoveredLastFrame[c] ? ImGuiCol_ButtonHovered : ImGuiCol_Button));
+			Gui::PushStyleColor(ImGuiCol_SliderGrabActive, Gui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+			Gui::PushStyleColor(ImGuiCol_FrameBgHovered, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
+			Gui::PushStyleColor(ImGuiCol_FrameBgActive, Gui::GetStyleColorVec4(ImGuiCol_FrameBg));
 
-		// NOTE: Use the last frame result here too to match the slider text as it has already been drawn
-		if (inOutFitOnScreenLastFrame)
-		{
-			// NOTE: Manually tuned for a 16px font size
-			struct StarParam { f32 OuterRadius, InnerRadius, Thickness; };
-			static constexpr StarParam fontSizedStarParamOutline = { 8.0f, 4.0f, 1.0f };
-			static constexpr StarParam fontSizedStarParamFilled = { 10.0f, 4.0f, 0.0f };
-			const f32 starScale = Gui::GetFontSize() / 16.0f;
+			if (c == 0) {
+				// NOTE: Make text transparent instead of using an empty slider format string 
+				//		 so that the slider can still convert the input to a string on the same frame it is turned into an InputText (due to the frame delayed starsFitOnScreen)
+				auto roundLevel = [&](auto v)
+				{
+					auto floored = Floor(v, std::pow(10, -*inOutPlaces - 1));
+					return std::min(floored, Round(floored, std::pow(10, -*inOutPlaces)));
+				};
+				if (inOutFitOnScreenLastFrame) Gui::PushStyleColor(ImGuiCol_Text, 0x00000000);
+				else Gui::PushStyleColor(ImGuiCol_Text, getStarColor(*inOutLevel, _defaultColor));
+				if (f64 v = roundLevel(*inOutLevel), min = DifficultyLevel::Min, max = DifficultyLevel::Max + 1 - std::pow(10, -*inOutPlaces);
+					Gui::SliderScalar(label, ImGuiDataType_Double, &v, &min, &max, (u8"★ %." + ASCII::ToString(*inOutPlaces) + "lf").c_str())
+					) {
+					*inOutLevel = roundLevel(v);
+					anyValueChanged = true;
+				}
+				Gui::PopStyleColor();
 
-			// TODO: Consider drawing star background manually instead of using the slider grab hand (?)
-			for (i32 i = 0; i < static_cast<i32>(DifficultyLevel::MaxSoft); i++)
-			{
-				const Rect starRect = Rect::FromTLSize(sliderRect.TL + vec2(i * starSize.x, 0.0f), starSize);
-				const auto star = (i >= static_cast<i32>(*inOutLevel)) ? fontSizedStarParamOutline : fontSizedStarParamFilled;
-				Gui::DrawStar(Gui::GetWindowDrawList(), starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(i + 1, _defaultColor), star.Thickness);
+				// NOTE: Manually tuned for a 16px font size
+				struct StarParam { f32 OuterRadius, InnerRadius, Thickness; };
+				constexpr StarParam fontSizedStarParamOutline = { 8.0f, 4.0f, 1.0f };
+				constexpr StarParam fontSizedStarParamFilled = { 10.0f, 4.0f, 0.0f };
+				const f32 starScale = Gui::GetFontSize() / 16.0f;
+
+				const f32 sliderGrabWidth = Gui::GetStyle().GrabMinSize;
+				const f32 minDistance = starScale * 1.25f * fontSizedStarParamOutline.OuterRadius;
+				const f32 starSize = Gui::GetFrameHeight();
+				Rect availableRect = Gui::GetItemRect();
+				availableRect = Rect::FromCenterSize(availableRect.GetCenter(), availableRect.GetSize() - vec2{ sliderGrabWidth + starSize, 0 });
+				const f32 starDistance = availableRect.GetWidth() / (static_cast<f32>(DifficultyLevel::Max) - 1);
+
+				const b8 starsFitOnScreen = (starDistance >= minDistance) && !Gui::IsItemBeingEditedAsText() && (*inOutLevel >= DifficultyLevel::Min) && (*inOutLevel < DifficultyLevel::Max + 1);
+
+				// NOTE: Use the last frame result here too to match the slider text as it has already been drawn
+				if (inOutFitOnScreenLastFrame)
+				{
+					auto* drawList = Gui::GetWindowDrawList();
+					drawList->ChannelsSplit(2);
+					f64 levelRound = Round(*inOutLevel, std::pow(10, -*inOutPlaces));
+					f64 levelWhole, levelFrac = std::modf(levelRound, &levelWhole);
+					// TODO: Consider drawing star background manually instead of using the slider grab hand (?)
+					Rect prevStarRect = { {0, 0}, {0, 0} };
+					for (i32 i = 0; i < static_cast<i32>(DifficultyLevel::Max); i++)
+					{
+						const Rect starRect = Rect::FromCenterSize({ availableRect.TL.x + i * starDistance, availableRect.GetCenter().y }, vec2(starSize));
+						const auto star = (i >= static_cast<i32>(levelWhole)) ? fontSizedStarParamOutline : fontSizedStarParamFilled;
+						Gui::DrawStar(drawList, starRect.GetCenter(), starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(i + 1, _defaultColor), star.Thickness);
+						if ((i == std::min(static_cast<i32>(levelWhole), DifficultyLevel::Max - 1))) {
+							drawList->ChannelsSetCurrent(1);
+							std::string strStarFrac = ASCII::ToString(levelFrac, false, 0, *inOutPlaces);
+							if (!strStarFrac.empty() && 10 * levelFrac >= DifficultyLevelDecimal::PlusThreshold)
+								strStarFrac += " (+)";
+							const std::string_view strStar = ASCII::TrimPrefix(strStarFrac, "0");
+							const Rect textRect = { { std::max(starRect.TL.x, prevStarRect.BR.x), starRect.TL.y }, { std::max(starRect.BR.x, prevStarRect.BR.x), starRect.BR.y } };
+							Gui::DrawStarDecimals(drawList, textRect, starScale * star.OuterRadius, starScale * star.InnerRadius, getStarColor(i, _defaultColor), star.Thickness, strStar);
+							drawList->ChannelsSetCurrent(0);
+						}
+						prevStarRect = starRect;
+					}
+					drawList->ChannelsMerge();
+				}
+
+				inOutFitOnScreenLastFrame = starsFitOnScreen;
 			}
-		}
+			else if (c == 1) {
+				if (i32 v = *inOutPlaces; Gui::SliderInt(label, &v, 0, std::numeric_limits<decltype(ChartCourse::Level)>::max_digits10, "%d", ImGuiSliderFlags_AlwaysClamp)) {
+					*inOutPlaces = static_cast<u8>(v);
+					anyValueChanged = true;
+				}
+			}
 
-		inOutHoveredLastFrame = Gui::IsItemHovered();
-		inOutFitOnScreenLastFrame = starsFitOnScreen;
-		return valueWasChanged;
+			inOutHoveredLastFrame[c] = Gui::IsItemHovered() || Gui::IsItemActive();
+
+			Gui::PopStyleColor(4);
+
+			if (!isLastComponent)
+			{
+				Gui::SameLine(0.0f, 0.0f);
+				Gui::TextUnformatted(divisionText);
+				Gui::SameLine(0.0f, 0.0f);
+			}
+
+			Gui::PopID();
+		}
+		return anyValueChanged;
 	}
 
 	template <typename T, typename MultiEditDataUnionT, expect_type_t<MultiEditDataUnionT, union MultiEditDataUnion> = true>
@@ -588,6 +615,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Increase balloon pop count's range to 32-bit integer and fix lags for playing roll-type notes' hitsound");
 					Gui::TextUnformatted(u8"- Fix unnecessary scrolling when scroll-seeking the chart while the chart fits in screen on Chart Timeline");
 					Gui::TextUnformatted(u8"- Fix wrong horizontal scroll bar position and length when scrolled outside of scrollable range in Chart Timeline");
+					Gui::TextUnformatted(u8"- Support editing difficulty decimal places with adjustable number of digits (use Ctrl-click instead of sliding to put the precise value)");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
@@ -756,7 +784,7 @@ namespace PeepoDrumKit
 				Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
 				Gui::Text("%s", trimPrefix(chart.ChartSubtitle).c_str());
 				Gui::Text("Charter: %s", course.CourseCreator.c_str());
-				Gui::Text("%s Lv.%d %s", UI_StrRuntime(DifficultyTypeNames[(int)course.Type]), course.Level, GetStyleName(course.Style, course.PlayerSide).c_str());
+				Gui::Text("%s Lv.%.*f %s", UI_StrRuntime(DifficultyTypeNames[(int)course.Type]), course.LevelDecimalPlaces, course.Level, GetStyleName(course.Style, course.PlayerSide).c_str());
 				Gui::Separator();
 				Gui::PopFont();
 				Gui::PopStyleColor();
@@ -2385,17 +2413,11 @@ namespace PeepoDrumKit
 					if (Gui::ComboEnum("##DifficultyType", &course.Type, difficultyTypeNames))
 						context.Undo.NotifyChangesWereMade();
 				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_LEVEL"), [&]
+				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_LEVEL_PRECISION"), [&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (GuiDifficultyLevelStarSliderWidget("##DifficultyLevel", &course.Level, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
+					if (GuiDifficultyLevelStarSliderWidget("##DifficultyLevel", &course.Level, &course.LevelDecimalPlaces, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
 						context.Undo.NotifyChangesWereMade();
-				});
-				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_DIFFICULTY_LEVEL_DECIMAL"), [&]
-					{
-						Gui::SetNextItemWidth(-1.0f);
-						if (GuiDifficultyDecimalLevelStarSliderWidget("##DifficultyLevelDecimal", &course.Decimal, DifficultySliderStarsFitOnScreenLastFrame, DifficultySliderStarsWasHoveredLastFrame))
-							context.Undo.NotifyChangesWereMade();
 				});
 				Gui::Property::PropertyTextValueFunc(UI_Str("COURSE_PROP_PLAYER_SIDE_COUNT"), [&]
 				{

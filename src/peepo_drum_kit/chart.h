@@ -193,19 +193,15 @@ namespace PeepoDrumKit
 		"TOWER_SIDE_BOTH",
 	};
 
-	enum class DifficultyLevel : u8
+	struct DifficultyLevel
 	{
-		Min = 0,
-		MaxSoft = 15,
-		Max = U8Max,
+		constexpr static u8 Min = 0;
+		constexpr static u8 Max = 15;
 	};
 
-	enum class DifficultyLevelDecimal : i8
+	struct DifficultyLevelDecimal
 	{
-		None = -1,
-		Min = 0,
-		PlusThreshold = 5,
-		Max = 9
+		constexpr static i8 PlusThreshold = 5;
 	};
 
 	enum class TowerLives : i32
@@ -435,8 +431,8 @@ namespace PeepoDrumKit
 	struct ChartCourse
 	{
 		DifficultyType Type = DifficultyType::Oni;
-		DifficultyLevel Level = DifficultyLevel { 1 };
-		DifficultyLevelDecimal Decimal = DifficultyLevelDecimal::None;
+		u8 LevelDecimalPlaces = 0;
+		f64 Level = 0;
 		i32 Style = 1;
 		i32 PlayerSide = 1;
 

@@ -114,7 +114,7 @@ namespace PeepoDrumKit
 		std::string SongFileNameInputBuffer;
 		LoadingTextAnimation SongLoadingTextAnimation {};
 		b8 DifficultySliderStarsFitOnScreenLastFrame = false;
-		b8 DifficultySliderStarsWasHoveredLastFrame = false;
+		std::array<b8, 2> DifficultySliderStarsWasHoveredLastFrame = InitializedArray<b8, 2>(false);
 		std::string JacketFileNameInputBuffer;
 		LoadingTextAnimation JacketLoadingTextAnimation{};
 

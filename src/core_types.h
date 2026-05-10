@@ -613,6 +613,13 @@ inline vec2 Floor(vec2 value) { return { Floor(value.x), Floor(value.y) }; }
 inline vec2 Round(vec2 value) { return { Round(value.x), Round(value.y) }; }
 inline vec2 Ceil(vec2 value) { return { Ceil(value.x), Ceil(value.y) }; }
 
+template <typename T>
+T Floor(T value, T resolution) { return Floor(value / resolution) * resolution; }
+template <typename T>
+T Round(T value, T resolution) { return Round(value / resolution) * resolution; }
+template <typename T>
+T Ceil(T value, T resolution) { return Ceil(value / resolution) * resolution; }
+
 inline f32 Mod(f32 value, f32 modulo) { return ::fmodf(value, modulo); }
 inline f64 Mod(f64 value, f64 modulo) { return ::fmod(value, modulo); }
 

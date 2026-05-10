@@ -135,15 +135,17 @@ namespace PeepoDrumKit
 
 	std::string ChartCourse::ToString(OmitLevel omitLevel) const
 	{
-		constexpr cstr fmts[] = { u8"%s ★%d%s %s", u8"%.0s★%d%s %s", u8"%.0s★%d%s%.0s" };
+		constexpr cstr fmts[] = { u8"%s ★%.0f%s %s", u8"%.0s★%.0f%s %s", u8"%.0s★%.0f%s%.0s" };
 		cstr fmt = fmts[std::array{ 0, 1, 1, 2 } [EnumToIndex(omitLevel)] ];
+		f64 levelRound = Round(Level, std::pow(10, -LevelDecimalPlaces));
+		f64 levelWhole, levelFrac = std::modf(levelRound, &levelWhole);
 
 		std::string buffer;
 		buffer.resize(96);
 		int len = sprintf_s(buffer.data(), buffer.size(), fmt,
 			UI_StrRuntime(DifficultyTypeNames[EnumToIndex(Type)]),
-			static_cast<i32>(Level),
-			(Decimal == DifficultyLevelDecimal::None) ? "" : ((Decimal >= DifficultyLevelDecimal::PlusThreshold) ? "+" : ""),
+			levelWhole,
+			(LevelDecimalPlaces == 0) ? "" : (10 * levelFrac >= DifficultyLevelDecimal::PlusThreshold) ? "+" : "",
 			GetStyleName(Style, PlayerSide, omitLevel >= ChartCourse::OmitLevel::PlayerCount).data());
 		buffer.resize(std::max(0, len)); // set to empty if -1
 		return buffer;
@@ -205,8 +207,8 @@ namespace PeepoDrumKit
 
 			// HACK: Write proper enum conversion functions
 			outCourse.Type = Clamp(static_cast<DifficultyType>(inCourse.CourseMetadata.COURSE), DifficultyType {}, DifficultyType::Count);
-			outCourse.Level = Clamp(static_cast<DifficultyLevel>(inCourse.CourseMetadata.LEVEL), DifficultyLevel::Min, DifficultyLevel::Max);
-			outCourse.Decimal = Clamp(static_cast<DifficultyLevelDecimal>(inCourse.CourseMetadata.LEVEL_DECIMALTAG), DifficultyLevelDecimal::None, DifficultyLevelDecimal::Max);
+			outCourse.Level = inCourse.CourseMetadata.LEVEL;
+			outCourse.LevelDecimalPlaces = inCourse.CourseMetadata.LEVEL_DECIMALPLACES;
 			outCourse.Style = std::max(inCourse.CourseMetadata.STYLE, 1);
 			outCourse.PlayerSide = std::clamp(inCourse.CourseMetadata.START_PLAYERSIDE, 1, outCourse.Style);
 
@@ -363,8 +365,8 @@ namespace PeepoDrumKit
 
 			// HACK: Write proper enum conversion functions
 			outCourse.Metadata.COURSE = static_cast<TJA::DifficultyType>(inCourse.Type);
-			outCourse.Metadata.LEVEL = static_cast<i32>(inCourse.Level);
-			outCourse.Metadata.LEVEL_DECIMALTAG = static_cast<i32>(inCourse.Decimal);
+			outCourse.Metadata.LEVEL = inCourse.Level;
+			outCourse.Metadata.LEVEL_DECIMALPLACES = inCourse.LevelDecimalPlaces;
 			outCourse.Metadata.STYLE = inCourse.Style;
 			outCourse.Metadata.START_PLAYERSIDE = inCourse.PlayerSide;
 			outCourse.Metadata.NOTESDESIGNER = inCourse.CourseCreator;

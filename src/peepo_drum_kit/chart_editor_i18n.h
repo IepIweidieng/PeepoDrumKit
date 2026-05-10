@@ -221,8 +221,7 @@ X("CHART_PROP_SOUND_EFFECT_VOLUME",					"Sound Effect Volume") \
 X("DETAILS_CHART_PROP_OTHER_METADATA",				"Other Chart Metadata") \
 X("DETAILS_CHART_PROPERTIES_COURSE",				"Selected Course") \
 X("COURSE_PROP_DIFFICULTY_TYPE",					"Difficulty Type") \
-X("COURSE_PROP_DIFFICULTY_LEVEL",					"Difficulty Level") \
-X("COURSE_PROP_DIFFICULTY_LEVEL_DECIMAL",			"Difficulty Level Decimal") \
+X("COURSE_PROP_DIFFICULTY_LEVEL_PRECISION",			"Difficulty Level/Precision") \
 X("COURSE_PROP_PLAYER_SIDE_COUNT",					"Player Side/Count") \
 X("COURSE_PROP_TOWER_LIFE",							"Lives") \
 X("COURSE_PROP_TOWER_SIDE",							"Side") \

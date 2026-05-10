@@ -318,8 +318,8 @@ namespace TJA
 	struct ParsedCourseMetadata
 	{
 		DifficultyType COURSE = DifficultyType::Oni;
-		i32 LEVEL = 1;
-		i32 LEVEL_DECIMALTAG = -1;
+		u8 LEVEL_DECIMALPLACES = 0;
+		f64 LEVEL = 1;
 		i32 STYLE = 1;
 		i32 START_PLAYERSIDE = 0;
 		std::vector<i32> BALLOON;
