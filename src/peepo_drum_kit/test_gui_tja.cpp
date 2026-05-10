@@ -393,6 +393,7 @@ namespace PeepoDrumKit
 						for (const TJA::ParsedChartCommand& command : course.ChartCommands)
 						{
 							char paramBuffer[512] = {};
+							cstr paramData = paramBuffer, paramEnd = nullptr;
 							const TJA::ParsedChartCommand::ParamData& param = command.Param;
 
 							switch (command.Type)
@@ -407,8 +408,10 @@ namespace PeepoDrumKit
 									if (&note != &param.MeasureNotes.Notes.back())
 										strBuffer += " ";
 								}
-								if (!strBuffer.empty())
-									memcpy(paramBuffer, strBuffer.data(), strBuffer.size() + sizeof('\0'));
+								if (!strBuffer.empty()) {
+									paramData = strBuffer.data();
+									paramEnd = strBuffer.data() + strBuffer.size();
+								}
 							} break;
 							case TJA::ParsedChartCommandType::MeasureEnd: {} break;
 							case TJA::ParsedChartCommandType::ChangeTimeSignature: { sprintf_s(paramBuffer, "%d / %d", param.ChangeTimeSignature.Value.Numerator, param.ChangeTimeSignature.Value.Denominator); } break;
@@ -443,7 +446,7 @@ namespace PeepoDrumKit
 							Gui::TextUnformatted(TJAParsedChartCommandTypeNames[EnumToIndex(command.Type)]);
 
 							Gui::TableNextColumn();
-							Gui::TextUnformatted(paramBuffer);
+							Gui::TextUnformatted(paramData, paramEnd);
 						}
 
 						Gui::EndTable();
