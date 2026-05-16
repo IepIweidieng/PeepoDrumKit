@@ -145,6 +145,7 @@ namespace PeepoDrumKit
 			WithDefault<b8> TransformScale_KeepTimePosition = false;
 			WithDefault<b8> TransformScale_KeepItemDuration = false;
 			WithDefault<b8> TransformScale_KeepEventValue = false;
+			WithDefault<b8> TransformScale_QuantizeToGrid = false;
 			// TODO: ...
 			static inline WithDefault<vec2> GameViewportAspectRatioMin = vec2(0.0f, 0.0f);
 			static inline WithDefault<vec2> GameViewportAspectRatioMax = vec2(0.0f, 0.0f);
@@ -231,6 +232,7 @@ namespace PeepoDrumKit
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_2To3 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_3To4 = {};
 			WithDefault<MultiInputBinding> Timeline_CompressItemTime_0To1 = {};
+			WithDefault<MultiInputBinding> Timeline_QuantizeItemTime_1To1 = {};
 			WithDefault<MultiInputBinding> Timeline_ReverseItemTime_N1To1 = {};
 			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomA = {};
 			WithDefault<MultiInputBinding> Timeline_ScaleItemTime_CustomB = {};

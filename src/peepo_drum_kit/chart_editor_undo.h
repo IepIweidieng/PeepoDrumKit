@@ -778,6 +778,12 @@ namespace PeepoDrumKit
 			Undo::CommandInfo GetInfo() const override { return { "Expand Items" }; }
 		};
 
+		struct RemoveThenAddMultipleGenericItems_QuantizeItems : RemoveThenAddMultipleGenericItems
+		{
+			using RemoveThenAddMultipleGenericItems::RemoveThenAddMultipleGenericItems;
+			Undo::CommandInfo GetInfo() const override { return { "Quantize Items" }; }
+		};
+
 		struct RemoveThenAddMultipleGenericItems_CompressItems : RemoveThenAddMultipleGenericItems
 		{
 			using RemoveThenAddMultipleGenericItems::RemoveThenAddMultipleGenericItems;
@@ -810,6 +816,12 @@ namespace PeepoDrumKit
 		{
 			using ChangeRangeSelection::ChangeRangeSelection;
 			Undo::CommandInfo GetInfo() const override { return { "Expand Range" }; }
+		};
+
+		struct RemoveThenAddMultipleGenericItems_QuantizeRange : ChangeRangeSelection<RemoveThenAddMultipleGenericItems>
+		{
+			using ChangeRangeSelection::ChangeRangeSelection;
+			Undo::CommandInfo GetInfo() const override { return { "Quantize Range" }; }
 		};
 
 		struct RemoveThenAddMultipleGenericItems_CompressRange : ChangeRangeSelection<RemoveThenAddMultipleGenericItems>

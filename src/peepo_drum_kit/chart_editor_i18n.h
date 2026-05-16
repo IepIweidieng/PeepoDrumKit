@@ -92,12 +92,13 @@ X("PROMPT_SELECTION_CUSTOM_PATTERN_DELETE",			"Delete?") \
 /* transform menu */ \
 X("ACT_TRANSFORM_FLIP_NOTE_TYPES",					"Flip Note Types") \
 X("ACT_TRANSFORM_TOGGLE_NOTE_SIZES",				"Toggle Note Sizes") \
-X("ACT_TRANSFORM_SCALE_ITEMS",						"Scale Items") \
-X("ACT_TRANSFORM_SCALE_RANGE",						"Scale Range") \
+X("ACT_TRANSFORM_SCALE_ITEMS",						"Scale/Quantize Items") \
+X("ACT_TRANSFORM_SCALE_RANGE",						"Scale/Quantize Range") \
 X("ACT_TRANSFORM_SCALE_BY_TEMPO",					"Scale by Tempo") \
 X("ACT_TRANSFORM_SCALE_KEEP_TIME_POSITION",			"Keep Time Position") \
 X("ACT_TRANSFORM_SCALE_KEEP_ITEM_DURATION",			"Keep Item Duration") \
 X("ACT_TRANSFORM_SCALE_KEEP_EVENT_VALUE",			"Keep Other Event Values") \
+X("ACT_TRANSFORM_SCALE_QUANTIZE_TO_GRID",			"Quantize to Grid") \
 X("ACT_TRANSFORM_RATIO_2_1",						"2:1 (8th to 4th)") \
 X("ACT_TRANSFORM_RATIO_3_2",						"3:2 (12th to 8th)") \
 X("ACT_TRANSFORM_RATIO_4_3",						"4:3 (16th to 12th)") \
@@ -105,6 +106,7 @@ X("ACT_TRANSFORM_RATIO_1_2",						"1:2 (4th to 8th)") \
 X("ACT_TRANSFORM_RATIO_2_3",						"2:3 (8th to 12th)") \
 X("ACT_TRANSFORM_RATIO_3_4",						"3:4 (12th to 16th)") \
 X("ACT_TRANSFORM_RATIO_0_1",						"0:1 (remove time)") \
+X("ACT_TRANSFORM_RATIO_1_1",						"1:1 (force quantizing to grid)") \
 X("ACT_TRANSFORM_RATIO_N1_1_TIME",					"-1:1 (reverse time)") \
 X("ACT_TRANSFORM_RATIO_N1_1_SCROLL",				"-1:1 (reverse scroll)") \
 X("ACT_TRANSFORM_ADD_NEW_RATIO",					"Add New Ratio...") \

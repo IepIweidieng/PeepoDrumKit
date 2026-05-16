@@ -294,6 +294,13 @@ namespace PeepoDrumKit
 					b8 willTouchTempo = (*Settings.General.TransformScale_ByTempo || *Settings.General.TransformScale_KeepTimePosition);
 					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_0_1"), ToShortcutString(*Settings.Input.Timeline_CompressItemTime_0To1).Data, nullptr, enabled && !willTouchTempo))
 						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(0, 1));
+					if (Gui::MenuItem(UI_Str("ACT_TRANSFORM_RATIO_1_1"), ToShortcutString(*Settings.Input.Timeline_QuantizeItemTime_1To1).Data, nullptr, enabled)) {
+						// temporarily force quantizing
+						auto wasQuantizing = *Settings.General.TransformScale_QuantizeToGrid;
+						*Settings_Mutable.General.TransformScale_QuantizeToGrid = true;
+						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(1, 1));
+						*Settings_Mutable.General.TransformScale_QuantizeToGrid = wasQuantizing;
+					}
 					if (Gui::MenuItem(willTouchTempo ? UI_Str("ACT_TRANSFORM_RATIO_N1_1_SCROLL") : UI_Str("ACT_TRANSFORM_RATIO_N1_1_TIME"), ToShortcutString(*Settings.Input.Timeline_ReverseItemTime_N1To1).Data, nullptr, enabled))
 						timeline.ExecuteTransformAction(context, scaleAction, param.SetTimeRatio(-1, 1));
 					Gui::Separator();
@@ -368,6 +375,7 @@ namespace PeepoDrumKit
 						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepTimePosition, UI_Str("ACT_TRANSFORM_SCALE_KEEP_TIME_POSITION") },
 						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepItemDuration, UI_Str("ACT_TRANSFORM_SCALE_KEEP_ITEM_DURATION") },
 						std::tuple{ &UserSettingsData::GeneralData::TransformScale_KeepEventValue, UI_Str("ACT_TRANSFORM_SCALE_KEEP_EVENT_VALUE") },
+						std::tuple{ &UserSettingsData::GeneralData::TransformScale_QuantizeToGrid, UI_Str("ACT_TRANSFORM_SCALE_QUANTIZE_TO_GRID") },
 						}) {
 						if (b8 v = *(Settings.General.*pSetting); Gui::Checkbox(label, &v)) {
 							(Settings_Mutable.General.*pSetting).Value = v;

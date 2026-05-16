@@ -616,6 +616,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Fix wrong horizontal scroll bar position and length when scrolled outside of scrollable range in Chart Timeline");
 					Gui::TextUnformatted(u8"- Support editing difficulty decimal places with adjustable number of digits (use Ctrl-click instead of sliding to put the precise value)");
 					Gui::TextUnformatted(u8"- Make previously uneditable metadata editable as other metadata");
+					Gui::TextUnformatted(u8"- Add options to quantize chart items to grid in Transform -> Scale/Quantize Items/Range");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
