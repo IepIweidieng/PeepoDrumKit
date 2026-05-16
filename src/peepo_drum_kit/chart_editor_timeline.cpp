@@ -1581,8 +1581,8 @@ namespace PeepoDrumKit
 		{
 			if (context.RangeSelection.IsActiveAndHasEnd())
 			{
-				const Beat rangeSelectionMin = RoundBeatToCurrentGrid(context.RangeSelection.GetMin());
-				const Beat rangeSelectionMax = RoundBeatToCurrentGrid(context.RangeSelection.GetMax());
+				const Beat rangeSelectionMin = context.RangeSelection.GetMin();
+				const Beat rangeSelectionMax = context.RangeSelection.GetMax();
 				ForEachChartItem(course, [&](const ForEachChartItemData& it)
 				{
 					const Beat itStart = GetBeat(it, course);
