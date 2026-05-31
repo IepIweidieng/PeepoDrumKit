@@ -1339,7 +1339,7 @@ namespace PeepoDrumKit
 	{
 		return DrawInterpolationProperty<HintT>(label, get<T[4]>(widgetIn.ButtonStep)[component], get<T[4]>(widgetIn.ButtonStepFast)[component],
 			widgetIn.EnableClamp, get<T[4]>(widgetIn.ValueClampMin)[component], get<T[4]>(widgetIn.ValueClampMax)[component], widgetIn.FormatString,
-			SelectedItems, !widgetIn.HasMixedValues, getValue, setValue, equalValues, component);
+			SelectedItems, !(widgetIn.HasMixedValues & (1 << component)), getValue, setValue, equalValues, component);
 	}
 
 	template <typename HintT = keep_deduced_t, typename GetF, typename SetF>
@@ -2090,7 +2090,7 @@ namespace PeepoDrumKit
 									auto timeSig = TimeSignature(context.RangeSelection.GetDuration().Ticks, Beat::FromBars(1).Ticks).GetSimplified(4);
 									v->I32_V[0] = timeSig.Numerator;
 									v->I32_V[1] = timeSig.Denominator;
-									result->ValueChanged = true;
+									result->ValueChanged = (1 << components) - 1;
 								}
 								Gui::EndDisabled();
 							});
