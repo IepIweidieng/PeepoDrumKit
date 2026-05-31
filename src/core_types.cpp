@@ -76,7 +76,7 @@ i32 Time::ToString(char* outBuffer, size_t bufferSize, b8 roundTrip, int minSecP
 	const f64 min = Floor(Mod(seconds, 3600.0) / 60.0);
 	const f64 sec = Mod(seconds, 60.0);
 
-	const char signPrefix[2] = { (seconds < 0.0 && !(static_cast<i32>(hour) < 0)) ? '-' : '\0', '\0' }; // in case hour overflows to negative
+	const char signPrefix[2] = { (Seconds < 0.0 && !(static_cast<i32>(hour) < 0)) ? '-' : '\0', '\0' }; // in case hour overflows to negative
 	// print the second separately for finer formatting
 	i32 outStrLen = snprintf(outBuffer, bufferSize, (hour >= 1) ? "%s%02d:%02d:" : "%s%.0d%02d:",
 		signPrefix, static_cast<i32>(hour), static_cast<i32>(min));
