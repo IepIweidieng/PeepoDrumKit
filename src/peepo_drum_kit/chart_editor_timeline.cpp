@@ -3158,7 +3158,6 @@ namespace PeepoDrumKit
 				BoxSelection.WorldSpaceRect.BR = Camera.LocalToWorldSpace(ScreenToLocalSpace(Gui::GetMousePos()));
 				BoxSelection.Action = GetBoxSelectionAction(Gui::GetIO());
 				ItemOwnKeysForBoxSelectionAction(Gui::GetIO());
-				context.RangeSelection = {};
 			}
 			else
 			{

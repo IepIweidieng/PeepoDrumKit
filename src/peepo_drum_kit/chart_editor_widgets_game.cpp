@@ -704,7 +704,6 @@ namespace PeepoDrumKit
 			BoxSelection.WorldSpaceRect.BR = Camera.ScreenToWorldSpace(Gui::GetMousePos());
 			BoxSelection.Action = ChartTimeline::GetBoxSelectionAction(Gui::GetIO());
 			ChartTimeline::ItemOwnKeysForBoxSelectionAction(Gui::GetIO(), guiID);
-			context.RangeSelection = {};
 		}
 		else
 		{
