@@ -3585,9 +3585,9 @@ namespace PeepoDrumKit
 							vec2 padding = Gui::GetStyle().FramePadding;
 							Gui::SetCursorScreenPos(vec2{ Gui::GetCursorScreenPos().x, sidebarScreenSpace.TL.y + padding.y });
 							Gui::SetNextItemWidth(Gui::GetContentRegionAvail().x - padding.x);
-							Gui::ComboEnum("##JPosScrollDistanceType", &context.Chart.JPosDistanceType, strJPosDistanceType);
+							Gui::ComboEnum("##ScrollDistance4BeatsType", &context.Chart.ScrollDistance4BeatsType, strScrollDistanceViewType);
 
-							Gui::SetItemTooltip(UI_Str("EVENT_JPOS_SCROLL_DISTANCE_TOOLTIP"));
+							Gui::SetItemTooltip(UI_Str("EVENT_SCROLL_DISTANCE_4_BEATS_TOOLTIP"));
 						}
 						break;
 					}

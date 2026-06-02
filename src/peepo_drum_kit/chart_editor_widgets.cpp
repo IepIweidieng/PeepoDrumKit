@@ -593,7 +593,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Allow resizing box-selected 0-length events by dragging the side near to their end");
 					Gui::TextUnformatted(u8"- Allow editing or interpolating vertical scroll speed in BPM by selecting the unit directly");
 					Gui::TextUnformatted(u8"- The displayed current JPosScroll position is now kept within the game preview window");
-					Gui::TextUnformatted(u8"- Add view options of scroll speed (and direction) and JPosScroll distance");
+					Gui::TextUnformatted(u8"- Add view options of scroll speed (and direction) and 4-beat distance");
 					Gui::TextUnformatted(u8"- Allow adjusting BPM by Ctrl-left-drag the top part of bar lines to adjust BPM (adapted from Steve-xmh)");
 					Gui::TextUnformatted(u8"- Fix extra bar lines were inserted when loading and saving the charts");
 					Gui::TextUnformatted(u8"- Edit range now automatically extends to the last note");

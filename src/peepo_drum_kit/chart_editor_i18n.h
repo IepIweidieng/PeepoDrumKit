@@ -188,7 +188,7 @@ X("EVENT_GO_GO_TIME",								"Go-Go Time") \
 X("EVENT_LYRICS",									"Lyrics") \
 X("EVENT_SCROLL_TYPE",								"Scroll Type") \
 X("EVENT_JPOS_SCROLL",								"JPOS Scroll") \
-X("EVENT_JPOS_SCROLL_DISTANCE_TOOLTIP",				"JPOS Scroll distance of 4 beats in x1 scroll") \
+X("EVENT_SCROLL_DISTANCE_4_BEATS_TOOLTIP",			"Scroll distance of 4 beats when scroll speed is 1x") \
 X("EVENT_SUDDEN",									"Sudden") \
 X("EVENT_SUDDEN_HIDE_ROLL",							"Hide Rolls") \
 X("EVENT_PROP_JPOS_SCROLL_MOVE",					"JPOS Scroll Move") \

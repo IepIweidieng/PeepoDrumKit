@@ -837,7 +837,7 @@ namespace PeepoDrumKit
 
 			// NOTE: Hit indicator circle
 			const vec2 hitCirclePosJPos = Camera.GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, cursorTimeOrAnimated, tempoChanges);
-			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos, GetJPosDistance(context.Chart.JPosDistanceType));
+			const vec2 hitCirclePosLane = Camera.JPOSScrollToLaneSpace(hitCirclePosJPos);
 			const vec2 hitCirclePos = Camera.LaneToScreenSpace(hitCirclePosLane);
 			if (gogoFireZoom > 0) {
 				// first draw outside frame space (obscured by left border), second draw only above left border
@@ -873,10 +873,11 @@ namespace PeepoDrumKit
 			}
 
 			const auto scrollSpeedToView = GetScrollSpeedToView(context.Chart.ScrollSpeedViewType);
+			const auto pxWorldPer4Beats = GetPx720pScrollDistanceView4Beats(context.Chart.ScrollDistance4BeatsType) * GameCamera::ScaleFrom720p;
 			drawList->ChannelsSetCurrent(2);
 			ForEachBarOnNoteLane(*course, branch, chartBeatDuration, scrollSpeedToView, [&](const ForEachBarLaneData& it)
 			{
-				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, tempoChanges, jposScrollChanges);
+				const vec2 lane = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeed, it.ScrollType, pxWorldPer4Beats, tempoChanges, jposScrollChanges);
 				const f32 laneX = lane.x, laneY = lane.y;
 
 				if (Camera.IsPointVisibleOnLane(laneX))
@@ -914,8 +915,8 @@ namespace PeepoDrumKit
 			drawList->ChannelsSetCurrent(3);
 			ForEachNoteOnNoteLane(*course, branch, scrollSpeedToView, [&](const ForEachNoteLaneData& it)
 			{
-				vec2 laneHeadOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeedView, it.ScrollType, tempoChanges, jposScrollChanges);
-				vec2 laneTailOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeedView, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneHeadOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Time, it.Beat, it.Tempo, it.ScrollSpeedView, it.ScrollType, pxWorldPer4Beats, tempoChanges, jposScrollChanges);
+				vec2 laneTailOrig = Camera.GetNoteCoordinatesLane(hitCirclePosLane, cursorTimeOrAnimated, cursorHBScrollBeatOrAnimated, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeedView, it.Tail.ScrollType, pxWorldPer4Beats, tempoChanges, jposScrollChanges);
 
 				const Time timeSinceHeadHit = TimeSinceNoteHit(it.Time, cursorTimeOrAnimated);
 				const Time timeSinceTailHit = TimeSinceNoteHit(it.Tail.Time, cursorTimeOrAnimated);
@@ -939,8 +940,8 @@ namespace PeepoDrumKit
 					positionTimeEnd = suddenMoveTimeTail;
 					positionHBScrollBeatEnd = course->TempoMap.BeatAndTimeToHBScrollBeatTick(course->TempoMap.TimeToBeat(positionTimeEnd, true), positionTimeEnd);
 				}
-				vec2 laneHeadMove = Camera.GetNoteCoordinatesLane(hitCirclePosLane, positionTime, positionHBScrollBeat, it.Time, it.Beat, it.Tempo, it.ScrollSpeedView, it.ScrollType, tempoChanges, jposScrollChanges);
-				vec2 laneTailMove = Camera.GetNoteCoordinatesLane(hitCirclePosLane, positionTimeEnd, positionHBScrollBeatEnd, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeedView, it.Tail.ScrollType, tempoChanges, jposScrollChanges);
+				vec2 laneHeadMove = Camera.GetNoteCoordinatesLane(hitCirclePosLane, positionTime, positionHBScrollBeat, it.Time, it.Beat, it.Tempo, it.ScrollSpeedView, it.ScrollType, pxWorldPer4Beats, tempoChanges, jposScrollChanges);
+				vec2 laneTailMove = Camera.GetNoteCoordinatesLane(hitCirclePosLane, positionTimeEnd, positionHBScrollBeatEnd, it.Tail.Time, it.Tail.Beat, it.Tail.Tempo, it.Tail.ScrollSpeedView, it.Tail.ScrollType, pxWorldPer4Beats, tempoChanges, jposScrollChanges);
 
 				// TJAP3 behavior
 				laneHeadMove.y = laneHeadOrig.y;
@@ -1094,7 +1095,7 @@ namespace PeepoDrumKit
 								{
 									// TODO: Scale duration, animation speed and path by extended lane width
 									const auto hitAnimation = GetNoteHitPathAnimation(timeSinceSubHit, Camera.ExtendedLaneWidthFactor(), nLanes, iLane, it->OriginalNote->Type);
-									const vec2 laneOrigin = Camera.GetHitCircleCoordinatesLane(jposScrollChanges, subHitTime, tempoChanges, GetJPosDistance(context.Chart.JPosDistanceType));
+									const vec2 laneOrigin = Camera.GetHitCircleCoordinatesLane(jposScrollChanges, subHitTime, tempoChanges);
 									const vec2 noteCenter = Camera.LaneToWorldSpace(laneOrigin.x, laneOrigin.y) + hitAnimation.PositionOffset;
 
 									if (hitAnimation.AlphaFadeOut >= 1.0f)
@@ -1109,7 +1110,7 @@ namespace PeepoDrumKit
 					// TODO: Instead of offseting the lane x position just draw as HitCenter + PositionOffset directly (?)
 					auto hitAnimation = GetNoteHitPathAnimation(timeSinceHit, Camera.ExtendedLaneWidthFactor(), nLanes, iLane, it->OriginalNote->Type);
 					const vec2 noteOrigin = (timeSinceHit < Time::Zero()) ? it->LaneHead
-						: Camera.GetHitCircleCoordinatesLane(jposScrollChanges, it->Time, tempoChanges, GetJPosDistance(context.Chart.JPosDistanceType)); // keep flying note's start position
+						: Camera.GetHitCircleCoordinatesLane(jposScrollChanges, it->Time, tempoChanges); // keep flying note's start position
 					laneTailDisplay = laneHeadDisplay = noteOrigin + hitAnimation.PositionOffset;
 					const vec2 noteCenter = Camera.LaneToWorldSpace(laneHeadDisplay.x, laneHeadDisplay.y);
 

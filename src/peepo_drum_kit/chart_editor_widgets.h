@@ -158,14 +158,13 @@ namespace PeepoDrumKit
 
 		constexpr vec2 ScreenToWorldSpace(vec2 screenSpace) const { return (screenSpace - ScreenSpaceViewportRect.TL) / WorldToScreenScaleFactor; }
 
-		constexpr vec2 JPOSScrollToLaneSpace(const vec2& jPosCoord, f64 pxJPosDistance) const
+		constexpr vec2 JPOSScrollToLaneSpace(const vec2& jPosCoord) const
 		{
 			f32 coordRatio = GameWorldStandardHeight / JPosMoveCoordHeight;
-			f32 simulatorRatio = GameLaneStandardWidth / (pxJPosDistance * ScaleFrom720p);
-			return jPosCoord * coordRatio * simulatorRatio;
+			return jPosCoord * coordRatio;
 		}
 
-		vec2 GetHitCircleCoordinatesJPOSScroll(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure)
+		vec2 GetHitCircleCoordinatesJPOSScroll(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure) const
 		{
 			if (jposScrollChanges.empty())
 				return { 0, 0 };
@@ -197,9 +196,9 @@ namespace PeepoDrumKit
 			return vec2(x, y);
 		}
 
-		vec2 GetHitCircleCoordinatesLane(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure, f64 pxJPosDistance)
+		vec2 GetHitCircleCoordinatesLane(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure) const
 		{
-			return JPOSScrollToLaneSpace(GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, timeStamp, accelerationStructure), pxJPosDistance);
+			return JPOSScrollToLaneSpace(GetHitCircleCoordinatesJPOSScroll(jposScrollChanges, timeStamp, accelerationStructure));
 		}
 
 		vec2 GetNoteCoordinatesLane(
@@ -211,21 +210,22 @@ namespace PeepoDrumKit
 			Tempo tempo,
 			Complex scrollSpeed,
 			ScrollMethod scrollType,
+			f64 pxWorldPer4Beats,
 			const TempoMapAccelerationStructure& accelerationStructure,
 			const SortedJPOSScrollChangesList& jposScrollChanges
-		)
+		) const
 		{
 			Complex readaptedScrollSpeed = (scrollType == ScrollMethod::BMSCROLL) ? Complex(1.f, 0.f) : scrollSpeed;
 
 			return vec2(
-				originLane.x + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, accelerationStructure),
-				originLane.y + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, accelerationStructure)
+				originLane.x + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetRealPart(), scrollType, pxWorldPer4Beats, accelerationStructure),
+				originLane.y + TimeToLaneSpace(cursorTime, cursorHBScrollBeatTick, noteTime, noteBeat, tempo, readaptedScrollSpeed.GetImaginaryPart(), scrollType, pxWorldPer4Beats, accelerationStructure)
 			);
 		}
 
-		vec2 GetHitCircleCoordinatesScreen(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure, f64 pxJPosDistance)
+		vec2 GetHitCircleCoordinatesScreen(const SortedJPOSScrollChangesList& jposScrollChanges, Time timeStamp, const TempoMapAccelerationStructure& accelerationStructure) const
 		{
-			return LaneToScreenSpace(GetHitCircleCoordinatesLane(jposScrollChanges, timeStamp, accelerationStructure, pxJPosDistance));
+			return LaneToScreenSpace(GetHitCircleCoordinatesLane(jposScrollChanges, timeStamp, accelerationStructure));
 		}
 
 		// NOTE: Same scale as world space but with (0,0) starting at the hit-circle center point
@@ -237,6 +237,7 @@ namespace PeepoDrumKit
 			Tempo tempo, 
 			f32 scrollSpeed, 
 			ScrollMethod scrollType, 
+			f64 pxWorldPer4Beats,
 			const TempoMapAccelerationStructure& accelerationStructure
 		) const
 		{
@@ -245,12 +246,12 @@ namespace PeepoDrumKit
 				case (ScrollMethod::BMSCROLL):
 				{
 					f64 noteHBScrollBeatTick = accelerationStructure.ConvertBeatAndTimeToHBScrollBeatTickUsingLookupTableIndexing(noteBeat, noteTime);
-					return scrollSpeed * ((noteHBScrollBeatTick - cursorHBScrollBeatTick) / Beat::TicksPerBeat) * GameWorldSpaceDistancePerLaneBeat;
+					return scrollSpeed * ((noteHBScrollBeatTick - cursorHBScrollBeatTick) / Beat::TicksPerBeat) * (pxWorldPer4Beats / 4);
 				}
 				case (ScrollMethod::NMSCROLL):
 				default:
 				{
-					return ((tempo.BPM * scrollSpeed) / 60.0f) * (noteTime - cursorTime).ToSec_F32() * GameWorldSpaceDistancePerLaneBeat;
+					return ((tempo.BPM * scrollSpeed) / 60.0f) * (noteTime - cursorTime).ToSec_F32() * (pxWorldPer4Beats / 4);
 				}
 			}
 		}

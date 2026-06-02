@@ -327,6 +327,22 @@ namespace PeepoDrumKit
 		return scrollSpeedToViews[index];
 	}
 
+	enum class EScrollDistanceViewType { PDK, TJAP3Old, TJAP3, OpTk, Count };
+	constexpr cstr strScrollDistanceViewType[] = { "PDK (~949.3px)", "TJAP3 Old (~954.4px)", "TJAP3 1.6+ (~954.5px)", "OpTk (960px)" };
+	constexpr f64 px720pScrollDistanceView4Beats[] = {
+		4 * 356.0f * (720.0 / 1080.0), // 949.333... // from GameWorldSpaceDistancePerLaneBeat
+		4000 * 60 * 1 * 2.5 / 628.7, // 954.350...
+		4000 * 60 * 1 * 2 / 502.8594, // 954.541...
+		960,
+	};
+
+	constexpr f64 GetPx720pScrollDistanceView4Beats(EScrollDistanceViewType type) {
+		size_t index = EnumToIndex(type);
+		if (index >= std::size(px720pScrollDistanceView4Beats))
+			index = EnumToIndex(EScrollDistanceViewType::PDK);
+		return px720pScrollDistanceView4Beats[index];
+	}
+
 	struct ScrollType
 	{
 		Beat BeatTime;
@@ -363,22 +379,6 @@ namespace PeepoDrumKit
 
 	template <>
 	constexpr JPOSScrollChange FallbackEvent<JPOSScrollChange> = {Beat::Zero(), Complex(100.0f, 0.0f), 0.f};
-
-	enum class EJPosDistanceType { PDK, TJAP3Old, TJAP3, OpTk, Count };
-	constexpr cstr strJPosDistanceType[] = { "PDK (~949.3px)", "TJAP3 Old (~954.4px)", "TJAP3 1.6+ (~954.5px)", "OpTk (960px)" };
-	constexpr f64 px720pJPosDistances[] = {
-		2848 / 3.0, // 949.333...
-		4000 * 60 * 1 * 2.5 / 628.7, // 954.350...
-		4000 * 60 * 1 * 2 / 502.8594, // 954.541...
-		960,
-	};
-
-	constexpr f64 GetJPosDistance(EJPosDistanceType type) {
-		size_t index = EnumToIndex(type);
-		if (index >= std::size(px720pJPosDistances))
-			index = EnumToIndex(EJPosDistanceType::PDK);
-		return px720pJPosDistances[index];
-	}
 
 	struct BarLineChange
 	{
@@ -531,7 +531,7 @@ namespace PeepoDrumKit
 		// Time MovieOffset = {};
 
 		EScrollSpeedViewType ScrollSpeedViewType = EScrollSpeedViewType::TJAP3;
-		EJPosDistanceType JPosDistanceType = EJPosDistanceType::PDK;
+		EScrollDistanceViewType ScrollDistance4BeatsType = EScrollDistanceViewType::PDK;
 
 		std::map<std::string, std::string> OtherMetadata;
 
