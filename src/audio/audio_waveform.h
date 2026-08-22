@@ -48,9 +48,12 @@ namespace Audio
 			if (TimePerSample.Seconds <= 0.0) { assert(false); return 0.0f; }
 
 			i32 sampleSum = 0, sampleCount = 0;
-			for (Time timeIt = startTime; timeIt < endTime; timeIt += TimePerSample) { sampleSum += LinearSampleAtTimeOrZero(timeIt); sampleCount++; }
+			for (Time timeIt = startTime; sampleCount == 0 || timeIt < endTime; timeIt += TimePerSample) { // ensure at least 1 sample
+				sampleSum += LinearSampleAtTimeOrZero(timeIt);
+				sampleCount++;
+			}
 
-			const i32 sampleAverage = (sampleSum / Max(sampleCount, 1));
+			const i32 sampleAverage = sampleSum / sampleCount;
 			return sampleAverage / static_cast<f32>(I16Max);
 		}
 
