@@ -37,8 +37,9 @@ namespace PeepoDrumKit
 
 		constexpr void SetZoomTargetAroundWorldPivot(vec2 newZoom, vec2 worldSpacePivot)
 		{
+			using vec2_limits = std::numeric_limits<decltype(vec2::x)>;
 			const vec2 localSpacePrev = WorldToLocalSpace_AtTarget(worldSpacePivot);
-			ZoomTarget = Clamp(newZoom, vec2(0.001f), vec2(100.0f));
+			ZoomTarget = Clamp(newZoom, vec2(vec2_limits::min()), vec2(vec2_limits::max()));
 			const vec2 localSpaceNow = WorldToLocalSpace_AtTarget(worldSpacePivot);
 			PositionTarget += (localSpaceNow - localSpacePrev);
 		}
