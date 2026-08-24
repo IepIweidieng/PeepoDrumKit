@@ -558,11 +558,11 @@ namespace PeepoDrumKit
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
-				// v1.2.?
+				// v1.3
 				{
 					Gui::PushStyleColor(ImGuiCol_Text, colors.RedBright);
 					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Medium));
-					Gui::TextUnformatted("v1.2.?");
+					Gui::TextUnformatted("v1.3");
 					Gui::PopFont();
 
 					Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Small));
@@ -619,6 +619,8 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"- Add options to quantize chart items to grid in Transform -> Scale/Quantize Items/Range");
 					Gui::TextUnformatted(u8"- Box selecting (mouse right-drag) no longer clears range selection (Tab) (press Tab twice to clear range selection)");
 					Gui::TextUnformatted(u8"  (otherwise \"Set from range selection\" in Chart Events would require clearning box-selecting first before range-selection)");
+					Gui::TextUnformatted(u8"- Fix crash when keeping the window minimized for too long since Samyuu's 2022 version");
+					Gui::TextUnformatted(u8"- Remove zoom limits in Chart Timeline");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
@@ -886,7 +888,7 @@ namespace PeepoDrumKit
 			{
 				Gui::PushStyleColor(ImGuiCol_Text, colors.GreenDark);
 				Gui::PushFont(FontMain, GuiScaleI32_AtTarget(FontBaseSizes::Large));
-				Gui::TextUnformatted("Welcome to Peepo Drum Kit (Unofficial fork)");
+				Gui::TextUnformatted("Welcome to Peepo Drum Kit (OpenTaiko team version)");
 				Gui::PopFont();
 				Gui::PopStyleColor();
 
