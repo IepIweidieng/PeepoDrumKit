@@ -251,12 +251,12 @@ namespace ASCII
 	}
 
 	template <typename T>
-	std::to_chars_result ToCharsFloating(char* begin, char* end, const T& in, b8 roundTrip = true, int minPreDigits = 0, int minPostDigits = 0)
+	std::to_chars_result ToCharsFloating(char* begin, char* end, const T& in, b8 roundTrip = true, int minPreDigits = 0, int minPostDigits = 0, std::chars_format format = std::chars_format::general)
 	{
 		int precision = -1;
 		for (;;) {
 			std::to_chars_result result = (precision < 0) ? std::to_chars(begin, end, in)
-				: std::to_chars(begin, end, in, std::chars_format::general, precision);
+				: std::to_chars(begin, end, in, format, precision);
 			if (result.ec != std::errc{} || !std::isfinite(in) || (roundTrip && minPreDigits <= 1 && minPostDigits <= 0))
 				return result; // error or non-digit
 
@@ -273,7 +273,10 @@ namespace ASCII
 				if (!(pBase == &exp && !roundTrip))
 					fill = std::max(static_cast<ptrdiff_t>(0), fill);
 				if (precision < 0 && fill < 0) { // re-convert with rounding for the correct post digits
-					precision = std::max(static_cast<ptrdiff_t>(0), point - beg + std::max(static_cast<ptrdiff_t>(0), exp - point - 1 + fill));
+					auto preDigits = point - beg;
+					auto postDigitsFilled = std::max(static_cast<ptrdiff_t>(0), exp - point - 1 + fill);
+					precision = ((format & std::chars_format::general) == std::chars_format::general) ? std::max(static_cast<ptrdiff_t>(0), preDigits + postDigitsFilled)
+						: postDigitsFilled;
 					goto continue_rounded;
 				}
 				b8 fillDot = (pBase == &exp && point == exp && fill > 0);

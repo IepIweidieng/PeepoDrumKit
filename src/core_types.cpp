@@ -64,7 +64,7 @@ i32 Time::ToString(char* outBuffer, size_t bufferSize, b8 roundTrip, int minSecP
 
 	static constexpr const char invalidFormatString[] = "--:--.---";
 
-	const auto seconds = std::abs(Seconds);
+	auto seconds = std::abs(Seconds);
 	if (!::isfinite(seconds))
 	{
 		// NOTE: Array count of a string literal char array already accounts for the null terminator
@@ -72,16 +72,42 @@ i32 Time::ToString(char* outBuffer, size_t bufferSize, b8 roundTrip, int minSecP
 		return static_cast<i32>(ArrayCount(invalidFormatString) - 1);
 	}
 
-	const f64 hour = Floor(seconds / 3600.0);
-	const f64 min = Floor(Mod(seconds, 3600.0) / 60.0);
+	i32 ms = 0;
+	if (!roundTrip) { // prevent showing mm:60.000 for mm:59.999...
+		ms = static_cast<i32>(Round(1000 * std::modf(seconds, &seconds)));
+		seconds += static_cast<f64>(ms / 1000);
+		ms %= 1000;
+	}
 	const f64 sec = Mod(seconds, 60.0);
+	const f64 min = Floor(Mod(seconds, 3600.0) / 60.0);
+	const f64 hour = Floor(seconds / 3600.0);
 
 	const char signPrefix[2] = { (Seconds < 0.0 && !(static_cast<i32>(hour) < 0)) ? '-' : '\0', '\0' }; // in case hour overflows to negative
-	// print the second separately for finer formatting
-	i32 outStrLen = snprintf(outBuffer, bufferSize, (hour >= 1) ? "%s%02d:%02d:" : "%s%.0d%02d:",
-		signPrefix, static_cast<i32>(hour), static_cast<i32>(min));
+	i32 outStrLen = snprintf(outBuffer, bufferSize, "%s", signPrefix);
 	if (outStrLen >= bufferSize) // too large to fit inside buffer? including ending '\0'
 		return -1;
+
+	if (hour >= 1) {
+		// allow hour in scientific notation
+		std::to_chars_result result = ASCII::ToCharsFloating(outBuffer + outStrLen, outBuffer + bufferSize, hour, roundTrip, 2, 0);
+		if (result.ec != std::errc{})
+			return -1;
+		outStrLen = static_cast<i32>(result.ptr - outBuffer);
+		outStrLen += snprintf(outBuffer + outStrLen, bufferSize - outStrLen, ":");
+		if (outStrLen >= bufferSize)
+			return -1;
+	}
+
+	// minute
+	outStrLen += snprintf(outBuffer + outStrLen, bufferSize - outStrLen, "%02d:", static_cast<i32>(min));
+	if (outStrLen >= bufferSize)
+		return -1;
+
+	// print the second separately for finer formatting
+	if (!roundTrip) {
+		outStrLen += snprintf(outBuffer + outStrLen, bufferSize - outStrLen, "%02d.%03d", static_cast<i32>(sec), ms);
+		return (outStrLen >= bufferSize) ? -1 : outStrLen;
+	}
 	std::to_chars_result result = ASCII::ToCharsFloating(outBuffer + outStrLen, outBuffer + bufferSize, sec, roundTrip, 2, minSecPostDigits);
 	return (result.ec != std::errc{}) ? -1 : static_cast<i32>(result.ptr - outBuffer);
 }
