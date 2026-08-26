@@ -455,7 +455,13 @@ namespace PeepoDrumKit
 
 						if (entry.Binding == nullptr)
 						{
-							if (!filter->IsActive()) { Gui::TableNextRow(); Gui::TableSetColumnIndex(0); Gui::Selectable("##", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_Disabled); }
+							if (!filter->IsActive()) {
+								Gui::TableNextRow();
+								Gui::TableSetColumnIndex(0);
+								Gui::PushID(("##InputSettingsEmptyLine_" + std::to_string(entryIndex)).c_str());
+								Gui::Selectable("##", false, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_Disabled);
+								Gui::PopID();
+							}
 							continue;
 						}
 					}
