@@ -72,6 +72,13 @@ namespace PeepoDrumKit
 	constexpr f32 TimelineDragScalarSpeedAtZoomSec(const TimelineCamera& camera) { return camera.TimePerScreenPixel().ToSec_F32(); }
 	constexpr f32 TimelineDragScalarSpeedAtZoomMS(const TimelineCamera& camera) { return camera.TimePerScreenPixel().ToMS_F32(); }
 
+	// TODO: Find a better .h file for editor-specific widget functions
+	b8 DragTimestamp(const char* label, Time* value, Time speed, Time minValue, Time maxValue, b8 valueUpdatedOutside = false, std::function<void()> preventDefault = nullptr, const char* fmt = nullptr, ImGuiInputTextFlags flags = 0);
+	inline b8 DragTimestamp(const char* label, Time* value, Time speed, Time minValue, Time maxValue, const char* fmt, ImGuiInputTextFlags flags = 0, b8 valueUpdatedOutside = false, std::function<void()> preventDefault = nullptr)
+	{
+		return DragTimestamp(label, value, speed, minValue, maxValue, valueUpdatedOutside, preventDefault, fmt, flags);
+	}
+
 	enum class TimelineRowType : u8
 	{
 		Tempo,

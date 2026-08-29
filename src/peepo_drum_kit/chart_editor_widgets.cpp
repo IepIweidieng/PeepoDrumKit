@@ -621,6 +621,7 @@ namespace PeepoDrumKit
 					Gui::TextUnformatted(u8"  (otherwise \"Set from range selection\" in Chart Events would require clearning box-selecting first before range-selection)");
 					Gui::TextUnformatted(u8"- Fix crash when keeping the window minimized for too long since Samyuu's 2022 version");
 					Gui::TextUnformatted(u8"- Remove zoom limits in Chart Timeline");
+					Gui::TextUnformatted(u8"- Chart Duration and Song Demo Start are now directly inputtable.");
 					Gui::TextUnformatted(u8"- (for the full change list, please refer to the commit history)");
 					Gui::TextUnformatted("");
 					Gui::PopFont();
@@ -2536,13 +2537,13 @@ namespace PeepoDrumKit
 					{
 						Gui::SetNextItemWidth(-1.0f);
 						Gui::PushID(label);
-						f32 v = ConvertTimeSpace(*inOutValue, storageSpace, displaySpace, context.Chart).ToSec_F32();
+						Time v = ConvertTimeSpace(*inOutValue, storageSpace, displaySpace, context.Chart);
 						Gui::SameLineMultiWidget(2, [&](const Gui::MultiWidgetIt& i)
 						{
-							if (i.Index == 0 && Gui::DragFloat("##DragTime", &v, TimelineDragScalarSpeedAtZoomSec(camera), min.ToSec_F32(), max.ToSec_F32(),
-								(*inOutValue <= Time::Zero()) ? "n/a" : Time::FromSec(v).ToString().c_str(), ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat | ImGuiSliderFlags_NoInput))
+							if (i.Index == 0 && DragTimestamp("##DragTime", &v, Time::FromSec(1), min, max,
+								(*inOutValue <= Time::Zero()) ? "n/a" : nullptr, ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_NoRoundToFormat))
 							{
-								*inOutValue = ConvertTimeSpace(Time::FromSec(v), displaySpace, storageSpace, context.Chart);
+								*inOutValue = ConvertTimeSpace(v, displaySpace, storageSpace, context.Chart);
 								valueChanged = true;
 							}
 							else if (i.Index == 1 && Gui::Button(UI_WindowName("ACT_SYNC_SET_CURSOR"), { Gui::CalcItemWidth(), 0.0f }))

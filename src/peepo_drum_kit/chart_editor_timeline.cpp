@@ -235,6 +235,63 @@ namespace PeepoDrumKit
 			region("Regions.ContentScrollbarY", timeline.Regions.ContentScrollbarY);
 		}
 	}
+
+	b8 DragTimestamp(const char* label, Time* value, Time speed, Time minValue, Time maxValue, b8 valueUpdatedOutside, std::function<void()> preventDefault, const char *fmt, ImGuiInputTextFlags flags)
+	{
+		b8 changed = false;
+		Gui::PushID(label);
+
+		std::string strDisplayTime = value->ToString();
+		if (f32 v = value->Seconds; Gui::DragFloat(label, &v, speed.Seconds, minValue.Seconds, maxValue.Seconds, fmt ? fmt : strDisplayTime.c_str(), flags) && !Gui::IsItemBeingEditedAsText()) {
+			*value = Time::FromSec(v);
+			changed = true;
+		}
+
+		// text input update
+		b8& dragActiveAsInputTextLastFrame = *Gui::GetStateStorage()->GetBoolRef(Gui::GetID("DragActiveAsInputTextLastFrame"), false);
+		if (Gui::IsItemActiveAsInputText()) {
+			if (preventDefault)
+				preventDefault(); // prevent triggering hotkeys
+			auto id = Gui::GetItemID();
+			auto* state = Gui::GetInputTextState(id);
+			if (!dragActiveAsInputTextLastFrame || valueUpdatedOutside) {
+				std::string strDisplayTime = value->ToString(true) + '\0';
+				auto bufSize = state->TextA.size();
+				// text input init and/or update time for canceling edit
+				for (auto* p : { &state->TextToRevertTo, &state->CallbackTextBackup, !dragActiveAsInputTextLastFrame ? &state->TextA : nullptr }) {
+					if (!p)
+						break;
+					p->resize(strDisplayTime.size());
+					std::copy(strDisplayTime.begin(), strDisplayTime.end(), p->begin());
+				}
+				if (!dragActiveAsInputTextLastFrame) { // text input init; re-select all
+					state->TextLen = strDisplayTime.size() - 1; // exclude ending '\0'
+					if (state->TextA.size() < bufSize)
+						state->TextA.resize(bufSize); // re-increase to buffer limit
+					state->SelectAll();
+				}
+			}
+		}
+		else if (Gui::IsItemHovered() || Gui::IsItemActive())
+			Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+		// text input done
+		if (dragActiveAsInputTextLastFrame && Gui::IsItemDeactivatedAfterEdit()) {
+			auto id = Gui::GetItemID();
+			Gui::InputTextDeactivateHook(id);
+			if (auto g = ImGui::GetCurrentContext(); g && g->InputTextDeactivatedState.ID == id && !g->InputTextDeactivatedState.TextA.empty()) {
+				std::string strNewTime = { g->InputTextDeactivatedState.TextA.begin(), g->InputTextDeactivatedState.TextA.end() };
+				auto newTime = Time::FromString(strNewTime.c_str());
+				if (std::isfinite(newTime.Seconds)) {
+					*value = newTime;
+					changed = true;
+				}
+			}
+		}
+		dragActiveAsInputTextLastFrame = Gui::IsItemBeingEditedAsText();
+
+		Gui::PopID();
+		return changed;
+	}
 }
 
 namespace PeepoDrumKit
@@ -3346,68 +3403,26 @@ namespace PeepoDrumKit
 				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x, Gui::GetFrameHeight() - Gui::GetFontSize()));
 				const vec2 perButtonSize = vec2(Gui::GetContentRegionAvail()) * vec2(1.0f / 3.0f, 1.0f);
 				{
-					Time cursorTimeOffset = (*Settings.General.DisplayTimeInSongSpace) ? -context.Chart.SongOffset : Time::Zero();
-					Time displayTime = context.GetCursorTime() + cursorTimeOffset;
-					Time displayTimeMin = Min(cursorTimeOffset, Time::Zero());
-					Time displayTimeMax = context.GetUsedDurationFast() + cursorTimeOffset;
-					std::string strDisplayTime = displayTime.ToString();
-
 					Gui::SetNextItemWidth(perButtonSize.x);
-					b8 isOutOfChart = !((displayTime >= displayTimeMin) && (displayTime <= displayTimeMax));
-					if (isOutOfChart)
+
+					const Time cursorTimeOffset = (*Settings.General.DisplayTimeInSongSpace) ? -context.Chart.SongOffset : Time::Zero();
+					Time displayTime = context.GetCursorTime() + cursorTimeOffset;
+					const Time displayTimeMin = Min(cursorTimeOffset, Time::Zero());
+					const Time displayTimeMax = context.GetUsedDurationFast() + cursorTimeOffset;
+
+					b8 isOutOfRange = !((displayTime >= displayTimeMin) && (displayTime <= displayTimeMax));
+					if (isOutOfRange)
 						Gui::PushStyleColor(ImGuiCol_Text, Gui::GetColorU32(ImGuiCol_TextDisabled));
 
-					static b8 editedAsText = false;
-					auto setDisplayTime = [&](const Time& newTime)
-					{
+					if (DragTimestamp("##DisplayTime", &displayTime, Time::FromSec(1), Time::Zero(), Time::Zero(), context.GetIsPlayback(), [&] { Regions.Window.IsFocused = false; })) {
 						if (*Settings.General.DisplayTimeInSongSpace)
-							context.SetCursorTime(newTime + context.Chart.SongOffset);
+							context.SetCursorTime(displayTime + context.Chart.SongOffset);
 						else
-							context.SetCursorTime(newTime);
+							context.SetCursorTime(displayTime);
 						ScrollToTimelinePosition(Camera, Regions, context, context.GetCursorTime());
-					};
-					if (f32 v = displayTime.Seconds; Gui::DragFloat("##DisplayTime", &v, 1, 0, 0, strDisplayTime.c_str()) && !Gui::IsItemBeingEditedAsText())
-						setDisplayTime(Time::FromSec(v));
-
-					// text input update
-					if (Gui::IsItemActiveAsInputText()) {
-						Regions.Window.IsFocused = false; // prevent triggering hotkeys
-						auto id = Gui::GetItemID();
-						auto* state = Gui::GetInputTextState(id);
-						if (!editedAsText || context.GetIsPlayback()) {
-							std::string strDisplayTime = displayTime.ToString(true) + '\0';
-							auto bufSize = state->TextA.size();
-							// text input init and/or update time for canceling edit
-							for (auto* p : { &state->TextToRevertTo, &state->CallbackTextBackup, !editedAsText ? &state->TextA : nullptr }) {
-								if (!p)
-									break;
-								p->resize(strDisplayTime.size());
-								std::copy(strDisplayTime.begin(), strDisplayTime.end(), p->begin());
-							}
-							if (!editedAsText) { // text input init; re-select all
-								state->TextLen = strDisplayTime.size() - 1; // exclude ending '\0'
-								if (state->TextA.size() < bufSize)
-									state->TextA.resize(bufSize); // re-increase to buffer limit
-								state->SelectAll();
-							}
-						}
 					}
-					else if (Gui::IsItemHovered() || Gui::IsItemActive())
-						Gui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-					// text input done
-					if (editedAsText && Gui::IsItemDeactivatedAfterEdit()) {
-						auto id = Gui::GetItemID();
-						Gui::InputTextDeactivateHook(id);
-						if (auto g = ImGui::GetCurrentContext(); g && g->InputTextDeactivatedState.ID == id && !g->InputTextDeactivatedState.TextA.empty()) {
-							std::string strNewTime = { g->InputTextDeactivatedState.TextA.begin(), g->InputTextDeactivatedState.TextA.end() };
-							auto newTime = Time::FromString(strNewTime.c_str());
-							if (std::isfinite(newTime.Seconds))
-								setDisplayTime(newTime);
-						}
-					}
-					editedAsText = Gui::IsItemBeingEditedAsText();
 
-					Gui::PopStyleColor(isOutOfChart);
+					Gui::PopStyleColor(isOutOfRange);
 				}
 				Gui::SameLine(0.0f, 0.0f);
 				{
