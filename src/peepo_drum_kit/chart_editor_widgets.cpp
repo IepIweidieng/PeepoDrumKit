@@ -67,9 +67,16 @@ namespace PeepoDrumKit
 		return valueChanged;
 	}
 
-	static b8 GuiDragLabelFloat(std::string_view label, f32* inOutValue, f32 speed = 1.0f, f32 min = 0.0f, f32 max = 0.0f, ImGuiSliderFlags flags = ImGuiSliderFlags_None)
+	template <typename T>
+	static b8 GuiDragLabel(std::string_view label, T* inOutValue, f32 speed = 1.0f, const T& min = {}, const T& max = {}, ImGuiSliderFlags flags = ImGuiSliderFlags_None)
 	{
-		return GuiDragLabelScalar(label, ImGuiDataType_Float, inOutValue, speed, &min, &max, flags);
+		return GuiDragLabelScalar(label, TypeToImGuiDataType<T>, inOutValue, speed, &min, &max, flags);
+	}
+
+	template <typename T>
+	static b8 GuiDragLabel(std::string_view label, T* inOutValue, f32 speed, ImGuiSliderFlags flags)
+	{
+		return GuiDragLabel(label, inOutValue, speed, T{}, T{}, flags);
 	}
 
 	static f32 getInsertButtonWidth(int count = 1)
@@ -231,15 +238,16 @@ namespace PeepoDrumKit
 	template <typename T, typename MultiEditDataUnionT, expect_type_t<MultiEditDataUnionT, union MultiEditDataUnion> = true>
 	constexpr decltype(auto) get(MultiEditDataUnionT&& value)
 	{
-		if constexpr (expect_type_v<T, f32, f32[4]>) return (std::forward<MultiEditDataUnionT>(value).F32_V);
-		else if constexpr (expect_type_v<T, i32, i32[4]>) return (std::forward<MultiEditDataUnionT>(value).I32_V);
-		else if constexpr (expect_type_v<T, i16, i16[4]>) return (std::forward<MultiEditDataUnionT>(value).I16_V);
+		if constexpr (expect_type_v<T, f64, f64[]>) return (std::forward<MultiEditDataUnionT>(value).F64_V);
+		else if constexpr (expect_type_v<T, f32, f32[]>) return (std::forward<MultiEditDataUnionT>(value).F32_V);
+		else if constexpr (expect_type_v<T, i32, i32[]>) return (std::forward<MultiEditDataUnionT>(value).I32_V);
+		else if constexpr (expect_type_v<T, i16, i16[]>) return (std::forward<MultiEditDataUnionT>(value).I16_V);
 	}
 
 	union MultiEditDataUnion
 	{
-		f32 F32; i32 I32; i16 I16;
-		f32 F32_V[4]; i32 I32_V[4]; i16 I16_V[4];
+		f64 F64; f32 F32; i32 I32; i16 I16;
+		f64 F64_V[2]; f32 F32_V[4]; i32 I32_V[4]; i16 I16_V[8];
 	};
 	struct MultiEditWidgetResult
 	{
@@ -1180,7 +1188,17 @@ namespace PeepoDrumKit
 	{
 		size_t i_unit = EnumToIndex(unit);
 		return GuiEditInUnit(value, unit, convertTo, convertFrom, clamp,
-			[&](T* v) { return Gui::SpinFloat(label, v, step[i_unit], stepFast[i_unit], format); },
+			[&](T* v)
+			{
+				if constexpr (expect_type_v<T, i32>)
+					return Gui::SpinInt(label, v, step[i_unit], stepFast[i_unit], format);
+				else if constexpr (expect_type_v<T, f32>)
+					return Gui::SpinFloat(label, v, step[i_unit], stepFast[i_unit], format);
+				else if constexpr (expect_type_v<T, f64>)
+					return Gui::SpinDouble(label, v, step[i_unit], stepFast[i_unit], format);
+				else
+					return Gui::SpinScalar(label, v, step[i_unit], stepFast[i_unit], format);
+			},
 			args...);
 	}
 
@@ -1190,7 +1208,7 @@ namespace PeepoDrumKit
 	{
 		size_t i_unit = EnumToIndex(unit);
 		return GuiEditInUnit(value, unit, convertTo, convertFrom, clamp,
-			[&](T* v) { return GuiDragLabelFloat(label, v, dragSpeed[i_unit]); },
+			[&](T* v) { return GuiDragLabel(label, v, dragSpeed[i_unit]); },
 			args...);
 	}
 
@@ -1241,11 +1259,11 @@ namespace PeepoDrumKit
 		for (i32 c = 0; c < components; ++c) {
 			if (widgetOut.HasValueExact & (1 << c)) {
 				for (auto& selectedItem : SelectedItems)
-					setValue(selectedItem, get<T[4]>(widgetOut.ValueExact)[c], c);
+					setValue(selectedItem, get<T[]>(widgetOut.ValueExact)[c], c);
 				valueWasChanged = true;
 			} else if (widgetOut.HasValueIncrement & (1 << c)) {
 				for (auto& selectedItem : SelectedItems)
-					setValue(selectedItem, clampValue(T{ getValue(selectedItem, c) + get<T[4]>(widgetOut.ValueIncrement)[c] }, c), c);
+					setValue(selectedItem, clampValue(T{ getValue(selectedItem, c) + get<T[]>(widgetOut.ValueIncrement)[c] }, c), c);
 				valueWasChanged = true;
 			}
 		}
@@ -1260,7 +1278,7 @@ namespace PeepoDrumKit
 	{
 		if (widgetIn.EnableClamp) {
 			return SetPropertyMultiSelection<HintT>(SelectedItems, widgetOut, getValue, setValue,
-				[&](const T& v, i32 c) { return Clamp(v, get<T[4]>(widgetIn.ValueClampMin)[c], get<T[4]>(widgetIn.ValueClampMax)[c]); }, widgetIn.Components);
+				[&](const T& v, i32 c) { return Clamp(v, get<T[]>(widgetIn.ValueClampMin)[c], get<T[]>(widgetIn.ValueClampMax)[c]); }, widgetIn.Components);
 		} else {
 			return SetPropertyMultiSelection<HintT>(SelectedItems, widgetOut, getValue, setValue,
 				[](auto&& v, i32) { return v; }, widgetIn.Components);
@@ -1342,8 +1360,8 @@ namespace PeepoDrumKit
 	static b8 DrawInterpolationProperty(std::string_view label, const MultiEditWidgetParam& widgetIn, std::vector<TempChartItem>& SelectedItems,
 		GetF&& getValue, SetF&& setValue, EqualF&& equalValues, i32 component = 0)
 	{
-		return DrawInterpolationProperty<HintT>(label, get<T[4]>(widgetIn.ButtonStep)[component], get<T[4]>(widgetIn.ButtonStepFast)[component],
-			widgetIn.EnableClamp, get<T[4]>(widgetIn.ValueClampMin)[component], get<T[4]>(widgetIn.ValueClampMax)[component], widgetIn.FormatString,
+		return DrawInterpolationProperty<HintT>(label, get<T[]>(widgetIn.ButtonStep)[component], get<T[]>(widgetIn.ButtonStepFast)[component],
+			widgetIn.EnableClamp, get<T[]>(widgetIn.ValueClampMin)[component], get<T[]>(widgetIn.ValueClampMax)[component], widgetIn.FormatString,
 			SelectedItems, !(widgetIn.HasMixedValues & (1 << component)), getValue, setValue, equalValues, component);
 	}
 
@@ -1405,7 +1423,7 @@ namespace PeepoDrumKit
 			Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 			Gui::BeginDisabled(!context.RangeSelection.IsActiveAndHasEnd());
 			if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
-				v->F32 = context.GetRangeSelectionDuration().ToSec_F32();
+				v->F64 = context.GetRangeSelectionDuration().Seconds;
 				result->ValueChanged = true;
 			}
 			Gui::EndDisabled();
@@ -1795,19 +1813,20 @@ namespace PeepoDrumKit
 							cstr label = (member == GenericMember::Time_AppearanceOffset) ? UI_Str("EVENT_PROP_SUDDEN_APPEARANCE_OFFSET") : UI_Str("EVENT_PROP_SUDDEN_MOVEMENT_OFFSET");
 							MultiEditWidgetParam widgetIn = {};
 							widgetIn.EnableStepButtons = true;
-							widgetIn.Value.F32 = GetOrEmpty<Time>(member, sharedValues).ToSec_F32();
+							widgetIn.DataType = ImGuiDataType_Double;
+							widgetIn.Value.F64 = GetOrEmpty<Time>(member, sharedValues).Seconds;
 							widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
-							widgetIn.MixedValuesMin.F32 = GetOrEmpty<Time>(member, mixedValuesMin).ToSec_F32();
-							widgetIn.MixedValuesMax.F32 = GetOrEmpty<Time>(member, mixedValuesMax).ToSec_F32();
-							widgetIn.ButtonStep.F32 = 0.1f;
-							widgetIn.ButtonStepFast.F32 = 0.5f;
-							widgetIn.DragLabelSpeed = 0.005f;
+							widgetIn.MixedValuesMin.F64 = GetOrEmpty<Time>(member, mixedValuesMin).Seconds;
+							widgetIn.MixedValuesMax.F64 = GetOrEmpty<Time>(member, mixedValuesMax).Seconds;
+							widgetIn.ButtonStep.F64 = 0.1;
+							widgetIn.ButtonStepFast.F64 = 0.5;
+							widgetIn.DragLabelSpeed = 0.005;
 							widgetIn.FormatString = "%gs";
 							widgetIn.EnableClamp = false;
 
 							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), GetRangeSelectToTimeTailButtonDrawer(context, timeline));
-							auto getV = [&](const TempChartItem& item, ...) { return GetOrEmpty<Time>(member, item.MemberValues).ToSec_F32(); };
-							auto setV = [&](TempChartItem& item, f32 v, ...) { TrySet(item.MemberValues, member, Time::FromSec(v)); };
+							auto getV = [&](const TempChartItem& item, ...) { return GetOrEmpty<Time>(member, item.MemberValues).Seconds; };
+							auto setV = [&](TempChartItem& item, f64 v, ...) { TrySet(item.MemberValues, member, Time::FromSec(v)); };
 							if (SetPropertyMultiSelection(SelectedItems, widgetIn, widgetOut, getV, setV))
 								valueWasChanged = true;
 							sprintf_s(labelBuffer, UI_Str("EVENT_PROP_INTERPOLATE_%s"), label);
@@ -1923,31 +1942,32 @@ namespace PeepoDrumKit
 							cstr label = UI_Str("EVENT_PROP_TIME_OFFSET");
 							MultiEditWidgetParam widgetIn = {};
 							widgetIn.EnableStepButtons = true;
-							widgetIn.Value.F32 = sharedValues.TimeOffset().ToMS_F32();
+							widgetIn.DataType = ImGuiDataType_Double;
+							widgetIn.Value.F64 = sharedValues.TimeOffset().ToMS();
 							widgetIn.HasMixedValues = !(commonEqualMemberFlags & EnumToFlag(member));
-							widgetIn.MixedValuesMin.F32 = mixedValuesMin.TimeOffset().ToMS_F32();
-							widgetIn.MixedValuesMax.F32 = mixedValuesMax.TimeOffset().ToMS_F32();
-							widgetIn.ButtonStep.F32 = 1.0f;
-							widgetIn.ButtonStepFast.F32 = 5.0f;
+							widgetIn.MixedValuesMin.F64 = mixedValuesMin.TimeOffset().ToMS();
+							widgetIn.MixedValuesMax.F64 = mixedValuesMax.TimeOffset().ToMS();
+							widgetIn.ButtonStep.F64 = 1.0;
+							widgetIn.ButtonStepFast.F64 = 5.0;
 							widgetIn.EnableDragLabel = true;
 							widgetIn.DragLabelSpeed = 1.0f;
 							widgetIn.FormatString = "%g ms";
 							widgetIn.EnableClamp = true;
-							widgetIn.ValueClampMin.F32 = MinNoteTimeOffset.ToMS_F32();
-							widgetIn.ValueClampMax.F32 = MaxNoteTimeOffset.ToMS_F32();
+							widgetIn.ValueClampMin.F64 = MinNoteTimeOffset.ToMS();
+							widgetIn.ValueClampMax.F64 = MaxNoteTimeOffset.ToMS();
 							const MultiEditWidgetResult widgetOut = GuiPropertyMultiSelectionEditWidget(label, widgetIn, getInsertButtonWidth(), [&](Gui::InputScalarWithButtonsResult* result, auto type, MultiEditDataUnion* v)
 							{
 								Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 								Gui::BeginDisabled(!context.RangeSelection.IsActiveAndHasEnd());
 								if (SpriteButton(UI_WindowName("ACT_EVENT_SET_FROM_RANGE_SELECTION"), context, SprID::Timeline_Icon_SetFromRangeSelection, { Gui::GetFrameHeight(), Gui::GetFrameHeight() })) {
-									v->F32 = context.GetRangeSelectionDuration().ToMS_F32();
+									v->F64 = context.GetRangeSelectionDuration().ToMS();
 									result->ValueChanged = true;
 								}
 								Gui::EndDisabled();
 							});
 
-							auto getV = [](const TempChartItem& item, ...) { return item.MemberValues.TimeOffset().ToMS_F32(); };
-							auto setV = [](TempChartItem& item, f32 v, ...)
+							auto getV = [](const TempChartItem& item, ...) { return item.MemberValues.TimeOffset().ToMS(); };
+							auto setV = [](TempChartItem& item, f64 v, ...)
 							{
 								item.MemberValues.TimeOffset() = Time::FromMS(v);
 								if (ApproxmiatelySame(item.MemberValues.TimeOffset().Seconds, 0.0))
@@ -2526,10 +2546,10 @@ namespace PeepoDrumKit
 					Gui::Property::Property([&]
 					{
 						Gui::SetNextItemWidth(-1.0f);
-						f32 v = ConvertTimeSpace(*inOutValue, storageSpace, displaySpace, context.Chart).ToSec_F32();
-						if (GuiDragLabelFloat(label, &v, TimelineDragScalarSpeedAtZoomSec(camera), min.ToSec_F32(), max.ToSec_F32()))
+						Time v = ConvertTimeSpace(*inOutValue, storageSpace, displaySpace, context.Chart);
+						if (GuiDragLabel(label, &v.Seconds, TimelineDragScalarSpeedAtZoomSec(camera), min.Seconds, max.Seconds))
 						{
-							*inOutValue = ConvertTimeSpace(Time::FromSec(v), displaySpace, storageSpace, context.Chart);
+							*inOutValue = ConvertTimeSpace(v, displaySpace, storageSpace, context.Chart);
 							valueChanged = true;
 						}
 					});
@@ -2568,13 +2588,13 @@ namespace PeepoDrumKit
 				Gui::Property::Property([&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = chart.SongOffset.ToMS_F32(); GuiDragLabelFloat(UI_Str("SYNC_SONG_OFFSET"), &v, TimelineDragScalarSpeedAtZoomMS(timeline.Camera)))
+					if (f64 v = chart.SongOffset.ToMS(); GuiDragLabel(UI_Str("SYNC_SONG_OFFSET"), &v, TimelineDragScalarSpeedAtZoomMS(timeline.Camera)))
 						context.Undo.Execute<Commands::ChangeSongOffset>(&chart, Time::FromMS(v));
 				});
 				Gui::Property::Value([&]
 				{
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = chart.SongOffset.ToMS_F32(); Gui::SpinFloat("##SongOffset", &v, 1.0f, 10.0f, "%.2f ms", ImGuiInputTextFlags_None))
+					if (f64 v = chart.SongOffset.ToMS(); Gui::SpinDouble("##SongOffset", &v, 1.0f, 10.0f, "%.2f ms", ImGuiSliderFlags_NoRoundToFormat))
 						context.Undo.Execute<Commands::ChangeSongOffset>(&chart, Time::FromMS(v));
 				});
 				// TODO: Disable merge if made inactive this frame (?)
@@ -2626,16 +2646,16 @@ namespace PeepoDrumKit
 				{
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = tempoAtCursor.BPM; GuiDragLabelFloat(UI_Str("EVENT_TEMPO"), &v, 1.0f, MinBPM, MaxBPM, ImGuiSliderFlags_AlwaysClamp))
-						insertOrUpdateCursorTempoChange(Tempo(v));
+					if (Tempo v = tempoAtCursor; GuiDragLabel(UI_Str("EVENT_TEMPO"), &v.BPM, 1.0f, MinBPM, MaxBPM, ImGuiSliderFlags_AlwaysClamp))
+						insertOrUpdateCursorTempoChange(v);
 					Gui::EndDisabled();
 				});
 				Gui::Property::Value([&]
 				{
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = tempoAtCursor.BPM; Gui::SpinFloat("##TempoAtCursor", &v, 1.0f, 10.0f, "%g BPM", ImGuiInputTextFlags_None))
-						insertOrUpdateCursorTempoChange(Tempo(Clamp(v, MinBPM, MaxBPM)));
+					if (Tempo v = tempoAtCursor; Gui::SpinFloat("##TempoAtCursor", &v.BPM, 1.0f, 10.0f, "%g BPM", ImGuiInputTextFlags_None))
+						insertOrUpdateCursorTempoChange(Tempo(Clamp(v.BPM, MinBPM, MaxBPM)));
 
 					Gui::PushID(&course.TempoMap.Tempo);
 					if (!disallowRemoveButton && tempoChangeAtCursor != nullptr && tempoChangeAtCursor->Beat == cursorBeat)
@@ -2867,7 +2887,7 @@ namespace PeepoDrumKit
 						Gui::BeginDisabled(disableEditingAtPlayCursor);
 						Gui::SetNextItemWidth(-1.0f);
 						if (Complex v = JPOSScrollMoveAtCursor;
-							GuiDragLabelFloat(UI_Str("EVENT_JPOS_SCROLL"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.5f, MinJPOSScrollMove, MaxJPOSScrollMove, ImGuiSliderFlags_AlwaysClamp))
+							GuiDragLabel(UI_Str("EVENT_JPOS_SCROLL"), &reinterpret_cast<f32*>(&(v.cpx))[0], 0.5f, MinJPOSScrollMove, MaxJPOSScrollMove, ImGuiSliderFlags_AlwaysClamp))
 							insertOrUpdateCursorJPOSScrollChange(v, JPOSScrollDurationAtCursor);
 						Gui::EndDisabled();
 					});
@@ -2953,7 +2973,7 @@ namespace PeepoDrumKit
 				{
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 					Gui::SetNextItemWidth(-1.0f);
-					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); GuiDragLabelFloat(UI_Str("EVENT_SUDDEN"), &v, 0.005f, ImGuiSliderFlags_None))
+					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); GuiDragLabel(UI_Str("EVENT_SUDDEN"), &v, 0.005f, ImGuiSliderFlags_None))
 						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					Gui::EndDisabled();
 				});
@@ -2964,8 +2984,8 @@ namespace PeepoDrumKit
 					Gui::BeginDisabled(disableEditingAtPlayCursor);
 
 					Gui::SetNextItemWidth(getInsertButtonWidth(2));
-					if (f32 v = SuddenAppearanceOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenAppearanceOffsetAtCursor", &v, .1f, .5f, "%gs (show)"))
-						insertOrUpdateCursorSudden(Time::FromSec(v), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
+					if (Time v = SuddenAppearanceOffsetAtCursor; Gui::SpinDouble("##SuddenAppearanceOffsetAtCursor", &v.Seconds, .1, .5, "%gs (show)"))
+						insertOrUpdateCursorSudden(v, SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					if (Gui::Button(u8"∞##SuddenAppearanceOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						insertOrUpdateCursorSudden(Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenMovementOffsetAtCursor, SuddenHideRollAtCursor);
@@ -2982,8 +3002,8 @@ namespace PeepoDrumKit
 					Gui::PopID();
 
 					Gui::SetNextItemWidth(getInsertButtonWidth(2));
-					if (f32 v = SuddenMovementOffsetAtCursor.ToSec_F32(); Gui::SpinFloat("##SuddenMovementOffsetAtCursor", &v, .1f, .5f, "%gs (move)"))
-						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(v), SuddenHideRollAtCursor);
+					if (Time v = SuddenMovementOffsetAtCursor; Gui::SpinDouble("##SuddenMovementOffsetAtCursor", &v.Seconds, .1, .5, "%gs (move)"))
+						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, v, SuddenHideRollAtCursor);
 					Gui::SameLine(0, Gui::GetStyle().ItemInnerSpacing.x);
 					if (Gui::Button(u8"∞##SuddenMovementOffsetAtCursorInfinity", { Gui::GetFrameHeight(), Gui::GetFrameHeight() }))
 						insertOrUpdateCursorSudden(SuddenAppearanceOffsetAtCursor, Time::FromSec(std::numeric_limits<f64>::infinity()), SuddenHideRollAtCursor);

@@ -337,7 +337,7 @@ namespace TJA
 		};
 		static constexpr auto tryParseTime = [](std::string_view in, Time* out) -> b8
 		{
-			if (f32 v; ASCII::TryParse(in, v)) { *out = Time::FromSec(v); return true; }
+			if (Time v = {}; ASCII::TryParse(in, v.Seconds)) { *out = v; return true; }
 			return false;
 		};
 		static constexpr auto tryParseTempo = [](std::string_view in, Tempo* out) -> b8

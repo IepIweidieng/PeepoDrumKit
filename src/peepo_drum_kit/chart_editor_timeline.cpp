@@ -242,8 +242,8 @@ namespace PeepoDrumKit
 		Gui::PushID(label);
 
 		std::string strDisplayTime = value->ToString();
-		if (f32 v = value->Seconds; Gui::DragFloat(label, &v, speed.Seconds, minValue.Seconds, maxValue.Seconds, fmt ? fmt : strDisplayTime.c_str(), flags) && !Gui::IsItemBeingEditedAsText()) {
-			*value = Time::FromSec(v);
+		if (Time v = *value; Gui::DragScalar(label, ImGuiDataType_Double, &v.Seconds, speed.Seconds, &minValue.Seconds, &maxValue.Seconds, fmt ? fmt : strDisplayTime.c_str(), flags) && !Gui::IsItemBeingEditedAsText()) {
+			*value = v;
 			changed = true;
 		}
 
